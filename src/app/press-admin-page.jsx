@@ -223,18 +223,31 @@ function RequestsTab({ Panel, loadMailQueueModule }) {
         processedAt: serverTimestamp(),
         rejectionComment: "",
       });
+      let mailSent = false;
       if (registration.email && loadMailQueueModule) {
-        const { buildPressRegistrationDecisionMail, enqueueTransactionalMail } = await loadMailQueueModule();
-        await enqueueTransactionalMail(
-          buildPressRegistrationDecisionMail({
-            email: registration.email,
-            firstName: registration.firstName,
-            requestType: registration.requestType,
-            decision: "accepted",
-          }),
-        );
+        // The decision is already saved at this point — a failed notification
+        // e-mail must not be reported as "the accept failed", or the admin may
+        // retry an action that already succeeded.
+        try {
+          const { buildPressRegistrationDecisionMail, enqueueTransactionalMail } = await loadMailQueueModule();
+          await enqueueTransactionalMail(
+            buildPressRegistrationDecisionMail({
+              email: registration.email,
+              firstName: registration.firstName,
+              requestType: registration.requestType,
+              decision: "accepted",
+            }),
+          );
+          mailSent = true;
+        } catch (mailError) {
+          console.error("Press accept notification email failed", mailError);
+        }
       }
-      setActionStatus("Demande acceptée. Un email a été envoyé au demandeur.");
+      setActionStatus(
+        mailSent
+          ? "Demande acceptée. Un email a été envoyé au demandeur."
+          : "Demande acceptée. L'email n'a pas pu être envoyé au demandeur.",
+      );
       setShowRejectForm(false);
       setRejectionComment("");
     } catch (err) {
@@ -255,19 +268,29 @@ function RequestsTab({ Panel, loadMailQueueModule }) {
         rejectionComment: rejectionComment.trim(),
         processedAt: serverTimestamp(),
       });
+      let mailSent = false;
       if (registration.email && loadMailQueueModule) {
-        const { buildPressRegistrationDecisionMail, enqueueTransactionalMail } = await loadMailQueueModule();
-        await enqueueTransactionalMail(
-          buildPressRegistrationDecisionMail({
-            email: registration.email,
-            firstName: registration.firstName,
-            requestType: registration.requestType,
-            decision: "rejected",
-            rejectionComment: rejectionComment.trim(),
-          }),
-        );
+        try {
+          const { buildPressRegistrationDecisionMail, enqueueTransactionalMail } = await loadMailQueueModule();
+          await enqueueTransactionalMail(
+            buildPressRegistrationDecisionMail({
+              email: registration.email,
+              firstName: registration.firstName,
+              requestType: registration.requestType,
+              decision: "rejected",
+              rejectionComment: rejectionComment.trim(),
+            }),
+          );
+          mailSent = true;
+        } catch (mailError) {
+          console.error("Press reject notification email failed", mailError);
+        }
       }
-      setActionStatus("Demande refusée. Un email a été envoyé au demandeur.");
+      setActionStatus(
+        mailSent
+          ? "Demande refusée. Un email a été envoyé au demandeur."
+          : "Demande refusée. L'email n'a pas pu être envoyé au demandeur.",
+      );
       setShowRejectForm(false);
       setRejectionComment("");
     } catch (err) {

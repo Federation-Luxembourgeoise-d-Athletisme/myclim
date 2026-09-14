@@ -155,15 +155,22 @@ function PressRegistrationPage({ loadMailQueueModule }) {
 
       const emailAddress = String(formData.email).trim();
       if (emailAddress && loadMailQueueModule) {
-        const { buildPressRegistrationConfirmationMail, enqueueTransactionalMail } =
-          await loadMailQueueModule();
-        await enqueueTransactionalMail(
-          buildPressRegistrationConfirmationMail({
-            email: emailAddress,
-            firstName: formData.firstName,
-            requestType: formData.requestType,
-          }),
-        );
+        // The registration is already saved at this point — a confirmation e-mail
+        // failing to send must never be reported to the applicant as "your request
+        // failed", or they may resubmit and create a duplicate.
+        try {
+          const { buildPressRegistrationConfirmationMail, enqueueTransactionalMail } =
+            await loadMailQueueModule();
+          await enqueueTransactionalMail(
+            buildPressRegistrationConfirmationMail({
+              email: emailAddress,
+              firstName: formData.firstName,
+              requestType: formData.requestType,
+            }),
+          );
+        } catch (mailError) {
+          console.error("Press registration confirmation email failed", mailError);
+        }
       }
 
       setSuccess(true);
