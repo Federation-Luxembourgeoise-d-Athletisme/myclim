@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { collection, doc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { AuthFormField } from "./form-components";
 import {
   U14_RESERVED_SLOTS_COLLECTION,
@@ -22,7 +22,6 @@ function MyChildrenPage(props) {
     loadMailQueueModule,
     luxCompetitionClubs,
     normalizeComparableValue,
-    syncU14RaceAllocations,
   } = props;
   const { addU14ChildRegistration, currentUser, userProfile } = useAuth();
   const { rows: parentRows, loading, error } = useParentU14Children(currentUser?.uid);
@@ -107,8 +106,6 @@ function MyChildrenPage(props) {
         notes: childForm.notes.trim(),
       });
 
-      await refreshU14Allocations();
-
       setChildForm(createEmptyParentU14ChildForm());
       setIsAddChildOpen(false);
       setStatusMessage("Enfant ajouté. La demande est maintenant visible dans le suivi.");
@@ -117,20 +114,6 @@ function MyChildrenPage(props) {
     } finally {
       setIsSubmittingChild(false);
     }
-  }
-
-  async function refreshU14Allocations() {
-    const [requestsSnapshot, childrenSnapshot, protectedSnapshot] = await Promise.all([
-      getDocs(collection(db, "u14Requests")),
-      getDocs(collection(db, "u14Children")),
-      getDocs(collection(db, U14_RESERVED_SLOTS_COLLECTION)),
-    ]);
-
-    await syncU14RaceAllocations({
-      requests: requestsSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })),
-      children: childrenSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })),
-      protectedEntries: protectedSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })),
-    });
   }
 
   async function handleConfirmAttendance(row) {
@@ -184,8 +167,10 @@ function MyChildrenPage(props) {
         });
       }
 
-      await refreshU14Allocations();
-
+      // Le recalcul de la liste d'attente (qui doit lire/écrire les demandes de
+      // tous les parents) ne peut pas se faire depuis la session du parent —
+      // seul l'admin y est autorisé, via "Recalculer les allocations" dans le
+      // module Pré-programme.
       const promotedRaceLabel = row.raceCode ? getU14RaceLabel(row.raceCode) : "sa course";
       if (currentUser?.email) {
         const { enqueueTransactionalMail } = await loadMailQueueModule();
@@ -193,7 +178,7 @@ function MyChildrenPage(props) {
           type: "u14-decline-ack",
           to: currentUser.email,
           subject: "Votre désistement a bien été enregistré",
-          body: `Bonjour,\n\nLe désistement pour ${row.name} a bien été enregistré. La place libérée sur ${promotedRaceLabel} est maintenant proposée au prochain enfant sur liste d'attente.\n`,
+          body: `Bonjour,\n\nLe désistement pour ${row.name} a bien été enregistré. La place libérée sur ${promotedRaceLabel} sera prochainement proposée au prochain enfant sur liste d'attente.\n`,
           metadata: {
             requestId: row.requestId,
             childId: row.childId,

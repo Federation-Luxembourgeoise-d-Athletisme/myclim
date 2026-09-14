@@ -150,6 +150,19 @@ service cloud.firestore {
       allow delete: if isAdminOrManager();
     }
 
+    // Places protégées pré-programme : manquait complètement (tombait dans le
+    // catch-all admin-only), ce qui empêchait un parent de libérer sa place
+    // protégée quand il se désiste (my-children-page.jsx handleDeclineAttendance).
+    // La lecture reste admin-only (les places non affectées ne concernent pas
+    // les autres parents) ; seul le parent déjà lié à une place peut la modifier,
+    // pour la libérer.
+    match /u14ProtectedEntries/{entryId} {
+      allow read:   if isAdminOrManager();
+      allow create, delete: if isAdminOrManager();
+      allow update: if isAdminOrManager() ||
+        (isSignedIn() && resource.data.matchedParentUserId == request.auth.uid);
+    }
+
     match /vipPublicRegistrations/{registrationId} {
       allow create: if true;
       allow read: if isAdminOrManager() || isVipTourGuide();

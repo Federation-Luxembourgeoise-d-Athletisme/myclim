@@ -18,6 +18,23 @@ const U14_REQUESTABLE_EVENTS_BY_CATEGORY = {
   U12: ["60 m"],
   U14: ["60 m", "1000 m"],
 };
+const luxCompetitionClubs = [
+  "CAB",
+  "CAD",
+  "CAPA",
+  "CSL",
+  "CELTIC",
+  "LIAL",
+  "CAEG",
+  "CAFOLA",
+  "CAS",
+  "Karibu",
+  "Trispeed",
+  "RBUAP",
+  "CSN Clervaux",
+  "Triathlon Luxembourg",
+  "Team X3M Snooze",
+];
 
 function normalizeComparableValue(value) {
   return String(value || "")
@@ -508,6 +525,7 @@ export {
   getU14WorkflowStatusLabel,
   getValidRequestedEventForCategory,
   isProtectedSlotActive,
+  luxCompetitionClubs,
   normalizeComparableValue,
   syncU14RaceAllocations,
 };

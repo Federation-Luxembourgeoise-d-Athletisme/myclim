@@ -55,6 +55,7 @@ import { U14Page as U14PageScreen } from "./app/u14-page";
 import {
   formatDateTimeForDisplay,
   getTimestampMs,
+  luxCompetitionClubs,
   normalizeComparableValue,
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
@@ -173,24 +174,6 @@ function getDocumentConsultationUrl(document) {
   if (isExternalDocumentLink(document?.reference)) return document.reference;
   return "";
 }
-
-const luxCompetitionClubs = [
-  "CAB",
-  "CAD",
-  "CAPA",
-  "CSL",
-  "CELTIC",
-  "LIAL",
-  "CAEG",
-  "CAFOLA",
-  "CAS",
-  "Karibu",
-  "Trispeed",
-  "RBUAP",
-  "CSN Clervaux",
-  "Triathlon Luxembourg",
-  "Team X3M Snooze",
-];
 
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
@@ -427,7 +410,6 @@ function MyChildrenPage() {
       loadMailQueueModule={loadMailQueueModule}
       luxCompetitionClubs={luxCompetitionClubs}
       normalizeComparableValue={normalizeComparableValue}
-      syncU14RaceAllocations={syncU14RaceAllocations}
     />
   );
 }

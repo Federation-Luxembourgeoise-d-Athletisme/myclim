@@ -18,7 +18,7 @@ import {
   getU14AllowedEvents,
   getValidRequestedEventForCategory,
   luxCompetitionClubs,
-} from "./u14";
+} from "./u14-helpers";
 
 const REMEMBER_ME_STORAGE_KEY = "myclim-remember-me";
 const VOLUNTEER_SUPPORT_AVAILABILITY_OPTIONS = [
