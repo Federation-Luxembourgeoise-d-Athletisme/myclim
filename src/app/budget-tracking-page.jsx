@@ -2205,14 +2205,18 @@ function BudgetTrackingPage({ Panel }) {
         { merge: true },
       );
 
-      await addDoc(collection(db, BUDGET_COLLECTION, draftBudget.editionId, BUDGET_HISTORY_COLLECTION), {
-        createdAt: serverTimestamp(),
-        actorName,
-        actorUid: currentUser?.uid || "",
-        summary: historySummary,
-        changeCount: budgetDiff.length,
-        changes: budgetDiff.slice(0, 80),
-      });
+      try {
+        await addDoc(collection(db, BUDGET_COLLECTION, draftBudget.editionId, BUDGET_HISTORY_COLLECTION), {
+          createdAt: serverTimestamp(),
+          actorName,
+          actorUid: currentUser?.uid || "",
+          summary: historySummary,
+          changeCount: budgetDiff.length,
+          changes: budgetDiff.slice(0, 80),
+        });
+      } catch (historyError) {
+        console.error("Unable to log budget history entry", historyError);
+      }
 
       setSaveStatus(historySummary);
       setIsEditMode(false);
@@ -2848,6 +2852,7 @@ function BudgetTrackingPage({ Panel }) {
             </Panel>
           ) : null}
 
+          {canManageInvoicePanel ? (
           <Panel
             title="Classer une facture"
             subtitle="Choisis d'abord la facture par son titre, puis la ligne budgétaire de dépense à laquelle la rattacher."
@@ -2911,6 +2916,7 @@ function BudgetTrackingPage({ Panel }) {
               </div>
             )}
           </Panel>
+          ) : null}
 
           {selectedEditionInvoices.length ? (
             <Panel

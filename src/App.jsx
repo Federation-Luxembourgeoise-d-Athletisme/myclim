@@ -468,7 +468,7 @@ export default function App() {
                 <Route path="postes" element={<TeamsPage />} />
                 <Route path="certificat" element={<CertificateSettingsPage />} />
               </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "budget"]} />}>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "budget"]} />}>
                 <Route path="budget" element={<BudgetTrackingPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>

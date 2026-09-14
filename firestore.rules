@@ -235,7 +235,10 @@ service cloud.firestore {
       // Le classement d'une facture (lier/délier une ligne de budget) doit rester
       // possible pour les mêmes personnes autorisées à déposer des factures.
       allow update: if canManageInvoices() && resource.data.documentType == "invoice";
-      allow delete: if isTeamLead() && resource.data.uploadedByUid == request.auth.uid;
+      // Toute personne autorisée à déposer une facture (pas seulement chef
+      // d'équipe) doit pouvoir retirer celle qu'elle a elle-même déposée.
+      allow delete: if (isTeamLead() && resource.data.uploadedByUid == request.auth.uid) ||
+        (canManageInvoices() && resource.data.documentType == "invoice" && resource.data.uploadedByUid == request.auth.uid);
     }
 
     // ── Budget ────────────────────────────────────────────────────────────────
