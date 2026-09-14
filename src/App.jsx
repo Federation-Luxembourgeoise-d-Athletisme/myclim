@@ -35,7 +35,12 @@ import {
   DashboardHome as DashboardHomeScreen,
   EditionSettingsPage as EditionSettingsPageScreen,
 } from "./app/app-shell-layout";
-import { PresencePage as PresencePageScreen, RoleManagementPage as RoleManagementPageScreen, TeamsPage as TeamsPageScreen } from "./app/admin-operations-pages";
+import {
+  CertificateSettingsPage as CertificateSettingsPageScreen,
+  PresencePage as PresencePageScreen,
+  RoleManagementPage as RoleManagementPageScreen,
+  TeamsPage as TeamsPageScreen,
+} from "./app/admin-operations-pages";
 import { BudgetTrackingPage as BudgetTrackingPageScreen } from "./app/budget-tracking-page";
 import { MyAssignmentsPage as MyAssignmentsPageScreen, MyDocumentsPage as MyDocumentsPageScreen } from "./app/volunteer-space-pages";
 import { DocumentsPage as DocumentsPageScreen } from "./app/documents-page";
@@ -54,10 +59,7 @@ import {
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
 import { RequireAuth, RequireRouteAccess } from "./app/route-guards";
-import {
-  ACCREDITATION_CONFIGURATION_DOC_PATH,
-  PARTICIPATION_CERTIFICATE_SIGNATORY,
-} from "./app/seed-data";
+import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./app/seed-data";
 import { getU14CategoryFromBirthDate } from "./app/utils";
 import { db } from "./services/firebase";
 import "./App.css";
@@ -270,6 +272,10 @@ function RoleManagementPage() {
   return <RoleManagementPageScreen AuthFormField={AuthFormField} Panel={Panel} />;
 }
 
+function CertificateSettingsPage() {
+  return <CertificateSettingsPageScreen AuthFormField={AuthFormField} Panel={Panel} />;
+}
+
 function BudgetTrackingPage() {
   return <BudgetTrackingPageScreen Panel={Panel} />;
 }
@@ -393,7 +399,6 @@ function PresencePage() {
       Panel={Panel}
       formatDateTimeForDisplay={formatDateTimeForDisplay}
       getTimestampMs={getTimestampMs}
-      signatory={PARTICIPATION_CERTIFICATE_SIGNATORY}
     />
   );
 }
@@ -409,7 +414,6 @@ function MyDocumentsPage() {
       Panel={Panel}
       getDocumentConsultationUrl={getDocumentConsultationUrl}
       getTimestampMs={getTimestampMs}
-      signatory={PARTICIPATION_CERTIFICATE_SIGNATORY}
     />
   );
 }
@@ -480,6 +484,7 @@ export default function App() {
                 <Route path="edition-meeting" element={<EditionSettingsPage />} />
                 <Route path="invitations" element={<InvitationAdminPage />} />
                 <Route path="postes" element={<TeamsPage />} />
+                <Route path="certificat" element={<CertificateSettingsPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "budget"]} />}>
                 <Route path="budget" element={<BudgetTrackingPage />} />

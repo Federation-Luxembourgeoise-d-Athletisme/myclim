@@ -74,7 +74,16 @@ function getRoundedParticipationHours(record, getTimestampMs) {
   return Math.max(1, Math.ceil(durationHours));
 }
 
-function buildParticipationCertificateMarkup({ fullName, teamName, roleLabel, roundedHours, signatory }) {
+function buildParticipationCertificateMarkup({
+  fullName,
+  teamName,
+  roleLabel,
+  roundedHours,
+  signatory,
+  editionLabel,
+  signatoryTitle,
+  signatureImageUrl,
+}) {
   const issueDate = new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "long",
@@ -82,6 +91,9 @@ function buildParticipationCertificateMarkup({ fullName, teamName, roleLabel, ro
   }).format(new Date());
 
   const signatureLabel = signatory || "Margot Laporte";
+  const editionDisplayLabel = String(editionLabel || "").trim() || "Edition 2027";
+  const signatureRoleLabel = String(signatoryTitle || "").trim() || "Head of CMCM Luxembourg Indoor Meeting";
+  const signatureImageSrc = String(signatureImageUrl || "").trim() || signatureMargot;
 
   return `<!doctype html>
   <html lang="en">
@@ -223,7 +235,7 @@ function buildParticipationCertificateMarkup({ fullName, teamName, roleLabel, ro
             <img class="certificate__logo" src="${cmcmLogo}" alt="CMCM Luxembourg Indoor Meeting logo" />
             <div class="certificate__eyebrow">CMCM Luxembourg Indoor Meeting</div>
             <div class="certificate__org">Federation Luxembourgeoise d'Athletisme</div>
-            <div class="certificate__edition">Edition 2027</div>
+            <div class="certificate__edition">${escapeHtml(editionDisplayLabel)}</div>
           </div>
         </header>
         <h1>Certificate of Participation</h1>
@@ -242,10 +254,10 @@ function buildParticipationCertificateMarkup({ fullName, teamName, roleLabel, ro
             <p>Thank you for contributing to the success of the CMCM Luxembourg Indoor Meeting.</p>
           </div>
           <div class="certificate__signature-block">
-            <img class="certificate__signature-image" src="${signatureMargot}" alt="Margot Laporte signature" />
+            <img class="certificate__signature-image" src="${signatureImageSrc}" alt="${escapeHtml(signatureLabel)} signature" />
             <div class="certificate__signature-line">
               <div class="certificate__signature-name">${escapeHtml(signatureLabel)}</div>
-              <div class="certificate__signature-role">Delivered by Margot Laporte<br />Head of CMCM Luxembourg Indoor Meeting<br />for the Federation Luxembourgeoise d'Athletisme</div>
+              <div class="certificate__signature-role">${escapeHtml(signatureRoleLabel)}<br />for the Federation Luxembourgeoise d'Athletisme</div>
             </div>
           </div>
         </div>

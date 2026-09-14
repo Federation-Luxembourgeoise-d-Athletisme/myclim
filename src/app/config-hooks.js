@@ -3,11 +3,13 @@ import { doc, onSnapshot } from "firebase/firestore";
 import {
   ACCREDITATION_CONFIGURATION_DOC_PATH,
   BUDGET_INVOICE_CONFIGURATION_DOC_PATH,
+  CERTIFICATE_CONFIGURATION_DOC_PATH,
   JUDGE_ROSTER_DOC_PATH,
   TEAM_CONFIGURATION_DOC_PATH,
 } from "./seed-data";
 import { normalizeAccreditationConfigurationPayload } from "./accreditation-config";
 import { normalizeBudgetInvoiceConfigurationPayload } from "./budget-invoice-config";
+import { normalizeCertificateConfigurationPayload } from "./certificate-config";
 import { defaultTeamRoles, normalizeTeamConfigurationPayload } from "./team-config";
 import { db } from "../services/firebase";
 
@@ -174,4 +176,42 @@ function useBudgetInvoiceConfiguration() {
   };
 }
 
-export { useAccreditationConfiguration, useBudgetInvoiceConfiguration, useJudgeRoster, useTeamConfiguration };
+function useCertificateConfiguration() {
+  const [configuration, setConfiguration] = useState(() => normalizeCertificateConfigurationPayload({}));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const configurationRef = doc(db, ...CERTIFICATE_CONFIGURATION_DOC_PATH);
+
+    const unsubscribe = onSnapshot(
+      configurationRef,
+      (snapshot) => {
+        setConfiguration(normalizeCertificateConfigurationPayload(snapshot.exists() ? snapshot.data() : {}));
+        setLoading(false);
+        setError("");
+      },
+      () => {
+        setConfiguration(normalizeCertificateConfigurationPayload({}));
+        setLoading(false);
+        setError("Impossible de synchroniser la configuration du certificat pour le moment.");
+      },
+    );
+
+    return unsubscribe;
+  }, []);
+
+  return {
+    ...configuration,
+    loading,
+    error,
+  };
+}
+
+export {
+  useAccreditationConfiguration,
+  useBudgetInvoiceConfiguration,
+  useCertificateConfiguration,
+  useJudgeRoster,
+  useTeamConfiguration,
+};

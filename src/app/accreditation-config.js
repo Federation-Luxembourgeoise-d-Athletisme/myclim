@@ -192,6 +192,12 @@ function normalizeAccreditationOverride(override = {}, availableZoneIds = new Se
     lastQueuedAt: override?.lastQueuedAt || null,
     lastPrintedAt: override?.lastPrintedAt || null,
     destroyedAt: override?.destroyedAt || null,
+    // Distinct from "Rangé" (badge printed and put in a pickup box, not yet in the
+    // volunteer's hands): handedOverAt is the terminal step where the badge has
+    // actually been given to the person. Read by both the accreditation screen and
+    // the Présences "Welcome pack" action, so the two stay in sync.
+    handedOverAt: override?.handedOverAt || null,
+    handedOverBy: String(override?.handedOverBy || "").trim(),
     printedSnapshot: {
       roleLabel: String(override?.printedSnapshot?.roleLabel || "").trim(),
       roleNames: normalizeSubRoles(Array.isArray(override?.printedSnapshot?.roleNames) ? override.printedSnapshot.roleNames : []),

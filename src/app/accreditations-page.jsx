@@ -770,8 +770,28 @@ function AccreditationsPage(props) {
     if (override.destroyedAt) return "Détruit";
     if (override.printStatus === "Annulé" || override.printStatus === "Imprimé à détruire") return override.printStatus;
     if (override.printStatus !== "Imprimé") return "Non imprimé";
+    if (override.handedOverAt) return "Remis";
     if (getBadgeStorageLocation(volunteer.id)) return "Rangé";
     return "Imprimé non rangé";
+  }
+
+  function markBadgeHandedOver(volunteer) {
+    const existing = getVolunteerOverride(volunteer.id);
+    const nextOverride = {
+      ...existing,
+      handedOverAt: new Date().toISOString(),
+      handedOverBy: getCurrentOperatorLabel(),
+    };
+
+    persistAccreditationConfiguration(
+      buildCurrentConfiguration({
+        volunteerOverrides: {
+          ...volunteerOverrides,
+          [volunteer.id]: nextOverride,
+        },
+      }),
+      "Badge marqué comme remis.",
+    );
   }
 
   function markBadgeDestroyed(volunteer) {
@@ -3395,6 +3415,10 @@ function AccreditationsPage(props) {
               <strong>{trackingCountByStatus["Rangé"] ?? 0}</strong>
               <span>Rangé</span>
             </div>
+            <div className="tracking-counter tracking-counter--handed-over">
+              <strong>{trackingCountByStatus["Remis"] ?? 0}</strong>
+              <span>Remis</span>
+            </div>
           </div>
 
           <Panel title="Suivi des badges" subtitle="Recherchez une personne, filtrez par statut ou point de retrait.">
@@ -3414,6 +3438,7 @@ function AccreditationsPage(props) {
                   <option>Non imprimé</option>
                   <option>Imprimé non rangé</option>
                   <option>Rangé</option>
+                  <option>Remis</option>
                   <option>Annulé</option>
                   <option>Imprimé à détruire</option>
                 </select>
@@ -3472,6 +3497,8 @@ function AccreditationsPage(props) {
                             <span className="panel-note">—</span>
                           ) : status === "Annulé" || status === "Imprimé à détruire" ? (
                             <span className="panel-note">Pas de retrait</span>
+                          ) : status === "Remis" ? (
+                            <span className="panel-note">{location || "Remis directement"}</span>
                           ) : pickerOpen ? (
                             <div className="tracking-location-picker">
                               <select
@@ -3516,8 +3543,14 @@ function AccreditationsPage(props) {
                             >
                               Destruction effectuée
                             </button>
-                          ) : status === "Imprimé non rangé" ? (
-                            <span className="panel-note">Choisir un retrait</span>
+                          ) : status === "Imprimé non rangé" || status === "Rangé" ? (
+                            <button
+                              className="button button--secondary button--small"
+                              type="button"
+                              onClick={() => markBadgeHandedOver(volunteer)}
+                            >
+                              Marquer comme remis
+                            </button>
                           ) : (
                             <span className="panel-note">—</span>
                           )}

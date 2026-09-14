@@ -226,14 +226,18 @@ const ACCREDITATION_CONFIGURATION_DOC_PATH = ["appSettings", "accreditationConfi
 const JUDGE_ROSTER_DOC_PATH = ["appSettings", "judgeRoster"];
 const BUDGET_INVOICE_CONFIGURATION_DOC_PATH = ["appSettings", "budgetInvoiceConfiguration"];
 const VOLUNTEER_ALERT_LOG_DOC_PATH = ["appSettings", "volunteerAlertLog"];
+const CERTIFICATE_CONFIGURATION_DOC_PATH = ["appSettings", "certificateConfiguration"];
 const defaultTeamRoleOptions = ["Bénévole", "Chef d'équipe", "Remplaçant"];
 const PARTICIPATION_CERTIFICATE_SIGNATORY = "Responsable bénévoles";
+const PARTICIPATION_CERTIFICATE_SIGNATORY_TITLE = "Head of CMCM Luxembourg Indoor Meeting";
 
 export {
   ACCREDITATION_CONFIGURATION_DOC_PATH,
   BUDGET_INVOICE_CONFIGURATION_DOC_PATH,
+  CERTIFICATE_CONFIGURATION_DOC_PATH,
   JUDGE_ROSTER_DOC_PATH,
   PARTICIPATION_CERTIFICATE_SIGNATORY,
+  PARTICIPATION_CERTIFICATE_SIGNATORY_TITLE,
   TEAM_CONFIGURATION_DOC_PATH,
   VOLUNTEER_ALERT_LOG_DOC_PATH,
   assignmentRows,

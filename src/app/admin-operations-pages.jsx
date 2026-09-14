@@ -13,8 +13,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { getActiveRoles } from "./navigation";
+import { FileUpload } from "./file-upload";
 import {
+  ACCREDITATION_CONFIGURATION_DOC_PATH,
   BUDGET_INVOICE_CONFIGURATION_DOC_PATH,
+  CERTIFICATE_CONFIGURATION_DOC_PATH,
   TEAM_CONFIGURATION_DOC_PATH,
   defaultTeamRoleOptions,
   platformRoleOptions,
@@ -44,9 +47,15 @@ import {
   normalizeSubRoles,
   normalizeTeamConfigurationPayload,
 } from "./team-config";
-import { useBudgetInvoiceConfiguration, useTeamConfiguration } from "./config-hooks";
+import {
+  useAccreditationConfiguration,
+  useBudgetInvoiceConfiguration,
+  useCertificateConfiguration,
+  useTeamConfiguration,
+} from "./config-hooks";
 import { buildUserIdentitySet, getWorkflowStatusClass, isTeamLeadAssignment } from "./common-helpers";
 import { normalizeComparableValue } from "./u14-helpers";
+import { useActiveEdition } from "./edition";
 import {
   buildSearchPrefixes,
   buildUserSearchTokens,
@@ -1824,11 +1833,14 @@ function TeamsPage(props) {
 }
 
 function PresencePage(props) {
-  const { Panel, formatDateTimeForDisplay, getTimestampMs, signatory } = props;
+  const { Panel, formatDateTimeForDisplay, getTimestampMs } = props;
+  const { signatoryName, signatoryTitle, signatureImageUrl } = useCertificateConfiguration();
   const { currentUser, userProfile } = useAuth();
   const activeRoles = getActiveRoles(userProfile);
   const canManageAllTeams = activeRoles.includes("admin") || activeRoles.includes("gestionnaire");
   const { roles, teamAssignments, loading: teamsLoading, error: teamsError } = useTeamConfiguration();
+  const { activeEditionId } = useActiveEdition(true);
+  const { volunteerOverrides } = useAccreditationConfiguration(roles);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
@@ -2056,7 +2068,7 @@ function PresencePage(props) {
     }
   }
 
-  async function markVolunteerPresent(volunteer, withWelcomeKit = false) {
+  async function markVolunteerPresent(volunteer) {
     const now = new Date().toISOString();
     const currentPresence = normalizePresenceRecord(volunteer.presence);
 
@@ -2066,45 +2078,57 @@ function PresencePage(props) {
         status: "present",
         checkedInAt: currentPresence.checkedInAt || now,
         checkedInBy: currentPresence.checkedInAt ? currentPresence.checkedInBy : actorId,
-        accreditationDeliveredAt: withWelcomeKit
-          ? currentPresence.accreditationDeliveredAt || now
-          : currentPresence.accreditationDeliveredAt,
-        accreditationDeliveredBy: withWelcomeKit
-          ? currentPresence.accreditationDeliveredAt
-            ? currentPresence.accreditationDeliveredBy
-            : actorId
-          : currentPresence.accreditationDeliveredBy,
-        tshirtDeliveredAt: withWelcomeKit
-          ? currentPresence.tshirtDeliveredAt || now
-          : currentPresence.tshirtDeliveredAt,
-        tshirtDeliveredBy: withWelcomeKit
-          ? currentPresence.tshirtDeliveredAt
-            ? currentPresence.tshirtDeliveredBy
-            : actorId
-          : currentPresence.tshirtDeliveredBy,
       },
-      withWelcomeKit
-        ? `${volunteer.firstName} ${volunteer.lastName}`.trim() + " pointé(e), welcome pack remis."
-        : `${volunteer.firstName} ${volunteer.lastName}`.trim() + " marqué(e) présent(e).",
+      `${volunteer.firstName} ${volunteer.lastName}`.trim() + " marqué(e) présent(e).",
     );
   }
 
+  function isBadgeHandedOver(volunteerId) {
+    return Boolean(volunteerOverrides[volunteerId]?.handedOverAt);
+  }
+
+  async function setBadgeHandedOver(volunteerId, handedOver) {
+    const existingOverride = volunteerOverrides[volunteerId] || {};
+    const nextOverride = {
+      ...existingOverride,
+      handedOverAt: handedOver ? new Date().toISOString() : null,
+      handedOverBy: handedOver ? actorId : "",
+    };
+
+    await setDoc(
+      doc(db, ...ACCREDITATION_CONFIGURATION_DOC_PATH),
+      {
+        volunteerOverrides: {
+          ...volunteerOverrides,
+          [volunteerId]: nextOverride,
+        },
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  // "Welcome pack" = badge remis (statut partagé avec l'écran Accréditation,
+  // seule source de vérité pour "le badge a été donné") + t-shirt remis (suivi
+  // uniquement ici, ça ne concerne pas l'accréditation).
   async function toggleWelcomePack(volunteer) {
     const currentPresence = normalizePresenceRecord(volunteer.presence);
     if (isPresenceLocked(currentPresence)) return;
 
-    const hasWelcomePack = Boolean(currentPresence.accreditationDeliveredAt && currentPresence.tshirtDeliveredAt);
-    const nextValue = hasWelcomePack ? null : new Date().toISOString();
+    const hasWelcomePack = isBadgeHandedOver(volunteer.id) && Boolean(currentPresence.tshirtDeliveredAt);
+    const nextHandedOver = !hasWelcomePack;
+    const now = new Date().toISOString();
 
+    await setBadgeHandedOver(volunteer.id, nextHandedOver);
     await updateVolunteerPresence(
       volunteer,
       {
-        accreditationDeliveredAt: nextValue,
-        accreditationDeliveredBy: nextValue ? actorId : "",
-        tshirtDeliveredAt: nextValue,
-        tshirtDeliveredBy: nextValue ? actorId : "",
+        accreditationDeliveredAt: nextHandedOver ? currentPresence.accreditationDeliveredAt || now : null,
+        accreditationDeliveredBy: nextHandedOver ? actorId : "",
+        tshirtDeliveredAt: nextHandedOver ? currentPresence.tshirtDeliveredAt || now : null,
+        tshirtDeliveredBy: nextHandedOver ? actorId : "",
       },
-      nextValue
+      nextHandedOver
         ? `Welcome pack remis à ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`
         : `Welcome pack retiré pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`,
     );
@@ -2113,6 +2137,10 @@ function PresencePage(props) {
   async function markVolunteerAbsent(volunteer) {
     const currentPresence = normalizePresenceRecord(volunteer.presence);
     if (isPresenceLocked(currentPresence)) return;
+
+    if (isBadgeHandedOver(volunteer.id)) {
+      await setBadgeHandedOver(volunteer.id, false);
+    }
 
     await updateVolunteerPresence(
       volunteer,
@@ -2242,7 +2270,10 @@ function PresencePage(props) {
       teamName: selectedRole?.roleName || volunteer.primaryTeam,
       roleLabel: volunteer.scopedTeamRole,
       roundedHours,
-      signatory,
+      signatory: signatoryName,
+      signatoryTitle,
+      signatureImageUrl,
+      editionLabel: activeEditionId ? `Edition ${activeEditionId}` : "",
     });
 
     printWindow.document.write(markup);
@@ -2412,7 +2443,7 @@ function PresencePage(props) {
                               disabled={locked}
                               onClick={() => toggleWelcomePack(volunteer)}
                             >
-                              {volunteer.presence.accreditationDeliveredAt && volunteer.presence.tshirtDeliveredAt
+                              {isBadgeHandedOver(volunteer.id) && volunteer.presence.tshirtDeliveredAt
                                 ? "Remis"
                                 : "Welcome pack"}
                             </button>
@@ -2660,4 +2691,113 @@ function PresencePage(props) {
   );
 }
 
-export { PresencePage, RoleManagementPage, TeamsPage };
+function CertificateSettingsPage(props) {
+  const { AuthFormField, Panel } = props;
+  const { signatoryName, signatoryTitle, signatureImageUrl, loading, error } = useCertificateConfiguration();
+  const [form, setForm] = useState({ signatoryName: "", signatoryTitle: "", signatureImageUrl: "" });
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+
+  useEffect(() => {
+    if (loading) return;
+    setForm({ signatoryName, signatoryTitle, signatureImageUrl });
+  }, [loading, signatoryName, signatoryTitle, signatureImageUrl]);
+
+  function handleFieldChange(event) {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function handleSave(event) {
+    event.preventDefault();
+    setIsSaving(true);
+    setStatusMessage("");
+
+    try {
+      await setDoc(
+        doc(db, ...CERTIFICATE_CONFIGURATION_DOC_PATH),
+        {
+          signatoryName: form.signatoryName.trim(),
+          signatoryTitle: form.signatoryTitle.trim(),
+          signatureImageUrl: form.signatureImageUrl.trim(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      setStatusMessage("Réglages du certificat enregistrés.");
+    } catch (saveError) {
+      console.error("Impossible d'enregistrer les réglages du certificat.", saveError);
+      setStatusMessage("Impossible d'enregistrer les réglages du certificat.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="page">
+      <section className="page-header">
+        <div>
+          <p className="eyebrow">Réglages</p>
+          <h1>Certificat de participation</h1>
+          <p>Nom, titre et signature affichés sur le certificat remis aux bénévoles depuis "Départs équipes".</p>
+        </div>
+      </section>
+
+      {loading ? <p className="panel-note">Chargement...</p> : null}
+      {error ? <p className="panel-note">{error}</p> : null}
+
+      <Panel
+        title="Signataire du certificat"
+        subtitle="Ces informations remplacent les valeurs par défaut sur tous les certificats générés, y compris ceux que les bénévoles téléchargent eux-mêmes."
+      >
+        <form className="auth-form auth-form--compact" onSubmit={handleSave}>
+          <AuthFormField label="Nom du signataire">
+            <input
+              name="signatoryName"
+              placeholder="Ex : Responsable bénévoles"
+              value={form.signatoryName}
+              onChange={handleFieldChange}
+            />
+          </AuthFormField>
+          <AuthFormField label="Titre affiché sous le nom">
+            <input
+              name="signatoryTitle"
+              placeholder="Ex : Head of CMCM Luxembourg Indoor Meeting"
+              value={form.signatoryTitle}
+              onChange={handleFieldChange}
+            />
+          </AuthFormField>
+          <div className="field">
+            <span>Image de signature (PNG)</span>
+            <FileUpload
+              value={form.signatureImageUrl}
+              onChange={(url) => setForm((current) => ({ ...current, signatureImageUrl: url }))}
+              accept="image/png"
+              storagePath="certificate-signatures"
+              label="Signature"
+              helperText="PNG avec fond transparent recommandé · Max 20 Mo"
+            />
+          </div>
+          {form.signatureImageUrl ? (
+            <div className="accreditation-inline-panel">
+              <strong>Aperçu</strong>
+              <img
+                src={form.signatureImageUrl}
+                alt="Aperçu de la signature"
+                style={{ maxWidth: "220px", maxHeight: "100px", objectFit: "contain" }}
+              />
+            </div>
+          ) : null}
+          {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
+          <div className="panel-actions">
+            <button className="button button--primary" type="submit" disabled={isSaving}>
+              {isSaving ? "Enregistrement..." : "Enregistrer"}
+            </button>
+          </div>
+        </form>
+      </Panel>
+    </div>
+  );
+}
+
+export { CertificateSettingsPage, PresencePage, RoleManagementPage, TeamsPage };

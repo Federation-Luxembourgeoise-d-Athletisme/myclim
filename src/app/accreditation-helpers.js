@@ -160,6 +160,7 @@ function getAccreditationStatusClass(status) {
     case "Dans la file":
       return "workflow-pill workflow-pill--assigned";
     case "Imprimé":
+    case "Remis":
       return "workflow-pill workflow-pill--confirmed";
     case "Annulé":
     case "Imprimé à détruire":

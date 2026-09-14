@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { collection, collectionGroup, onSnapshot } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { buildUserIdentitySet, getAssignedTeamNames } from "./common-helpers";
-import { useBudgetInvoiceConfiguration, useTeamConfiguration } from "./config-hooks";
+import { useBudgetInvoiceConfiguration, useCertificateConfiguration, useTeamConfiguration } from "./config-hooks";
 import { getDocumentReferenceUrl, useDocumentsCollection } from "./documents-hooks";
 import { useActiveEdition } from "./edition";
 import { canUserUploadBudgetInvoice } from "./budget-invoice-config";
@@ -299,12 +299,13 @@ function MyAssignmentsPage(props) {
 }
 
 function MyDocumentsPage(props) {
-  const { DataTable, Panel, getDocumentConsultationUrl, getTimestampMs, signatory } = props;
+  const { DataTable, Panel, getDocumentConsultationUrl, getTimestampMs } = props;
   const { t } = useLanguage();
   const { currentUser, userProfile } = useAuth();
   const { documents, loading: documentsLoading, error: documentsError } = useDocumentsCollection(true);
   const { activeEditionId } = useActiveEdition(Boolean(currentUser?.uid));
   const invoiceConfiguration = useBudgetInvoiceConfiguration();
+  const { signatoryName, signatoryTitle, signatureImageUrl } = useCertificateConfiguration();
   const activeRoles = useMemo(() => extractRolesFromProfile(userProfile), [userProfile]);
   const canUploadInvoices = useMemo(
     () =>
@@ -362,12 +363,24 @@ function MyDocumentsPage(props) {
       teamName: assignedTeams[0] || "Volunteer Team",
       roleLabel: userProfile?.teamRole || "Volunteer",
       roundedHours: participationHours,
-      signatory,
+      signatory: signatoryName,
+      signatoryTitle,
+      signatureImageUrl,
+      editionLabel: activeEditionId ? `Edition ${activeEditionId}` : "",
     });
 
     printWindow.document.write(markup);
     printWindow.document.close();
-  }, [assignedTeams, canGenerateCertificate, participationHours, signatory, userProfile]);
+  }, [
+    activeEditionId,
+    assignedTeams,
+    canGenerateCertificate,
+    participationHours,
+    signatoryName,
+    signatoryTitle,
+    signatureImageUrl,
+    userProfile,
+  ]);
 
   const documentRows = useMemo(
     () => {
