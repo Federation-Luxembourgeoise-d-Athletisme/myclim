@@ -22,6 +22,7 @@ import ticketAmbiance3 from "../assets/site-gallery/ticket-ambiance-3.jpg";
 import ticketFan1 from "../assets/site-gallery/ticket-fan-1.jpg";
 import ticketPublic4 from "../assets/site-gallery/ticket-public-4.jpg";
 import ticketPublic5 from "../assets/site-gallery/ticket-public-5.jpg";
+import { TICKET_PRICING } from "./ticket-pricing-config";
 
 const ACCESS_CARD = {
   icon: "🚌",
@@ -385,7 +386,7 @@ export function SiteEvent() {
           <SectionTitle
             eyebrow="Ticket sale"
             title="Tickets &amp; access"
-            lead="Secure your place at the CMCM Luxembourg Indoor Meeting 2026."
+            lead="Secure your place at the CMCM Luxembourg Indoor Meeting 2027."
           />
 
           {/* Atmosphere photo strip */}
@@ -461,11 +462,14 @@ export function SiteEvent() {
               <div style={{ width: 40, height: 3, background: "var(--site-red)", borderRadius: 2, marginBottom: 28 }} />
               <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--site-text-muted)", marginBottom: 8 }}>Regular Ticket</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
-                <span style={{ fontSize: "3rem", fontWeight: 900, color: "var(--site-red)", lineHeight: 1 }}>€12</span>
+                <span style={{ fontSize: "3rem", fontWeight: 900, color: "var(--site-red)", lineHeight: 1 }}>€{TICKET_PRICING.regular.online}</span>
                 <span style={{ background: "rgba(232,0,28,0.08)", color: "var(--site-red)", fontSize: "0.72rem", fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>
-                  Early-bird €8 until Dec 15
+                  Early-bird €{TICKET_PRICING.regular.earlyBird} until {TICKET_PRICING.earlyBirdDeadlineLabel}
                 </span>
               </div>
+              <p style={{ fontSize: "0.78rem", color: "var(--site-text-muted)", marginBottom: 6 }}>
+                €{TICKET_PRICING.regular.onSite} on-site
+              </p>
               <p style={{ fontSize: "0.85rem", color: "var(--site-text-muted)", lineHeight: 1.6, marginBottom: 28 }}>
                 Live the atmosphere from the stands, from the pre-programme to the final.
               </p>
@@ -504,11 +508,14 @@ export function SiteEvent() {
               <div style={{ width: 40, height: 3, background: "#c9a227", borderRadius: 2, marginBottom: 28 }} />
               <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>VIP Ticket</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
-                <span style={{ fontSize: "3rem", fontWeight: 900, color: "#c9a227", lineHeight: 1 }}>€75</span>
+                <span style={{ fontSize: "3rem", fontWeight: 900, color: "#c9a227", lineHeight: 1 }}>€{TICKET_PRICING.vip.online}</span>
                 <span style={{ background: "rgba(201,162,39,0.15)", color: "#c9a227", fontSize: "0.72rem", fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>
-                  Early-bird €50 until Dec 15
+                  Early-bird €{TICKET_PRICING.vip.earlyBird} until {TICKET_PRICING.earlyBirdDeadlineLabel}
                 </span>
               </div>
+              <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>
+                €{TICKET_PRICING.vip.onSite} on-site
+              </p>
               <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 28 }}>
                 Premium seating, unlimited catering and an exclusive backstage tour. Limited places.
               </p>
