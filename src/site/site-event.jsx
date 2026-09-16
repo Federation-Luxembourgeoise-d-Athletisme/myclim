@@ -386,7 +386,7 @@ export function SiteEvent() {
           <SectionTitle
             eyebrow="Ticket sale"
             title="Tickets &amp; access"
-            lead="Secure your place at the CMCM Luxembourg Indoor Meeting 2027."
+            lead={`Secure your place at the CMCM Luxembourg Indoor Meeting ${currentEdition?.year || siteEditionYear}.`}
           />
 
           {/* Atmosphere photo strip */}
