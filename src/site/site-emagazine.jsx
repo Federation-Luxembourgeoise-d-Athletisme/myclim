@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useSiteEditionYear } from "../app/edition";
+import { useActiveEdition, useSiteEditionYear } from "../app/edition";
 import { useAthleteRegistry, useAthletes } from "../app/athlete-portal-hooks";
 import { useMeetingEditions, useMeetingRecords } from "../app/meeting-history-hooks";
 import { useSponsors } from "./site-hooks";
@@ -460,9 +460,13 @@ export function SiteEmagazine() {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const location = useLocation();
   const { siteEditionYear } = useSiteEditionYear();
+  const { activeEditionId } = useActiveEdition();
   const { editions, loading: editionsLoading } = useMeetingEditions();
   const { records: meetingRecords } = useMeetingRecords();
-  const { athletes, loading: athletesLoading } = useAthletes(true);
+  // Never shows athletes imported into a test edition for a live-import
+  // rehearsal — only the app's configured "current" edition ever reaches the
+  // public e-magazine.
+  const { athletes, loading: athletesLoading } = useAthletes(true, activeEditionId);
   const { registry, loading: registryLoading } = useAthleteRegistry(true);
   const { sponsors, loading: sponsorsLoading } = useSponsors(true);
 

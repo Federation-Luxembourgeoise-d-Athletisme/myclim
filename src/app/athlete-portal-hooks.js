@@ -7,6 +7,11 @@ const ATHLETE_PORTAL_SETTINGS_PATH = ["appSettings", "athletePortalSettings"];
 const ATHLETES_COLLECTION = "athletes";
 const ATHLETE_TRANSPORT_LOTS_COLLECTION = "athleteTransportLots";
 const ATHLETE_IMPORT_HISTORY_COLLECTION = "athleteImportHistory";
+// Coaches, physios, family — people the meeting director lists alongside
+// athletes (same file, same travel columns) but who never compete. Kept
+// separate from `athletes` so they never pollute the roster/heat-lane views,
+// while still being visible for transport/logistics purposes.
+const ATHLETE_ACCOMPANYING_COLLECTION = "athleteAccompanyingPersons";
 
 /**
  * Permanent cross-edition athlete registry.
@@ -131,7 +136,13 @@ function useAthletePortalSettings() {
   return { settings, loading };
 }
 
-function useAthletes(enabled = true) {
+// `editionId`: when omitted, returns every athlete regardless of edition
+// (used by cross-edition views like the registry dedup tool). When passed,
+// filters to that edition only — same convention as useAthleteTransportLots
+// (see recordMatchesEdition): a document with no editionId at all belongs to
+// "test", never to a real configured edition, so importing into "test" can
+// never leak into the live roster shown on the public site or to volunteers.
+function useAthletes(enabled = true, editionId = undefined) {
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -141,15 +152,38 @@ function useAthletes(enabled = true) {
     const unsubscribe = onSnapshot(
       collection(db, ATHLETES_COLLECTION),
       (snapshot) => {
-        setAthletes(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setAthletes(editionId ? list.filter((a) => recordMatchesEdition(a, editionId)) : list);
         setLoading(false);
       },
       () => setLoading(false),
     );
     return unsubscribe;
-  }, [enabled]);
+  }, [enabled, editionId]);
 
   return { athletes, loading };
+}
+
+function useAccompanyingPersons(enabled = true, editionId = undefined) {
+  const [people, setPeople] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!enabled) { setLoading(false); return undefined; }
+
+    const unsubscribe = onSnapshot(
+      collection(db, ATHLETE_ACCOMPANYING_COLLECTION),
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setPeople(editionId ? list.filter((p) => recordMatchesEdition(p, editionId)) : list);
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return unsubscribe;
+  }, [enabled, editionId]);
+
+  return { people, loading };
 }
 
 // ─── WA service integration ───────────────────────────────────────────────────
@@ -423,6 +457,20 @@ function buildAthleteIdentityKeys(fields = {}) {
   ].filter(Boolean);
 
   return [...new Set(keys)];
+}
+
+// Travel entries only ever carry a bare day-of-month ("17. flight…") —
+// meaningless on its own ("Jour 17" reads like a countdown, not a date).
+// Resolved against the edition's actual month/year it becomes a real weekday
+// + date instead. `referenceDate` is the meeting edition's date (Firestore
+// Timestamp or JS Date); falls back to the bare "Jour N" when unavailable.
+function formatTravelDay(day, referenceDate) {
+  if (!referenceDate) return `Jour ${day}`;
+  const ref = referenceDate?.toDate ? referenceDate.toDate() : new Date(referenceDate);
+  if (Number.isNaN(ref.getTime())) return `Jour ${day}`;
+  const resolved = new Date(ref.getFullYear(), ref.getMonth(), day);
+  const label = resolved.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function athleteMergeKey(lastName, firstName, nationality) {
@@ -766,7 +814,7 @@ async function uploadAthleteImportFile(file) {
   return { url: payload.url, filePath: payload.filePath || "" };
 }
 
-async function recordAthleteImport({ file, fileType, presentFields, recordCount, added, updated, markedOut, changes, actorName, actorUid }) {
+async function recordAthleteImport({ file, fileType, presentFields, recordCount, added, updated, markedOut, changes, actorName, actorUid, editionId }) {
   let fileUrl = "";
   let filePath = "";
   try {
@@ -787,11 +835,12 @@ async function recordAthleteImport({ file, fileType, presentFields, recordCount,
     changes: Array.isArray(changes) ? changes : [],
     actorName: actorName || "",
     actorUid: actorUid || "",
+    editionId: editionId || null,
     importedAt: serverTimestamp(),
   });
 }
 
-function useAthleteImportHistory(enabled = true) {
+function useAthleteImportHistory(enabled = true, editionId = undefined) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(Boolean(enabled));
 
@@ -800,13 +849,14 @@ function useAthleteImportHistory(enabled = true) {
     const unsubscribe = onSnapshot(
       query(collection(db, ATHLETE_IMPORT_HISTORY_COLLECTION), orderBy("importedAt", "desc")),
       (snapshot) => {
-        setHistory(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setHistory(editionId ? list.filter((entry) => recordMatchesEdition(entry, editionId)) : list);
         setLoading(false);
       },
       () => setLoading(false),
     );
     return unsubscribe;
-  }, [enabled]);
+  }, [enabled, editionId]);
 
   return { history, loading };
 }
@@ -859,4 +909,7 @@ export {
   ATHLETE_IMPORT_HISTORY_COLLECTION,
   recordAthleteImport,
   useAthleteImportHistory,
+  ATHLETE_ACCOMPANYING_COLLECTION,
+  useAccompanyingPersons,
+  formatTravelDay,
 };

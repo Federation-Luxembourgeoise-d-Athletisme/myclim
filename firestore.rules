@@ -155,6 +155,15 @@ service cloud.firestore {
       allow write: if canManageAthletePortal();
     }
 
+    // Coachs/physios/famille listés par le meeting director à côté des
+    // athlètes (mêmes fichiers, mêmes infos de voyage) mais qui ne concourent
+    // pas — mêmes droits que /athletes puisque c'est le même import qui les
+    // alimente.
+    match /athleteAccompanyingPersons/{personId} {
+      allow read: if canReadAthletePortal();
+      allow write: if canManageAthletePortal();
+    }
+
     // Historique des imports Excel du meeting director : lecture ouverte à
     // qui a accès au portail athlètes, écriture réservée à qui importe.
     match /athleteImportHistory/{entryId} {

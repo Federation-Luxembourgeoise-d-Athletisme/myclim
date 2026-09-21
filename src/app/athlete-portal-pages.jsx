@@ -3,6 +3,8 @@ import { NavLink } from "react-router-dom";
 import { doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import { getActiveRoles } from "./navigation";
+import { normalizeEditionId, useActiveEdition } from "./edition";
+import { useMeetingEditions } from "./meeting-history-hooks";
 import {
   ALL_ATHLETE_FIELDS,
   ATHLETES_COLLECTION,
@@ -26,6 +28,9 @@ import {
   ATHLETE_PORTAL_SETTINGS_PATH,
   recordAthleteImport,
   useAthleteImportHistory,
+  ATHLETE_ACCOMPANYING_COLLECTION,
+  useAccompanyingPersons,
+  formatTravelDay,
 } from "./athlete-portal-hooks";
 import { db } from "../services/firebase";
 
@@ -80,7 +85,7 @@ function expandTravelField(raw, prefix) {
   };
 }
 
-function TravelCell({ raw, prefix }) {
+function TravelCell({ raw, prefix, referenceDate }) {
   if (!raw) return <span style={{ color: "#bbb" }}>—</span>;
   const p = parseTravelEntry(raw);
   if (!p) return <span style={{ fontSize: "0.82rem", color: "#555" }}>{raw}</span>;
@@ -88,7 +93,7 @@ function TravelCell({ raw, prefix }) {
   return (
     <div style={{ lineHeight: 1.65, fontSize: "0.82rem" }}>
       <div style={{ fontWeight: 600 }}>
-        Jour {p.day}{p.time ? ` · ${p.time}` : ""}
+        {formatTravelDay(p.day, referenceDate)}{p.time ? ` · ${p.time}` : ""}
       </div>
       <div style={{ color: "#555" }}>
         ✈ {p.flightNo} {arrow}{p.city}
@@ -120,6 +125,8 @@ async function ensureCurrentAthleteRegistryLink(athleteId, athleteFields) {
 
 // ─── File type detection & parsing ───────────────────────────────────────────
 
+const HEAT_SENTINEL_RE = /^(?:heat|série|serie)\s+(.+)$/i;
+
 // Column-name patterns for the new "all-in-one" combined file format.
 const COMBINED_COL_PATTERNS = {
   event:        [/^event$/,          /^épreuve$/,    /^discipline$/],
@@ -133,13 +140,36 @@ const COMBINED_COL_PATTERNS = {
   pbIndoor:     [/^pb\s?indoor$/],
   pbOutdoor:    [/^pb\s?outdoor$/],
   sb:           [/^sb\d*$/],
-  waUrl:        [/^wa\s?(url|profile)?$/, /^world\s?athletics$/],
+  waUrl:        [/^wa\s?(url|profile)?$/, /^world\s?athletics(\s?profile)?$/],
   heat:         [/^heat$/,           /^série$/,      /^serie$/],
   lane:         [/^lane$/,           /^couloir$/],
   manager:      [/^manager$/,        /^gestionnaire$/],
   arrival:      [/^arrival$/,        /^anreise$/,    /^arrivée$/,    /^arrivee$/],
   departure:    [/^departure$/,      /^abreise$/,    /^départ$/,     /^depart$/],
+  hotel:        [/^hotel$/,          /^hôtel$/],
 };
+
+// The meeting director never gives coaches/physios/family their own file
+// column — he writes their role directly into the Event column instead
+// ("coach", "manager"...) with their own name in Last/First name and the
+// athlete they support in the Manager column. Detected up front so they
+// never get imported as if they were competing athletes.
+const _STAFF_ROLE_PATTERNS = [
+  [/^coach\b/i, "Coach"],
+  [/^manager\b/i, "Manager"],
+  [/^physio/i, "Physio"],
+  [/^m[ée]decin|^medical|^arzt/i, "Médical"],
+  [/^betreuer/i, "Accompagnateur"],
+  [/^famil(y|le)|^parent|^guest/i, "Famille / invité"],
+];
+
+function detectStaffRole(rawEvent) {
+  const cleaned = String(rawEvent || "").trim();
+  for (const [re, label] of _STAFF_ROLE_PATTERNS) {
+    if (re.test(cleaned)) return label;
+  }
+  return null;
+}
 
 function buildColMap(row) {
   // Trailing "." tolerated (the documented header "Nat." wouldn't otherwise
@@ -172,7 +202,15 @@ function detectFileType(rows) {
   // d'exiger un jeu complet de colonnes, sans quoi ça retombe sur le fallback
   // positionnel legacy qui suppose un format figé.
   if (hasIdent) {
-    return { type: "COMBINED", colMap: bestMap, dataStartIdx: bestHeaderIdx + 1 };
+    // Some CMCM "final start list with lanes" files carry no Heat/Lane header
+    // at all — heats are announced as a literal "Heat 1" row in column A,
+    // followed by athlete rows whose column A holds their lane number (1-8,
+    // resetting each heat). Only trust column A as a lane number when such a
+    // sentinel row genuinely appears somewhere in the sheet — other CMCM
+    // exports also put a bare running number in column A that is just a rank
+    // in that list, not a lane, and must not be misread as one.
+    const hasHeatSentinels = rows.some((row) => HEAT_SENTINEL_RE.test(norm(row[0])));
+    return { type: "COMBINED", colMap: bestMap, dataStartIdx: bestHeaderIdx + 1, hasHeatSentinels };
   }
 
   // Position-based fallback for the legacy CMCM Excel formats.
@@ -185,6 +223,27 @@ function detectFileType(rows) {
 }
 
 function norm(v) { return String(v || "").trim(); }
+
+// Some meeting directors paste a World Athletics profile as a hyperlink whose
+// visible text is just "Name | Profile | World Athletics" with no URL or WAID
+// anywhere in the displayed text — sheet_to_json() only reads cell text, so
+// those hyperlinks are otherwise silently lost. Read the underlying hyperlink
+// target when present so the real profile URL survives.
+function sheetRowsWithHyperlinks(utils, ws) {
+  if (!ws["!ref"]) return [];
+  const range = utils.decode_range(ws["!ref"]);
+  const rows = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[utils.encode_cell({ r, c })];
+      if (!cell) { row.push(""); continue; }
+      row.push(cell.l?.Target || (cell.v ?? ""));
+    }
+    rows.push(row);
+  }
+  return rows;
+}
 
 function parseStartListRow(row) {
   const event = norm(row[2]);
@@ -273,6 +332,7 @@ function parseCombinedRow(row, colMap) {
 
   return {
     event:        g("event")        || null,
+    staffRole:    detectStaffRole(g("event")),
     lastName,     firstName,
     nationality:  g("nationality")  || null,
     birthYear:    normalizeBirthYear(colMap.birthYear !== undefined ? row[colMap.birthYear] : null),
@@ -287,6 +347,7 @@ function parseCombinedRow(row, colMap) {
     heat:         g("heat") || null,
     lane:         rawLane !== "" && !isNaN(Number(rawLane)) ? Number(rawLane) : null,
     manager:   g("manager")   || null,
+    hotel:     g("hotel")     || null,
     arrival:   g("arrival")   || null,
     departure: g("departure") || null,
     ...expandTravelField(g("arrival")   || null, "arrival"),
@@ -294,13 +355,59 @@ function parseCombinedRow(row, colMap) {
   };
 }
 
+// Some CMCM files repeat the header row mid-sheet (one block per event) and,
+// when hasHeatSentinels is set, use "Heat N" sentinel rows + a bare lane
+// number in column A instead of named Heat/Lane columns (see detectFileType).
+function parseCombinedRowsWithHeatSentinels(rows, colMap) {
+  const records = [];
+  let currentHeat = null;
+  for (const row of rows) {
+    const firstCell = norm(row[0]);
+    const sentinelMatch = HEAT_SENTINEL_RE.exec(firstCell);
+    if (sentinelMatch && !norm(row[colMap.lastName])) {
+      currentHeat = sentinelMatch[1];
+      continue;
+    }
+    // A repeated header row (new event block) — not an athlete.
+    const rowColMap = buildColMap(row);
+    if (rowColMap.lastName !== undefined && rowColMap.firstName !== undefined) continue;
+
+    const record = parseCombinedRow(row, colMap);
+    if (!record) continue;
+    if (colMap.heat === undefined) record.heat = currentHeat;
+    if (colMap.lane === undefined && firstCell !== "" && !isNaN(Number(firstCell))) {
+      record.lane = Number(firstCell);
+    }
+    records.push(record);
+  }
+  return records;
+}
+
+// Splits any parsed row list into real athletes vs staff/accompanying persons
+// (flagged via staffRole — see detectStaffRole). Only COMBINED rows can carry
+// a staffRole today (the legacy formats don't have an Event column at the
+// position staff rows use), so this is a no-op for those.
+function splitStaffRows(rows) {
+  const records = [];
+  const staff = [];
+  for (const row of rows) {
+    (row.staffRole ? staff : records).push(row);
+  }
+  return { records, staff };
+}
+
 function parseRows(rows, detected) {
-  const { type, colMap, dataStartIdx } = detected;
-  if (type === "START_LIST")  return rows.slice(dataStartIdx).map(parseStartListRow).filter(Boolean);
-  if (type === "FINAL_LANES") return parseFinaLanesRows(rows.slice(dataStartIdx));
-  if (type === "TRAVEL")      return rows.slice(dataStartIdx).map(parseTravelRow).filter(Boolean);
-  if (type === "COMBINED")    return rows.slice(dataStartIdx).map((r) => parseCombinedRow(r, colMap)).filter(Boolean);
-  return [];
+  const { type, colMap, dataStartIdx, hasHeatSentinels } = detected;
+  if (type === "START_LIST")  return { records: rows.slice(dataStartIdx).map(parseStartListRow).filter(Boolean), staff: [] };
+  if (type === "FINAL_LANES") return { records: parseFinaLanesRows(rows.slice(dataStartIdx)), staff: [] };
+  if (type === "TRAVEL")      return { records: rows.slice(dataStartIdx).map(parseTravelRow).filter(Boolean), staff: [] };
+  if (type === "COMBINED") {
+    const parsed = hasHeatSentinels
+      ? parseCombinedRowsWithHeatSentinels(rows.slice(dataStartIdx), colMap)
+      : rows.slice(dataStartIdx).map((r) => parseCombinedRow(r, colMap)).filter(Boolean);
+    return splitStaffRows(parsed);
+  }
+  return { records: [], staff: [] };
 }
 
 // Helper: copy all structured travel sub-fields from a record onto a merged athlete.
@@ -444,18 +551,100 @@ function mergeAthletes(existing, incoming, fileType, presentFields = null) {
   return { merged: [...byKey.values()], added, updated, markedOut, changes };
 }
 
+// Coaches/physios/family (see detectStaffRole): add-or-update by identity,
+// same matching key as athletes. No "out"/markedOut concept here — the
+// director doesn't consistently re-list every accompanying person on every
+// file, so someone missing from a later file isn't necessarily gone.
+function mergeAccompanyingPersons(existing, incoming) {
+  const byKey = new Map(
+    existing.map((p) => [athleteMergeKey(p.lastName, p.firstName, p.nationality), { ...p }]),
+  );
+  let added = 0;
+  let updated = 0;
+
+  for (const record of incoming) {
+    const key = athleteMergeKey(record.lastName, record.firstName, record.nationality);
+    const ex = byKey.get(key);
+    if (!ex) {
+      byKey.set(key, { ...record });
+      added++;
+      continue;
+    }
+    const merged = { ...ex };
+    if (record.staffRole)  merged.staffRole  = record.staffRole;
+    if (record.status)     merged.status     = record.status;
+    if (record.manager)    merged.linkedTo   = record.manager;
+    if (record.hotel)      merged.hotel      = record.hotel;
+    applyTravelFields(merged, record, null);
+    byKey.set(key, merged);
+    updated++;
+  }
+
+  return { merged: [...byKey.values()], added, updated };
+}
+
 // ─── Small shared components ─────────────────────────────────────────────────
+
+// The meeting director's file sometimes carries an intermediate status
+// (invited, not yet confirmed) before the athlete becomes "ok" or "out" on
+// the official list — this is transient, not a lasting data problem, but
+// worth translating for whoever reads the roster in the meantime. Keyed on
+// the trimmed, lowercased raw value; the raw text stays visible as a tooltip.
+const PENDING_STATUS_TRANSLATIONS = {
+  "unser angebot": "Invité(e), pas encore confirmé(e)",
+  "abwarten": "En attente",
+  "warten": "En attente",
+};
 
 function StatusBadge({ status }) {
   if (!status) return "—";
   if (status === "ok")  return <span className="status-pill status-pill--ok">OK</span>;
   if (status === "out") return <span className="status-pill status-pill--warn">Out</span>;
+  const translated = PENDING_STATUS_TRANSLATIONS[String(status).trim().toLowerCase()];
+  if (translated) {
+    return (
+      <span className="status-pill status-pill--pending" title={`Texte d'origine : ${status}`}>
+        {translated}
+      </span>
+    );
+  }
   return <span className="status-pill">{status}</span>;
+}
+
+// Shows whether this athlete is linked to the permanent cross-edition
+// registry (so their past-editions history is actually available) and opens
+// their unified profile card on click — same target as clicking the name.
+function RegistryLinkCell({ athlete, onOpen }) {
+  const linked = Boolean(athlete.registryAthleteId);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={linked ? "Relié à l'historique — voir la fiche" : "Pas encore relié à l'historique — voir la fiche"}
+      style={{
+        appearance: "none",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        padding: 0,
+        fontSize: "0.78rem",
+        fontWeight: 600,
+        lineHeight: 1,
+        color: linked ? "#166534" : "#94a3b8",
+      }}
+    >
+      {linked ? "✓" : "–"}
+    </button>
+  );
 }
 
 function WaBadge({ value }) {
   if (!value) return <span style={{ color: "#aaa" }}>—</span>;
-  return <span className="status-pill status-pill--accent" title="Source: World Athletics">{value}</span>;
+  return (
+    <span style={{ color: "#1d4ed8", whiteSpace: "nowrap" }} title="Source: World Athletics">
+      {value}
+    </span>
+  );
 }
 
 function FileTypeBadge({ type }) {
@@ -589,7 +778,8 @@ function AthletePortalOverview({ Panel }) {
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
-  const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading);
+  const { activeEditionId } = useActiveEdition();
+  const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, activeEditionId);
   const isAdmin = roles.includes("admin") || roles.includes("meeting_director");
 
   const seasons = settings?.seasons ?? DEFAULT_PORTAL_SETTINGS.seasons;
@@ -694,6 +884,59 @@ function parseEventField(raw) {
     return { discipline: m[2].trim(), gender: (g === "W" || g === "F") ? "W" : "M" };
   }
   return { discipline: s, gender: null };
+}
+
+// Standardizes a discipline name into one canonical form per real event
+// ("60m", "60 M", "60M" → "60m") instead of a fixed whitelist — on an
+// international meeting there's no such thing as a genuinely "special" event,
+// so anything left over after normalizing (a pacer note, a dual-event remark,
+// a typo) is exactly what should surface for the meeting director to clean up
+// at the source, rather than silently becoming its own event group.
+const _FIELD_DISCIPLINE_PATTERNS = [
+  [/^long\s*jump$/i, "Long Jump"],   [/^lj$/i, "Long Jump"],
+  [/^triple\s*jump$/i, "Triple Jump"], [/^tj$/i, "Triple Jump"],
+  [/^high\s*jump$/i, "High Jump"],   [/^hj$/i, "High Jump"],
+  [/^pole\s*vault$/i, "Pole Vault"], [/^pv$/i, "Pole Vault"],
+  [/^shot\s*put$/i, "Shot Put"],     [/^sp$/i, "Shot Put"],
+  [/^discus$/i, "Discus"],           [/^dt$/i, "Discus"],
+  [/^hammer$/i, "Hammer"],           [/^ht$/i, "Hammer"],
+  [/^javelin$/i, "Javelin"],         [/^jt$/i, "Javelin"],
+  [/^heptathlon$/i, "Heptathlon"],   [/^hep$/i, "Heptathlon"],
+  [/^decathlon$/i, "Decathlon"],     [/^dec$/i, "Decathlon"],
+  [/^pentathlon$/i, "Pentathlon"],   [/^pen$/i, "Pentathlon"],
+];
+// No \b between the unit and the hurdles/steeplechase suffix — compact forms
+// like "60mH" or "3000mSC" have no space, so a word-boundary there would
+// never match and wrongly flag every compact-form entry as non-standard.
+const _TRACK_DISCIPLINE_RE = /^(\d+)\s*(miles?|m)\s*(hurdles?|h|sc|steeplechase)?/i;
+
+// A trailing "pace"/"pacer"/"pacemaker" note is meaningful, not noise: that
+// athlete is running as a rabbit for the race, not competing in it. Keep it
+// as a real, visible fact rather than flagging it as "needs a human look".
+const _PACER_NOTE_RE = /^pace(r|maker)?$/i;
+
+function normalizeDisciplineLabel(rawDiscipline) {
+  const cleaned = String(rawDiscipline || "").trim();
+  if (!cleaned) return { label: "", standardized: false, isPacer: false };
+
+  for (const [re, label] of _FIELD_DISCIPLINE_PATTERNS) {
+    if (re.test(cleaned)) return { label, standardized: true, isPacer: false };
+  }
+
+  const m = _TRACK_DISCIPLINE_RE.exec(cleaned);
+  if (m) {
+    const unit = /mile/i.test(m[2]) ? "mile" : "m";
+    const suffix = m[3] ? (/sc|steeplechase/i.test(m[3]) ? "SC" : "H") : "";
+    const label = `${m[1]}${unit}${suffix}`;
+    // Anything left over after the matched portion (a pacer note, "und 60mH",
+    // a typo) means this entry needs a human look, not a silent guess —
+    // except a pacer note, which is expected and should stay visible as such.
+    const rest = cleaned.slice(m[0].length).trim();
+    if (_PACER_NOTE_RE.test(rest)) return { label, standardized: true, isPacer: true };
+    return { label, standardized: rest === "", isPacer: false };
+  }
+
+  return { label: cleaned, standardized: false, isPacer: false };
 }
 
 const _DISC_RANK = [
@@ -1483,6 +1726,10 @@ function mergeRegistryEditions(entries) {
 
 // ─── Athletes list page ───────────────────────────────────────────────────────
 
+// Global input/select styling defaults to width:100% + large rounded corners
+// for full-width form fields — override both for a compact inline filter bar.
+const FILTER_CONTROL_STYLE = { width: "auto", fontSize: "0.82rem", padding: "0.4rem 0.6rem", borderRadius: 6 };
+
 const ATHLETES_HIDDEN_COLS_STORAGE_KEY = "myclim-athletes-hidden-cols";
 
 // Columns hidden by default the first time someone opens this page — mostly
@@ -1519,8 +1766,18 @@ function AthletesListPage({ Panel }) {
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
-  const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading);
+  const { activeEditionId } = useActiveEdition();
   const canViewUnifiedProfile = roles.includes("admin") || roles.includes("meeting_director");
+  // Admins/meeting directors can switch to "test" to inspect a rehearsal
+  // import without it ever mixing into the real roster (e-magazine, transport
+  // and everyone else always see the current edition only).
+  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
+  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, viewEditionId);
+  // Travel entries only carry a bare day-of-month ("17. flight…") — resolved
+  // against the meeting's actual month/year so it reads as a real date.
+  const { editions: meetingEditions } = useMeetingEditions();
+  const meetingReferenceDate = meetingEditions.find((e) => String(e.year) === String(activeEditionId))?.date;
   const { registry, loading: registryLoading } = useAthleteRegistry(canViewUnifiedProfile);
   const visibleFields = useMemo(() => getVisibleFields(roles, settings), [roles, settings]);
   const canEdit = roles.includes("admin") || roles.includes("meeting_director");
@@ -1567,9 +1824,13 @@ function AthletesListPage({ Panel }) {
   const [linkingRegistry, setLinkingRegistry] = useState(false);
   const [linkRegistryStatus, setLinkRegistryStatus] = useState("");
 
-  // ── Augment each athlete with parsed event fields ───────────────────────────
+  // ── Augment each athlete with parsed + standardized event fields ────────────
   const athletesParsed = useMemo(
-    () => athletes.map((a) => ({ ...a, _ev: parseEventField(a.event) })),
+    () => athletes.map((a) => {
+      const _ev = parseEventField(a.event);
+      const _std = normalizeDisciplineLabel(_ev.discipline);
+      return { ...a, _ev, _std };
+    }),
     [athletes],
   );
 
@@ -1579,9 +1840,9 @@ function AthletesListPage({ Panel }) {
     const nats  = new Set();
     const heats = new Set();
     athletesParsed.forEach((a) => {
-      if (a._ev.discipline) disciplines.add(a._ev.discipline);
-      if (a.nationality)    nats.add(String(a.nationality).trim());
-      if (a.heat)           heats.add(String(a.heat).trim());
+      if (a._std.label) disciplines.add(a._std.label);
+      if (a.nationality) nats.add(String(a.nationality).trim());
+      if (a.heat)        heats.add(String(a.heat).trim());
     });
     return {
       disciplines: [...disciplines].sort((a, b) => disciplineRank(a) - disciplineRank(b) || a.localeCompare(b)),
@@ -1597,7 +1858,7 @@ function AthletesListPage({ Panel }) {
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return athletesParsed.filter((a) => {
-      if (filterEvent  && a._ev.discipline !== filterEvent)               return false;
+      if (filterEvent  && a._std.label !== filterEvent)                   return false;
       if (filterGender && a._ev.gender     !== filterGender)              return false;
       if (filterNat    && String(a.nationality || "").trim() !== filterNat) return false;
       if (filterHeat   && String(a.heat    || "").trim() !== filterHeat)  return false;
@@ -1614,11 +1875,13 @@ function AthletesListPage({ Panel }) {
     });
   }, [athletesParsed, search, filterEvent, filterGender, filterNat, filterHeat, filterStatus, filterWa]);
 
-  // ── Group athletes by event, sort within group by heat → lane → name ────────
+  // ── Group athletes by standardized discipline+gender, not the raw event
+  // string, so formatting noise ("60m W" vs "60m w " vs "60m W pace") doesn't
+  // fragment the same event into several groups.
   const grouped = useMemo(() => {
     const map = new Map();
     filtered.forEach((a) => {
-      const key = String(a.event || "").trim() || "(no event)";
+      const key = [a._std.label, a._ev.gender].filter(Boolean).join(" ") || "(no event)";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(a);
     });
@@ -1685,6 +1948,7 @@ function AthletesListPage({ Panel }) {
 
   const colCount =
     displayedFields.length
+    + (canViewUnifiedProfile ? 1 : 0)
     + (canEdit && !displayedFields.find((f) => f.key === "waid") ? 1 : 0)
     + (canEdit ? 1 : 0);
 
@@ -1830,14 +2094,25 @@ function AthletesListPage({ Panel }) {
       );
     }
     if (f.key === "waid" && canEdit) return <WaidCell athlete={a} onSave={handleSaveWaid} />;
-    if (f.key === "status") return <StatusBadge status={a.status} />;
+    if (f.key === "status") {
+      return (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <StatusBadge status={a.status} />
+          {a._std?.isPacer && (
+            <span className="status-pill" style={{ fontSize: "0.72rem" }} title="Court comme lièvre, hors classement">
+              Pace
+            </span>
+          )}
+        </span>
+      );
+    }
     if (f.key === "waUrl" && a.waUrl)
       return <a href={a.waUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.8rem" }}>WA ↗</a>;
     if (f.group === "wa" && f.key !== "waid" && f.key !== "waUrl" && f.key !== "waFetchedAt")
       return <WaBadge value={a[f.key]} />;
     // Arrival / departure: render structured if raw string present
-    if (f.key === "arrival")   return <TravelCell raw={a.arrival}   prefix="arrival" />;
-    if (f.key === "departure") return <TravelCell raw={a.departure} prefix="departure" />;
+    if (f.key === "arrival")   return <TravelCell raw={a.arrival}   prefix="arrival"   referenceDate={meetingReferenceDate} />;
+    if (f.key === "departure") return <TravelCell raw={a.departure} prefix="departure" referenceDate={meetingReferenceDate} />;
     return a[f.key] ?? "—";
   }
 
@@ -1858,6 +2133,24 @@ function AthletesListPage({ Panel }) {
             )}
             {" · "}<strong>Outdoor {seasons.outdoor}</strong>
           </p>
+          {canViewUnifiedProfile && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ fontSize: "0.8rem", color: "#607086" }}>Édition :</label>
+              <select
+                value={viewEditionId}
+                onChange={(e) => setViewEditionId(e.target.value)}
+                style={FILTER_CONTROL_STYLE}
+              >
+                <option value={activeEditionId}>Courante ({activeEditionId})</option>
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+              </select>
+              {viewEditionId === "test" && (
+                <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
+                  Rien ici n&apos;apparaît ailleurs dans l&apos;app
+                </span>
+              )}
+            </div>
+          )}
         </div>
         {canEdit && (
           <div style={{ maxWidth: 320 }}>
@@ -1900,71 +2193,58 @@ function AthletesListPage({ Panel }) {
       </section>
 
       {/* ── Filters ── */}
-      <section className="panel-grid panel-grid--1">
-        <Panel title="Filters &amp; view">
-          <div className="field-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}>
-            <label className="field">
-              <span>Search</span>
-              <input placeholder="Name, nat., WAID…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </label>
-            <label className="field">
-              <span>Discipline</span>
-              <select value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)}>
-                <option value="">All disciplines</option>
-                {filterOptions.disciplines.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </label>
-            <label className="field">
-              <span>Gender</span>
-              <select value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
-                <option value="">All</option>
-                <option value="W">Women (W)</option>
-                <option value="M">Men (M)</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Nationality</span>
-              <select value={filterNat} onChange={(e) => setFilterNat(e.target.value)}>
-                <option value="">All nations</option>
-                {filterOptions.nats.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </label>
-            {filterOptions.heats.length > 0 && (
-              <label className="field">
-                <span>Heat</span>
-                <select value={filterHeat} onChange={(e) => setFilterHeat(e.target.value)}>
-                  <option value="">All heats</option>
-                  {filterOptions.heats.map((h) => <option key={h} value={h}>Heat {h}</option>)}
-                </select>
-              </label>
-            )}
-            <label className="field">
-              <span>Status</span>
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                <option value="">All</option>
-                <option value="ok">Confirmed (OK)</option>
-                <option value="out">Withdrawn (Out)</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>WA sync</span>
-              <select value={filterWa} onChange={(e) => setFilterWa(e.target.value)}>
-                <option value="">All</option>
-                <option value="synced">WA synced ✓</option>
-                <option value="has_waid">Has WAID</option>
-                <option value="no_waid">No WAID</option>
-              </select>
-            </label>
-            <label className="field" style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-              <span>&nbsp;</span>
-              <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", padding: "7px 0" }}>
-                <input type="checkbox" checked={groupByEvent} onChange={(e) => setGroupByEvent(e.target.checked)} />
-                <span style={{ fontSize: "0.875rem" }}>Group by event</span>
-              </label>
-            </label>
-          </div>
-        </Panel>
-      </section>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: "0.4rem",
+          padding: "0.5rem 0",
+          borderBottom: "1px solid #e2e8f0",
+          marginBottom: "0.75rem",
+        }}
+      >
+        <input
+          placeholder="Search name, nat., WAID…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={FILTER_CONTROL_STYLE}
+        />
+        <select value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)} style={FILTER_CONTROL_STYLE}>
+          <option value="">All disciplines</option>
+          {filterOptions.disciplines.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <select value={filterGender} onChange={(e) => setFilterGender(e.target.value)} style={FILTER_CONTROL_STYLE}>
+          <option value="">All genders</option>
+          <option value="W">Women (W)</option>
+          <option value="M">Men (M)</option>
+        </select>
+        <select value={filterNat} onChange={(e) => setFilterNat(e.target.value)} style={FILTER_CONTROL_STYLE}>
+          <option value="">All nations</option>
+          {filterOptions.nats.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        {filterOptions.heats.length > 0 && (
+          <select value={filterHeat} onChange={(e) => setFilterHeat(e.target.value)} style={FILTER_CONTROL_STYLE}>
+            <option value="">All heats</option>
+            {filterOptions.heats.map((h) => <option key={h} value={h}>Heat {h}</option>)}
+          </select>
+        )}
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={FILTER_CONTROL_STYLE}>
+          <option value="">All statuses</option>
+          <option value="ok">Confirmed (OK)</option>
+          <option value="out">Withdrawn (Out)</option>
+        </select>
+        <select value={filterWa} onChange={(e) => setFilterWa(e.target.value)} style={FILTER_CONTROL_STYLE}>
+          <option value="">All WA sync</option>
+          <option value="synced">WA synced ✓</option>
+          <option value="has_waid">Has WAID</option>
+          <option value="no_waid">No WAID</option>
+        </select>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer", fontSize: "0.8rem", color: "#475569", whiteSpace: "nowrap" }}>
+          <input type="checkbox" checked={groupByEvent} onChange={(e) => setGroupByEvent(e.target.checked)} style={{ width: "auto" }} />
+          Group by event
+        </label>
+      </div>
 
       {/* ── Table ── */}
       {athletes.length === 0 ? (
@@ -2037,6 +2317,11 @@ function AthletesListPage({ Panel }) {
               <table className="data-table" ref={tableRef}>
                 <thead>
                   <tr>
+                    {canViewUnifiedProfile && (
+                      <th className="col-sticky" data-sticky-col="1" title="Relié à l'historique multi-éditions ?">
+                        Registre
+                      </th>
+                    )}
                     {displayedFields.map((f) => {
                       const isSticky = f.key === "lastName" || f.key === "firstName";
                       const isLast = isSticky &&
@@ -2061,6 +2346,9 @@ function AthletesListPage({ Panel }) {
                 {groupByEvent
                   ? grouped.map(([eventKey, group]) => {
                       const ev = parseEventField(eventKey);
+                      const unstandardized = [...new Set(
+                        group.filter((a) => !a._std.standardized).map((a) => a.event || "(vide)"),
+                      )];
                       return (
                         <tbody key={eventKey} className="event-group">
                           <tr className="event-group-header">
@@ -2073,11 +2361,25 @@ function AthletesListPage({ Panel }) {
                                 <span style={{ color: "#888", fontSize: "0.8rem", fontWeight: 400 }}>
                                   {group.length} athlete{group.length !== 1 ? "s" : ""}
                                 </span>
+                                {unstandardized.length > 0 && (
+                                  <span
+                                    className="status-pill status-pill--warn"
+                                    style={{ fontSize: "0.72rem" }}
+                                    title={`Épreuve brute non standard : ${unstandardized.join(" · ")}`}
+                                  >
+                                    ⚠ à vérifier
+                                  </span>
+                                )}
                               </div>
                             </td>
                           </tr>
                           {group.map((a) => (
                             <tr key={a.id} className={a.status === "out" ? "row--muted" : ""}>
+                              {canViewUnifiedProfile && (
+                                <td className="col-sticky">
+                                  <RegistryLinkCell athlete={a} onOpen={() => setSelectedAthleteId(a.id)} />
+                                </td>
+                              )}
                               {displayedFields.map((f) => {
                                 const isSticky = f.key === "lastName" || f.key === "firstName";
                                 const isLast = isSticky &&
@@ -2106,6 +2408,11 @@ function AthletesListPage({ Panel }) {
                     <tbody>
                       {filtered.map((a) => (
                         <tr key={a.id} className={a.status === "out" ? "row--muted" : ""}>
+                          {canViewUnifiedProfile && (
+                            <td className="col-sticky">
+                              <RegistryLinkCell athlete={a} onOpen={() => setSelectedAthleteId(a.id)} />
+                            </td>
+                          )}
                           {displayedFields.map((f) => {
                             const isSticky = f.key === "lastName" || f.key === "firstName";
                             const isLast = isSticky &&
@@ -2221,9 +2528,18 @@ function AthleteImportPage({ Panel }) {
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
   const canImport = canImportAthletes(roles, settings);
-  const { athletes } = useAthletes(true);
-  const { history: importHistory, loading: historyLoading } = useAthleteImportHistory(canImport);
+  const { activeEditionId } = useActiveEdition();
+  // Defaults to the real current edition, but can be pointed at "test" to
+  // rehearse an import (partial columns, real files, etc.) without it ever
+  // reaching the live roster shown elsewhere in the app.
+  const [targetEditionId, setTargetEditionId] = useState(activeEditionId);
+  useEffect(() => { setTargetEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  const { athletes } = useAthletes(true, targetEditionId);
+  const { people: accompanyingPersons } = useAccompanyingPersons(true, targetEditionId);
+  const { history: importHistory, loading: historyLoading } = useAthleteImportHistory(canImport, targetEditionId);
   const [expandedImportId, setExpandedImportId] = useState("");
+  const { editions: meetingEditions } = useMeetingEditions();
+  const meetingReferenceDate = meetingEditions.find((e) => String(e.year) === String(activeEditionId))?.date;
 
   const [parsed, setParsed] = useState(null);
   const [status, setStatus] = useState("");
@@ -2258,13 +2574,18 @@ function AthleteImportPage({ Panel }) {
       const { read, utils } = await import("xlsx");
       const wb = read(await file.arrayBuffer());
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = utils.sheet_to_json(ws, { header: 1, defval: "" });
+      const rows = sheetRowsWithHyperlinks(utils, ws);
       if (rows.length < 2) { setStatus("File appears empty."); return; }
       const detected = detectFileType(rows);
-      const records = parseRows(rows, detected);
-      const presentFields = detected.colMap ? Object.keys(detected.colMap) : null;
-      setParsed({ fileType: detected.type, records, fileName: file.name, presentFields, file });
-      setStatus(`Detected: ${detected.type} — ${records.length} records.${presentFields ? ` Columns: ${presentFields.join(", ")}.` : ""}`);
+      const { records, staff } = parseRows(rows, detected);
+      const presentFields = detected.colMap
+        ? [...new Set([
+            ...Object.keys(detected.colMap),
+            ...(detected.hasHeatSentinels ? ["heat", "lane"] : []),
+          ])]
+        : null;
+      setParsed({ fileType: detected.type, records, staff, fileName: file.name, presentFields, file });
+      setStatus(`Detected: ${detected.type} — ${records.length} athletes${staff.length ? `, ${staff.length} staff/accompanying persons` : ""}.${presentFields ? ` Columns: ${presentFields.join(", ")}.` : ""}`);
     } catch (err) { setStatus(`Error: ${err.message}`); }
   }
 
@@ -2282,11 +2603,28 @@ function AthleteImportPage({ Panel }) {
         const { id: _id, _ev, ...data } = a; // strip client-only fields
         batch.set(doc(db, ATHLETES_COLLECTION, id), {
           ...data,
+          editionId: targetEditionId,
           importedAt: serverTimestamp(),
           importSource: parsed.fileType,
         });
       });
       await batch.commit();
+
+      if (parsed.staff?.length) {
+        const staffMerge = mergeAccompanyingPersons(accompanyingPersons, parsed.staff);
+        const staffBatch = writeBatch(db);
+        staffMerge.merged.forEach((p, i) => {
+          const id = p.id || `staff_${Date.now()}_${i}`;
+          const { id: _id, ...data } = p;
+          staffBatch.set(doc(db, ATHLETE_ACCOMPANYING_COLLECTION, id), {
+            ...data,
+            editionId: targetEditionId,
+            importedAt: serverTimestamp(),
+            importSource: parsed.fileType,
+          });
+        });
+        await staffBatch.commit();
+      }
 
       const links = await Promise.all(
         athleteRefs
@@ -2330,6 +2668,7 @@ function AthleteImportPage({ Panel }) {
           added, updated, markedOut, changes,
           actorName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(" ") || currentUser?.email || "",
           actorUid: currentUser?.uid || "",
+          editionId: targetEditionId,
         });
       } catch (historyError) {
         console.error("Unable to archive this import", historyError);
@@ -2337,6 +2676,7 @@ function AthleteImportPage({ Panel }) {
 
       const parts = [`${added} added`, `${updated} updated`];
       if (markedOut > 0) parts.push(`${markedOut} marked out (not in file)`);
+      if (parsed.staff?.length) parts.push(`${parsed.staff.length} staff/accompanying persons`);
       setStatus(`Done. ${parts.join(" · ")} · ${merged.length} total.`);
       setParsed(null);
       if (fileRef.current) fileRef.current.value = "";
@@ -2351,6 +2691,22 @@ function AthleteImportPage({ Panel }) {
           <p className="eyebrow">Athlete Portal</p>
           <h1>Import file</h1>
           <p>Format detected automatically. Existing WAID and WA data are always preserved.</p>
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <label style={{ fontSize: "0.8rem", color: "#607086" }}>Import into:</label>
+            <select
+              value={targetEditionId}
+              onChange={(e) => setTargetEditionId(e.target.value)}
+              style={FILTER_CONTROL_STYLE}
+            >
+              <option value={activeEditionId}>Current edition ({activeEditionId})</option>
+              {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+            </select>
+            {targetEditionId === "test" && (
+              <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
+                Isolated — never shown on the public site or to volunteers
+              </span>
+            )}
+          </div>
         </div>
       </section>
 
@@ -2436,7 +2792,7 @@ function AthleteImportPage({ Panel }) {
                           <><td>{r.heat ?? "—"}</td><td>{r.lane ?? "—"}</td></>
                         )}
                         {(parsed.fileType === "TRAVEL" || parsed.fileType === "COMBINED") && (
-                          <><td>{r.manager ?? "—"}</td><td><TravelCell raw={r.arrival} prefix="arrival" /></td><td><TravelCell raw={r.departure} prefix="departure" /></td></>
+                          <><td>{r.manager ?? "—"}</td><td><TravelCell raw={r.arrival} prefix="arrival" referenceDate={meetingReferenceDate} /></td><td><TravelCell raw={r.departure} prefix="departure" referenceDate={meetingReferenceDate} /></td></>
                         )}
                       </tr>
                     ))}
@@ -2460,6 +2816,43 @@ function AthleteImportPage({ Panel }) {
           </section>
         </>
       )}
+
+      <section className="panel-grid panel-grid--1">
+        <Panel
+          title={`Staff & accompanying persons (${accompanyingPersons.length})`}
+          subtitle="Coaches, physios, family — detected from the Event column, kept separate from the athlete roster"
+        >
+          {accompanyingPersons.length === 0 ? (
+            <p className="panel-note">None imported yet for this edition.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Last name</th><th>First name</th><th>Nat.</th><th>Role</th>
+                    <th>Linked to</th><th>Status</th><th>Hotel</th><th>Arrival</th><th>Departure</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accompanyingPersons.map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.lastName}</td>
+                      <td>{p.firstName}</td>
+                      <td>{p.nationality || "—"}</td>
+                      <td><span className="status-pill">{p.staffRole || "—"}</span></td>
+                      <td>{p.linkedTo || "—"}</td>
+                      <td>{p.status ? <StatusBadge status={p.status} /> : "—"}</td>
+                      <td>{p.hotel || "—"}</td>
+                      <td><TravelCell raw={p.arrival} prefix="arrival" referenceDate={meetingReferenceDate} /></td>
+                      <td><TravelCell raw={p.departure} prefix="departure" referenceDate={meetingReferenceDate} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </section>
 
       <section className="panel-grid panel-grid--1">
         <Panel title="Import history" subtitle="Every file received, in order, with the original Excel always downloadable">

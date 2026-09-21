@@ -196,14 +196,14 @@ function buildNavigationFromRoles(roles) {
 
 function buildAthletePortalNavigation(roles, portalSettings, { canImport }) {
   const isAdmin = roles.includes("admin") || roles.includes("meeting_director");
-  const links = [makeLink("/app/athlete-portal/athletes", "navAthletes", "Athlètes", "users")];
+  const links = [makeLink("/app/athlete-portal/athletes", "navAthletes", "Vue d'ensemble", "users")];
 
   if (canImport) {
     links.push(makeLink("/app/athlete-portal/import", "navAthleteImport", "Import Excel", "folder"));
   }
 
   if (roles.includes("chef_transport_athletes") || roles.includes("admin")) {
-    links.push(makeLink("/app/athlete-portal/transport", "navAthleteTransport", "Transport athlètes", "users"));
+    links.push(makeLink("/app/athlete-portal/transport", "navAthleteTransport", "Transport", "users"));
   }
 
   if (roles.includes("benevole_transport_athletes")) {

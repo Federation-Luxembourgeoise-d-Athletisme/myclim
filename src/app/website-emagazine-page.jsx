@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSiteEditionYear } from "./edition";
+import { useActiveEdition, useSiteEditionYear } from "./edition";
 import { useMeetingEditions, updateEdition } from "./meeting-history-hooks";
 import { useAthleteRegistry, useAthletes } from "./athlete-portal-hooks";
 import { useSponsors } from "../site/site-hooks";
@@ -315,7 +315,8 @@ export function WebsiteEmagazinePage({ Panel }) {
   const { editions, loading: editionsLoading } = useMeetingEditions();
   const { siteEditionYear } = useSiteEditionYear();
   const { registry } = useAthleteRegistry(true);
-  const { athletes } = useAthletes(true);
+  const { activeEditionId } = useActiveEdition();
+  const { athletes } = useAthletes(true, activeEditionId);
   const { sponsors } = useSponsors(false);
 
   const defaultYear = siteEditionYear ?? editions.find((edition) => !edition.isClosed)?.year ?? editions[0]?.year ?? null;

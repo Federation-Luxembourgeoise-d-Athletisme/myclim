@@ -3,12 +3,14 @@ import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "
 import { useAuth } from "../context/auth-context";
 import { getActiveRoles } from "./navigation";
 import { useActiveEdition } from "./edition";
+import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
 import {
   ATHLETE_TRANSPORT_LOTS_COLLECTION,
   useAthletes,
   useAthleteTransportLots,
   useTransportVolunteers,
+  formatTravelDay,
 } from "./athlete-portal-hooks";
 
 // ─── Chief page ───────────────────────────────────────────────────────────────
@@ -16,9 +18,11 @@ import {
 function AthleteTransportChiefPage({ Panel }) {
   const [tab, setTab] = useState("arrivals");
   const { lots, loading: lotsLoading } = useAthleteTransportLots();
-  const { athletes, loading: athletesLoading } = useAthletes();
-  const { volunteers, loading: volunteersLoading } = useTransportVolunteers();
   const { activeEditionId } = useActiveEdition();
+  const { athletes, loading: athletesLoading } = useAthletes(true, activeEditionId);
+  const { volunteers, loading: volunteersLoading } = useTransportVolunteers();
+  const { editions: meetingEditions } = useMeetingEditions();
+  const meetingReferenceDate = meetingEditions.find((e) => String(e.year) === String(activeEditionId))?.date;
 
   const athletesWithArrival = useMemo(
     () => athletes.filter((a) => a.arrivalDay || a.arrivalFlight || a.arrivalTime),
@@ -42,7 +46,7 @@ function AthleteTransportChiefPage({ Panel }) {
       <section className="page-header">
         <div>
           <p className="eyebrow">Athlete Portal</p>
-          <h1>Transport athlètes</h1>
+          <h1>Transport</h1>
           <p>Gérez les lots de transport et les affectations des bénévoles.</p>
         </div>
       </section>
@@ -80,6 +84,7 @@ function AthleteTransportChiefPage({ Panel }) {
           lotAthleteIds={lotAthleteIds}
           volunteers={volunteers}
           editionId={activeEditionId}
+          meetingReferenceDate={meetingReferenceDate}
         />
       )}
       {tab === "lots" && (
@@ -107,7 +112,7 @@ function AthleteTransportChiefPage({ Panel }) {
 
 // ─── Arrivées tab ─────────────────────────────────────────────────────────────
 
-function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers, editionId }) {
+function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers, editionId, meetingReferenceDate }) {
   const [dayFilter, setDayFilter] = useState("");
   const [flightFilter, setFlightFilter] = useState("");
   const [selected, setSelected] = useState(new Set());
@@ -162,7 +167,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
     let label = "";
     if (flights.length === 1) label = `Vol ${flights[0]}`;
     if (times.length === 1) label += (label ? ` ${times[0]}` : `Arr. ${times[0]}`);
-    if (days.length === 1) label += ` — Jour ${days[0]}`;
+    if (days.length === 1) label += ` — ${formatTravelDay(days[0], meetingReferenceDate)}`;
     setNewLotLabel(label || `Lot du ${new Date().toLocaleDateString("fr-FR")}`);
     setNewLotVolunteerId("");
     setShowCreateForm(true);
@@ -211,7 +216,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
           style={{ width: "auto" }}
         >
           <option value="">Tous les jours</option>
-          {days.map((d) => <option key={d} value={d}>Jour {d}</option>)}
+          {days.map((d) => <option key={d} value={d}>{formatTravelDay(d, meetingReferenceDate)}</option>)}
         </select>
         <input
           type="text"
@@ -296,7 +301,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
                     <td>{a.lastName} {a.firstName}</td>
                     <td>{a.nationality}</td>
                     <td>{a.event}</td>
-                    <td>{a.arrivalDay ?? "—"}</td>
+                    <td>{a.arrivalDay ? formatTravelDay(a.arrivalDay, meetingReferenceDate) : "—"}</td>
                     <td>{a.arrivalTime ?? "—"}</td>
                     <td>{a.arrivalFlight ?? "—"}</td>
                     <td>{a.arrivalFrom ?? "—"}</td>
@@ -623,7 +628,8 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
 function AthleteTransportVolunteerPage({ Panel }) {
   const { currentUser } = useAuth();
   const { lots, loading: lotsLoading } = useAthleteTransportLots();
-  const { athletes, loading: athletesLoading } = useAthletes();
+  const { activeEditionId } = useActiveEdition();
+  const { athletes, loading: athletesLoading } = useAthletes(true, activeEditionId);
   const [savingId, setSavingId] = useState(null);
 
   const athleteMap = useMemo(() => {
