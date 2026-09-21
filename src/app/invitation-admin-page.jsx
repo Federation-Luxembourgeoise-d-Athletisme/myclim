@@ -450,6 +450,7 @@ export function InvitationAdminPage({ Panel }) {
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [bulkCreating, setBulkCreating] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
   const [resendFallbackUrl, setResendFallbackUrl] = useState("");
 
@@ -521,14 +522,27 @@ export function InvitationAdminPage({ Panel }) {
     );
   }
 
+  if (bulkCreating) {
+    return (
+      <Panel title="Import en masse">
+        <BulkInviteForm onSaved={() => setBulkCreating(false)} onCancel={() => setBulkCreating(false)} />
+      </Panel>
+    );
+  }
+
   return (
     <Panel
       title="Invitations"
       subtitle="Pré-enregistrez un compte et envoyez un lien d'activation par e-mail."
       actions={
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          + Nouvelle invitation
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => setBulkCreating(true)}>
+            📄 Import en masse
+          </button>
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            + Nouvelle invitation
+          </button>
+        </div>
       }
     >
       {actionStatus && (
