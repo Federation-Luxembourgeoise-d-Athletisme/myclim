@@ -192,6 +192,246 @@ function InviteForm({ onSaved, onCancel }) {
   );
 }
 
+/* ── Bulk import (list of e-mails) ───────────────────────── */
+function parseBulkInput(raw) {
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const seen = new Set();
+  const rows = [];
+  const invalidLines = [];
+
+  raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const parts = line.split(/[,;\t]/).map((p) => p.trim());
+      const [email, firstName = "", lastName = ""] = parts;
+      const normalized = (email || "").toLowerCase();
+      if (!emailRe.test(normalized)) {
+        invalidLines.push(line);
+        return;
+      }
+      if (seen.has(normalized)) return;
+      seen.add(normalized);
+      rows.push({ email: normalized, firstName, lastName });
+    });
+
+  return { rows, invalidLines };
+}
+
+function BulkInviteForm({ onSaved, onCancel }) {
+  const [raw, setRaw] = useState("");
+  const [roles, setRoles] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [progress, setProgress] = useState(null); // { done, total }
+  const [results, setResults] = useState(null); // { succeeded: [], failed: [], mailFailed: [] }
+
+  function toggleRole(value) {
+    setRoles((prev) => prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value]);
+  }
+
+  function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setRaw((prev) => (prev ? prev + "\n" : "") + String(reader.result || ""));
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  const { rows, invalidLines } = parseBulkInput(raw);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (rows.length === 0) { setError("Ajoutez au moins une adresse e-mail valide."); return; }
+    if (roles.length === 0) { setError("Sélectionnez au moins un module."); return; }
+    setSaving(true);
+    setError("");
+    setProgress({ done: 0, total: rows.length });
+
+    const succeeded = [];
+    const failed = [];
+    const mailFailed = [];
+    const roleLabels = roles.map((r) => ROLE_LABEL[r] || r);
+    const { enqueueTransactionalMail, buildInvitationMail } = await import("../services/mailQueue");
+
+    for (const row of rows) {
+      try {
+        const token = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const invitationRef = doc(collection(db, "invitations"));
+
+        await setDoc(invitationRef, {
+          email: row.email,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          roles,
+          roleLabels,
+          token,
+          status: "pending",
+          createdAt: serverTimestamp(),
+          expiresAt,
+        });
+
+        const activationUrl = `${getAppBaseUrl()}/invite?token=${token}`;
+        succeeded.push(row.email);
+
+        try {
+          await enqueueTransactionalMail(buildInvitationMail({
+            email: row.email,
+            firstName: row.firstName,
+            roles: roleLabels,
+            activationUrl,
+          }));
+        } catch {
+          mailFailed.push({ email: row.email, activationUrl });
+        }
+      } catch (rowErr) {
+        failed.push({ email: row.email, message: rowErr.message || "Erreur" });
+      }
+      setProgress((p) => ({ done: (p?.done || 0) + 1, total: rows.length }));
+    }
+
+    setResults({ succeeded, failed, mailFailed });
+    setSaving(false);
+  }
+
+  const labelStyle = { fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#546770", display: "block", marginBottom: 6 };
+  const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)", fontSize: "0.9rem", fontFamily: "inherit", boxSizing: "border-box" };
+
+  if (results) {
+    return (
+      <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 16, padding: 32, maxWidth: 640 }}>
+        <h3 style={{ margin: "0 0 16px 0", fontSize: "1rem", fontWeight: 700 }}>Résultat de l'import</h3>
+        <p style={{ fontSize: "0.9rem", marginBottom: 16 }}>
+          <strong style={{ color: "#16a34a" }}>{results.succeeded.length}</strong> invitation(s) créée(s) sur {rows.length + results.failed.length > 0 ? results.succeeded.length + results.failed.length : rows.length}.
+          {results.mailFailed.length > 0 && (
+            <> <strong style={{ color: "#92400e" }}>{results.mailFailed.length}</strong> mail(s) non envoyé(s) — lien à partager manuellement.</>
+          )}
+        </p>
+
+        {results.mailFailed.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ ...labelStyle, marginBottom: 8 }}>Liens à partager manuellement</div>
+            <div style={{ display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+              {results.mailFailed.map(({ email, activationUrl }) => (
+                <div key={email} style={{ display: "flex", gap: 8, alignItems: "center", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, padding: "8px 12px" }}>
+                  <span style={{ fontSize: "0.78rem", fontWeight: 700, flexShrink: 0 }}>{email}</span>
+                  <code style={{ flex: 1, fontSize: "0.72rem", wordBreak: "break-all", color: "#1066cc" }}>{activationUrl}</code>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(activationUrl)}
+                    style={{ flexShrink: 0, padding: "4px 10px", background: "#1066cc", color: "#fff", border: "none", borderRadius: 6, fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Copier
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {results.failed.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ ...labelStyle, marginBottom: 8, color: "#b91c1c" }}>Échecs</div>
+            <div style={{ display: "grid", gap: 4 }}>
+              {results.failed.map(({ email, message }) => (
+                <div key={email} style={{ fontSize: "0.8rem", color: "#b91c1c" }}>{email} — {message}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button onClick={onSaved} className="btn btn-ghost" style={{ marginTop: 8 }}>
+          Retour à la liste
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 16, padding: 32, maxWidth: 640 }}>
+      <h3 style={{ margin: "0 0 8px 0", fontSize: "1rem", fontWeight: 700 }}>Import en masse</h3>
+      <p style={{ fontSize: "0.82rem", color: "#546770", margin: "0 0 20px 0" }}>
+        Une adresse par ligne, ou <code>email, prénom, nom</code> séparés par une virgule. Vous pouvez aussi importer un fichier .csv ou .txt.
+      </p>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
+        <div>
+          <label style={labelStyle}>Liste d'adresses e-mail *</label>
+          <textarea
+            style={{ ...inputStyle, minHeight: 160, resize: "vertical", fontFamily: "monospace" }}
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            placeholder={"prenom.nom@example.com\njean.dupont@example.com, Jean, Dupont"}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+            <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer" }}>
+              📄 Importer un fichier
+              <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display: "none" }} />
+            </label>
+            {raw.trim() && (
+              <span style={{ fontSize: "0.78rem", color: "#546770" }}>
+                {rows.length} adresse(s) valide(s){invalidLines.length > 0 ? `, ${invalidLines.length} ligne(s) ignorée(s)` : ""}
+              </span>
+            )}
+          </div>
+          {invalidLines.length > 0 && (
+            <p style={{ fontSize: "0.75rem", color: "#b91c1c", marginTop: 6 }}>
+              Lignes ignorées (adresse invalide) : {invalidLines.slice(0, 5).join(" · ")}{invalidLines.length > 5 ? "…" : ""}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label style={{ ...labelStyle, marginBottom: 12 }}>Modules &amp; accès (appliqués à tout le monde) *</label>
+          <div style={{ display: "grid", gap: 8 }}>
+            {platformRoleOptions.map((opt) => (
+              <label
+                key={opt.value}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: `1px solid ${roles.includes(opt.value) ? "#1066cc" : "rgba(0,0,0,0.12)"}`,
+                  background: roles.includes(opt.value) ? "#f0f5ff" : "#fafafa",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={roles.includes(opt.value)}
+                  onChange={() => toggleRole(opt.value)}
+                  style={{ width: 16, height: 16, accentColor: "#1066cc" }}
+                />
+                <div>
+                  <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{opt.label}</div>
+                  <div style={{ fontSize: "0.78rem", color: "#546770" }}>{getRoleDescription(opt.value)}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ background: "#fff0f0", border: "1px solid #f87171", borderRadius: 8, padding: "12px 16px", color: "#b91c1c", fontSize: "0.875rem" }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, paddingTop: 4, alignItems: "center" }}>
+          <button type="submit" disabled={saving || rows.length === 0} className="btn btn-primary">
+            {saving ? `Envoi en cours… (${progress?.done || 0}/${progress?.total || rows.length})` : `✉️ Envoyer ${rows.length || ""} invitation${rows.length > 1 ? "s" : ""}`}
+          </button>
+          <button type="button" onClick={onCancel} className="btn btn-ghost" disabled={saving}>Annuler</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function getRoleDescription(role) {
   const descriptions = {
     admin: "Accès complet à toute la plateforme",
