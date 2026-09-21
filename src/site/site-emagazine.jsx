@@ -92,7 +92,19 @@ function MagazinePage({ theme = "light", eyebrow, title, subtitle, headerExtra, 
   );
 }
 
-function CoverPage({ edition, officialGroupsCount }) {
+function ImportedPage({ imageUrl, title }) {
+  return (
+    <section className="site-emag-page site-emag-page--imported">
+      <img src={imageUrl} alt={title || "Magazine page"} />
+    </section>
+  );
+}
+
+function CoverPage({ edition, officialGroupsCount, imageUrl }) {
+  if (imageUrl) {
+    return <ImportedPage imageUrl={imageUrl} title="Cover" />;
+  }
+
   return (
     <MagazinePage theme="cover" className="site-emag-page--cover">
       <div className="site-emag-cover" style={{ backgroundImage: `linear-gradient(135deg, rgba(7, 24, 54, 0.76), rgba(193, 26, 52, 0.58)), url(${heroImage})` }}>
@@ -529,7 +541,7 @@ export function SiteEmagazine() {
         return [{
           key: "cover",
           title: "Cover",
-          element: <CoverPage edition={currentEdition} officialGroupsCount={officialStartlists.length} />,
+          element: <CoverPage edition={currentEdition} officialGroupsCount={officialStartlists.length} imageUrl={emagazine.cover.imageUrl} />,
         }];
       }
       if (pageId === "welcome") {
@@ -547,6 +559,13 @@ export function SiteEmagazine() {
         }];
       }
       if (pageId === "sponsors") {
+        if (emagazine.sponsorPages.length > 0) {
+          return emagazine.sponsorPages.map((page) => ({
+            key: `sponsor-page-${page.id}`,
+            title: page.title || "Sponsors",
+            element: <ImportedPage imageUrl={page.imageUrl} title={page.title || "Sponsors"} />,
+          }));
+        }
         return [{
           key: "sponsors",
           title: "Sponsor overview",

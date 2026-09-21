@@ -12,6 +12,9 @@ function makeStableId(prefix, index) {
 }
 
 export const DEFAULT_EMAGAZINE_CONFIG = {
+  cover: {
+    imageUrl: "",
+  },
   welcome: {
     title: "Welcome",
     intro: "",
@@ -20,6 +23,7 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
     personName: "",
     personTitle: "",
   },
+  sponsorPages: [],
   specialRaces: {
     influencerRace: {
       enabled: true,
@@ -78,10 +82,16 @@ function normalizePageOrder(pageOrder, config, edition) {
 export function buildEmagazinePageRegistry(config, edition) {
   const officialStartlists = buildOfficialStartlistGroups(edition?.disciplines || [], []);
   return [
-    { id: "cover", kind: "core", title: "Cover", editorAnchor: null, sourcePath: "/e-magazine" },
+    { id: "cover", kind: "core", title: "Cover", editorAnchor: "emag-cover", sourcePath: "/app/website/emagazine" },
     { id: "welcome", kind: "core", title: "Welcome", editorAnchor: "emag-welcome", sourcePath: "/app/website/emagazine" },
     { id: "timetable", kind: "core", title: "Timetable", editorAnchor: null, sourcePath: "/app/website/edition" },
-    { id: "sponsors", kind: "core", title: "Sponsor overview", editorAnchor: null, sourcePath: "/app/website/sponsors" },
+    {
+      id: "sponsors",
+      kind: "core",
+      title: "Sponsor overview",
+      editorAnchor: "emag-sponsor-pages",
+      sourcePath: config.sponsorPages.length ? "/app/website/emagazine" : "/app/website/sponsors",
+    },
     {
       id: "special:influencerRace",
       kind: "special",
@@ -173,6 +183,14 @@ function normalizePartnerPage(page, index) {
   };
 }
 
+function normalizeImportedPage(page, index, prefix) {
+  return {
+    id: page?.id || makeStableId(prefix, index),
+    title: normalizeText(page?.title),
+    imageUrl: normalizeText(page?.imageUrl),
+  };
+}
+
 export function normalizeEmagazineConfig(rawConfig, edition) {
   const currentYear = edition?.year || edition?.id || "";
   const welcomeDefaults = {
@@ -183,6 +201,9 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
   const specialRaces = rawConfig?.specialRaces || {};
 
   const normalized = {
+    cover: {
+      imageUrl: normalizeText(rawConfig?.cover?.imageUrl),
+    },
     welcome: {
       ...welcomeDefaults,
       ...(rawConfig?.welcome || {}),
@@ -207,6 +228,7 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
     },
     highlightPages: (rawConfig?.highlightPages || []).map(normalizeHighlightPage),
     partnerPages: (rawConfig?.partnerPages || []).map(normalizePartnerPage),
+    sponsorPages: (rawConfig?.sponsorPages || []).map((page, index) => normalizeImportedPage(page, index, "sponsor-page")),
     pageOrder: [],
   };
 

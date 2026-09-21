@@ -4126,6 +4126,18 @@
   box-shadow: none;
 }
 
+.site-emag-page--imported {
+  background: #fff;
+  display: block;
+}
+
+.site-emag-page--imported img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 .site-emag-page--highlight {
   background: var(--emag-black);
   border: none;

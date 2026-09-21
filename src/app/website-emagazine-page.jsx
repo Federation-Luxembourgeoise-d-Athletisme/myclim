@@ -448,6 +448,28 @@ export function WebsiteEmagazinePage({ Panel }) {
     updatePageOrder((currentOrder) => currentOrder.filter((entry) => entry !== page.id));
   }
 
+  function appendSponsorPage() {
+    const id = `sponsor-page-${Date.now()}`;
+    setDraft((current) => ({
+      ...current,
+      sponsorPages: [...current.sponsorPages, { id, title: "", imageUrl: "" }],
+    }));
+  }
+
+  function updateSponsorPage(id, field, value) {
+    setDraft((current) => ({
+      ...current,
+      sponsorPages: current.sponsorPages.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry)),
+    }));
+  }
+
+  function removeSponsorPage(id) {
+    setDraft((current) => ({
+      ...current,
+      sponsorPages: current.sponsorPages.filter((entry) => entry.id !== id),
+    }));
+  }
+
   function showHiddenPage(pageId) {
     updatePageOrder((currentOrder) => [...currentOrder, pageId]);
   }
@@ -625,6 +647,56 @@ export function WebsiteEmagazinePage({ Panel }) {
               </div>
             </div>
           ) : null}
+        </div>
+
+        <div id="emag-cover" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
+          <div>
+            <h3 style={{ margin: 0, color: "#10253d" }}>Cover</h3>
+            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
+              A4 page designed by the graphic designer, exported as an image. Leave empty to keep the built-in cover.
+            </p>
+          </div>
+          <FileUpload
+            value={draft.cover.imageUrl}
+            onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, imageUrl: url } }))}
+            accept="image/*"
+            storagePath="emagazine-imported-pages"
+            label="Cover page (A4 image)"
+          />
+        </div>
+
+        <div id="emag-sponsor-pages" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start", flexWrap: "wrap" }}>
+            <div>
+              <h3 style={{ margin: 0, color: "#10253d" }}>Sponsor pages</h3>
+              <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem", maxWidth: 640 }}>
+                A4 pages designed by the graphic designer. When at least one is added, they replace the auto-generated sponsor overview page.
+              </p>
+            </div>
+            <EmptyButton onClick={appendSponsorPage}>+ Add sponsor page</EmptyButton>
+          </div>
+          {draft.sponsorPages.length === 0 ? (
+            <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No imported sponsor page yet — the live sponsor logo grid is shown instead.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 14 }}>
+              {draft.sponsorPages.map((page) => (
+                <div key={page.id} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12, alignItems: "end", padding: 14, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
+                  <div>
+                    <label style={labelStyle}>Label (internal)</label>
+                    <input style={inputStyle} value={page.title} onChange={(event) => updateSponsorPage(page.id, "title", event.target.value)} placeholder="e.g. Gold partners" />
+                  </div>
+                  <FileUpload
+                    value={page.imageUrl}
+                    onChange={(url) => updateSponsorPage(page.id, "imageUrl", url)}
+                    accept="image/*"
+                    storagePath="emagazine-imported-pages"
+                    label="Page image (A4)"
+                  />
+                  <EmptyButton onClick={() => removeSponsorPage(page.id)} style={{ color: "#c62828" }}>Remove</EmptyButton>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div id="emag-welcome" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
