@@ -36,6 +36,14 @@ import {
 import { updateEdition, useMeetingEditions } from "./meeting-history-hooks";
 
 /* ── Shared helpers ──────────────────────────────────────── */
+function getDisplayHostname(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 function formatDate(ts) {
   if (!ts) return "—";
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -814,7 +822,7 @@ export function WebsiteSponsorsPage({ Panel }) {
                     <td style={{ fontSize: "0.78rem" }}>
                       {s.website ? (
                         <a href={s.website} target="_blank" rel="noopener noreferrer" style={{ color: "#1066cc" }}>
-                          {new URL(s.website).hostname}
+                          {getDisplayHostname(s.website)}
                         </a>
                       ) : "—"}
                     </td>

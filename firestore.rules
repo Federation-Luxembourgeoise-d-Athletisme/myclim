@@ -108,9 +108,23 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // siteEditionYear pilote quelle édition est visible sur le site public,
+    // et doit rester modifiable par un gestionnaire_site (pas seulement
+    // admin/gestionnaire) — voir WebsiteEditionPage / setSiteEditionYear().
+    // Les autres champs de ce doc (activeEdition, préprogramme, rôles
+    // bénévoles) restent réservés à admin/gestionnaire.
     match /appSettings/platform {
       allow read: if true;
-      allow write: if isAdminOrManager();
+      allow write: if isAdminOrManager() ||
+        (isWebsiteManager() &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(["siteEditionYear", "updatedAt"]));
+    }
+
+    // Éditions du meeting : lecture publique (timetable, résultats, e-magazine
+    // affichés à tous sur le site), écriture réservée aux gestionnaires du site.
+    match /meetingEditions/{editionId} {
+      allow read: if true;
+      allow write: if isWebsiteManager();
     }
 
     // Composition des équipes : lue par tous les bénévoles/chefs d'équipe pour
