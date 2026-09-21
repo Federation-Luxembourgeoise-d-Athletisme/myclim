@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
@@ -327,6 +327,24 @@ function applyTravelFields(merged, record, presentFields) {
   if (hasColumn("manager")) merged.manager = record.manager ?? null;
 }
 
+// Fields worth calling out when comparing one import to the next — WA-sourced
+// fields are deliberately excluded (they change via the Sync button, not via
+// import, so surfacing them here would be noise unrelated to this file).
+const DIFFABLE_ATHLETE_FIELDS = [
+  { key: "event",     label: "Épreuve" },
+  { key: "status",    label: "Statut" },
+  { key: "heat",      label: "Série" },
+  { key: "lane",      label: "Couloir" },
+  { key: "manager",   label: "Manager" },
+  { key: "arrival",   label: "Arrivée" },
+  { key: "departure", label: "Départ" },
+  { key: "waid",      label: "WAID" },
+];
+
+function athleteDisplayLabel(a) {
+  return [a.lastName, a.firstName].filter(Boolean).join(" ") || "(sans nom)";
+}
+
 function mergeAthletes(existing, incoming, fileType, presentFields = null) {
   const byKey = new Map(
     existing.map((a) => [athleteMergeKey(a.lastName, a.firstName, a.nationality), { ...a }]),
@@ -334,12 +352,18 @@ function mergeAthletes(existing, incoming, fileType, presentFields = null) {
   const matchedKeys = new Set(); // tracks which existing athletes appear in this import
   let added = 0;
   let updated = 0;
+  const changes = [];
 
   for (const record of incoming) {
     const key = athleteMergeKey(record.lastName, record.firstName, record.nationality);
     const ex = byKey.get(key);
 
-    if (!ex) { byKey.set(key, { ...record }); added++; continue; }
+    if (!ex) {
+      byKey.set(key, { ...record });
+      added++;
+      changes.push({ type: "added", name: athleteDisplayLabel(record), event: record.event || null });
+      continue;
+    }
 
     matchedKeys.add(key);
     const merged = { ...ex };
@@ -382,6 +406,13 @@ function mergeAthletes(existing, incoming, fileType, presentFields = null) {
       if (record.waid)      merged.waid      = record.waid;
     }
 
+    const fieldChanges = DIFFABLE_ATHLETE_FIELDS
+      .filter(({ key: field }) => (ex[field] ?? null) !== (merged[field] ?? null))
+      .map(({ key: field, label }) => ({ field, label, before: ex[field] ?? null, after: merged[field] ?? null }));
+    if (fieldChanges.length > 0) {
+      changes.push({ type: "updated", name: athleteDisplayLabel(merged), event: merged.event || null, fields: fieldChanges });
+    }
+
     byKey.set(key, merged);
     updated++;
   }
@@ -393,6 +424,12 @@ function mergeAthletes(existing, incoming, fileType, presentFields = null) {
   if (fileType === "COMBINED" || fileType === "START_LIST") {
     for (const [key, athlete] of byKey) {
       if (athlete.id && !matchedKeys.has(key)) {
+        // Only count/report a fresh cancellation — an athlete already marked
+        // "out" by a previous import isn't a change introduced by this one.
+        if (athlete.status !== "out") {
+          markedOut++;
+          changes.push({ type: "markedOut", name: athleteDisplayLabel(athlete), event: athlete.event || null });
+        }
         byKey.set(key, {
           ...athlete,
           status:    "out",
@@ -400,12 +437,11 @@ function mergeAthletes(existing, incoming, fileType, presentFields = null) {
           arrival: null, arrivalDay: null, arrivalTime: null, arrivalFlight: null, arrivalFrom: null,
           departure: null, departureDay: null, departureTime: null, departureFlight: null, departureTo: null,
         });
-        markedOut++;
       }
     }
   }
 
-  return { merged: [...byKey.values()], added, updated, markedOut };
+  return { merged: [...byKey.values()], added, updated, markedOut, changes };
 }
 
 // ─── Small shared components ─────────────────────────────────────────────────
@@ -689,12 +725,6 @@ function compareEventGroups([keyA], [keyB]) {
  * Best available competition reference time for heat seeding.
  * Priority: current indoor SB → prev indoor SB → outdoor SB → indoor PB → outdoor PB → raw SB/PB
  */
-function getCompPace(a) {
-  return a.waIndoorSbCurrent || a.waIndoorSb || a.waOutdoorSb
-      || a.waPbIndoor || a.waPbOutdoor
-      || a.sb || a.pb || null;
-}
-
 function GenderBadge({ gender }) {
   if (!gender) return null;
   const w = gender === "W";
@@ -1053,7 +1083,6 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
                     <th>Statut</th>
                     <th>Série</th>
                     <th>Couloir</th>
-                    <th>Réf. perf</th>
                     <th>Voyage</th>
                   </tr>
                 </thead>
@@ -1064,7 +1093,6 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
                       <td>{athlete.status ? <StatusBadge status={athlete.status} /> : "—"}</td>
                       <td>{athlete.heat || "—"}</td>
                       <td>{athlete.lane || "—"}</td>
-                      <td>{getCompPace(athlete) || "—"}</td>
                       <td>
                         {athlete.arrival || athlete.departure
                           ? [athlete.arrival, athlete.departure].filter(Boolean).join(" / ")
@@ -1455,6 +1483,38 @@ function mergeRegistryEditions(entries) {
 
 // ─── Athletes list page ───────────────────────────────────────────────────────
 
+const ATHLETES_HIDDEN_COLS_STORAGE_KEY = "myclim-athletes-hidden-cols";
+
+// Columns hidden by default the first time someone opens this page — mostly
+// duplicates of a column shown elsewhere (Excel PB/SB once WA sync has taken
+// over as the reliable source, or the granular arrival/departure sub-fields
+// which the "Arrival"/"Departure" column already renders in one readable
+// cell via TravelCell). Still reachable any time from "Colonnes".
+const DEFAULT_HIDDEN_ATHLETE_COLUMNS = [
+  "pb", "pbIndoor", "pbOutdoor", "sb",
+  "waUrl", "worldRanking",
+  "arrivalDay", "arrivalTime", "arrivalFlight", "arrivalFrom",
+  "departureDay", "departureTime", "departureFlight", "departureTo",
+];
+
+function loadHiddenAthleteColumns() {
+  try {
+    const raw = window.localStorage.getItem(ATHLETES_HIDDEN_COLS_STORAGE_KEY);
+    if (raw === null) return new Set(DEFAULT_HIDDEN_ATHLETE_COLUMNS);
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set(DEFAULT_HIDDEN_ATHLETE_COLUMNS);
+  }
+}
+
+function saveHiddenAthleteColumns(hiddenCols) {
+  try {
+    window.localStorage.setItem(ATHLETES_HIDDEN_COLS_STORAGE_KEY, JSON.stringify([...hiddenCols]));
+  } catch {
+    // Best-effort only (private browsing, storage disabled, etc.)
+  }
+}
+
 function AthletesListPage({ Panel }) {
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
@@ -1475,8 +1535,16 @@ function AthletesListPage({ Panel }) {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterWa,     setFilterWa]     = useState("");
   const [groupByEvent, setGroupByEvent] = useState(true);
-  // Column visibility — keys in this set are hidden (lastName + firstName always visible)
-  const [hiddenCols,    setHiddenCols]    = useState(new Set());
+  // Column visibility — keys in this set are hidden (lastName + firstName always visible).
+  // Persisted per-browser so a curated view survives reloads.
+  const [hiddenCols, setHiddenColsState] = useState(loadHiddenAthleteColumns);
+  function setHiddenCols(updater) {
+    setHiddenColsState((current) => {
+      const next = typeof updater === "function" ? updater(current) : updater;
+      saveHiddenAthleteColumns(next);
+      return next;
+    });
+  }
   const [colPickerOpen, setColPickerOpen] = useState(false);
   const colPickerRef = useRef(null);
   const tableRef = useRef(null);
@@ -1615,15 +1683,8 @@ function AthletesListPage({ Panel }) {
     [tableFields],
   );
 
-  // Show "Ref. Pace" column whenever any performance data is visible AND not hidden
-  const showPace = displayedFields.some((f) =>
-    ["sb","pb","pbIndoor","pbOutdoor","waPbIndoor","waPbOutdoor",
-     "waIndoorSb","waIndoorSbCurrent","waOutdoorSb"].includes(f.key),
-  );
-
   const colCount =
     displayedFields.length
-    + (showPace ? 1 : 0)
     + (canEdit && !displayedFields.find((f) => f.key === "waid") ? 1 : 0)
     + (canEdit ? 1 : 0);
 
@@ -1992,7 +2053,6 @@ function AthletesListPage({ Panel }) {
                         </th>
                       );
                     })}
-                    {showPace && <th title="Best available reference time for competition seeding">Ref. Pace</th>}
                     {canEdit && !displayedFields.find((f) => f.key === "waid") && <th>WAID</th>}
                     {canEdit && <th>WA sync</th>}
                   </tr>
@@ -2033,13 +2093,6 @@ function AthletesListPage({ Panel }) {
                                   </td>
                                 );
                               })}
-                              {showPace && (
-                                <td>
-                                  {getCompPace(a)
-                                    ? <span className="status-pill status-pill--accent">{getCompPace(a)}</span>
-                                    : <span style={{ color: "#bbb" }}>—</span>}
-                                </td>
-                              )}
                               {canEdit && !displayedFields.find((f) => f.key === "waid") && (
                                 <td><WaidCell athlete={a} onSave={handleSaveWaid} /></td>
                               )}
@@ -2068,13 +2121,6 @@ function AthletesListPage({ Panel }) {
                               </td>
                             );
                           })}
-                          {showPace && (
-                            <td>
-                              {getCompPace(a)
-                                ? <span className="status-pill status-pill--accent">{getCompPace(a)}</span>
-                                : <span style={{ color: "#bbb" }}>—</span>}
-                            </td>
-                          )}
                           {canEdit && !displayedFields.find((f) => f.key === "waid") && (
                             <td><WaidCell athlete={a} onSave={handleSaveWaid} /></td>
                           )}
@@ -2087,12 +2133,6 @@ function AthletesListPage({ Panel }) {
               </table>
             </div>
             <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
-              {showPace && (
-                <p className="panel-note">
-                  <span className="status-pill status-pill--accent">7.05 …</span>{" "}
-                  Ref. Pace = best available: indoor SB (current) → indoor SB → outdoor SB → PB
-                </p>
-              )}
               {visibleFields.some((f) => f.group === "wa") && (
                 <p className="panel-note">
                   <span className="status-pill status-pill--accent">WA value</span> = sourced from World Athletics
@@ -2119,6 +2159,63 @@ function AthletesListPage({ Panel }) {
 
 // ─── Import page ──────────────────────────────────────────────────────────────
 
+function formatChangeValue(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
+
+function ImportChangesDetail({ changes }) {
+  const added = changes.filter((c) => c.type === "added");
+  const updated = changes.filter((c) => c.type === "updated");
+  const markedOut = changes.filter((c) => c.type === "markedOut");
+
+  return (
+    <div style={{ display: "grid", gap: 12, padding: "0.75rem 0.5rem", fontSize: "0.82rem" }}>
+      {added.length > 0 && (
+        <div>
+          <strong style={{ color: "#166534" }}>+ {added.length} ajouté{added.length > 1 ? "s" : ""}</strong>
+          <ul className="compact-list" style={{ margin: "4px 0 0" }}>
+            {added.map((c, i) => (
+              <li key={i}>{c.name}{c.event ? ` — ${c.event}` : ""}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {markedOut.length > 0 && (
+        <div>
+          <strong style={{ color: "#b45309" }}>− {markedOut.length} annulé{markedOut.length > 1 ? "s" : ""} (marqué Out)</strong>
+          <ul className="compact-list" style={{ margin: "4px 0 0" }}>
+            {markedOut.map((c, i) => (
+              <li key={i}>{c.name}{c.event ? ` — ${c.event}` : ""}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {updated.length > 0 && (
+        <div>
+          <strong style={{ color: "#1d4ed8" }}>~ {updated.length} modifié{updated.length > 1 ? "s" : ""}</strong>
+          <ul className="compact-list" style={{ margin: "4px 0 0" }}>
+            {updated.map((c, i) => (
+              <li key={i}>
+                {c.name}{c.event ? ` — ${c.event}` : ""} :{" "}
+                {c.fields.map((f, j) => (
+                  <span key={j}>
+                    {j > 0 ? ", " : ""}
+                    <em>{f.label}</em> {formatChangeValue(f.before)} → {formatChangeValue(f.after)}
+                  </span>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {added.length === 0 && markedOut.length === 0 && updated.length === 0 && (
+        <p className="panel-note" style={{ margin: 0 }}>Aucun changement détecté.</p>
+      )}
+    </div>
+  );
+}
+
 function AthleteImportPage({ Panel }) {
   const { userProfile, currentUser } = useAuth();
   const roles = getActiveRoles(userProfile);
@@ -2126,6 +2223,7 @@ function AthleteImportPage({ Panel }) {
   const canImport = canImportAthletes(roles, settings);
   const { athletes } = useAthletes(true);
   const { history: importHistory, loading: historyLoading } = useAthleteImportHistory(canImport);
+  const [expandedImportId, setExpandedImportId] = useState("");
 
   const [parsed, setParsed] = useState(null);
   const [status, setStatus] = useState("");
@@ -2174,7 +2272,7 @@ function AthleteImportPage({ Panel }) {
     if (!parsed) return;
     setSaving(true); setStatus("Merging and saving…");
     try {
-      const { merged, added, updated, markedOut } = mergeAthletes(athletes, parsed.records, parsed.fileType, parsed.presentFields);
+      const { merged, added, updated, markedOut, changes } = mergeAthletes(athletes, parsed.records, parsed.fileType, parsed.presentFields);
       const batch = writeBatch(db);
       const athleteRefs = [];
       // Never delete athletes — update or create only
@@ -2229,7 +2327,7 @@ function AthleteImportPage({ Panel }) {
           fileType: parsed.fileType,
           presentFields: parsed.presentFields,
           recordCount: parsed.records.length,
-          added, updated, markedOut,
+          added, updated, markedOut, changes,
           actorName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(" ") || currentUser?.email || "",
           actorUid: currentUser?.uid || "",
         });
@@ -2374,38 +2472,68 @@ function AthleteImportPage({ Panel }) {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Version</th><th>File</th><th>Type</th><th>Columns</th><th>Records</th><th>By</th><th>Date</th><th></th>
+                    <th>Version</th><th>File</th><th>Type</th><th>Columns</th><th>Records</th><th>Changes</th><th>By</th><th>Date</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {importHistory.map((entry, index) => (
-                    <tr key={entry.id}>
-                      <td>
-                        {index === 0 ? (
-                          <span className="status-pill status-pill--ok" style={{ fontSize: "0.72rem" }}>current</span>
-                        ) : (
-                          <span style={{ color: "#94a3b8" }}>#{importHistory.length - index}</span>
+                  {importHistory.map((entry, index) => {
+                    const changes = Array.isArray(entry.changes) ? entry.changes : [];
+                    const isExpanded = expandedImportId === entry.id;
+                    return (
+                      <Fragment key={entry.id}>
+                        <tr>
+                          <td>
+                            {index === 0 ? (
+                              <span className="status-pill status-pill--ok" style={{ fontSize: "0.72rem" }}>current</span>
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>#{importHistory.length - index}</span>
+                            )}
+                          </td>
+                          <td>{entry.fileName}</td>
+                          <td><FileTypeBadge type={entry.fileType} /></td>
+                          <td style={{ maxWidth: 240, fontSize: "0.78rem", color: "#607086" }}>
+                            {entry.presentFields ? entry.presentFields.join(", ") : "—"}
+                          </td>
+                          <td>{entry.recordCount ?? "—"}</td>
+                          <td>
+                            {changes.length === 0 ? (
+                              <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>—</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="button button--ghost button--small"
+                                onClick={() => setExpandedImportId(isExpanded ? "" : entry.id)}
+                                style={{ fontSize: "0.78rem", whiteSpace: "nowrap" }}
+                              >
+                                {entry.added > 0 ? `+${entry.added} ` : ""}
+                                {entry.updated > 0 ? `~${entry.updated} ` : ""}
+                                {entry.markedOut > 0 ? `-${entry.markedOut} ` : ""}
+                                {isExpanded ? "▲" : "▼"}
+                              </button>
+                            )}
+                          </td>
+                          <td>{entry.actorName || "—"}</td>
+                          <td>{entry.importedAt?.toDate ? entry.importedAt.toDate().toLocaleString() : "—"}</td>
+                          <td>
+                            {entry.fileUrl ? (
+                              <a href={entry.fileUrl} target="_blank" rel="noopener noreferrer" className="button button--secondary button--small">
+                                Download
+                              </a>
+                            ) : (
+                              <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>not archived</span>
+                            )}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={9} style={{ background: "#f8fafc" }}>
+                              <ImportChangesDetail changes={changes} />
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                      <td>{entry.fileName}</td>
-                      <td><FileTypeBadge type={entry.fileType} /></td>
-                      <td style={{ maxWidth: 240, fontSize: "0.78rem", color: "#607086" }}>
-                        {entry.presentFields ? entry.presentFields.join(", ") : "—"}
-                      </td>
-                      <td>{entry.recordCount ?? "—"}</td>
-                      <td>{entry.actorName || "—"}</td>
-                      <td>{entry.importedAt?.toDate ? entry.importedAt.toDate().toLocaleString() : "—"}</td>
-                      <td>
-                        {entry.fileUrl ? (
-                          <a href={entry.fileUrl} target="_blank" rel="noopener noreferrer" className="button button--secondary button--small">
-                            Download
-                          </a>
-                        ) : (
-                          <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>not archived</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

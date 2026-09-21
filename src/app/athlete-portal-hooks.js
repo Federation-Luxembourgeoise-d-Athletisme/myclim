@@ -766,7 +766,7 @@ async function uploadAthleteImportFile(file) {
   return { url: payload.url, filePath: payload.filePath || "" };
 }
 
-async function recordAthleteImport({ file, fileType, presentFields, recordCount, added, updated, markedOut, actorName, actorUid }) {
+async function recordAthleteImport({ file, fileType, presentFields, recordCount, added, updated, markedOut, changes, actorName, actorUid }) {
   let fileUrl = "";
   let filePath = "";
   try {
@@ -784,6 +784,7 @@ async function recordAthleteImport({ file, fileType, presentFields, recordCount,
     fileType,
     presentFields: presentFields || null,
     recordCount, added, updated, markedOut,
+    changes: Array.isArray(changes) ? changes : [],
     actorName: actorName || "",
     actorUid: actorUid || "",
     importedAt: serverTimestamp(),
