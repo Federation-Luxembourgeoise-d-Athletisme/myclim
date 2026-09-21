@@ -53,7 +53,7 @@ import {
   useCertificateConfiguration,
   useTeamConfiguration,
 } from "./config-hooks";
-import { buildUserIdentitySet, getWorkflowStatusClass, isTeamLeadAssignment } from "./common-helpers";
+import { buildUserIdentitySet, formatVolunteerApplicationStatus, getWorkflowStatusClass, isTeamLeadAssignment } from "./common-helpers";
 import { normalizeComparableValue } from "./u14-helpers";
 import { useActiveEdition } from "./edition";
 import {
@@ -524,6 +524,137 @@ function RoleManagementPage(props) {
       </section>
 
       <Panel
+        title="Rechercher une personne"
+        subtitle="Retrouve un compte par nom, prénom, mail, ou filtre par groupe de rôle. Coche/décoche ses rôles dans le tableau ci-dessous puis clique sur « Sauvegarder » sur sa ligne."
+      >
+        <div className="choice-grid choice-grid--2">
+          <AuthFormField label="Rechercher une personne">
+            <input
+              autoFocus
+              placeholder="Nom, prénom ou mail"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </AuthFormField>
+          <AuthFormField label="Groupe de rôle">
+            <select value={selectedRoleGroup} onChange={(event) => setSelectedRoleGroup(event.target.value)}>
+              <option value="">Tous les groupes</option>
+              {platformRoleOptions.map((roleOption) => (
+                <option key={roleOption.value} value={roleOption.value}>
+                  {roleOption.label}
+                </option>
+              ))}
+            </select>
+          </AuthFormField>
+        </div>
+        <div className="compact-list" style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
+          <span>{visibleUsers.length} compte(s) trouvé(s)</span>
+          <span>{loadedUserSummary.adminCount} administrateur(s)</span>
+          <span>{loadedUserSummary.managerCount} gestionnaire(s)</span>
+          <span>{loadedUserSummary.leadCount} chef(s) d'équipe</span>
+        </div>
+        {!selectedRoleGroup && !normalizedSearch ? (
+          <p className="panel-note">
+            Sélectionne un groupe de rôle ou saisis au moins 2 caractères pour afficher des comptes.
+          </p>
+        ) : null}
+        {statusMessage ? <p className="panel-note">{statusMessage}</p> : null}
+      </Panel>
+
+      <Panel title="Gestion des accès" subtitle="Les changements prennent effet après sauvegarde de la ligne.">
+        {visibleLoading ? <p className="panel-note">Chargement des utilisateurs...</p> : null}
+        {!visibleLoading && !visibleUsers.length ? (
+          <p className="panel-note">Aucun utilisateur ne correspond aux filtres actuels.</p>
+        ) : null}
+        <div className="table-wrap">
+          <table className="data-table data-table--admin">
+            <thead>
+              <tr>
+                <th>Personne</th>
+                <th>Email</th>
+                <th>Statut</th>
+                <th>Rôles</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleUsers.map((user) => {
+                const isActiveAccount = (user.accountStatus || "active") === "active";
+                return (
+                  <tr key={user.id}>
+                    <td>
+                      {getDisplayName(user, user.email)}
+                      {!isActiveAccount ? (
+                        <>
+                          <br />
+                          <span className="panel-note" style={{ color: "#b45309" }}>
+                            ⚠ pas encore un compte actif — sûrement une candidature bénévole, pas la même fiche que
+                            son compte connecté
+                          </span>
+                        </>
+                      ) : null}
+                    </td>
+                    <td>{user.email || "Non renseigné"}</td>
+                    <td>
+                      {isActiveAccount ? "Actif" : formatVolunteerApplicationStatus(user.accountStatus)}
+                    </td>
+                    <td>
+                      <div className="choice-grid choice-grid--2">
+                        {platformRoleOptions.map((roleOption) => (
+                          <label
+                            key={`${user.id}-${roleOption.value}`}
+                            className="selection-card selection-card--compact"
+                            title={ROLE_ACCESS_DESCRIPTIONS[roleOption.value]}
+                          >
+                            <input
+                              checked={user.userTypes.includes(roleOption.value)}
+                              type="checkbox"
+                              onChange={() => toggleUserRole(user.id, roleOption.value)}
+                            />
+                            <div>
+                              <strong>{roleOption.label}</strong>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="button-row">
+                        <button
+                          className="button button--primary"
+                          type="button"
+                          disabled={savingUserId === user.id || deletingUserId === user.id}
+                          onClick={() => saveUserRoles(user)}
+                        >
+                          {savingUserId === user.id ? "Sauvegarde..." : "Sauvegarder"}
+                        </button>
+                        <button
+                          className="button button--danger"
+                          type="button"
+                          disabled={deletingUserId === user.id || user.id === currentUser?.uid}
+                          onClick={() => handleDeleteUser(user)}
+                        >
+                          {deletingUserId === user.id ? "Suppression..." : "Supprimer"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!visibleLoading && visibleUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="5">Aucun utilisateur ne correspond aux filtres actuels.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        <p className="panel-note">
+          Rôles actuels : {platformRoleOptions.map((role) => getRoleLabel(role.value)).join(", ")}.
+        </p>
+      </Panel>
+
+      <Panel
         title="Comprendre les rôles"
         subtitle="Un compte peut cumuler plusieurs rôles à la fois (ex : bénévole + chef d'équipe). Chaque rôle ajoute des accès, il n'en retire jamais."
       >
@@ -536,56 +667,14 @@ function RoleManagementPage(props) {
           ))}
         </dl>
         <p className="panel-note">
-          Pour ajouter ou retirer un rôle à quelqu'un : retrouve la personne dans le panneau "Recherche" ci-dessous
-          (par nom, e-mail ou groupe de rôle), coche ou décoche ses rôles dans le tableau "Gestion des accès", puis
-          clique sur "Sauvegarder" sur sa ligne. Un compte garde toujours au moins un rôle : si tu décoches tout, il
-          redevient automatiquement "Bénévole". Tu ne peux pas retirer ton propre rôle administrateur depuis cet écran.
+          Un compte garde toujours au moins un rôle : si tu décoches tout, il redevient automatiquement "Bénévole".
+          Tu ne peux pas retirer ton propre rôle administrateur depuis cet écran.
         </p>
         <p className="panel-note">
           Le dépôt de facture est une autorisation à part, indépendante des rôles ci-dessus : elle se configure dans
           le panneau "Dépôt de facture" plus bas, par rôle ou en ajoutant une personne précise.
         </p>
       </Panel>
-
-      <section className="panel-grid panel-grid--2">
-        <Panel
-          title="Vue d'ensemble"
-          subtitle="Les résultats affichés dépendent du groupe de rôle choisi et/ou de la recherche."
-        >
-          <ul className="compact-list">
-            <li>{visibleUsers.length} compte(s) utilisateur chargé(s)</li>
-            <li>{loadedUserSummary.adminCount} administrateur(s)</li>
-            <li>{loadedUserSummary.managerCount} gestionnaire(s)</li>
-            <li>{loadedUserSummary.leadCount} chef(s) d'équipe</li>
-          </ul>
-        </Panel>
-
-        <Panel title="Recherche" subtitle="Recherche par nom, prénom, mail et filtre par groupe de rôle.">
-          <AuthFormField label="Groupe de rôle">
-            <select value={selectedRoleGroup} onChange={(event) => setSelectedRoleGroup(event.target.value)}>
-              <option value="">Sélectionner un groupe</option>
-              {platformRoleOptions.map((roleOption) => (
-                <option key={roleOption.value} value={roleOption.value}>
-                  {roleOption.label}
-                </option>
-              ))}
-            </select>
-          </AuthFormField>
-          <AuthFormField label="Rechercher une personne">
-            <input
-              placeholder="Nom, prénom ou mail"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </AuthFormField>
-          {!selectedRoleGroup && !normalizedSearch ? (
-            <p className="panel-note">
-              Sélectionne un groupe de rôle ou saisis au moins 2 caractères pour lancer une recherche.
-            </p>
-          ) : null}
-          {statusMessage ? <p className="panel-note">{statusMessage}</p> : null}
-        </Panel>
-      </section>
 
       <Panel
         title="Dépôt de facture"
@@ -743,82 +832,6 @@ function RoleManagementPage(props) {
         ) : null}
       </Panel>
 
-      <Panel title="Gestion des accès" subtitle="Les changements prennent effet après sauvegarde de la ligne.">
-        {visibleLoading ? <p className="panel-note">Chargement des utilisateurs...</p> : null}
-        {!visibleLoading && !visibleUsers.length ? (
-          <p className="panel-note">Aucun utilisateur ne correspond aux filtres actuels.</p>
-        ) : null}
-        <div className="table-wrap">
-          <table className="data-table data-table--admin">
-            <thead>
-              <tr>
-                <th>Personne</th>
-                <th>Email</th>
-                <th>Statut</th>
-                <th>Rôles</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleUsers.map((user) => (
-                <tr key={user.id}>
-                  <td>{getDisplayName(user, user.email)}</td>
-                  <td>{user.email || "Non renseigné"}</td>
-                  <td>{user.accountStatus}</td>
-                  <td>
-                    <div className="choice-grid choice-grid--2">
-                      {platformRoleOptions.map((roleOption) => (
-                        <label
-                          key={`${user.id}-${roleOption.value}`}
-                          className="selection-card selection-card--compact"
-                          title={ROLE_ACCESS_DESCRIPTIONS[roleOption.value]}
-                        >
-                          <input
-                            checked={user.userTypes.includes(roleOption.value)}
-                            type="checkbox"
-                            onChange={() => toggleUserRole(user.id, roleOption.value)}
-                          />
-                          <div>
-                            <strong>{roleOption.label}</strong>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="button-row">
-                      <button
-                        className="button button--primary"
-                        type="button"
-                        disabled={savingUserId === user.id || deletingUserId === user.id}
-                        onClick={() => saveUserRoles(user)}
-                      >
-                        {savingUserId === user.id ? "Sauvegarde..." : "Sauvegarder"}
-                      </button>
-                      <button
-                        className="button button--danger"
-                        type="button"
-                        disabled={deletingUserId === user.id || user.id === currentUser?.uid}
-                        onClick={() => handleDeleteUser(user)}
-                      >
-                        {deletingUserId === user.id ? "Suppression..." : "Supprimer"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!visibleLoading && visibleUsers.length === 0 ? (
-                <tr>
-                  <td colSpan="5">Aucun utilisateur ne correspond aux filtres actuels.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-        <p className="panel-note">
-          Rôles actuels : {platformRoleOptions.map((role) => getRoleLabel(role.value)).join(", ")}.
-        </p>
-      </Panel>
     </div>
   );
 }

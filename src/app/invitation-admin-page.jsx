@@ -3,12 +3,15 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { getAppBaseUrl } from "../services/app-url";
@@ -17,6 +20,14 @@ import { platformRoleOptions } from "./seed-data";
 const ROLE_LABEL = Object.fromEntries(platformRoleOptions.map((r) => [r.value, r.label]));
 const STATUS_LABEL = { pending: "En attente", accepted: "Acceptée", cancelled: "Annulée" };
 const STATUS_COLOR = { pending: "#f59e0b", accepted: "#16a34a", cancelled: "#6b7280" };
+
+/** Cherche un compte déjà activé (users/{uid}) pour cette adresse — pour éviter de réinviter quelqu'un qui a déjà un compte. */
+async function findActiveUserByEmail(email) {
+  const q = query(collection(db, "users"), where("email", "==", email), limit(5));
+  const snap = await getDocs(q);
+  const activeDoc = snap.docs.find((d) => (d.data().accountStatus || "active") === "active");
+  return activeDoc ? { id: activeDoc.id, ...activeDoc.data() } : null;
+}
 
 function formatDate(ts) {
   if (!ts) return "—";
@@ -46,6 +57,14 @@ function InviteForm({ onSaved, onCancel }) {
     setError("");
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const existingActiveUser = await findActiveUserByEmail(normalizedEmail);
+      if (existingActiveUser) {
+        setError(`Cette personne a déjà activé son compte (${normalizedEmail}). Pour changer ses accès, utilisez plutôt la page "Gestion des accès".`);
+        setSaving(false);
+        return;
+      }
+
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const invitationRef = doc(collection(db, "invitations"));
@@ -225,7 +244,7 @@ function BulkInviteForm({ onSaved, onCancel }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(null); // { done, total }
-  const [results, setResults] = useState(null); // { succeeded: [], failed: [], mailFailed: [] }
+  const [results, setResults] = useState(null); // { succeeded: [], failed: [], mailFailed: [], alreadyActive: [] }
 
   function toggleRole(value) {
     setRoles((prev) => prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value]);
@@ -253,11 +272,19 @@ function BulkInviteForm({ onSaved, onCancel }) {
     const succeeded = [];
     const failed = [];
     const mailFailed = [];
+    const alreadyActive = [];
     const roleLabels = roles.map((r) => ROLE_LABEL[r] || r);
     const { enqueueTransactionalMail, buildInvitationMail } = await import("../services/mailQueue");
 
     for (const row of rows) {
       try {
+        const existingActiveUser = await findActiveUserByEmail(row.email);
+        if (existingActiveUser) {
+          alreadyActive.push(row.email);
+          setProgress((p) => ({ done: (p?.done || 0) + 1, total: rows.length }));
+          continue;
+        }
+
         const token = crypto.randomUUID();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const invitationRef = doc(collection(db, "invitations"));
@@ -293,7 +320,7 @@ function BulkInviteForm({ onSaved, onCancel }) {
       setProgress((p) => ({ done: (p?.done || 0) + 1, total: rows.length }));
     }
 
-    setResults({ succeeded, failed, mailFailed });
+    setResults({ succeeded, failed, mailFailed, alreadyActive });
     setSaving(false);
   }
 
@@ -305,11 +332,28 @@ function BulkInviteForm({ onSaved, onCancel }) {
       <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 16, padding: 32, maxWidth: 640 }}>
         <h3 style={{ margin: "0 0 16px 0", fontSize: "1rem", fontWeight: 700 }}>Résultat de l'import</h3>
         <p style={{ fontSize: "0.9rem", marginBottom: 16 }}>
-          <strong style={{ color: "#16a34a" }}>{results.succeeded.length}</strong> invitation(s) créée(s) sur {rows.length + results.failed.length > 0 ? results.succeeded.length + results.failed.length : rows.length}.
+          <strong style={{ color: "#16a34a" }}>{results.succeeded.length}</strong> invitation(s) créée(s) sur {rows.length}.
           {results.mailFailed.length > 0 && (
             <> <strong style={{ color: "#92400e" }}>{results.mailFailed.length}</strong> mail(s) non envoyé(s) — lien à partager manuellement.</>
           )}
+          {results.alreadyActive.length > 0 && (
+            <> <strong style={{ color: "#546770" }}>{results.alreadyActive.length}</strong> déjà membre(s) — ignoré(s).</>
+          )}
         </p>
+
+        {results.alreadyActive.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ ...labelStyle, marginBottom: 8 }}>Déjà un compte actif — invitation non envoyée</div>
+            <p style={{ fontSize: "0.8rem", color: "#546770", marginTop: 0, marginBottom: 8 }}>
+              Ces adresses ont déjà activé leur compte. Pour changer leurs modules, utilisez la page "Gestion des accès".
+            </p>
+            <div style={{ display: "grid", gap: 4 }}>
+              {results.alreadyActive.map((email) => (
+                <div key={email} style={{ fontSize: "0.8rem", color: "#546770" }}>{email}</div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {results.mailFailed.length > 0 && (
           <div style={{ marginBottom: 16 }}>
@@ -466,6 +510,12 @@ export function InvitationAdminPage({ Panel }) {
   async function handleResend(invitation) {
     setActionStatus("Renvoi en cours…");
     setResendFallbackUrl("");
+
+    const existingActiveUser = await findActiveUserByEmail(invitation.email);
+    if (existingActiveUser) {
+      setActionStatus(`Cette personne a déjà activé son compte (${invitation.email}) — inutile de renvoyer l'invitation. Pour changer ses accès, utilisez la page "Gestion des accès".`);
+      return;
+    }
 
     // 1. Renouveler le token en Firestore
     let activationUrl = "";
