@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { collection, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { addDoc, collection, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
+import { auth, db, STORAGE_UPLOAD_ENDPOINT } from "../services/firebase";
 import { recordMatchesEdition, useActiveEdition } from "./edition";
 
 const ATHLETE_PORTAL_SETTINGS_PATH = ["appSettings", "athletePortalSettings"];
 const ATHLETES_COLLECTION = "athletes";
 const ATHLETE_TRANSPORT_LOTS_COLLECTION = "athleteTransportLots";
+const ATHLETE_IMPORT_HISTORY_COLLECTION = "athleteImportHistory";
 
 /**
  * Permanent cross-edition athlete registry.
@@ -733,6 +734,82 @@ function useAthleteTransportLots(enabled = true) {
   return { lots, loading: loading || editionLoading };
 }
 
+// ─── Import history ───────────────────────────────────────────────────────────
+// Keeps the raw Excel file (Storage) + merge metadata (Firestore) for every
+// athlete import, so the meeting director's file can always be re-downloaded
+// and an operator can see which version of the roster is currently live.
+
+async function uploadAthleteImportFile(file) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User is not authenticated.");
+  const idToken = await user.getIdToken();
+
+  const response = await fetch(STORAGE_UPLOAD_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": file.type || "application/octet-stream",
+      "X-Upload-Path": "athlete-imports",
+      "X-File-Name": encodeURIComponent(file.name),
+    },
+    body: file,
+  });
+
+  if (!response.ok) {
+    let payload = null;
+    try { payload = await response.json(); } catch { payload = null; }
+    throw new Error(payload?.message || `Upload HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  if (!payload?.url) throw new Error("Réponse d'upload incomplète.");
+  return { url: payload.url, filePath: payload.filePath || "" };
+}
+
+async function recordAthleteImport({ file, fileType, presentFields, recordCount, added, updated, markedOut, actorName, actorUid }) {
+  let fileUrl = "";
+  let filePath = "";
+  try {
+    const uploaded = await uploadAthleteImportFile(file);
+    fileUrl = uploaded.url;
+    filePath = uploaded.filePath;
+  } catch (uploadError) {
+    console.error("Unable to archive the imported Excel file", uploadError);
+  }
+
+  await addDoc(collection(db, ATHLETE_IMPORT_HISTORY_COLLECTION), {
+    fileName: file.name,
+    fileUrl,
+    filePath,
+    fileType,
+    presentFields: presentFields || null,
+    recordCount, added, updated, markedOut,
+    actorName: actorName || "",
+    actorUid: actorUid || "",
+    importedAt: serverTimestamp(),
+  });
+}
+
+function useAthleteImportHistory(enabled = true) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(Boolean(enabled));
+
+  useEffect(() => {
+    if (!enabled) { setHistory([]); setLoading(false); return undefined; }
+    const unsubscribe = onSnapshot(
+      query(collection(db, ATHLETE_IMPORT_HISTORY_COLLECTION), orderBy("importedAt", "desc")),
+      (snapshot) => {
+        setHistory(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return unsubscribe;
+  }, [enabled]);
+
+  return { history, loading };
+}
+
 function useTransportVolunteers(enabled = true) {
   const [volunteers, setVolunteers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -740,17 +817,9 @@ function useTransportVolunteers(enabled = true) {
   useEffect(() => {
     if (!enabled) { setLoading(false); return undefined; }
     const unsubscribe = onSnapshot(
-      collection(db, "users"),
+      query(collection(db, "users"), where("userTypes", "array-contains", "benevole_transport_athletes")),
       (snapshot) => {
-        setVolunteers(
-          snapshot.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((u) => {
-              const types = Array.isArray(u.userTypes) ? u.userTypes : [];
-              const roles = Array.isArray(u.roles) ? u.roles : [];
-              return [...types, ...roles].includes("benevole_transport_athletes");
-            }),
-        );
+        setVolunteers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLoading(false);
       },
       () => setLoading(false),
@@ -786,4 +855,7 @@ export {
   ATHLETE_TRANSPORT_LOTS_COLLECTION,
   useAthleteTransportLots,
   useTransportVolunteers,
+  ATHLETE_IMPORT_HISTORY_COLLECTION,
+  recordAthleteImport,
+  useAthleteImportHistory,
 };

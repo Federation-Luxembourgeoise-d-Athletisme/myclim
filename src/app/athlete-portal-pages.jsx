@@ -24,6 +24,8 @@ import {
   useAthleteRegistry,
   useAthletes,
   ATHLETE_PORTAL_SETTINGS_PATH,
+  recordAthleteImport,
+  useAthleteImportHistory,
 } from "./athlete-portal-hooks";
 import { db } from "../services/firebase";
 
@@ -140,7 +142,10 @@ const COMBINED_COL_PATTERNS = {
 };
 
 function buildColMap(row) {
-  const h = row.map((c) => String(c || "").trim().toLowerCase());
+  // Trailing "." tolerated (the documented header "Nat." wouldn't otherwise
+  // match /^nat(ionality)?$/ — the exact column name this app's own "Accepted
+  // formats" panel tells the meeting director to use).
+  const h = row.map((c) => String(c || "").trim().toLowerCase().replace(/\.+$/, ""));
   const map = {};
   for (const [field, pats] of Object.entries(COMBINED_COL_PATTERNS)) {
     const idx = h.findIndex((cell) => pats.some((p) => p.test(cell)));
@@ -159,10 +164,14 @@ function detectFileType(rows) {
       bestMap = m; bestHeaderIdx = i;
     }
   }
-  const hasPerfCols   = "status" in bestMap || "worldRanking" in bestMap || "pb" in bestMap || "pbIndoor" in bestMap;
-  const hasTravelCols = "manager" in bestMap || "arrival" in bestMap;
-  const hasIdent      = "lastName" in bestMap && "firstName" in bestMap;
-  if (hasIdent && hasPerfCols && hasTravelCols) {
+  const hasIdent = "lastName" in bestMap && "firstName" in bestMap;
+  // Le meeting director renvoie le même type de fichier avec un sous-ensemble
+  // de colonnes variable selon ce qui a changé (juste les séries/couloirs un
+  // jour, juste les voyages un autre) — tant que les colonnes d'identité sont
+  // reconnues par en-tête, on utilise le mapping par nom de colonne plutôt que
+  // d'exiger un jeu complet de colonnes, sans quoi ça retombe sur le fallback
+  // positionnel legacy qui suppose un format figé.
+  if (hasIdent) {
     return { type: "COMBINED", colMap: bestMap, dataStartIdx: bestHeaderIdx + 1 };
   }
 
@@ -295,25 +304,30 @@ function parseRows(rows, detected) {
 }
 
 // Helper: copy all structured travel sub-fields from a record onto a merged athlete.
-function applyTravelFields(merged, record) {
-  if (record.arrival !== undefined) {
+// `presentFields` (columns actually found in this specific file's header) gates
+// each sub-field independently: a column absent from this import must never
+// blank out data set by a previous import that did have it (see mergeAthletes).
+function applyTravelFields(merged, record, presentFields) {
+  const hasColumn = (field) => !presentFields || presentFields.includes(field);
+
+  if (hasColumn("arrival")) {
     merged.arrival       = record.arrival       ?? null;
     merged.arrivalDay    = record.arrivalDay    ?? null;
     merged.arrivalTime   = record.arrivalTime   ?? null;
     merged.arrivalFlight = record.arrivalFlight ?? null;
     merged.arrivalFrom   = record.arrivalFrom   ?? null;
   }
-  if (record.departure !== undefined) {
+  if (hasColumn("departure")) {
     merged.departure       = record.departure       ?? null;
     merged.departureDay    = record.departureDay    ?? null;
     merged.departureTime   = record.departureTime   ?? null;
     merged.departureFlight = record.departureFlight ?? null;
     merged.departureTo     = record.departureTo     ?? null;
   }
-  if (record.manager !== undefined) merged.manager = record.manager ?? null;
+  if (hasColumn("manager")) merged.manager = record.manager ?? null;
 }
 
-function mergeAthletes(existing, incoming, fileType) {
+function mergeAthletes(existing, incoming, fileType, presentFields = null) {
   const byKey = new Map(
     existing.map((a) => [athleteMergeKey(a.lastName, a.firstName, a.nationality), { ...a }]),
   );
@@ -331,6 +345,7 @@ function mergeAthletes(existing, incoming, fileType) {
     const merged = { ...ex };
 
     if (fileType === "COMBINED") {
+      const hasColumn = (field) => !presentFields || presentFields.includes(field);
       if (record.event)                merged.event        = record.event;
       if (record.status !== null)      merged.status       = record.status;
       if (record.worldRanking != null) merged.worldRanking = record.worldRanking;
@@ -340,11 +355,14 @@ function mergeAthletes(existing, incoming, fileType) {
       if (record.sb)                   merged.sb           = record.sb;
       if (record.waUrl && !merged.waUrl) merged.waUrl      = record.waUrl;
       if (record.waid  && !merged.waid)  merged.waid       = record.waid;
-      merged.heat = record.heat ?? null;
-      merged.lane = record.lane ?? null;
-      applyTravelFields(merged, record);
+      // Un fichier qui ne contient pas les colonnes Heat/Lane pour cette
+      // édition (ex. mise à jour voyages uniquement) ne doit pas effacer les
+      // séries/couloirs déjà connus.
+      if (hasColumn("heat")) merged.heat = record.heat ?? null;
+      if (hasColumn("lane")) merged.lane = record.lane ?? null;
+      applyTravelFields(merged, record, presentFields);
     } else if (fileType === "TRAVEL") {
-      applyTravelFields(merged, record);
+      applyTravelFields(merged, record, null);
     } else if (fileType === "FINAL_LANES") {
       if (record.heat !== null) merged.heat = record.heat;
       if (record.lane !== null) merged.lane = record.lane;
@@ -480,12 +498,16 @@ function WaSyncButton({ athlete, settings, onDone }) {
       const { _waIdentity, ...firestoreData } = waData;
       let registryAthleteId = athlete.registryAthleteId || null;
       if (_waIdentity) {
-        const registryResult = await upsertAthleteRegistry({
-          ..._waIdentity,
-          nationality: athlete.nationality,
-          birthYear:   athlete.birthYear,
-        });
-        registryAthleteId = registryResult?.docId || registryAthleteId;
+        try {
+          const registryResult = await upsertAthleteRegistry({
+            ..._waIdentity,
+            nationality: athlete.nationality,
+            birthYear:   athlete.birthYear,
+          });
+          registryAthleteId = registryResult?.docId || registryAthleteId;
+        } catch (registryError) {
+          console.error("Unable to update the athlete registry", registryError);
+        }
       }
       await updateDoc(doc(db, ATHLETES_COLLECTION, athlete.id), {
         ...firestoreData,
@@ -1651,12 +1673,16 @@ function AthletesListPage({ Panel }) {
         const { _waIdentity, ...firestoreData } = waData;
         let registryAthleteId = athlete.registryAthleteId || null;
         if (_waIdentity) {
-          const registryResult = await upsertAthleteRegistry({
-            ..._waIdentity,
-            nationality: athlete.nationality,
-            birthYear:   athlete.birthYear,
-          });
-          registryAthleteId = registryResult?.docId || registryAthleteId;
+          try {
+            const registryResult = await upsertAthleteRegistry({
+              ..._waIdentity,
+              nationality: athlete.nationality,
+              birthYear:   athlete.birthYear,
+            });
+            registryAthleteId = registryResult?.docId || registryAthleteId;
+          } catch (registryError) {
+            console.error("Unable to update the athlete registry", registryError);
+          }
         }
         await updateDoc(doc(db, ATHLETES_COLLECTION, athlete.id), {
           ...firestoreData,
@@ -2094,11 +2120,12 @@ function AthletesListPage({ Panel }) {
 // ─── Import page ──────────────────────────────────────────────────────────────
 
 function AthleteImportPage({ Panel }) {
-  const { userProfile } = useAuth();
+  const { userProfile, currentUser } = useAuth();
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
   const canImport = canImportAthletes(roles, settings);
   const { athletes } = useAthletes(true);
+  const { history: importHistory, loading: historyLoading } = useAthleteImportHistory(canImport);
 
   const [parsed, setParsed] = useState(null);
   const [status, setStatus] = useState("");
@@ -2107,7 +2134,7 @@ function AthleteImportPage({ Panel }) {
 
   // ⚠️ useMemo must be declared before any early returns (Rules of Hooks)
   const mergePreview = useMemo(
-    () => (parsed ? mergeAthletes(athletes, parsed.records, parsed.fileType) : null),
+    () => (parsed ? mergeAthletes(athletes, parsed.records, parsed.fileType, parsed.presentFields) : null),
     [parsed, athletes],
   );
 
@@ -2137,8 +2164,9 @@ function AthleteImportPage({ Panel }) {
       if (rows.length < 2) { setStatus("File appears empty."); return; }
       const detected = detectFileType(rows);
       const records = parseRows(rows, detected);
-      setParsed({ fileType: detected.type, records, fileName: file.name });
-      setStatus(`Detected: ${detected.type} — ${records.length} records.`);
+      const presentFields = detected.colMap ? Object.keys(detected.colMap) : null;
+      setParsed({ fileType: detected.type, records, fileName: file.name, presentFields, file });
+      setStatus(`Detected: ${detected.type} — ${records.length} records.${presentFields ? ` Columns: ${presentFields.join(", ")}.` : ""}`);
     } catch (err) { setStatus(`Error: ${err.message}`); }
   }
 
@@ -2146,7 +2174,7 @@ function AthleteImportPage({ Panel }) {
     if (!parsed) return;
     setSaving(true); setStatus("Merging and saving…");
     try {
-      const { merged, added, updated, markedOut } = mergeAthletes(athletes, parsed.records, parsed.fileType);
+      const { merged, added, updated, markedOut } = mergeAthletes(athletes, parsed.records, parsed.fileType, parsed.presentFields);
       const batch = writeBatch(db);
       const athleteRefs = [];
       // Never delete athletes — update or create only
@@ -2195,6 +2223,20 @@ function AthleteImportPage({ Panel }) {
         await linkBatch.commit();
       }
 
+      try {
+        await recordAthleteImport({
+          file: parsed.file,
+          fileType: parsed.fileType,
+          presentFields: parsed.presentFields,
+          recordCount: parsed.records.length,
+          added, updated, markedOut,
+          actorName: [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(" ") || currentUser?.email || "",
+          actorUid: currentUser?.uid || "",
+        });
+      } catch (historyError) {
+        console.error("Unable to archive this import", historyError);
+      }
+
       const parts = [`${added} added`, `${updated} updated`];
       if (markedOut > 0) parts.push(`${markedOut} marked out (not in file)`);
       setStatus(`Done. ${parts.join(" · ")} · ${merged.length} total.`);
@@ -2241,7 +2283,16 @@ function AthleteImportPage({ Panel }) {
                 <li>File: <strong>{parsed.fileName}</strong></li>
                 <li>Type: <FileTypeBadge type={parsed.fileType} /></li>
                 <li>Records in file: <strong>{parsed.records.length}</strong></li>
+                {parsed.presentFields ? (
+                  <li>Columns detected: <strong>{parsed.presentFields.join(", ")}</strong></li>
+                ) : null}
               </ul>
+              {parsed.presentFields ? (
+                <p className="panel-note">
+                  Only these columns will be updated for matching athletes — anything not listed here (e.g. heat/lane
+                  or travel if this file doesn't include them) is left untouched.
+                </p>
+              ) : null}
             </Panel>
             {mergePreview && (
               <Panel title="Merge preview">
@@ -2311,6 +2362,56 @@ function AthleteImportPage({ Panel }) {
           </section>
         </>
       )}
+
+      <section className="panel-grid panel-grid--1">
+        <Panel title="Import history" subtitle="Every file received, in order, with the original Excel always downloadable">
+          {historyLoading ? (
+            <p className="panel-note">Loading…</p>
+          ) : importHistory.length === 0 ? (
+            <p className="panel-note">No import recorded yet.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Version</th><th>File</th><th>Type</th><th>Columns</th><th>Records</th><th>By</th><th>Date</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importHistory.map((entry, index) => (
+                    <tr key={entry.id}>
+                      <td>
+                        {index === 0 ? (
+                          <span className="status-pill status-pill--ok" style={{ fontSize: "0.72rem" }}>current</span>
+                        ) : (
+                          <span style={{ color: "#94a3b8" }}>#{importHistory.length - index}</span>
+                        )}
+                      </td>
+                      <td>{entry.fileName}</td>
+                      <td><FileTypeBadge type={entry.fileType} /></td>
+                      <td style={{ maxWidth: 240, fontSize: "0.78rem", color: "#607086" }}>
+                        {entry.presentFields ? entry.presentFields.join(", ") : "—"}
+                      </td>
+                      <td>{entry.recordCount ?? "—"}</td>
+                      <td>{entry.actorName || "—"}</td>
+                      <td>{entry.importedAt?.toDate ? entry.importedAt.toDate().toLocaleString() : "—"}</td>
+                      <td>
+                        {entry.fileUrl ? (
+                          <a href={entry.fileUrl} target="_blank" rel="noopener noreferrer" className="button button--secondary button--small">
+                            Download
+                          </a>
+                        ) : (
+                          <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>not archived</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </section>
     </div>
   );
 }

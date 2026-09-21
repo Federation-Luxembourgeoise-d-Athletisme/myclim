@@ -86,6 +86,7 @@ const VipAdminPage = lazyNamed(() => import("./app/vip-admin-page"), "VipAdminPa
 const PressRegistrationPage = lazyNamed(() => import("./app/press-registration-page"), "PressRegistrationPage");
 const PressAdminPageScreen = lazyNamed(() => import("./app/press-admin-page"), "PressAdminPage");
 const AthletesListPageScreen = lazyNamed(() => import("./app/athlete-portal-pages"), "AthletesListPage");
+const AthleteImportPageScreen = lazyNamed(() => import("./app/athlete-portal-pages"), "AthleteImportPage");
 const AthletePortalSettingsPageScreen = lazyNamed(() => import("./app/athlete-portal-pages"), "AthletePortalSettingsPage");
 const AthleteRegistryPageScreen = lazyNamed(() => import("./app/athlete-portal-pages"), "AthleteRegistryPage");
 const AthleteTransportChiefPageScreen = lazyNamed(() => import("./app/athlete-transport-pages"), "AthleteTransportChiefPage");
@@ -283,6 +284,10 @@ function PressAdminPage() {
 
 function AthletesListPage() {
   return <AthletesListPageScreen Panel={Panel} />;
+}
+
+function AthleteImportPage() {
+  return <AthleteImportPageScreen Panel={Panel} />;
 }
 
 function AthletePortalSettingsPage() {
@@ -498,7 +503,12 @@ export default function App() {
               <Route path="profil" element={<ProfilePage />} />
               <Route path="athlete-portal">
                 <Route index element={<Navigate replace to="athletes" />} />
-                <Route path="athletes" element={<AthletesListPage />} />
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
+                  <Route path="athletes" element={<AthletesListPage />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
+                  <Route path="import" element={<AthleteImportPage />} />
+                </Route>
                 <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
                   <Route path="settings" element={<AthletePortalSettingsPage />} />
                 </Route>

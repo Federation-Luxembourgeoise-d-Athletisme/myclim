@@ -41,6 +41,32 @@ service cloud.firestore {
       return isSignedIn() && "budget" in userTypes();
     }
 
+    function isMeetingDirector() {
+      return isSignedIn() && "meeting_director" in userTypes();
+    }
+
+    function isAthleteTransportChief() {
+      return isSignedIn() && "chef_transport_athletes" in userTypes();
+    }
+
+    function isAthleteTransportVolunteer() {
+      return isSignedIn() && "benevole_transport_athletes" in userTypes();
+    }
+
+    // Rôles autorisés par appSettings/athletePortalSettings.accessRoles
+    // (voir DEFAULT_PORTAL_SETTINGS dans athlete-portal-hooks.js) : la
+    // gestion de la base et l'écriture restent réservées à admin/gestionnaire
+    // et au meeting_director, la lecture s'étend aussi au transport athlètes
+    // qui a besoin de voir la liste pour ses propres pages.
+    function canReadAthletePortal() {
+      return isAdminOrManager() || isMeetingDirector() ||
+        isAthleteTransportChief() || isAthleteTransportVolunteer();
+    }
+
+    function canManageAthletePortal() {
+      return isAdminOrManager() || isMeetingDirector();
+    }
+
     // Bénévole/chef d'équipe affecté à l'équipe "Guides VIP" : peut lire les
     // inscriptions VIP (pas les modifier) pour retrouver ses invités à guider,
     // filtré côté client par tour (coque/coulisses) via son sous-rôle.
@@ -102,10 +128,47 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdminOrManager();
+      // Le chef transport athlètes doit pouvoir lister les bénévoles
+      // transport pour les affecter à un lot (VolunteersTab) — restreint à
+      // ce même rôle cible pour ne pas exposer tous les profils.
+      allow read: if isOwner(userId) || isAdminOrManager() ||
+        (isAthleteTransportChief() &&
+         resource.data.userTypes is list &&
+         "benevole_transport_athletes" in resource.data.userTypes);
       allow create: if isOwner(userId) || isAdminOrManager();
       allow update: if isOwner(userId) || isAdminOrManager();
       allow delete: if isAdmin();
+    }
+
+    // ── Portail athlètes ─────────────────────────────────────────────────────
+    // Manquait complètement (tombait dans le catch-all admin-only), ce qui
+    // bloquait meeting_director et le transport athlètes malgré des routes
+    // et un appSettings/athletePortalSettings.accessRoles qui leur donnent
+    // explicitement accès à ce module.
+    match /athletes/{athleteId} {
+      allow read: if canReadAthletePortal();
+      allow write: if canManageAthletePortal();
+    }
+
+    match /athleteRegistry/{entryId} {
+      allow read: if canReadAthletePortal();
+      allow write: if canManageAthletePortal();
+    }
+
+    // Historique des imports Excel du meeting director : lecture ouverte à
+    // qui a accès au portail athlètes, écriture réservée à qui importe.
+    match /athleteImportHistory/{entryId} {
+      allow read: if canReadAthletePortal();
+      allow create: if canManageAthletePortal();
+      allow update, delete: if canManageAthletePortal();
+    }
+
+    match /athleteTransportLots/{lotId} {
+      allow read: if canReadAthletePortal();
+      allow create, delete: if canManageAthletePortal() || isAthleteTransportChief();
+      // Le bénévole assigné peut cocher/décocher pickedUp pour son propre lot.
+      allow update: if canManageAthletePortal() || isAthleteTransportChief() ||
+        (isAthleteTransportVolunteer() && resource.data.assignedVolunteerId == request.auth.uid);
     }
 
     // siteEditionYear pilote quelle édition est visible sur le site public,
