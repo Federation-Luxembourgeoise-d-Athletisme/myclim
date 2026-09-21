@@ -2608,8 +2608,10 @@ function AthletePortalSettingsPage({ Panel }) {
                   placeholder="/api/wa" />
               </label>
               <p className="panel-note" style={{ marginTop: "0.5rem" }}>
-                Default <code>/api/wa</code> → Netlify Function (works in production with no extra setup).<br />
-                For local dev, switch to <code>http://localhost:3001</code> while running <code>wa-service/</code>.
+                Default <code>/api/wa</code> → Netlify Function, itself backed by{" "}
+                <code>worldathletics.nimarion.de</code> (works in production with no extra setup).<br />
+                For local dev, run <code>netlify dev</code> to exercise the function, or point this at a URL
+                serving the same contract.
               </p>
             </div>
           </Panel>

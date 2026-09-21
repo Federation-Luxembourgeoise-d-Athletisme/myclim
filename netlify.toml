@@ -3,7 +3,8 @@
   publish = "dist"
   functions = "netlify/functions"
 
-# World Athletics proxy — maps the wa-service URL pattern to the Netlify Function
+# World Athletics proxy — keeps the same URL shape the frontend calls, backed
+# by a Netlify Function (see netlify/functions/wa-athlete.mjs)
 [[redirects]]
   from = "/api/wa/athlete/:waid/performances"
   to   = "/.netlify/functions/wa-athlete?waid=:waid"

@@ -79,9 +79,9 @@ const FIELD_GROUPS = [
 const DEFAULT_PORTAL_SETTINGS = {
   accessRoles: ["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"],
   importerRoles: ["admin", "meeting_director"],
-  // WA service base URL.
-  // In production: /api/wa → proxied to the Netlify Function wa-athlete.
-  // In local dev: set to http://localhost:3001 in the portal settings to use the wa-service directly.
+  // WA service base URL: /api/wa → proxied to the Netlify Function wa-athlete,
+  // itself backed by worldathletics.nimarion.de. Works the same in local dev
+  // via `netlify dev`.
   waServiceUrl: "/api/wa",
   // Which seasons to display as SBs
   seasons: { indoor: 2025, indoorCurrent: 2026, outdoor: 2025 },

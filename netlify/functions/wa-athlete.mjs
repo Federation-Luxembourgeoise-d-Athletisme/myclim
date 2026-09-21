@@ -1,73 +1,24 @@
 /**
  * Netlify Function — World Athletics athlete proxy
  *
- * Fetches PBs and SBs for a single athlete from the WA internal GraphQL API.
- * No cache (stateless) — the caller (MyCLIM frontend) persists data in Firestore.
+ * Fetches PBs and SBs for a single athlete and normalizes them into the shape
+ * MyCLIM's frontend expects (see fetchAthleteFromWaService in
+ * src/app/athlete-portal-hooks.js): { personalBests, seasonBests } arrays of
+ * { discipline, disciplineCode, mark, wind, notLegal, venue, date, resultScore, indoor }.
  *
  * Route (via netlify.toml redirect):
  *   GET /api/wa/athlete/:waid/performances
  *   → /.netlify/functions/wa-athlete?waid=:waid
+ *
+ * Backed by https://worldathletics.nimarion.de (open-source wrapper around
+ * World Athletics' internal GraphQL API — see
+ * https://github.com/nimarion/worldathletics). We used to call WA's internal
+ * GraphQL endpoint directly, but that hostname (and API key) rotate and stop
+ * resolving without notice — this wrapper handles that churn for us instead
+ * of us having to reverse-engineer and keep refreshing it ourselves.
  */
 
-const WA_GRAPHQL_URL = "https://graphql-prod-4871.edge.aws.worldathletics.org/graphql";
-const WA_API_KEY     = "da2-j25npjv5w5ft7bgv3smr22xcda";
-
-const WA_HEADERS = {
-  "Content-Type": "application/json",
-  "Accept": "application/json",
-  "x-api-key": WA_API_KEY,
-  "Origin": "https://worldathletics.org",
-  "Referer": "https://worldathletics.org/",
-  "User-Agent": "Mozilla/5.0 (compatible; MyCLIM-WA-Proxy/1.0)",
-};
-
-// ─── GraphQL queries ──────────────────────────────────────────────────────────
-
-// Personal bests
-const QUERY_PB = `
-  query GetSingleCompetitor($id: Int!) {
-    getSingleCompetitor(id: $id) {
-      basicData {
-        firstName
-        lastName
-      }
-      personalBests {
-        results {
-          indoor
-          discipline
-          disciplineCode
-          mark
-          wind
-          notLegal
-          venue
-          date
-          resultScore
-        }
-      }
-    }
-  }
-`;
-
-// Season bests — requires a specific season year
-const QUERY_SB = `
-  query GetSingleCompetitorSeasonBests($id: Int!, $year: Int!) {
-    getSingleCompetitorSeasonBests(id: $id, seasonsBestsSeason: $year) {
-      results {
-        indoor
-        discipline
-        disciplineCode
-        mark
-        wind
-        notLegal
-        venue
-        date
-        resultScore
-      }
-    }
-  }
-`;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const WA_API_BASE = "https://worldathletics.nimarion.de";
 
 function json(status, payload) {
   return new Response(JSON.stringify(payload), {
@@ -81,52 +32,30 @@ function json(status, payload) {
   });
 }
 
-async function graphql(query, variables) {
-  const res = await fetch(WA_GRAPHQL_URL, {
-    method: "POST",
-    headers: WA_HEADERS,
-    body: JSON.stringify({ query, variables }),
+async function waGet(path) {
+  const res = await fetch(`${WA_API_BASE}${path}`, {
+    headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`WA HTTP ${res.status}: ${await res.text().catch(() => "")}`);
-  const data = await res.json();
-  if (data.errors?.length) throw new Error(data.errors.map((e) => e.message).join("; "));
-  return data.data;
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`WA HTTP ${res.status} on ${path}: ${detail}`);
+  }
+  return res.json();
 }
 
-/**
- * Detect whether a result is indoor using multiple signals:
- *  1. venue string contains " (i)" suffix (most reliable)
- *  2. disciplineNameUrlSlug contains "indoor"
- *  3. discipline name starts with "60" (60m / 60mH are indoor-only)
- *  4. `indoor` boolean field from WA (unreliable — often wrong)
- */
-function isIndoor(r) {
-  // 1. venue "(i)" suffix — most reliable signal
-  const venue = (r.venue || "").toLowerCase();
-  if (venue.includes("(i)")) return true;
-
-  // 2. discipline name — 60m / 60mH are indoor-only events
-  const disc = (r.discipline || "").toLowerCase();
-  if (disc.startsWith("60")) return true;
-
-  // NOTE: we intentionally do NOT fall back to `r.indoor` from WA.
-  // WA's boolean field is known to return `true` for outdoor results,
-  // which causes outdoor performances to be misclassified as indoor PBs.
-  return false;
-}
-
-function normalizeResult(r) {
+function normalizePerformance(p) {
+  const venue = [p.location?.city, p.location?.country].filter(Boolean).join(", ");
   return {
-    discipline:    r.discipline    || null,
-    disciplineCode: r.disciplineCode || null,
-    mark:          r.mark          || null,
-    wind:          r.wind          ?? null,
-    notLegal:      r.notLegal      ?? false,
-    venue:         r.venue         || null,
-    date:          r.date          || null,
-    resultScore:   r.resultScore   ?? null,
-    indoor:        isIndoor(r),   // computed from venue "(i)" + discipline name
+    discipline: p.discipline || null,
+    disciplineCode: p.disciplineCode || null,
+    mark: p.mark || null,
+    wind: p.wind ?? null,
+    notLegal: p.legal === false,
+    venue: venue || null,
+    date: p.date || null,
+    resultScore: p.resultScore ?? null,
+    indoor: Boolean(p.location?.indoor),
   };
 }
 
@@ -134,51 +63,42 @@ async function fetchAthlete(waid) {
   const id = Number(waid);
   if (!Number.isInteger(id) || id <= 0) throw new Error("Invalid WAID");
 
-  // Fetch PBs
-  const pbData = await graphql(QUERY_PB, { id });
-  const competitor = pbData?.getSingleCompetitor;
-  if (!competitor) throw new Error(`No competitor found for WAID ${id}`);
+  const athlete = await waGet(`/athletes/${id}`);
 
-  const personalBests = (competitor.personalBests?.results || []).map(normalizeResult);
-  const firstName     = competitor.basicData?.firstName   || null;
-  const lastName      = competitor.basicData?.lastName    || null;
-  const birthDate     = competitor.basicData?.birthDate   || null;
-  const countryCode   = competitor.basicData?.countryCode || null;
-
-  // Fetch SBs for multiple seasons (current year and previous two)
+  // Season bests: the athlete profile only carries the current season, so we
+  // pull individual results for the last 3 years and let the caller pick the
+  // best per year/discipline (same approach as the previous implementation).
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear - 1, currentYear - 2];
 
-  const sbResults = await Promise.allSettled(
-    years.map((year) => graphql(QUERY_SB, { id, year })),
+  const yearResults = await Promise.allSettled(
+    years.map((year) => waGet(`/athletes/${id}/results?year=${year}`)),
   );
 
-  const seasonBests = sbResults.flatMap((res, i) => {
+  const seasonBests = yearResults.flatMap((res, i) => {
     if (res.status !== "fulfilled") {
-      console.warn(`[wa-athlete] SB fetch failed for WAID ${id} year ${years[i]}: ${res.reason?.message}`);
+      console.warn(`[wa-athlete] results fetch failed for WAID ${id} year ${years[i]}: ${res.reason?.message}`);
       return [];
     }
-    return (res.value?.getSingleCompetitorSeasonBests?.results || []).map(normalizeResult);
+    return (Array.isArray(res.value) ? res.value : []).map(normalizePerformance);
   });
 
-  return { firstName, lastName, birthDate, countryCode, personalBests, seasonBests };
+  return {
+    firstName: athlete.firstname || null,
+    lastName: athlete.lastname || null,
+    birthDate: athlete.birthdate || null,
+    countryCode: athlete.country || null,
+    personalBests: (athlete.personalbests || []).map(normalizePerformance),
+    seasonBests,
+  };
 }
-
-// ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req) {
   if (req.method === "OPTIONS") return json(204, {});
-
   if (req.method !== "GET") return json(405, { error: "Method not allowed." });
 
   const url = new URL(req.url);
-
-  // 1. Try query param (set by the netlify.toml redirect: ?waid=:waid)
   let waid = url.searchParams.get("waid");
-
-  // 2. Fall back to extracting from the URL path — Netlify Functions v2 sometimes
-  //    receives the original request URL (/api/wa/athlete/14621598/performances)
-  //    rather than the rewritten one, so the query param is absent.
   if (!waid) {
     const m = url.pathname.match(/\/(\d{7,10})(?:\/|$)/);
     waid = m?.[1] ?? null;
@@ -191,19 +111,19 @@ export default async function handler(req) {
   try {
     const athlete = await fetchAthlete(waid);
     return json(200, {
-      waid:         Number(waid),
-      firstName:    athlete.firstName,
-      lastName:     athlete.lastName,
-      birthDate:    athlete.birthDate,
-      countryCode:  athlete.countryCode,
-      source:       "live",
+      waid: Number(waid),
+      firstName: athlete.firstName,
+      lastName: athlete.lastName,
+      birthDate: athlete.birthDate,
+      countryCode: athlete.countryCode,
+      source: "live",
       personalBests: athlete.personalBests,
-      seasonBests:   athlete.seasonBests,
+      seasonBests: athlete.seasonBests,
     });
   } catch (err) {
     console.error(`[wa-athlete] Error for WAID ${waid}:`, err.message);
     return json(502, {
-      error:  "Could not fetch athlete data from World Athletics.",
+      error: "Could not fetch athlete data from World Athletics.",
       detail: err.message,
     });
   }
