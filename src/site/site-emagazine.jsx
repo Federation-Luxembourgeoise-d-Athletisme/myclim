@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSiteEditionYear } from "../app/edition";
 import { useAthleteRegistry, useAthletes } from "../app/athlete-portal-hooks";
-import { useMeetingEditions } from "../app/meeting-history-hooks";
+import { useMeetingEditions, useMeetingRecords } from "../app/meeting-history-hooks";
 import { useSponsors } from "./site-hooks";
 import { sponsorCategoryLabel } from "./sponsor-utils";
 import heroImage from "../assets/partner-stories/cmcm-athlete-moment.jpg";
@@ -16,6 +16,7 @@ import {
   buildOfficialStartlistGroups,
   buildSpecialRaceStartlistGroups,
   disciplineSortIndex,
+  findMeetingRecord,
   normalizeEmagazineConfig,
 } from "./site-emagazine-shared";
 
@@ -73,15 +74,16 @@ function StartlistEntryRow({ entry }) {
   );
 }
 
-function MagazinePage({ theme = "light", eyebrow, title, subtitle, children, className = "" }) {
+function MagazinePage({ theme = "light", eyebrow, title, subtitle, headerExtra, children, className = "" }) {
   return (
     <section className={`site-emag-page site-emag-page--${theme} ${className}`.trim()}>
       <div className="site-emag-page__frame">
-        {(eyebrow || title || subtitle) ? (
+        {(eyebrow || title || subtitle || headerExtra) ? (
           <header className="site-emag-page__header">
             {eyebrow ? <p className="site-emag-page__eyebrow">{eyebrow}</p> : null}
             {title ? <h2>{title}</h2> : null}
             {subtitle ? <p className="site-emag-page__subtitle">{subtitle}</p> : null}
+            {headerExtra}
           </header>
         ) : null}
         <div className="site-emag-page__body">{children}</div>
@@ -278,25 +280,43 @@ function SpecialRacePage({ race }) {
   );
 }
 
+const HIGHLIGHT_TITLES = {
+  quatuor: "Four athletes to watch",
+  trio: "Three athletes to watch",
+  duel: "A duel to watch",
+};
+
 function HighlightPage({ page, athletes }) {
-  const title = page.title || (page.type === "trio" ? "Three athletes to watch" : page.type === "duel" ? "A duel to watch" : "Athlete spotlight");
-  const isMulti = page.type === "duel" || page.type === "trio";
+  const title = page.title || HIGHLIGHT_TITLES[page.type] || "Athlete spotlight";
+  const isMulti = athletes.length > 1;
+  const heroAthlete = athletes[0];
+  const heroPhoto = heroAthlete ? (page.athletePhotos?.[heroAthlete._docId] || heroAthlete.photoUrl) : "";
 
   return (
     <MagazinePage
+      theme="highlight"
       eyebrow="Highlights"
       title={title}
       subtitle={page.subtitle || "Auto-filled from the athlete database and editable in the admin."}
     >
-      <div className={`site-emag-highlight ${isMulti ? "site-emag-highlight--multi" : "site-emag-highlight--single"}`}>
-        <div className="site-emag-highlight__visual">
-          <img src={page.imageUrl || heroImage} alt={title} />
-        </div>
+      <div
+        className={`site-emag-highlight ${isMulti ? "site-emag-highlight--multi" : "site-emag-highlight--single"}`}
+        style={!isMulti ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.75)), url(${heroPhoto || page.imageUrl || heroImage})` } : undefined}
+      >
         <div className="site-emag-highlight__content">
           {page.body ? <p className="site-emag-highlight__body">{page.body}</p> : null}
-          <div className="site-emag-highlight__grid">
-            {athletes.map((athlete) => (
-              <article key={athlete._docId} className="site-emag-athlete-card">
+          <div className="site-emag-highlight__grid" data-count={athletes.length}>
+            {athletes.map((athlete, index) => (
+              <article key={athlete._docId} className="site-emag-athlete-card" data-accent={index % 2 === 0 ? "red" : "blue"}>
+                {isMulti ? (
+                  <div className="site-emag-athlete-card__photo">
+                    {(page.athletePhotos?.[athlete._docId] || athlete.photoUrl) ? (
+                      <img src={page.athletePhotos?.[athlete._docId] || athlete.photoUrl} alt={athleteDisplayName(athlete)} />
+                    ) : (
+                      <span className="site-emag-athlete-card__photo-placeholder" aria-hidden="true" />
+                    )}
+                  </div>
+                ) : null}
                 <div>
                   <h3>{athleteDisplayName(athlete) || "Athlete to be announced"}</h3>
                   <p>{athleteSubtitle(athlete) || "Profile loading from database"}</p>
@@ -357,6 +377,20 @@ function PartnerFeaturePage({ page, sponsor }) {
   );
 }
 
+function MeetingRecordBanner({ record }) {
+  if (!record) return null;
+  return (
+    <div className="site-emag-record-banner">
+      <span>Meeting record (MR)</span>
+      <strong>{record.mark}</strong>
+      <span className="site-emag-record-banner__holder">
+        {[record.fullName, record.noc].filter(Boolean).join(" · ")}
+        {record.year ? ` · ${record.year}` : ""}
+      </span>
+    </div>
+  );
+}
+
 function OfficialStartlistPage({ group }) {
   const groupedHeats = group.entries.reduce((accumulator, entry) => {
     const heatKey = entry.heat || "Main list";
@@ -367,9 +401,11 @@ function OfficialStartlistPage({ group }) {
 
   return (
     <MagazinePage
+      theme="record"
       eyebrow="Start list"
       title={group.title}
       subtitle="Live entries from the Athlete Portal. This page updates automatically as data is imported."
+      headerExtra={<MeetingRecordBanner record={group.meetingRecord} />}
     >
       <div className="site-emag-startlist">
         {group.entries.length === 0 ? (
@@ -413,6 +449,7 @@ export function SiteEmagazine() {
   const location = useLocation();
   const { siteEditionYear } = useSiteEditionYear();
   const { editions, loading: editionsLoading } = useMeetingEditions();
+  const { records: meetingRecords } = useMeetingRecords();
   const { athletes, loading: athletesLoading } = useAthletes(true);
   const { registry, loading: registryLoading } = useAthleteRegistry(true);
   const { sponsors, loading: sponsorsLoading } = useSponsors(true);
@@ -443,8 +480,11 @@ export function SiteEmagazine() {
   );
 
   const officialStartlists = useMemo(
-    () => buildOfficialStartlistGroups(currentEdition?.disciplines || [], athletes),
-    [currentEdition?.disciplines, athletes],
+    () => buildOfficialStartlistGroups(currentEdition?.disciplines || [], athletes).map((group) => ({
+      ...group,
+      meetingRecord: findMeetingRecord(meetingRecords, group.discipline, group.gender),
+    })),
+    [currentEdition?.disciplines, athletes, meetingRecords],
   );
 
   const specialRaceStartlists = useMemo(

@@ -3,6 +3,7 @@ import { useSiteEditionYear } from "./edition";
 import { useMeetingEditions, updateEdition } from "./meeting-history-hooks";
 import { useAthleteRegistry, useAthletes } from "./athlete-portal-hooks";
 import { useSponsors } from "../site/site-hooks";
+import { FileUpload } from "./file-upload";
 import {
   buildAthleteOptions,
   buildEmagazinePageRegistry,
@@ -166,7 +167,7 @@ function SpecialRaceEditor({ title, race, onChange }) {
 function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
-  const athleteSlotCount = page.type === "trio" ? 3 : page.type === "duel" ? 2 : 1;
+  const athleteSlotCount = page.type === "quatuor" ? 4 : page.type === "trio" ? 3 : page.type === "duel" ? 2 : 1;
 
   function set(field, value) {
     onChange({ ...page, [field]: value });
@@ -176,6 +177,11 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
     const next = [...page.athleteIds];
     next[index] = value;
     onChange({ ...page, athleteIds: next.filter(Boolean) });
+  }
+
+  function setAthletePhoto(athleteId, url) {
+    if (!athleteId) return;
+    onChange({ ...page, athletePhotos: { ...(page.athletePhotos || {}), [athleteId]: url } });
   }
 
   return (
@@ -194,8 +200,9 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
         <div>
           <label style={labelStyle}>Template</label>
           <select style={inputStyle} value={page.type} onChange={(event) => set("type", event.target.value)}>
-            <option value="duel">Duel</option>
-            <option value="trio">Trio</option>
+            <option value="duel">Vs 2</option>
+            <option value="trio">Vs 3</option>
+            <option value="quatuor">Vs 4</option>
             <option value="luxembourg">Luxembourg spotlight</option>
             <option value="international">International spotlight</option>
           </select>
@@ -222,21 +229,33 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${athleteSlotCount}, minmax(0, 1fr))`, gap: 12 }}>
-        {Array.from({ length: athleteSlotCount }).map((_, index) => (
-          <div key={`${page.id}-athlete-${index}`}>
-            <label style={labelStyle}>Athlete {index + 1}</label>
-            <select
-              style={inputStyle}
-              value={page.athleteIds[index] || ""}
-              onChange={(event) => setAthleteAt(index, event.target.value)}
-            >
-              <option value="">Select athlete</option>
-              {athleteOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-        ))}
+        {Array.from({ length: athleteSlotCount }).map((_, index) => {
+          const athleteId = page.athleteIds[index] || "";
+          return (
+            <div key={`${page.id}-athlete-${index}`} style={{ display: "grid", gap: 8 }}>
+              <label style={labelStyle}>Athlete {index + 1}</label>
+              <select
+                style={inputStyle}
+                value={athleteId}
+                onChange={(event) => setAthleteAt(index, event.target.value)}
+              >
+                <option value="">Select athlete</option>
+                {athleteOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {athleteId ? (
+                <FileUpload
+                  value={page.athletePhotos?.[athleteId] || ""}
+                  onChange={(url) => setAthletePhoto(athleteId, url)}
+                  accept="image/*"
+                  storagePath="emagazine-athlete-photos"
+                  label="Photo de cet athlète"
+                />
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

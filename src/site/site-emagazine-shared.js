@@ -142,6 +142,13 @@ function normalizeHighlightPage(page, index) {
     ? page.athleteIds.map((value) => normalizeText(value)).filter(Boolean)
     : [];
 
+  const athletePhotosSource = page?.athletePhotos && typeof page.athletePhotos === "object" ? page.athletePhotos : {};
+  const athletePhotos = Object.entries(athletePhotosSource).reduce((accumulator, [athleteId, url]) => {
+    const normalizedUrl = normalizeText(url);
+    if (normalizedUrl) accumulator[athleteId] = normalizedUrl;
+    return accumulator;
+  }, {});
+
   return {
     id: page?.id || makeStableId("highlight", index),
     type: normalizeText(page?.type) || "duel",
@@ -150,6 +157,7 @@ function normalizeHighlightPage(page, index) {
     body: normalizeText(page?.body),
     imageUrl: normalizeText(page?.imageUrl),
     athleteIds,
+    athletePhotos,
   };
 }
 
@@ -259,6 +267,15 @@ const DISCIPLINE_ORDER = [
   "TripleJump",
   "WeightThrow",
 ];
+
+export function findMeetingRecord(records = [], discipline, gender) {
+  const normalizedDiscipline = normalizeDisciplineToken(discipline);
+  const normalizedGender = String(gender || "").toUpperCase();
+  return records.find((record) => (
+    normalizeDisciplineToken(record?.discipline) === normalizedDiscipline
+    && String(record?.gender || "").toUpperCase() === normalizedGender
+  )) || null;
+}
 
 export function disciplineSortIndex(value) {
   const token = normalizeDisciplineToken(value);

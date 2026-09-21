@@ -3922,6 +3922,10 @@
 
 /* ── E-magazine ─────────────────────────────────────────── */
 .site-emag {
+  --emag-red: #E30B17;
+  --emag-blue: #009EDA;
+  --emag-black: #000000;
+  font-family: 'Roboto', var(--font-sans, sans-serif);
   background:
     radial-gradient(circle at top left, rgba(25, 153, 233, 0.12), transparent 28%),
     linear-gradient(180deg, #f2f7fb 0%, #eef3f8 100%);
@@ -3930,6 +3934,15 @@
   grid-template-rows: auto 1fr;
   overflow: hidden;
   padding-bottom: 0;
+}
+
+.site-emag-page__eyebrow,
+.site-emag-page__header h2,
+.site-emag-cover__kicker,
+.site-emag-cover__copy h1,
+.site-emag-record-banner strong {
+  font-family: 'Oswald', var(--font-sans, sans-serif);
+  text-transform: uppercase;
 }
 
 .site-emag__intro {
@@ -4113,6 +4126,51 @@
   box-shadow: none;
 }
 
+.site-emag-page--highlight {
+  background: var(--emag-black);
+  border: none;
+  position: relative;
+}
+
+.site-emag-page--highlight::before {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -90px;
+  width: 260px;
+  height: 260px;
+  background: var(--emag-red);
+  transform: rotate(45deg);
+  z-index: 0;
+}
+
+.site-emag-page--highlight::after {
+  content: "";
+  position: absolute;
+  bottom: -80px;
+  left: -80px;
+  width: 200px;
+  height: 200px;
+  background: var(--emag-blue);
+  transform: rotate(45deg);
+  z-index: 0;
+}
+
+.site-emag-page--highlight .site-emag-page__frame {
+  position: relative;
+  z-index: 1;
+}
+
+.site-emag-page--highlight .site-emag-page__eyebrow {
+  color: #fff;
+  opacity: 0.85;
+}
+
+.site-emag-page--highlight .site-emag-page__header h2,
+.site-emag-page--highlight .site-emag-page__subtitle {
+  color: #fff;
+}
+
 .site-emag-page__frame {
   min-height: 100%;
   padding: 48px;
@@ -4125,7 +4183,7 @@
 
 .site-emag-page__eyebrow {
   margin: 0 0 10px;
-  color: #c11a34;
+  color: var(--emag-red);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -4401,27 +4459,42 @@
 .site-emag-highlight {
   display: grid;
   gap: 26px;
+  min-height: 100%;
 }
 
 .site-emag-highlight--single {
-  grid-template-columns: 420px minmax(0, 1fr);
+  background-size: cover;
+  background-position: center;
+  border-radius: 20px;
+  padding: 24px;
+  align-content: end;
 }
 
-.site-emag-highlight--multi .site-emag-highlight__grid {
+.site-emag-highlight--single .site-emag-highlight__grid {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 340px;
+}
+
+.site-emag-highlight--multi .site-emag-highlight__grid[data-count="2"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.site-emag-highlight__visual {
-  overflow: hidden;
-  border-radius: 28px;
-  min-height: 380px;
-  box-shadow: 0 24px 50px rgba(11, 31, 56, 0.14);
+.site-emag-highlight--multi .site-emag-highlight__grid[data-count="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.site-emag-highlight--multi .site-emag-highlight__grid[data-count="4"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .site-emag-highlight__content {
   display: grid;
   gap: 22px;
   align-content: start;
+}
+
+.site-emag-highlight__body {
+  color: #fff;
 }
 
 .site-emag-highlight__grid {
@@ -4431,11 +4504,77 @@
 
 .site-emag-athlete-card {
   display: grid;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid #dbe5ef;
-  border-radius: 22px;
+  gap: 12px;
+  padding: 16px;
+  border: none;
+  border-radius: 14px;
   background: #fff;
+}
+
+.site-emag-athlete-card h3 {
+  font-family: 'Oswald', var(--font-sans, sans-serif);
+  text-transform: uppercase;
+}
+
+.site-emag-athlete-card[data-accent="red"] .site-emag-athlete-card__stats strong {
+  color: var(--emag-red);
+}
+
+.site-emag-athlete-card[data-accent="blue"] .site-emag-athlete-card__stats strong {
+  color: var(--emag-blue);
+}
+
+.site-emag-athlete-card__photo {
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #10253d;
+}
+
+.site-emag-athlete-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.site-emag-athlete-card__photo-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(135deg, var(--emag-red) 0%, var(--emag-red) 50%, var(--emag-blue) 50%, var(--emag-blue) 100%);
+  opacity: 0.16;
+}
+
+.site-emag-record-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--emag-red);
+  color: #fff;
+}
+
+.site-emag-record-banner span:first-child {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.site-emag-record-banner strong {
+  font-size: 1.1rem;
+}
+
+.site-emag-record-banner__holder {
+  font-size: 0.82rem;
+  opacity: 0.9;
+  margin-left: auto;
 }
 
 .site-emag-athlete-card h3 {
