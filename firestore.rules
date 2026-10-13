@@ -374,11 +374,19 @@ service cloud.firestore {
     match /cashSales/{saleId} {
       allow read: if isAdminOrManager() ||
         (isValidCashSession() && resource.data.postId == cashPostIdClaim());
+      // Les ventes payées par le Solo (paymentMethod "sumup_solo") ne sont
+      // créées et validées que par les Cloud Functions SumUp ; un poste ne crée
+      // lui-même que des ventes manuelles (mode secours) ou gratuites.
       allow create: if isAdminOrManager() ||
-        (isValidCashSession() && request.resource.data.postId == cashPostIdClaim());
+        (isValidCashSession() &&
+         request.resource.data.postId == cashPostIdClaim() &&
+         request.resource.data.paymentMethod in ["sumup_manual", "free"] &&
+         request.resource.data.status == "paid");
       allow update: if isAdminOrManager() ||
         (isValidCashSession() &&
          resource.data.postId == cashPostIdClaim() &&
+         resource.data.status == "paid" &&
+         request.resource.data.status == "cancelled" &&
          request.resource.data.diff(resource.data).affectedKeys()
            .hasOnly(["status", "cancelledAt", "cancelledBy", "updatedAt"]));
       allow delete: if isAdmin();

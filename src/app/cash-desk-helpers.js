@@ -30,9 +30,23 @@ const DOOR_GUEST_LIST_SCOPES = [
 ];
 
 const CASH_SALE_PAYMENT_METHODS = {
+  sumup_solo: "SumUp Solo (envoyé par la caisse)",
   sumup_manual: "SumUp (montant saisi sur le Solo)",
   free: "Gratuit",
 };
+
+const CASH_SALE_STATUS_LABELS = {
+  paid: "Payée",
+  pending: "En attente du Solo",
+  failed: "Échouée",
+  cancelled: "Annulée",
+};
+
+// Seules les ventes payées comptent dans les totaux : une vente Solo reste
+// « pending » jusqu'à confirmation par SumUp, puis passe « paid » ou « failed ».
+function isPaidSale(sale) {
+  return sale?.status === "paid";
+}
 
 const VIP_SOURCE_LABELS = {
   vip_public: "VIP — formulaire",
@@ -359,6 +373,7 @@ function normalizeCashPostCode(value) {
 export {
   CASH_POST_KINDS,
   CASH_SALE_PAYMENT_METHODS,
+  CASH_SALE_STATUS_LABELS,
   DEFAULT_CASH_POSTS,
   DOOR_GUEST_LIST_CATEGORIES,
   DOOR_GUEST_LIST_SCOPES,
@@ -374,6 +389,7 @@ export {
   filterDoorEntries,
   formatEuros,
   guestListIsVisibleForPost,
+  isPaidSale,
   normalizeCashPostCode,
   normalizeSearchValue,
   parseGuestImportRows,

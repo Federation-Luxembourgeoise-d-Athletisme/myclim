@@ -27,11 +27,35 @@ import {
   evaluateCheckIn,
   filterDoorEntries,
   formatEuros,
+  CASH_SALE_STATUS_LABELS,
+  isPaidSale,
   normalizeCashPostCode,
 } from "./cash-desk-helpers";
 
 const OPERATOR_STORAGE_KEY = "myclim-cash-operator";
 const MAX_VISIBLE_RESULTS = 40;
+const READER_STATUS_REFRESH_MS = 60 * 1000;
+
+const READER_STATE_LABELS = {
+  IDLE: "prêt",
+  SELECTING_TIP: "pourboire",
+  WAITING_FOR_CARD: "attend la carte",
+  WAITING_FOR_PIN: "attend le code PIN",
+  WAITING_FOR_SIGNATURE: "attend la signature",
+  UPDATING_FIRMWARE: "mise à jour en cours",
+};
+
+function describeReaderStatus(readerStatus) {
+  if (!readerStatus) return { label: "Solo : vérification…", tone: "pending" };
+  if (!readerStatus.paired) return { label: "Aucun Solo appairé — mode manuel", tone: "pending" };
+  if (readerStatus.error) return { label: "Solo : SumUp injoignable", tone: "danger" };
+  if (readerStatus.status === "ONLINE") {
+    const state = READER_STATE_LABELS[readerStatus.state] || "en ligne";
+    const battery = readerStatus.batteryLevel != null ? ` · ${Math.round(readerStatus.batteryLevel)} %` : "";
+    return { label: `Solo en ligne (${state})${battery}`, tone: "ok" };
+  }
+  return { label: "Solo hors ligne — vérifie Wi-Fi et alimentation", tone: "danger" };
+}
 
 function readStoredOperator() {
   try {
@@ -348,7 +372,33 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
     [articles, post],
   );
 
-  const paidSales = sales.filter((sale) => sale.status !== "cancelled");
+  const paidSales = sales.filter(isPaidSale);
+
+  const sumupReaderId = post?.sumupReaderId || "";
+  const [readerStatus, setReaderStatus] = useState(null);
+  async function refreshReaderStatus() {
+    if (!sumupReaderId) {
+      setReaderStatus({ paired: false });
+      return;
+    }
+    try {
+      const getStatus = httpsCallable(functions, "getSumupReaderStatus");
+      const response = await getStatus({ postId });
+      setReaderStatus(response?.data || { paired: true, status: "UNKNOWN" });
+    } catch (statusError) {
+      console.error("SumUp reader status failed", statusError);
+      setReaderStatus({ paired: true, error: true });
+    }
+  }
+  useEffect(() => {
+    if (!postIsOpen) return undefined;
+    refreshReaderStatus();
+    const interval = window.setInterval(refreshReaderStatus, READER_STATUS_REFRESH_MS);
+    return () => window.clearInterval(interval);
+    // refreshReaderStatus ne dépend que du poste et de son Solo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postId, sumupReaderId, postIsOpen]);
+  const readerSummary = describeReaderStatus(readerStatus);
   const postEntriesCount = checkIns.reduce(
     (sum, checkIn) =>
       sum +
@@ -414,6 +464,14 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
           <span><strong>{paidSales.length}</strong> ventes</span>
           <span><strong>{formatEuros(paidSales.reduce((sum, sale) => sum + (Number(sale.totalCents) || 0), 0))}</strong></span>
         </div>
+        <button
+          type="button"
+          className={`cash-desk-reader cash-desk-reader--${readerSummary.tone}`}
+          title="Actualiser l'état du Solo"
+          onClick={refreshReaderStatus}
+        >
+          {readerSummary.label}
+        </button>
         <div className="cash-desk-header__operator">
           <label>
             Caissier·ère
@@ -458,6 +516,8 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
           editionId={activeEditionId}
           post={post}
           operator={operator}
+          canUseSolo={Boolean(sumupReaderId) && !readerStatus?.error && readerStatus?.status !== "OFFLINE"}
+          onReaderIssue={refreshReaderStatus}
         />
       )}
     </div>
@@ -637,11 +697,16 @@ function CashDeskGuests({ entries, editionId, post, operator }) {
   );
 }
 
-function CashDeskSales({ articles, sales, editionId, post, operator }) {
+// Étapes du panier : "cart" (composition), "solo" (montant envoyé au Solo,
+// on suit la vente côté serveur) ou "manual" (mode secours : montant saisi à
+// la main sur le Solo, validé par le caissier).
+function CashDeskSales({ articles, sales, editionId, post, operator, canUseSolo, onReaderIssue }) {
   const [cart, setCart] = useState({});
   const [step, setStep] = useState("cart");
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [soloSaleId, setSoloSaleId] = useState("");
+  const [soloBusy, setSoloBusy] = useState(false);
 
   const lines = useMemo(() => buildCartLines(cart, articles), [articles, cart]);
   const totalCents = computeCartTotalCents(lines);
@@ -650,6 +715,36 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
     () => [...sales].sort((left, right) => (right.createdAt?.toMillis?.() || 0) - (left.createdAt?.toMillis?.() || 0)).slice(0, 8),
     [sales],
   );
+  const soloSale = soloSaleId ? sales.find((sale) => sale.id === soloSaleId) || null : null;
+  const soloStatus = soloSale?.status || "pending";
+
+  // Fin d'un paiement Solo : la vente est confirmée par le serveur (webhook
+  // SumUp ou bouton « Vérifier »), on vide le panier ou on propose de réessayer.
+  useEffect(() => {
+    if (step !== "solo" || !soloSale) return;
+    if (soloSale.status === "paid") {
+      setFeedback({
+        type: "ok",
+        message: `Paiement accepté : ${soloSale.ticketCount || ticketCount} billet(s), ${formatEuros(soloSale.totalCents)}.`,
+      });
+      setCart({});
+      setStep("cart");
+      setSoloSaleId("");
+    } else if (soloSale.status === "failed") {
+      setFeedback({ type: "error", message: `Paiement non abouti : ${soloSale.failureReason || "refusé sur le Solo"}.` });
+    }
+  }, [soloSale, step, ticketCount]);
+
+  // Filet de sécurité si le webhook SumUp tarde : revérifie toutes les 15 s.
+  useEffect(() => {
+    if (step !== "solo" || !soloSaleId || soloStatus !== "pending") return undefined;
+    const interval = window.setInterval(() => {
+      httpsCallable(functions, "refreshCashSaleStatus")({ saleId: soloSaleId }).catch((refreshError) =>
+        console.error("Solo sale refresh failed", refreshError),
+      );
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [soloSaleId, soloStatus, step]);
 
   function changeQuantity(articleId, delta) {
     setFeedback(null);
@@ -662,9 +757,59 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
   function resetCart() {
     setCart({});
     setStep("cart");
+    setSoloSaleId("");
   }
 
-  async function recordSale(paymentMethod) {
+  async function startSoloPayment() {
+    setSoloBusy(true);
+    setFeedback(null);
+    try {
+      const startCheckout = httpsCallable(functions, "startCashSaleCheckout");
+      const response = await startCheckout({ postId: post.id, cart, operator });
+      setSoloSaleId(response?.data?.saleId || "");
+      setStep("solo");
+    } catch (checkoutError) {
+      console.error("Solo checkout failed", checkoutError);
+      setFeedback({
+        type: "error",
+        message: checkoutError?.message || "Le Solo n'a pas reçu le montant. Réessaie ou passe en mode manuel.",
+      });
+      onReaderIssue?.();
+    } finally {
+      setSoloBusy(false);
+    }
+  }
+
+  async function callSoloSaleAction(name) {
+    if (!soloSaleId) return;
+    setSoloBusy(true);
+    try {
+      const action = httpsCallable(functions, name);
+      const response = await action({ saleId: soloSaleId });
+      if (response?.data?.status === "pending") {
+        setFeedback({
+          type: "warn",
+          message:
+            name === "cancelCashSaleCheckout"
+              ? "Annulation demandée au Solo. Si le client a déjà présenté sa carte, le paiement peut quand même aboutir."
+              : "SumUp n'a pas encore de résultat pour ce paiement. Attends quelques secondes.",
+        });
+      }
+    } catch (actionError) {
+      console.error(`${name} failed`, actionError);
+      setFeedback({ type: "error", message: "SumUp ne répond pas. Vérifie la connexion internet." });
+    } finally {
+      setSoloBusy(false);
+    }
+  }
+
+  function retryAfterFailure() {
+    setSoloSaleId("");
+    setStep("cart");
+    setFeedback(null);
+  }
+
+  async function recordManualSale(paymentMethod) {
     setSaving(true);
     setFeedback(null);
     try {
@@ -706,6 +851,8 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
     }
   }
 
+  const cartLocked = step !== "cart";
+
   return (
     <section className="cash-desk-panel cash-desk-sales">
       <div className="cash-desk-articles">
@@ -714,7 +861,7 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
             key={article.id}
             type="button"
             className="cash-desk-article"
-            disabled={step !== "cart"}
+            disabled={cartLocked}
             onClick={() => changeQuantity(article.id, 1)}
           >
             <span>{article.label}</span>
@@ -733,11 +880,11 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
               <li key={line.articleId}>
                 <span>{line.label}</span>
                 <div className="cash-desk-cart__qty">
-                  <button type="button" disabled={step !== "cart"} onClick={() => changeQuantity(line.articleId, -1)} aria-label={`Retirer un ${line.label}`}>
+                  <button type="button" disabled={cartLocked} onClick={() => changeQuantity(line.articleId, -1)} aria-label={`Retirer un ${line.label}`}>
                     −
                   </button>
                   <strong>{line.quantity}</strong>
-                  <button type="button" disabled={step !== "cart"} onClick={() => changeQuantity(line.articleId, 1)} aria-label={`Ajouter un ${line.label}`}>
+                  <button type="button" disabled={cartLocked} onClick={() => changeQuantity(line.articleId, 1)} aria-label={`Ajouter un ${line.label}`}>
                     +
                   </button>
                 </div>
@@ -757,13 +904,17 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
 
         {step === "cart" ? (
           <div className="cash-desk-cart__actions">
-            {!lines.length ? null : totalCents > 0 ? (
-              <button className="button button--primary" type="button" onClick={() => setStep("payment")}>
-                Encaisser {formatEuros(totalCents)}
+            {!lines.length ? null : totalCents === 0 ? (
+              <button className="button button--primary" type="button" disabled={saving} onClick={() => recordManualSale("free")}>
+                Valider (gratuit)
+              </button>
+            ) : canUseSolo ? (
+              <button className="button button--primary" type="button" disabled={soloBusy} onClick={startSoloPayment}>
+                {soloBusy ? "Envoi au Solo…" : `Encaisser ${formatEuros(totalCents)} sur le Solo`}
               </button>
             ) : (
-              <button className="button button--primary" type="button" disabled={saving} onClick={() => recordSale("free")}>
-                Valider (gratuit)
+              <button className="button button--primary" type="button" onClick={() => setStep("manual")}>
+                Encaisser {formatEuros(totalCents)}
               </button>
             )}
             {lines.length ? (
@@ -771,15 +922,57 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
                 Vider
               </button>
             ) : null}
+            {lines.length && totalCents > 0 && canUseSolo ? (
+              <button className="cash-desk-manual-link" type="button" onClick={() => setStep("manual")}>
+                Le Solo ne répond pas ? Mode manuel
+              </button>
+            ) : null}
           </div>
-        ) : (
+        ) : null}
+
+        {step === "solo" ? (
+          <div className={`cash-desk-payment cash-desk-payment--${soloStatus}`}>
+            {soloStatus === "failed" ? (
+              <>
+                <p>
+                  Le paiement de <strong>{formatEuros(soloSale?.totalCents ?? totalCents)}</strong> n'a pas abouti. Le panier est conservé.
+                </p>
+                <div className="cash-desk-cart__actions">
+                  <button className="button button--primary" type="button" onClick={retryAfterFailure}>
+                    Réessayer
+                  </button>
+                  <button className="button button--secondary" type="button" onClick={() => setStep("manual")}>
+                    Mode manuel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p>
+                  <strong>{formatEuros(soloSale?.totalCents ?? totalCents)}</strong> envoyés au Solo. Le client présente sa carte
+                  ou son téléphone. L'écran se met à jour tout seul quand le paiement est accepté.
+                </p>
+                <div className="cash-desk-cart__actions">
+                  <button className="button button--secondary" type="button" disabled={soloBusy} onClick={() => callSoloSaleAction("refreshCashSaleStatus")}>
+                    Vérifier
+                  </button>
+                  <button className="button button--danger-soft" type="button" disabled={soloBusy} onClick={() => callSoloSaleAction("cancelCashSaleCheckout")}>
+                    Annuler sur le Solo
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+
+        {step === "manual" ? (
           <div className="cash-desk-payment">
             <p>
-              Saisis <strong>{formatEuros(totalCents)}</strong> sur le terminal SumUp Solo et fais payer le client.
-              Valide ici seulement quand le Solo affiche le paiement accepté.
+              <strong>Mode manuel.</strong> Saisis <strong>{formatEuros(totalCents)}</strong> directement sur le Solo et fais payer
+              le client. Valide ici seulement quand le Solo affiche le paiement accepté.
             </p>
             <div className="cash-desk-cart__actions">
-              <button className="button button--primary" type="button" disabled={saving} onClick={() => recordSale("sumup_manual")}>
+              <button className="button button--primary" type="button" disabled={saving} onClick={() => recordManualSale("sumup_manual")}>
                 {saving ? "Enregistrement…" : "Paiement accepté"}
               </button>
               <button className="button button--secondary" type="button" disabled={saving} onClick={() => setStep("cart")}>
@@ -787,23 +980,23 @@ function CashDeskSales({ articles, sales, editionId, post, operator }) {
               </button>
             </div>
           </div>
-        )}
+        ) : null}
 
         {recentSales.length ? (
           <div className="cash-desk-recent">
             <h3>Dernières ventes</h3>
             <ul>
               {recentSales.map((sale) => (
-                <li key={sale.id} className={sale.status === "cancelled" ? "cash-desk-recent--cancelled" : ""}>
+                <li key={sale.id} className={sale.status === "cancelled" || sale.status === "failed" ? "cash-desk-recent--cancelled" : ""}>
                   <span>{formatTime(sale.createdAt)}</span>
                   <span>{(sale.items || []).map((item) => `${item.quantity}× ${item.label}`).join(", ")}</span>
                   <span>{formatEuros(sale.totalCents)}</span>
-                  {sale.status === "cancelled" ? (
-                    <em>Annulée</em>
-                  ) : (
+                  {sale.status === "paid" ? (
                     <button type="button" className="button button--danger-soft button--small" onClick={() => cancelSale(sale)}>
                       Annuler
                     </button>
+                  ) : (
+                    <em>{CASH_SALE_STATUS_LABELS[sale.status] || sale.status}</em>
                   )}
                 </li>
               ))}
