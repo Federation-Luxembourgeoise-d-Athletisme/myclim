@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import { addDoc, arrayUnion, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import { getActiveRoles } from "./navigation";
-import { useActiveEdition } from "./edition";
+import { normalizeEditionId, useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
 import {
   ATHLETE_TRANSPORT_LOTS_COLLECTION,
   useAthletes,
+  useAccompanyingPersons,
   useAthleteTransportLots,
   useTransportVolunteers,
   formatTravelDay,
@@ -16,17 +17,35 @@ import {
 // ─── Chief page ───────────────────────────────────────────────────────────────
 
 function AthleteTransportChiefPage({ Panel }) {
+  const { userProfile } = useAuth();
+  const roles = getActiveRoles(userProfile);
+  const isAdmin = roles.includes("admin");
   const [tab, setTab] = useState("arrivals");
-  const { lots, loading: lotsLoading } = useAthleteTransportLots();
   const { activeEditionId } = useActiveEdition();
-  const { athletes, loading: athletesLoading } = useAthletes(true, activeEditionId);
+  // Admins can switch to "test" to check a rehearsal import's travel/lots
+  // logic — without this, this page always showed the real edition only,
+  // even while every athlete/staff record lived under "test".
+  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
+  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  const { athletes, loading: athletesLoading } = useAthletes(true, viewEditionId);
+  const { people: accompanyingPersons, loading: staffLoading } = useAccompanyingPersons(true, viewEditionId);
+  const { lots, loading: lotsLoading } = useAthleteTransportLots(true, viewEditionId);
   const { volunteers, loading: volunteersLoading } = useTransportVolunteers();
   const { editions: meetingEditions } = useMeetingEditions();
   const meetingReferenceDate = meetingEditions.find((e) => String(e.year) === String(activeEditionId))?.date;
 
-  const athletesWithArrival = useMemo(
-    () => athletes.filter((a) => a.arrivalDay || a.arrivalFlight || a.arrivalTime),
-    [athletes],
+  // The transport chief needs to pick up everyone the meeting director sent
+  // travel info for, not just competing athletes — coaches, managers, physios
+  // arrive/depart on their own flights too. Both groups share the id space
+  // (Firestore auto ids), so they can live in one merged list/map.
+  const allPeople = useMemo(
+    () => [...athletes, ...accompanyingPersons.map((p) => ({ ...p, isStaff: true }))],
+    [athletes, accompanyingPersons],
+  );
+
+  const peopleWithArrival = useMemo(
+    () => allPeople.filter((a) => a.arrivalDay || a.arrivalFlight || a.arrivalTime),
+    [allPeople],
   );
 
   const lotAthleteIds = useMemo(() => {
@@ -37,9 +56,9 @@ function AthleteTransportChiefPage({ Panel }) {
 
   const athleteMap = useMemo(() => {
     const map = {};
-    athletes.forEach((a) => { map[a.id] = a; });
+    allPeople.forEach((a) => { map[a.id] = a; });
     return map;
-  }, [athletes]);
+  }, [allPeople]);
 
   return (
     <div className="page">
@@ -48,6 +67,24 @@ function AthleteTransportChiefPage({ Panel }) {
           <p className="eyebrow">Athlete Portal</p>
           <h1>Transport</h1>
           <p>Gérez les lots de transport et les affectations des bénévoles.</p>
+          {isAdmin && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ fontSize: "0.8rem", color: "#607086" }}>Édition :</label>
+              <select
+                value={viewEditionId}
+                onChange={(e) => setViewEditionId(e.target.value)}
+                style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
+              >
+                <option value={activeEditionId}>Courante ({activeEditionId})</option>
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+              </select>
+              {viewEditionId === "test" && (
+                <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
+                  Rien ici n&apos;apparaît ailleurs dans l&apos;app
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -57,7 +94,7 @@ function AthleteTransportChiefPage({ Panel }) {
           className={`admin-subtab${tab === "arrivals" ? " admin-subtab--active" : ""}`}
           onClick={() => setTab("arrivals")}
         >
-          Arrivées ({athletesWithArrival.length})
+          Arrivées ({peopleWithArrival.length})
         </button>
         <button
           type="button"
@@ -78,12 +115,12 @@ function AthleteTransportChiefPage({ Panel }) {
       {tab === "arrivals" && (
         <ArrivalsTab
           Panel={Panel}
-          athletes={athletesWithArrival}
-          loading={athletesLoading}
+          athletes={peopleWithArrival}
+          loading={athletesLoading || staffLoading}
           lots={lots}
           lotAthleteIds={lotAthleteIds}
           volunteers={volunteers}
-          editionId={activeEditionId}
+          editionId={viewEditionId}
           meetingReferenceDate={meetingReferenceDate}
         />
       )}
@@ -95,7 +132,7 @@ function AthleteTransportChiefPage({ Panel }) {
           athletes={athletes}
           athleteMap={athleteMap}
           volunteers={volunteers}
-          editionId={activeEditionId}
+          editionId={viewEditionId}
         />
       )}
       {tab === "volunteers" && (
@@ -110,6 +147,14 @@ function AthleteTransportChiefPage({ Panel }) {
   );
 }
 
+// Adds (or subtracts) minutes to a "HH:MM" time string, wrapping past midnight.
+function addMinutesToTime(time, minutesToAdd) {
+  if (!time || !/^\d{1,2}:\d{2}$/.test(time)) return "";
+  const [h, m] = time.split(":").map(Number);
+  const wrapped = ((h * 60 + m + minutesToAdd) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+}
+
 // ─── Arrivées tab ─────────────────────────────────────────────────────────────
 
 function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers, editionId, meetingReferenceDate }) {
@@ -119,6 +164,9 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newLotLabel, setNewLotLabel] = useState("");
   const [newLotVolunteerId, setNewLotVolunteerId] = useState("");
+  const [addToLotId, setAddToLotId] = useState("");
+  const [newLotPickupTime, setNewLotPickupTime] = useState("");
+  const [newLotLeaveTime, setNewLotLeaveTime] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -164,12 +212,28 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
     const flights = [...new Set(selectedAthletes.map((a) => a.arrivalFlight).filter(Boolean))];
     const times = [...new Set(selectedAthletes.map((a) => a.arrivalTime).filter(Boolean))];
     const days = [...new Set(selectedAthletes.map((a) => a.arrivalDay).filter(Boolean))];
+    const sortedTimes = times.slice().sort();
+    // Two lots created the same day with a mix of flights/times used to both
+    // fall back to the exact same bare "— Samedi 16 janv." label — always
+    // include a time (range) and the headcount so lots stay distinguishable
+    // at a glance; the chief can still rename it via "Renommer" afterwards.
     let label = "";
     if (flights.length === 1) label = `Vol ${flights[0]}`;
-    if (times.length === 1) label += (label ? ` ${times[0]}` : `Arr. ${times[0]}`);
-    if (days.length === 1) label += ` — ${formatTravelDay(days[0], meetingReferenceDate)}`;
-    setNewLotLabel(label || `Lot du ${new Date().toLocaleDateString("fr-FR")}`);
+    if (sortedTimes.length === 1) {
+      label += label ? ` ${sortedTimes[0]}` : `Arr. ${sortedTimes[0]}`;
+    } else if (sortedTimes.length > 1) {
+      label += label ? ` ${sortedTimes[0]}–${sortedTimes[sortedTimes.length - 1]}` : `Arr. ${sortedTimes[0]}–${sortedTimes[sortedTimes.length - 1]}`;
+    }
+    if (days.length === 1) label += `${label ? " — " : ""}${formatTravelDay(days[0], meetingReferenceDate)}`;
+    if (!label) label = `Lot du ${new Date().toLocaleDateString("fr-FR")}`;
+    setNewLotLabel(`${label} (${selectedAthletes.length} pers.)`);
     setNewLotVolunteerId("");
+    // The volunteer should be there 30min before the EARLIEST arrival, and
+    // the auto-filled leave time is 30min after the LAST arrival in the lot
+    // — both stay editable since a flight can be delayed or the chief may
+    // want more margin.
+    setNewLotPickupTime(addMinutesToTime(sortedTimes[0], -30));
+    setNewLotLeaveTime(addMinutesToTime(sortedTimes[sortedTimes.length - 1], 30));
     setShowCreateForm(true);
   }
 
@@ -185,6 +249,8 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
         assignedVolunteerId: volunteer?.id ?? null,
         assignedVolunteerName: volunteer ? `${volunteer.firstName ?? ""} ${volunteer.lastName ?? ""}`.trim() : null,
         athleteIds: [...selected],
+        pickupTime: newLotPickupTime || null,
+        leaveTime: newLotLeaveTime || null,
         pickedUp: {},
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -198,13 +264,51 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
     }
   }
 
+  async function addToLot() {
+    if (!addToLotId) return;
+    setSaving(true);
+    setError("");
+    try {
+      await updateDoc(doc(db, ATHLETE_TRANSPORT_LOTS_COLLECTION, addToLotId), {
+        athleteIds: arrayUnion(...selected),
+        updatedAt: serverTimestamp(),
+      });
+      setSelected(new Set());
+      setAddToLotId("");
+    } catch {
+      setError("Erreur lors de l'ajout au lot.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <Panel
-      title="Athlètes avec info d'arrivée"
-      subtitle={`${athletes.length} athlètes · ${lotAthleteIds.size} dans un lot`}
+      title="Personnes avec info d'arrivée"
+      subtitle={`${athletes.length} personnes (athlètes + staff) · ${lotAthleteIds.size} dans un lot`}
       actions={
         selected.size > 0 && !showCreateForm
-          ? <button type="button" className="btn btn--primary" onClick={openCreateForm}>Créer un lot ({selected.size})</button>
+          ? (
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+              {lots.length > 0 && (
+                <>
+                  <select
+                    className="select-field"
+                    value={addToLotId}
+                    onChange={(e) => setAddToLotId(e.target.value)}
+                    style={{ width: "auto" }}
+                  >
+                    <option value="">Ajouter au lot existant…</option>
+                    {lots.map((lot) => <option key={lot.id} value={lot.id}>{lot.label}</option>)}
+                  </select>
+                  <button type="button" className="btn" onClick={addToLot} disabled={!addToLotId || saving}>
+                    {saving ? "…" : "Ajouter"}
+                  </button>
+                </>
+              )}
+              <button type="button" className="btn btn--primary" onClick={openCreateForm}>Créer un lot ({selected.size})</button>
+            </div>
+          )
           : null
       }
     >
@@ -228,6 +332,8 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
         />
       </div>
 
+      {error && !showCreateForm && <p style={{ color: "red", marginBottom: "1rem" }}>{error}</p>}
+
       {showCreateForm && (
         <div className="panel" style={{ marginBottom: "1rem", background: "var(--color-bg-offset, #f5f5f5)", padding: "1rem" }}>
           <h4 style={{ marginTop: 0 }}>Nouveau lot — {selected.size} athlète(s)</h4>
@@ -249,10 +355,33 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
               <option value="">Bénévole — à assigner</option>
               {volunteers.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.firstName} {v.lastName}
+                  {v.firstName} {v.lastName}{v.fallbackRole ? ` (${v.fallbackRole})` : ""}
                 </option>
               ))}
             </select>
+          </div>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem", alignItems: "center" }}>
+            <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              Bénévole présent à
+              <input
+                type="time"
+                className="text-field"
+                value={newLotPickupTime}
+                onChange={(e) => setNewLotPickupTime(e.target.value)}
+                style={{ width: "auto" }}
+              />
+            </label>
+            <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              Départ de l'aéroport à
+              <input
+                type="time"
+                className="text-field"
+                value={newLotLeaveTime}
+                onChange={(e) => setNewLotLeaveTime(e.target.value)}
+                style={{ width: "auto" }}
+              />
+            </label>
+            <span style={{ fontSize: "0.75rem", color: "#888" }}>Départ pré-rempli 30min après la dernière arrivée du lot</span>
           </div>
           {error && <p style={{ color: "red", marginBottom: "0.5rem" }}>{error}</p>}
           <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -278,7 +407,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
                 </th>
                 <th>Nom</th>
                 <th>Nat.</th>
-                <th>Épreuve</th>
+                <th>Rôle / épreuve</th>
                 <th>Jour</th>
                 <th>Heure arr.</th>
                 <th>Vol</th>
@@ -300,7 +429,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
                     </td>
                     <td>{a.lastName} {a.firstName}</td>
                     <td>{a.nationality}</td>
-                    <td>{a.event}</td>
+                    <td>{a.isStaff ? <span className="status-pill">{a.staffRole || "Staff"}</span> : a.event}</td>
                     <td>{a.arrivalDay ? formatTravelDay(a.arrivalDay, meetingReferenceDate) : "—"}</td>
                     <td>{a.arrivalTime ?? "—"}</td>
                     <td>{a.arrivalFlight ?? "—"}</td>
@@ -328,6 +457,11 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
   const [assigningLotId, setAssigningLotId] = useState(null);
   const [assignVolunteerId, setAssignVolunteerId] = useState("");
   const [expandedLotId, setExpandedLotId] = useState(null);
+  const [editingTimesLotId, setEditingTimesLotId] = useState(null);
+  const [editPickupTime, setEditPickupTime] = useState("");
+  const [editLeaveTime, setEditLeaveTime] = useState("");
+  const [renamingLotId, setRenamingLotId] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
 
   async function createEmptyLot() {
     if (!newLotLabel.trim()) { setError("Un libellé est requis."); return; }
@@ -370,6 +504,24 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
     await deleteDoc(doc(db, ATHLETE_TRANSPORT_LOTS_COLLECTION, lotId));
   }
 
+  async function saveTimes(lot) {
+    await updateDoc(doc(db, ATHLETE_TRANSPORT_LOTS_COLLECTION, lot.id), {
+      pickupTime: editPickupTime || null,
+      leaveTime: editLeaveTime || null,
+      updatedAt: serverTimestamp(),
+    });
+    setEditingTimesLotId(null);
+  }
+
+  async function saveRename(lot) {
+    if (!renameValue.trim()) return;
+    await updateDoc(doc(db, ATHLETE_TRANSPORT_LOTS_COLLECTION, lot.id), {
+      label: renameValue.trim(),
+      updatedAt: serverTimestamp(),
+    });
+    setRenamingLotId(null);
+  }
+
   return (
     <Panel
       title="Lots de transport"
@@ -399,7 +551,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
             >
               <option value="">Bénévole — à assigner</option>
               {volunteers.map((v) => (
-                <option key={v.id} value={v.id}>{v.firstName} {v.lastName}</option>
+                <option key={v.id} value={v.id}>{v.firstName} {v.lastName}{v.fallbackRole ? ` (${v.fallbackRole})` : ""}</option>
               ))}
             </select>
           </div>
@@ -424,12 +576,34 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
             const total = (lot.athleteIds ?? []).length;
             const isExpanded = expandedLotId === lot.id;
             const isAssigning = assigningLotId === lot.id;
+            const isEditingTimes = editingTimesLotId === lot.id;
+            const isRenaming = renamingLotId === lot.id;
 
             return (
               <li key={lot.id} style={{ borderBottom: "1px solid var(--color-border, #e0e0e0)", padding: "0.75rem 0" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", flexWrap: "wrap" }}>
                   <div style={{ flex: 1 }}>
-                    <strong>{lot.label}</strong>
+                    {isRenaming ? (
+                      <span style={{ display: "inline-flex", gap: "0.4rem", alignItems: "center" }}>
+                        <input
+                          type="text"
+                          className="text-field"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveRename(lot); }}
+                          style={{ minWidth: "220px" }}
+                          autoFocus
+                        />
+                        <button type="button" className="btn btn--primary" style={{ fontSize: "0.8em" }} onClick={() => saveRename(lot)}>
+                          Confirmer
+                        </button>
+                        <button type="button" className="btn" style={{ fontSize: "0.8em" }} onClick={() => setRenamingLotId(null)}>
+                          Annuler
+                        </button>
+                      </span>
+                    ) : (
+                      <strong>{lot.label}</strong>
+                    )}
                     <span style={{ marginLeft: "0.5rem", color: "#888", fontSize: "0.85em" }}>
                       {total} athlète{total !== 1 ? "s" : ""} · {pickedCount}/{total} récupéré{pickedCount !== 1 ? "s" : ""}
                     </span>
@@ -437,8 +611,29 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                     <span style={{ fontSize: "0.85em", color: lot.assignedVolunteerName ? "#333" : "#aaa" }}>
                       {lot.assignedVolunteerName ? `Bénévole : ${lot.assignedVolunteerName}` : "Bénévole non assigné"}
                     </span>
+                    {(lot.pickupTime || lot.leaveTime) && (
+                      <>
+                        <br />
+                        <span style={{ fontSize: "0.85em", color: "#555" }}>
+                          {lot.pickupTime && <>Présent à {lot.pickupTime}</>}
+                          {lot.pickupTime && lot.leaveTime && " · "}
+                          {lot.leaveTime && <>Départ à {lot.leaveTime}</>}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ fontSize: "0.8em" }}
+                      onClick={() => {
+                        setRenamingLotId(isRenaming ? null : lot.id);
+                        setRenameValue(lot.label ?? "");
+                      }}
+                    >
+                      {isRenaming ? "Annuler" : "Renommer"}
+                    </button>
                     <button
                       type="button"
                       className="btn"
@@ -460,6 +655,18 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                     </button>
                     <button
                       type="button"
+                      className="btn"
+                      style={{ fontSize: "0.8em" }}
+                      onClick={() => {
+                        setEditingTimesLotId(isEditingTimes ? null : lot.id);
+                        setEditPickupTime(lot.pickupTime ?? "");
+                        setEditLeaveTime(lot.leaveTime ?? "");
+                      }}
+                    >
+                      {isEditingTimes ? "Annuler" : "Horaires"}
+                    </button>
+                    <button
+                      type="button"
                       className="btn btn--danger"
                       style={{ fontSize: "0.8em" }}
                       onClick={() => deleteLot(lot.id)}
@@ -468,6 +675,34 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                     </button>
                   </div>
                 </div>
+
+                {isEditingTimes && (
+                  <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                    <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      Bénévole présent à
+                      <input
+                        type="time"
+                        className="text-field"
+                        value={editPickupTime}
+                        onChange={(e) => setEditPickupTime(e.target.value)}
+                        style={{ width: "auto" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      Départ de l'aéroport à
+                      <input
+                        type="time"
+                        className="text-field"
+                        value={editLeaveTime}
+                        onChange={(e) => setEditLeaveTime(e.target.value)}
+                        style={{ width: "auto" }}
+                      />
+                    </label>
+                    <button type="button" className="btn btn--primary" style={{ fontSize: "0.85em" }} onClick={() => saveTimes(lot)}>
+                      Confirmer
+                    </button>
+                  </div>
+                )}
 
                 {isAssigning && (
                   <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", alignItems: "center" }}>
@@ -479,7 +714,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                     >
                       <option value="">— Aucun bénévole —</option>
                       {volunteers.map((v) => (
-                        <option key={v.id} value={v.id}>{v.firstName} {v.lastName}</option>
+                        <option key={v.id} value={v.id}>{v.firstName} {v.lastName}{v.fallbackRole ? ` (${v.fallbackRole})` : ""}</option>
                       ))}
                     </select>
                     <button
@@ -522,7 +757,7 @@ function VolunteersTab({ Panel, volunteers, loading, lots }) {
         <p className="panel-note">Chargement…</p>
       ) : volunteers.length === 0 ? (
         <p className="panel-note">
-          Aucun bénévole avec le rôle <em>benevole_transport_athletes</em> trouvé.
+          Aucun bénévole trouvé — ni avec le rôle <em>benevole_transport_athletes</em>, ni parmi les admins/gestionnaires.
           Assignez ce rôle via la gestion des rôles plateforme.
         </p>
       ) : (
@@ -531,6 +766,7 @@ function VolunteersTab({ Panel, volunteers, loading, lots }) {
             <thead>
               <tr>
                 <th>Nom</th>
+                <th>Type</th>
                 <th>Email</th>
                 <th>Téléphone</th>
                 <th>Lots assignés</th>
@@ -542,6 +778,12 @@ function VolunteersTab({ Panel, volunteers, loading, lots }) {
                 return (
                   <tr key={v.id}>
                     <td>{v.firstName} {v.lastName}</td>
+                    <td>
+                      {v.fallbackRole
+                        ? <span className="status-pill" title="Bénévole par défaut (admin/gestionnaire), pas un bénévole transport dédié">{v.fallbackRole}</span>
+                        : <span className="status-pill status-pill--ok">Bénévole transport</span>
+                      }
+                    </td>
                     <td>{v.email ?? "—"}</td>
                     <td>{v.phone ?? "—"}</td>
                     <td>
@@ -563,12 +805,14 @@ function VolunteersTab({ Panel, volunteers, loading, lots }) {
 
 // ─── Shared: lot athlete list with pick-up toggle ─────────────────────────────
 
-function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePickedUp }) {
+function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePickedUp, onToggleNoShow, onToggleDelayed }) {
   const athleteIds = lot.athleteIds ?? [];
 
   if (athleteIds.length === 0) {
     return <p className="panel-note" style={{ marginTop: "0.5rem" }}>Aucun athlète dans ce lot.</p>;
   }
+
+  const showDeclareCols = Boolean(onToggleNoShow || onToggleDelayed);
 
   return (
     <div className="table-wrap" style={{ marginTop: "0.5rem" }}>
@@ -578,19 +822,22 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
             {showPickedUp && <th>Récupéré</th>}
             <th>Nom</th>
             <th>Nat.</th>
-            <th>Épreuve</th>
+            <th>Rôle / épreuve</th>
             <th>Vol arr.</th>
             <th>Heure arr.</th>
             <th>Depuis</th>
+            {showDeclareCols && <th>Signaler</th>}
           </tr>
         </thead>
         <tbody>
           {athleteIds.map((id) => {
             const a = athleteMap[id];
             const picked = !!(lot.pickedUp ?? {})[id];
+            const noShow = !!(lot.noShow ?? {})[id];
+            const delayed = !!(lot.delayed ?? {})[id];
             if (!a) return null;
             return (
-              <tr key={id} style={picked ? { opacity: 0.55 } : undefined}>
+              <tr key={id} style={picked || noShow ? { opacity: 0.55 } : undefined}>
                 {showPickedUp && (
                   <td>
                     {onTogglePickedUp
@@ -610,10 +857,35 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
                 )}
                 <td>{a.lastName} {a.firstName}</td>
                 <td>{a.nationality}</td>
-                <td>{a.event}</td>
+                <td>{a.isStaff ? <span className="status-pill">{a.staffRole || "Staff"}</span> : a.event}</td>
                 <td>{a.arrivalFlight ?? "—"}</td>
                 <td>{a.arrivalTime ?? "—"}</td>
                 <td>{a.arrivalFrom ?? "—"}</td>
+                {showDeclareCols && (
+                  <td style={{ display: "flex", gap: "0.35em", flexWrap: "wrap" }}>
+                    {onToggleNoShow && (
+                      <button
+                        type="button"
+                        className={`btn ${noShow ? "btn--danger" : ""}`}
+                        style={{ fontSize: "0.75em", padding: "0.2em 0.5em" }}
+                        onClick={() => onToggleNoShow(id, !noShow)}
+                      >
+                        {noShow ? "Absent ✓" : "Absent"}
+                      </button>
+                    )}
+                    {onToggleDelayed && (
+                      <button
+                        type="button"
+                        className={`btn ${delayed ? "btn--primary" : ""}`}
+                        style={{ fontSize: "0.75em", padding: "0.2em 0.5em" }}
+                        onClick={() => onToggleDelayed(id, !delayed)}
+                        title="Signale un retard pour tous les passagers du même vol"
+                      >
+                        {delayed ? "Retard ✓" : "Retard"}
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -626,17 +898,31 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
 // ─── Volunteer page ───────────────────────────────────────────────────────────
 
 function AthleteTransportVolunteerPage({ Panel }) {
-  const { currentUser } = useAuth();
-  const { lots, loading: lotsLoading } = useAthleteTransportLots();
+  const { currentUser, userProfile } = useAuth();
+  const roles = getActiveRoles(userProfile);
+  const isAdmin = roles.includes("admin") || roles.includes("gestionnaire");
   const { activeEditionId } = useActiveEdition();
-  const { athletes, loading: athletesLoading } = useAthletes(true, activeEditionId);
+  // Admins/gestionnaires stand in as a fallback transport volunteer (see
+  // useTransportVolunteers) and are often the ones testing a rehearsal import
+  // — without this override, a lot they assigned themselves under "test"
+  // would show up (lots carry their own editionId) but with an empty athlete
+  // list, since athletes/staff would still be looked up in the real edition.
+  // A real, non-admin volunteer never needs this — they only ever pick up a
+  // real lot in the real edition.
+  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
+  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  const effectiveEditionId = isAdmin ? viewEditionId : activeEditionId;
+  const { lots, loading: lotsLoading } = useAthleteTransportLots(true, effectiveEditionId);
+  const { athletes, loading: athletesLoading } = useAthletes(true, effectiveEditionId);
+  const { people: accompanyingPersons, loading: staffLoading } = useAccompanyingPersons(true, effectiveEditionId);
   const [savingId, setSavingId] = useState(null);
 
   const athleteMap = useMemo(() => {
     const map = {};
     athletes.forEach((a) => { map[a.id] = a; });
+    accompanyingPersons.forEach((p) => { map[p.id] = { ...p, isStaff: true }; });
     return map;
-  }, [athletes]);
+  }, [athletes, accompanyingPersons]);
 
   const myLots = useMemo(
     () => lots.filter((lot) => lot.assignedVolunteerId === currentUser?.uid),
@@ -655,7 +941,40 @@ function AthleteTransportVolunteerPage({ Panel }) {
     }
   }
 
-  const loading = lotsLoading || athletesLoading;
+  async function toggleNoShow(lot, athleteId, value) {
+    setSavingId(`${lot.id}:${athleteId}`);
+    try {
+      await updateDoc(doc(db, ATHLETE_TRANSPORT_LOTS_COLLECTION, lot.id), {
+        [`noShow.${athleteId}`]: value,
+        updatedAt: serverTimestamp(),
+      });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  // A delay is a flight-level event, not a per-person one — everyone in this
+  // lot on the same flight as the declared person gets flagged too, so the
+  // volunteer doesn't have to click through each passenger individually.
+  async function toggleDelayed(lot, athleteId, value) {
+    setSavingId(`${lot.id}:${athleteId}`);
+    try {
+      const flightNo = athleteMap[athleteId]?.arrivalFlight;
+      const affectedIds = flightNo
+        ? (lot.athleteIds ?? []).filter((id) => athleteMap[id]?.arrivalFlight === flightNo)
+        : [athleteId];
+      const updates = {};
+      affectedIds.forEach((id) => { updates[`delayed.${id}`] = value; });
+      await updateDoc(doc(db, ATHLETE_TRANSPORT_LOTS_COLLECTION, lot.id), {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  const loading = lotsLoading || athletesLoading || staffLoading;
 
   return (
     <div className="page">
@@ -664,6 +983,19 @@ function AthleteTransportVolunteerPage({ Panel }) {
           <p className="eyebrow">Transport athlètes</p>
           <h1>Mes transports</h1>
           <p>Athlètes qui vous sont affectés à récupérer.</p>
+          {isAdmin && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ fontSize: "0.8rem", color: "#607086" }}>Édition :</label>
+              <select
+                value={viewEditionId}
+                onChange={(e) => setViewEditionId(e.target.value)}
+                style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
+              >
+                <option value={activeEditionId}>Courante ({activeEditionId})</option>
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+              </select>
+            </div>
+          )}
         </div>
       </section>
 
@@ -711,6 +1043,16 @@ function AthleteTransportVolunteerPage({ Panel }) {
                 onTogglePickedUp={(athleteId, value) => {
                   if (savingId !== `${lot.id}:${athleteId}`) {
                     togglePickedUp(lot, athleteId, value);
+                  }
+                }}
+                onToggleNoShow={(athleteId, value) => {
+                  if (savingId !== `${lot.id}:${athleteId}`) {
+                    toggleNoShow(lot, athleteId, value);
+                  }
+                }}
+                onToggleDelayed={(athleteId, value) => {
+                  if (savingId !== `${lot.id}:${athleteId}`) {
+                    toggleDelayed(lot, athleteId, value);
                   }
                 }}
               />

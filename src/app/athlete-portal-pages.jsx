@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import { getActiveRoles } from "./navigation";
 import { normalizeEditionId, useActiveEdition } from "./edition";
@@ -50,12 +50,16 @@ const PLATFORM_ROLES = [
 //                  or "19. flight 06:00 with LG3759 to Lisbon"
 // into structured fields: day, time, flightNo, dir ("from"|"to"), city.
 
-// Flexible travel regex:
+// Flexible travel regex — time and flight number are optional so entries with
+// no flight (e.g. "18. train", ground transport with no fixed number) still
+// parse instead of falling back to raw, unformatted text:
 //   "17. flight 21:45 with LG3752 from Lisbon"
 //   "16. flight 22:20 with KL 1715 from AMS"   ← space in flight no.
 //   "17. flight 10:15 LH9528 from Frankfurt"    ← no "with"
 //   "17. flight 17:50 with KL1713"              ← no city
-const _TRAVEL_RE = /^(\d+)\.\s+(\S+)\s+(\d{1,2}:\d{2})\s+(?:with\s+)?([A-Z]{1,3}\s*\d+[A-Z0-9]*)(?:\s+(from|to)\s+(.+))?$/i;
+//   "19. flight 15.30 with FR5055 to Madrid"    ← "." as time separator
+//   "18. train"                                 ← no time, no flight number
+const _TRAVEL_RE = /^(\d+)\.\s+(\S+)(?:\s+(\d{1,2})[:.](\d{2}))?(?:\s+(?:with\s+)?([A-Z]{1,3}\s*\d+[A-Z0-9]*))?(?:\s+(from|to)\s+(.+))?$/i;
 
 function parseTravelEntry(text) {
   if (!text) return null;
@@ -64,10 +68,10 @@ function parseTravelEntry(text) {
   return {
     day:      parseInt(m[1], 10),
     mode:     m[2].toLowerCase(),
-    time:     m[3],
-    flightNo: m[4].replace(/\s+/g, "").toUpperCase(), // "KL 1715" → "KL1715"
-    dir:      (m[5] || "").toLowerCase(),              // "from" | "to" | ""
-    city:     (m[6] || "").trim(),
+    time:     m[3] ? `${m[3]}:${m[4]}` : null,
+    flightNo: m[5] ? m[5].replace(/\s+/g, "").toUpperCase() : null, // "KL 1715" → "KL1715"
+    dir:      (m[6] || "").toLowerCase(),              // "from" | "to" | ""
+    city:     (m[7] || "").trim(),
   };
 }
 
@@ -90,14 +94,19 @@ function TravelCell({ raw, prefix, referenceDate }) {
   const p = parseTravelEntry(raw);
   if (!p) return <span style={{ fontSize: "0.82rem", color: "#555" }}>{raw}</span>;
   const arrow = prefix === "arrival" ? "← " : "→ ";
+  const icon = /train/i.test(p.mode) ? "🚆" : /(bus|car|voiture|pkw)/i.test(p.mode) ? "🚗" : "✈";
   return (
     <div style={{ lineHeight: 1.65, fontSize: "0.82rem" }}>
       <div style={{ fontWeight: 600 }}>
         {formatTravelDay(p.day, referenceDate)}{p.time ? ` · ${p.time}` : ""}
       </div>
-      <div style={{ color: "#555" }}>
-        ✈ {p.flightNo} {arrow}{p.city}
-      </div>
+      {(p.flightNo || p.city) ? (
+        <div style={{ color: "#555" }}>
+          {icon}{p.flightNo ? ` ${p.flightNo}` : ""}{p.city ? ` ${arrow}${p.city}` : ""}
+        </div>
+      ) : (
+        <div style={{ color: "#555" }}>{icon}</div>
+      )}
     </div>
   );
 }
@@ -125,7 +134,13 @@ async function ensureCurrentAthleteRegistryLink(athleteId, athleteFields) {
 
 // ─── File type detection & parsing ───────────────────────────────────────────
 
-const HEAT_SENTINEL_RE = /^(?:heat|série|serie)\s+(.+)$/i;
+// "Race" and "Lauf" (German) are the same sentinel concept as "Heat" — the
+// same file sometimes mixes conventions across event blocks (some sections
+// use "Heat 1"/"Heat 2", others "Race 1"/"Race 2" for the exact same thing),
+// and a sentinel this regex doesn't recognize is silently dropped, leaving
+// every athlete in that block wrongly inheriting whatever heat number was
+// last seen from an earlier, unrelated event.
+const HEAT_SENTINEL_RE = /^(?:heat|série|serie|race|lauf)\s+(.+)$/i;
 
 // Column-name patterns for the new "all-in-one" combined file format.
 const COMBINED_COL_PATTERNS = {
@@ -167,6 +182,20 @@ function detectStaffRole(rawEvent) {
   const cleaned = String(rawEvent || "").trim();
   for (const [re, label] of _STAFF_ROLE_PATTERNS) {
     if (re.test(cleaned)) return label;
+  }
+  return null;
+}
+
+// Occasionally the role word ends up prefixed onto the name itself instead of
+// (or in addition to) the Event column — "coach Asier" typed straight into
+// Last name. Strip it so the person's actual name isn't polluted with their
+// role, and fall back to it as the staffRole source when the Event column
+// didn't carry one.
+function stripLeadingStaffRole(text) {
+  const cleaned = String(text || "").trim();
+  for (const [re, label] of _STAFF_ROLE_PATTERNS) {
+    const m = re.exec(cleaned);
+    if (m) return { role: label, rest: cleaned.slice(m[0].length).trim() };
   }
   return null;
 }
@@ -302,13 +331,16 @@ function parseFinaLanesRows(rows) {
 }
 
 function parseTravelRow(row) {
-  const lastName = norm(row[1]);
+  const rawLastName = norm(row[1]);
   const firstName = norm(row[2]);
-  if (!lastName || !firstName) return null;
+  if (!rawLastName || !firstName) return null;
+  const nameRoleMatch = stripLeadingStaffRole(rawLastName);
+  const lastName = nameRoleMatch ? (nameRoleMatch.rest || rawLastName) : rawLastName;
   const arrival   = norm(row[5]) || null;
   const departure = norm(row[6]) || null;
+  const event = norm(row[0]);
   return {
-    event: norm(row[0]), lastName, firstName,
+    event, staffRole: detectStaffRole(event) || nameRoleMatch?.role || null, lastName, firstName,
     nationality: norm(row[3]),
     birthYear: null, status: null, worldRanking: null,
     pb: null, pbIndoor: null, pbOutdoor: null, sb: null,
@@ -321,9 +353,12 @@ function parseTravelRow(row) {
 
 function parseCombinedRow(row, colMap) {
   const g = (field) => colMap[field] !== undefined ? norm(row[colMap[field]]) : "";
-  const lastName  = g("lastName");
+  const rawLastName = g("lastName");
   const firstName = g("firstName");
-  if (!lastName && !firstName) return null;
+  if (!rawLastName && !firstName) return null;
+
+  const nameRoleMatch = stripLeadingStaffRole(rawLastName);
+  const lastName = nameRoleMatch ? (nameRoleMatch.rest || rawLastName) : rawLastName;
 
   const rawPb   = g("pb");
   const rawWaUrl = g("waUrl");
@@ -332,7 +367,7 @@ function parseCombinedRow(row, colMap) {
 
   return {
     event:        g("event")        || null,
-    staffRole:    detectStaffRole(g("event")),
+    staffRole:    detectStaffRole(g("event")) || nameRoleMatch?.role || null,
     lastName,     firstName,
     nationality:  g("nationality")  || null,
     birthYear:    normalizeBirthYear(colMap.birthYear !== undefined ? row[colMap.birthYear] : null),
@@ -375,8 +410,12 @@ function parseCombinedRowsWithHeatSentinels(rows, colMap) {
     const record = parseCombinedRow(row, colMap);
     if (!record) continue;
     if (colMap.heat === undefined) record.heat = currentHeat;
-    if (colMap.lane === undefined && firstCell !== "" && !isNaN(Number(firstCell))) {
-      record.lane = Number(firstCell);
+    // Column A is usually a bare lane number, but some event blocks in the
+    // same file instead write "Bahn N" (German for "lane") — strip that
+    // prefix before parsing, or the lane is silently left blank.
+    const laneCell = firstCell.replace(/^(bahn|lane|couloir)\s+/i, "");
+    if (colMap.lane === undefined && laneCell !== "" && !isNaN(Number(laneCell))) {
+      record.lane = Number(laneCell);
     }
     records.push(record);
   }
@@ -384,9 +423,9 @@ function parseCombinedRowsWithHeatSentinels(rows, colMap) {
 }
 
 // Splits any parsed row list into real athletes vs staff/accompanying persons
-// (flagged via staffRole — see detectStaffRole). Only COMBINED rows can carry
-// a staffRole today (the legacy formats don't have an Event column at the
-// position staff rows use), so this is a no-op for those.
+// (flagged via staffRole — see detectStaffRole). COMBINED and TRAVEL rows both
+// carry an Event-like column that staff rows use ("coach", "manager", ...);
+// START_LIST/FINAL_LANES have no such column so this is a no-op for those.
 function splitStaffRows(rows) {
   const records = [];
   const staff = [];
@@ -400,11 +439,21 @@ function parseRows(rows, detected) {
   const { type, colMap, dataStartIdx, hasHeatSentinels } = detected;
   if (type === "START_LIST")  return { records: rows.slice(dataStartIdx).map(parseStartListRow).filter(Boolean), staff: [] };
   if (type === "FINAL_LANES") return { records: parseFinaLanesRows(rows.slice(dataStartIdx)), staff: [] };
-  if (type === "TRAVEL")      return { records: rows.slice(dataStartIdx).map(parseTravelRow).filter(Boolean), staff: [] };
+  if (type === "TRAVEL")      return splitStaffRows(rows.slice(dataStartIdx).map(parseTravelRow).filter(Boolean));
   if (type === "COMBINED") {
+    const dataRows = rows.slice(dataStartIdx);
     const parsed = hasHeatSentinels
-      ? parseCombinedRowsWithHeatSentinels(rows.slice(dataStartIdx), colMap)
-      : rows.slice(dataStartIdx).map((r) => parseCombinedRow(r, colMap)).filter(Boolean);
+      ? parseCombinedRowsWithHeatSentinels(dataRows, colMap)
+      : dataRows
+          // Some CMCM files repeat the header row mid-sheet (one block per
+          // event) even outside the Heat-sentinel format — without this,
+          // that row's own header text ("Name"/"Vorname"...) gets imported
+          // as if it were a real athlete.
+          .filter((row) => {
+            const rowColMap = buildColMap(row);
+            return !(rowColMap.lastName !== undefined && rowColMap.firstName !== undefined);
+          })
+          .map((r) => parseCombinedRow(r, colMap)).filter(Boolean);
     return splitStaffRows(parsed);
   }
   return { records: [], staff: [] };
@@ -453,9 +502,17 @@ function athleteDisplayLabel(a) {
 }
 
 function mergeAthletes(existing, incoming, fileType, presentFields = null) {
-  const byKey = new Map(
-    existing.map((a) => [athleteMergeKey(a.lastName, a.firstName, a.nationality), { ...a }]),
-  );
+  // Grouped by key rather than a single slot per key: a name+nationality can
+  // map to SEVERAL existing docs when the admin split one messy row across
+  // disciplines (see handleSplitEvent, "Dupliquer sur N épreuves"). Collapsing
+  // those into one slot would silently drop one duplicate on the next import.
+  const groups = new Map();
+  for (const a of existing) {
+    const key = athleteMergeKey(a.lastName, a.firstName, a.nationality);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ ...a });
+  }
+
   const matchedKeys = new Set(); // tracks which existing athletes appear in this import
   let added = 0;
   let updated = 0;
@@ -463,92 +520,129 @@ function mergeAthletes(existing, incoming, fileType, presentFields = null) {
 
   for (const record of incoming) {
     const key = athleteMergeKey(record.lastName, record.firstName, record.nationality);
-    const ex = byKey.get(key);
+    const group = groups.get(key);
 
-    if (!ex) {
-      byKey.set(key, { ...record });
+    if (!group) {
+      groups.set(key, [{ ...record }]);
       added++;
       changes.push({ type: "added", name: athleteDisplayLabel(record), event: record.event || null });
       continue;
     }
 
     matchedKeys.add(key);
-    const merged = { ...ex };
+    // A split athlete already has each duplicate's event/heat/lane set by
+    // hand — re-applying this (single, un-split) import row's raw event to
+    // either of them would undo the fix. Only fields that aren't
+    // discipline-specific get refreshed on every duplicate.
+    const isSplit = group.length > 1;
+    let anyChanged = false;
 
-    if (fileType === "COMBINED") {
-      const hasColumn = (field) => !presentFields || presentFields.includes(field);
-      if (record.event)                merged.event        = record.event;
-      if (record.status !== null)      merged.status       = record.status;
-      if (record.worldRanking != null) merged.worldRanking = record.worldRanking;
-      if (record.pb)                   merged.pb           = record.pb;
-      if (record.pbIndoor)             merged.pbIndoor     = record.pbIndoor;
-      if (record.pbOutdoor)            merged.pbOutdoor    = record.pbOutdoor;
-      if (record.sb)                   merged.sb           = record.sb;
-      if (record.waUrl && !merged.waUrl) merged.waUrl      = record.waUrl;
-      if (record.waid  && !merged.waid)  merged.waid       = record.waid;
-      // Un fichier qui ne contient pas les colonnes Heat/Lane pour cette
-      // édition (ex. mise à jour voyages uniquement) ne doit pas effacer les
-      // séries/couloirs déjà connus.
-      if (hasColumn("heat")) merged.heat = record.heat ?? null;
-      if (hasColumn("lane")) merged.lane = record.lane ?? null;
-      applyTravelFields(merged, record, presentFields);
-    } else if (fileType === "TRAVEL") {
-      applyTravelFields(merged, record, null);
-    } else if (fileType === "FINAL_LANES") {
-      if (record.heat !== null) merged.heat = record.heat;
-      if (record.lane !== null) merged.lane = record.lane;
-      if (!merged.pb && record.pb)             merged.pb       = record.pb;
-      if (!merged.pbIndoor && record.pbIndoor) merged.pbIndoor = record.pbIndoor;
-      if (!merged.pbOutdoor && record.pbOutdoor) merged.pbOutdoor = record.pbOutdoor;
-      if (!merged.sb && record.sb)             merged.sb       = record.sb;
-    } else {
-      // START_LIST
-      if (record.status !== null)       merged.status       = record.status;
-      if (record.worldRanking !== null) merged.worldRanking = record.worldRanking;
-      if (record.pb)        merged.pb        = record.pb;
-      if (record.pbIndoor)  merged.pbIndoor  = record.pbIndoor;
-      if (record.pbOutdoor) merged.pbOutdoor = record.pbOutdoor;
-      if (record.sb)        merged.sb        = record.sb;
-      if (record.waUrl)     merged.waUrl     = record.waUrl;
-      if (record.waid)      merged.waid      = record.waid;
+    for (let i = 0; i < group.length; i++) {
+      const ex = group[i];
+      const merged = { ...ex };
+
+      if (fileType === "COMBINED") {
+        const hasColumn = (field) => !presentFields || presentFields.includes(field);
+        if (!isSplit && record.event)    merged.event        = record.event;
+        if (record.status !== null)      merged.status       = record.status;
+        if (record.worldRanking != null) merged.worldRanking = record.worldRanking;
+        if (record.pb)                   merged.pb           = record.pb;
+        if (record.pbIndoor)             merged.pbIndoor     = record.pbIndoor;
+        if (record.pbOutdoor)            merged.pbOutdoor    = record.pbOutdoor;
+        if (record.sb)                   merged.sb           = record.sb;
+        if (record.waUrl && !merged.waUrl) merged.waUrl      = record.waUrl;
+        if (record.waid  && !merged.waid)  merged.waid       = record.waid;
+        // Un fichier qui ne contient pas les colonnes Heat/Lane pour cette
+        // édition (ex. mise à jour voyages uniquement) ne doit pas effacer les
+        // séries/couloirs déjà connus.
+        if (!isSplit && hasColumn("heat")) merged.heat = record.heat ?? null;
+        if (!isSplit && hasColumn("lane")) merged.lane = record.lane ?? null;
+        // A heat/lane assignment is unambiguous proof this athlete is
+        // competing — a lanes-only file has no Status column to say so
+        // explicitly, but leaving them stuck on a stale "out" from an
+        // earlier import that simply didn't mention them (or an import that
+        // happened before this file was even seeded) would be wrong once
+        // they've clearly been placed in a heat.
+        if (record.status === null && merged.status === "out" && (merged.heat || merged.lane)) {
+          merged.status = "ok";
+        }
+        applyTravelFields(merged, record, presentFields);
+      } else if (fileType === "TRAVEL") {
+        applyTravelFields(merged, record, null);
+      } else if (fileType === "FINAL_LANES") {
+        if (!isSplit && record.heat !== null) merged.heat = record.heat;
+        if (!isSplit && record.lane !== null) merged.lane = record.lane;
+        if (!merged.pb && record.pb)             merged.pb       = record.pb;
+        if (!merged.pbIndoor && record.pbIndoor) merged.pbIndoor = record.pbIndoor;
+        if (!merged.pbOutdoor && record.pbOutdoor) merged.pbOutdoor = record.pbOutdoor;
+        if (!merged.sb && record.sb)             merged.sb       = record.sb;
+      } else {
+        // START_LIST
+        if (record.status !== null)       merged.status       = record.status;
+        if (record.worldRanking !== null) merged.worldRanking = record.worldRanking;
+        if (record.pb)        merged.pb        = record.pb;
+        if (record.pbIndoor)  merged.pbIndoor  = record.pbIndoor;
+        if (record.pbOutdoor) merged.pbOutdoor = record.pbOutdoor;
+        if (record.sb)        merged.sb        = record.sb;
+        if (record.waUrl)     merged.waUrl     = record.waUrl;
+        if (record.waid)      merged.waid      = record.waid;
+      }
+
+      const fieldChanges = DIFFABLE_ATHLETE_FIELDS
+        .filter(({ key: field }) => (ex[field] ?? null) !== (merged[field] ?? null))
+        .map(({ key: field, label }) => ({ field, label, before: ex[field] ?? null, after: merged[field] ?? null }));
+      if (fieldChanges.length > 0) {
+        changes.push({ type: "updated", name: athleteDisplayLabel(merged), event: merged.event || null, fields: fieldChanges });
+        anyChanged = true;
+      }
+      group[i] = merged;
     }
-
-    const fieldChanges = DIFFABLE_ATHLETE_FIELDS
-      .filter(({ key: field }) => (ex[field] ?? null) !== (merged[field] ?? null))
-      .map(({ key: field, label }) => ({ field, label, before: ex[field] ?? null, after: merged[field] ?? null }));
-    if (fieldChanges.length > 0) {
-      changes.push({ type: "updated", name: athleteDisplayLabel(merged), event: merged.event || null, fields: fieldChanges });
-    }
-
-    byKey.set(key, merged);
-    updated++;
+    if (anyChanged) updated++;
   }
 
   // For COMBINED / START_LIST: athletes in the DB but absent from this import
   // → mark as "out", clear heat/lane/travel (they're no longer on the start list).
   // They are NEVER deleted — they stay in the system permanently.
+  //
+  // A COMBINED-shaped file isn't necessarily the full official roster: the
+  // meeting director also sends travel-only lists using the same modern
+  // headers (Event/Name/Vorname/Nat./Manager/Anreise/Abreise) restricted to
+  // whichever athletes need transport help — a real subset of the roster, not
+  // "everyone else withdrew". Only treat a COMBINED file as authoritative for
+  // presence/absence when it actually carries a roster-defining column
+  // (Status, ranking, PB/SB, WA URL, Heat or Lane) — a pure identity+travel
+  // file never does.
+  const ROSTER_DEFINING_FIELDS = ["status", "worldRanking", "pb", "pbIndoor", "pbOutdoor", "sb", "waUrl", "heat", "lane"];
+  const isAuthoritativeRoster = fileType === "START_LIST" ||
+    (fileType === "COMBINED" && (!presentFields || ROSTER_DEFINING_FIELDS.some((f) => presentFields.includes(f))));
+
   let markedOut = 0;
-  if (fileType === "COMBINED" || fileType === "START_LIST") {
-    for (const [key, athlete] of byKey) {
-      if (athlete.id && !matchedKeys.has(key)) {
+  if (isAuthoritativeRoster) {
+    for (const [key, group] of groups) {
+      if (matchedKeys.has(key)) continue;
+      for (let i = 0; i < group.length; i++) {
+        const athlete = group[i];
+        if (!athlete.id) continue;
         // Only count/report a fresh cancellation — an athlete already marked
         // "out" by a previous import isn't a change introduced by this one.
         if (athlete.status !== "out") {
           markedOut++;
           changes.push({ type: "markedOut", name: athleteDisplayLabel(athlete), event: athlete.event || null });
         }
-        byKey.set(key, {
+        group[i] = {
           ...athlete,
           status:    "out",
           heat: null, lane: null, manager: null,
           arrival: null, arrivalDay: null, arrivalTime: null, arrivalFlight: null, arrivalFrom: null,
           departure: null, departureDay: null, departureTime: null, departureFlight: null, departureTo: null,
-        });
+        };
       }
     }
   }
 
-  return { merged: [...byKey.values()], added, updated, markedOut, changes };
+  const merged = [];
+  for (const group of groups.values()) merged.push(...group);
+  return { merged, added, updated, markedOut, changes };
 }
 
 // Coaches/physios/family (see detectStaffRole): add-or-update by identity,
@@ -595,6 +689,33 @@ const PENDING_STATUS_TRANSLATIONS = {
   "abwarten": "En attente",
   "warten": "En attente",
 };
+
+// The hotel column often carries German hotel-admin shorthand rather than a
+// hotel name — room type (DZ/EZ) and who booked it. Translate what we
+// recognize, keep the raw text visible on hover for anything else.
+const HOTEL_ABBREVIATION_TRANSLATIONS = [
+  [/\bdz\b/gi, "chambre double"],
+  [/\bez\b/gi, "chambre simple"],
+  [/\bohne\b/gi, "sans hôtel"],
+  [/selber gebucht/gi, "réservé par ses soins"],
+  [/\bstorniert\b/gi, "annulé"],
+];
+
+function translateHotelText(raw) {
+  let translated = raw;
+  let changed = false;
+  for (const [re, fr] of HOTEL_ABBREVIATION_TRANSLATIONS) {
+    if (re.test(translated)) { changed = true; translated = translated.replace(re, fr); }
+  }
+  return changed ? translated : null;
+}
+
+function HotelCell({ value }) {
+  if (!value) return "—";
+  const translated = translateHotelText(value);
+  if (!translated) return value;
+  return <span title={`Texte d'origine : ${value}`}>{translated}</span>;
+}
 
 function StatusBadge({ status }) {
   if (!status) return "—";
@@ -707,6 +828,202 @@ function WaidCell({ athlete, onSave }) {
   );
 }
 
+// ─── Event correction row (for "à vérifier" entries) ─────────────────────────
+
+// A guessed value like "60m + 60mH W" means the athlete is genuinely entered
+// in more than one discipline — a single event string can't represent that,
+// so this needs a second Firestore doc (see handleSplitEvent), not just a
+// text edit. Parsed back into { disciplines, gender } so the split button
+// knows what to create.
+function parseSplitValue(value) {
+  if (!value.includes(" + ")) return null;
+  const genderMatch = /\s+(W|M)$/.exec(value.trim());
+  const gender = genderMatch ? genderMatch[1] : null;
+  const withoutGender = gender ? value.trim().slice(0, -genderMatch[0].length) : value.trim();
+  const disciplines = withoutGender.split(" + ").map((d) => d.trim()).filter(Boolean);
+  return disciplines.length > 1 ? { disciplines, gender } : null;
+}
+
+const GENDER_OPTIONS = [
+  { value: "", label: "Genre ?" },
+  { value: "W", label: "Femmes" },
+  { value: "M", label: "Hommes" },
+];
+const _TRAILING_GENDER_RE = /\s+(women|femmes?|men|hommes?|w|f|m|h)$/i;
+
+function stripTrailingGender(value) {
+  return value.replace(_TRAILING_GENDER_RE, "").trim();
+}
+
+function detectTrailingGender(value) {
+  const m = _TRAILING_GENDER_RE.exec(value.trim());
+  if (!m) return "";
+  return /^(w|f|women|femmes?)$/i.test(m[1]) ? "W" : "M";
+}
+
+function RowDeleteCell({ athlete, onDelete }) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleConfirm() {
+    setDeleting(true);
+    try {
+      await onDelete(athlete.id);
+    } finally {
+      setDeleting(false);
+      setConfirming(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <button
+        className="button button--ghost button--small"
+        type="button"
+        onClick={() => setConfirming(true)}
+        style={{ color: "#b71c1c" }}
+        title="Supprimer cette fiche (erreur d'import, doublon...)"
+      >
+        🗑
+      </button>
+    );
+  }
+  return (
+    <span style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap" }}>
+      <button className="button button--ghost button--small" type="button" onClick={handleConfirm} disabled={deleting} style={{ color: "#b71c1c", fontWeight: 700 }}>
+        {deleting ? "…" : "Confirmer"}
+      </button>
+      <button className="button button--ghost button--small" type="button" onClick={() => setConfirming(false)} disabled={deleting}>
+        Annuler
+      </button>
+    </span>
+  );
+}
+
+function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
+  const [value, setValue] = useState(guessEventCorrection(athlete.event));
+  const [gender, setGender] = useState(() => detectTrailingGender(value));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const split = parseSplitValue(value);
+
+  function handleGenderChange(g) {
+    setGender(g);
+    setSaved(false);
+    setValue((current) => {
+      const base = stripTrailingGender(current);
+      return g ? `${base} ${g}`.trim() : base;
+    });
+  }
+
+  async function handleSave() {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      await onSave(athlete.id, trimmed);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSplit() {
+    setSaving(true);
+    try {
+      await onSplit(athlete, split.disciplines, split.gender);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setSaving(true);
+    try {
+      await onDelete(athlete.id);
+    } finally {
+      setSaving(false);
+      setConfirmingDelete(false);
+    }
+  }
+
+  const staffRoleHint = detectStaffRole(athlete.event);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "4px 0" }}>
+      <span style={{ minWidth: 160, fontWeight: 600 }}>{athlete.lastName} {athlete.firstName}</span>
+      <span style={{ color: "#888", fontSize: "0.8rem" }}>
+        brut : <em>{athlete.event || "(vide)"}</em>
+      </span>
+      {staffRoleHint && (
+        <span style={{ color: "#b8860b", fontSize: "0.78rem" }}>
+          ⚠ {staffRoleHint} — ce n'est pas un athlète, pas d'épreuve à corriger : supprime cette fiche (un futur import de ce fichier la reliera correctement en accompagnateur)
+        </span>
+      )}
+      <input
+        value={value}
+        onChange={(e) => { setValue(e.target.value); setGender(detectTrailingGender(e.target.value)); setSaved(false); }}
+        onKeyDown={(e) => { if (e.key === "Enter" && !split) handleSave(); }}
+        style={{ width: 180, fontSize: "0.85rem", padding: "3px 6px" }}
+        disabled={saving}
+      />
+      <select
+        value={gender}
+        onChange={(e) => handleGenderChange(e.target.value)}
+        style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
+        disabled={saving}
+        title="Ce que le meeting director attend pour cette épreuve"
+      >
+        {GENDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      {split ? (
+        <button className="button button--secondary button--small" type="button" onClick={handleSplit} disabled={saving}>
+          {saving ? "…" : `Dupliquer sur ${split.disciplines.length} épreuves`}
+        </button>
+      ) : (
+        <button className="button button--secondary button--small" type="button" onClick={handleSave} disabled={saving || !value.trim()}>
+          {saving ? "…" : "Enregistrer"}
+        </button>
+      )}
+      {saved && <span style={{ color: "#166534", fontSize: "0.78rem" }}>✓ {split ? "fiches créées" : "enregistré"}</span>}
+      {confirmingDelete ? (
+        <>
+          <span style={{ color: "#b71c1c", fontSize: "0.78rem" }}>Supprimer définitivement ?</span>
+          <button
+            className="button button--ghost button--small"
+            type="button"
+            onClick={handleDelete}
+            disabled={saving}
+            style={{ color: "#b71c1c", fontWeight: 700 }}
+          >
+            {saving ? "…" : "Confirmer"}
+          </button>
+          <button
+            className="button button--ghost button--small"
+            type="button"
+            onClick={() => setConfirmingDelete(false)}
+            disabled={saving}
+          >
+            Annuler
+          </button>
+        </>
+      ) : (
+        <button
+          className="button button--ghost button--small"
+          type="button"
+          onClick={() => setConfirmingDelete(true)}
+          style={{ color: "#b71c1c" }}
+          title="Cette fiche n'est pas un vrai athlète (erreur d'import)"
+        >
+          Supprimer
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── WA sync button ───────────────────────────────────────────────────────────
 
 function WaSyncButton({ athlete, settings, onDone }) {
@@ -779,8 +1096,23 @@ function AthletePortalOverview({ Panel }) {
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
   const { activeEditionId } = useActiveEdition();
-  const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, activeEditionId);
   const isAdmin = roles.includes("admin") || roles.includes("meeting_director");
+  // Same "Courante / Test" switch as the Athletes page — without it, this
+  // page always shows the real edition and never the test-edition data an
+  // admin is rehearsing an import against.
+  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
+  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, viewEditionId);
+  const { people: accompanyingPersons, loading: staffLoading } = useAccompanyingPersons(!settingsLoading, viewEditionId);
+
+  const staffByRole = useMemo(() => {
+    const counts = {};
+    accompanyingPersons.forEach((p) => {
+      const role = p.staffRole || "Autre";
+      counts[role] = (counts[role] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [accompanyingPersons]);
 
   const seasons = settings?.seasons ?? DEFAULT_PORTAL_SETTINGS.seasons;
 
@@ -817,6 +1149,24 @@ function AthletePortalOverview({ Panel }) {
             )}
             {" · "}<strong>Outdoor {seasons.outdoor}</strong>
           </p>
+          {isAdmin && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ fontSize: "0.8rem", color: "#607086" }}>Édition :</label>
+              <select
+                value={viewEditionId}
+                onChange={(e) => setViewEditionId(e.target.value)}
+                style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
+              >
+                <option value={activeEditionId}>Courante ({activeEditionId})</option>
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+              </select>
+              {viewEditionId === "test" && (
+                <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
+                  Rien ici n&apos;apparaît ailleurs dans l&apos;app
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -832,9 +1182,24 @@ function AthletePortalOverview({ Panel }) {
             </ul>
           )}
         </Panel>
+        <Panel title={`Staff & accompanying persons (${accompanyingPersons.length})`}>
+          {staffLoading ? <p className="panel-note">Loading…</p> : accompanyingPersons.length === 0 ? (
+            <p className="panel-note">None imported yet for this edition.</p>
+          ) : (
+            <ul className="compact-list">
+              {staffByRole.map(([role, count]) => (
+                <li key={role}><strong>{count}</strong> {role}</li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </section>
+
+      <section className="panel-grid panel-grid--1">
         <Panel title="Quick access">
           <div className="dashboard-action-grid">
             <NavLink className="button button--secondary button-link" to="/app/athlete-portal/athletes">View athletes</NavLink>
+            {isAdmin && <NavLink className="button button--secondary button-link" to="/app/athlete-portal/import">Staff & import history</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/statistics/registry">Athletes database</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/statistics/results">Meeting results</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/statistics/records">Meeting records</NavLink>}
@@ -915,12 +1280,19 @@ const _TRACK_DISCIPLINE_RE = /^(\d+)\s*(miles?|m)\s*(hurdles?|h|sc|steeplechase)
 // as a real, visible fact rather than flagging it as "needs a human look".
 const _PACER_NOTE_RE = /^pace(r|maker)?$/i;
 
+// The meeting director writes the pacer note as "1500m M pace" — gender
+// *before* "pace", not at the very end of the string — so parseEventField's
+// end-anchored gender suffix never fires and the whole "M pace" tail lands
+// here still carrying the gender letter. Strip it before checking for a bare
+// pacer note, and hand the discovered gender back since the caller has none.
+const _LEADING_GENDER_RE = /^(W|M|F|H|Women|Men|Femmes?|Hommes?)\s+/i;
+
 function normalizeDisciplineLabel(rawDiscipline) {
   const cleaned = String(rawDiscipline || "").trim();
-  if (!cleaned) return { label: "", standardized: false, isPacer: false };
+  if (!cleaned) return { label: "", standardized: false, isPacer: false, gender: null };
 
   for (const [re, label] of _FIELD_DISCIPLINE_PATTERNS) {
-    if (re.test(cleaned)) return { label, standardized: true, isPacer: false };
+    if (re.test(cleaned)) return { label, standardized: true, isPacer: false, gender: null };
   }
 
   const m = _TRACK_DISCIPLINE_RE.exec(cleaned);
@@ -931,12 +1303,88 @@ function normalizeDisciplineLabel(rawDiscipline) {
     // Anything left over after the matched portion (a pacer note, "und 60mH",
     // a typo) means this entry needs a human look, not a silent guess —
     // except a pacer note, which is expected and should stay visible as such.
-    const rest = cleaned.slice(m[0].length).trim();
-    if (_PACER_NOTE_RE.test(rest)) return { label, standardized: true, isPacer: true };
-    return { label, standardized: rest === "", isPacer: false };
+    let rest = cleaned.slice(m[0].length).trim();
+    let gender = null;
+    const genderMatch = _LEADING_GENDER_RE.exec(rest);
+    if (genderMatch) {
+      const g = genderMatch[1][0].toUpperCase();
+      gender = (g === "W" || g === "F") ? "W" : "M";
+      rest = rest.slice(genderMatch[0].length).trim();
+    }
+    // A pacer note with no gender anywhere in the text ("800m pace") can't be
+    // placed in "800m Men" or "800m Women" without a guess — keep it flagged
+    // for review instead of silently dropping it into an ungendered group
+    // with no way back to fix it (isPacer alone hid it from "à vérifier").
+    if (_PACER_NOTE_RE.test(rest)) return { label, standardized: Boolean(gender), isPacer: true, gender };
+    return { label, standardized: rest === "", isPacer: false, gender };
   }
 
-  return { label: cleaned, standardized: false, isPacer: false };
+  return { label: cleaned, standardized: false, isPacer: false, gender: null };
+}
+
+// Best-effort suggestion for a non-standardized event, used to pre-fill an
+// editable field — never applied automatically. Same discipline/gender
+// vocabulary as normalizeDisciplineLabel, but searched anywhere in the
+// string instead of requiring it to be the whole thing, since these are by
+// definition the messy leftover cases ("60m W und 60mH", a typo, a stray
+// note) — a suggestion an admin can accept, tweak or ignore beats leaving
+// them with no path forward at all.
+const _LOOSE_FIELD_PATTERNS = [
+  [/long\s*jump|\blj\b/i, "Long Jump"],
+  [/triple\s*jump|\btj\b/i, "Triple Jump"],
+  [/high\s*jump|\bhj\b/i, "High Jump"],
+  [/pole\s*vault|\bpv\b/i, "Pole Vault"],
+  [/shot\s*put|\bsp\b/i, "Shot Put"],
+  [/discus|\bdt\b/i, "Discus"],
+  [/hammer|\bht\b/i, "Hammer"],
+  [/javelin|\bjt\b/i, "Javelin"],
+];
+const _LOOSE_TRACK_RE = /(\d+)\s*(miles?|m)\s*(hurdles?|h|sc|steeplechase)?/i;
+const _LOOSE_GENDER_RE = /\b(women|femmes?|w|f)\b|\b(men|hommes?|m|h)\b/i;
+
+// "und"/"and"/"et" between two disciplines usually means the athlete is
+// genuinely entered in both ("60m W und 60mH") rather than one being noise —
+// list every discipline found instead of arbitrarily keeping only the first.
+const _CONJUNCTION_RE = /\b(und|and|et)\b/i;
+
+function guessEventCorrection(rawEvent) {
+  const cleaned = String(rawEvent || "").trim();
+  if (!cleaned) return "";
+
+  const genderMatch = _LOOSE_GENDER_RE.exec(cleaned);
+  const gender = genderMatch ? (genderMatch[1] ? "W" : "M") : null;
+
+  if (_CONJUNCTION_RE.test(cleaned)) {
+    const trackMatches = [...cleaned.matchAll(new RegExp(_LOOSE_TRACK_RE.source, "gi"))].map((m) => {
+      const unit = /mile/i.test(m[2]) ? "mile" : "m";
+      const suffix = m[3] ? (/sc|steeplechase/i.test(m[3]) ? "SC" : "H") : "";
+      return `${m[1]}${unit}${suffix}`;
+    });
+    const fieldMatches = _LOOSE_FIELD_PATTERNS.filter(([re]) => re.test(cleaned)).map(([, label]) => label);
+    const disciplines = [...new Set([...trackMatches, ...fieldMatches])];
+    if (disciplines.length > 1) {
+      return gender ? `${disciplines.join(" + ")} ${gender}` : disciplines.join(" + ");
+    }
+  }
+
+  let disciplineLabel = null;
+  for (const [re, label] of _LOOSE_FIELD_PATTERNS) {
+    if (re.test(cleaned)) { disciplineLabel = label; break; }
+  }
+  if (!disciplineLabel) {
+    const m = _LOOSE_TRACK_RE.exec(cleaned);
+    if (m) {
+      const unit = /mile/i.test(m[2]) ? "mile" : "m";
+      const suffix = m[3] ? (/sc|steeplechase/i.test(m[3]) ? "SC" : "H") : "";
+      disciplineLabel = `${m[1]}${unit}${suffix}`;
+    }
+  }
+  if (!disciplineLabel) return cleaned;
+  // Keep a pace note in the suggestion (don't silently drop that this is a
+  // pacer) when gender couldn't be resolved — that's exactly why it's still
+  // flagged: the admin needs to add "M "/"W " themselves.
+  const paceNote = !gender && /\bpace(r|maker)?\b/i.test(cleaned) ? " pace" : "";
+  return (gender ? `${disciplineLabel} ${gender}` : disciplineLabel) + paceNote;
 }
 
 const _DISC_RANK = [
@@ -1768,12 +2216,22 @@ function AthletesListPage({ Panel }) {
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
   const { activeEditionId } = useActiveEdition();
   const canViewUnifiedProfile = roles.includes("admin") || roles.includes("meeting_director");
+  const [pageTab, setPageTab] = useState("athletes");
   // Admins/meeting directors can switch to "test" to inspect a rehearsal
   // import without it ever mixing into the real roster (e-magazine, transport
   // and everyone else always see the current edition only).
   const [viewEditionId, setViewEditionId] = useState(activeEditionId);
   useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
   const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, viewEditionId);
+  const { people: accompanyingPersons } = useAccompanyingPersons(canViewUnifiedProfile, viewEditionId);
+  const staffByRole = useMemo(() => {
+    const counts = {};
+    accompanyingPersons.forEach((p) => {
+      const role = p.staffRole || "Autre";
+      counts[role] = (counts[role] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [accompanyingPersons]);
   // Travel entries only carry a bare day-of-month ("17. flight…") — resolved
   // against the meeting's actual month/year so it reads as a real date.
   const { editions: meetingEditions } = useMeetingEditions();
@@ -1806,6 +2264,59 @@ function AthletesListPage({ Panel }) {
   const colPickerRef = useRef(null);
   const tableRef = useRef(null);
   const [selectedAthleteId, setSelectedAthleteId] = useState("");
+  const [expandedEventGroups, setExpandedEventGroups] = useState(new Set());
+
+  async function handleFixEvent(athleteId, newEvent) {
+    await updateDoc(doc(db, ATHLETES_COLLECTION, athleteId), { event: newEvent });
+  }
+
+  // Athletes are otherwise never deleted (see mergeAthletes) — this is
+  // specifically for the "à vérifier" panel, where a row can be a genuine
+  // parsing artifact (a repeated header row imported as an "athlete", a
+  // corrupted cell) rather than a real person who happens to need review.
+  async function handleDeleteAthlete(athleteId) {
+    await deleteDoc(doc(db, ATHLETES_COLLECTION, athleteId));
+  }
+
+  async function handleDeleteAccompanying(personId) {
+    await deleteDoc(doc(db, ATHLETE_ACCOMPANYING_COLLECTION, personId));
+  }
+
+  // One person, genuinely entered in more than one discipline ("60m W und
+  // 60mH") — a single `event` field can't represent that, so this athlete's
+  // own doc keeps the first discipline and a fresh doc is created per
+  // additional one, copying identity/status/travel and WAID/registry link
+  // (those identify the PERSON, not the discipline, so the new entry can
+  // still be WA-synced right away) but not heat/lane/PB/SB, which genuinely
+  // are per-discipline and unknown for the new entry until synced.
+  async function handleSplitEvent(athlete, disciplines, gender) {
+    const suffix = gender ? ` ${gender}` : "";
+    await updateDoc(doc(db, ATHLETES_COLLECTION, athlete.id), { event: `${disciplines[0]}${suffix}` });
+    for (const discipline of disciplines.slice(1)) {
+      const newId = `athlete_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await setDoc(doc(db, ATHLETES_COLLECTION, newId), {
+        lastName: athlete.lastName,
+        firstName: athlete.firstName,
+        nationality: athlete.nationality || null,
+        birthYear: athlete.birthYear || null,
+        status: athlete.status || null,
+        manager: athlete.manager || null,
+        hotel: athlete.hotel || null,
+        arrival: athlete.arrival || null,
+        departure: athlete.departure || null,
+        editionId: athlete.editionId || null,
+        event: `${discipline}${suffix}`,
+        heat: null,
+        lane: null,
+        waid: athlete.waid || null,
+        waUrl: athlete.waUrl || null,
+        registryAthleteId: athlete.registryAthleteId || null,
+        importedAt: serverTimestamp(),
+        importSource: athlete.importSource || null,
+        splitFromAthleteId: athlete.id,
+      });
+    }
+  }
 
   // Close column picker when clicking outside it
   useLayoutEffect(() => {
@@ -1881,12 +2392,18 @@ function AthletesListPage({ Panel }) {
   const grouped = useMemo(() => {
     const map = new Map();
     filtered.forEach((a) => {
-      const key = [a._std.label, a._ev.gender].filter(Boolean).join(" ") || "(no event)";
+      // A pacer note ("1500m M pace") has its gender embedded past "pace",
+      // out of reach of parseEventField's end-anchored suffix match — use the
+      // one normalizeDisciplineLabel recovered so pacers land in the actual
+      // gendered group they're pacing, not a separate ungendered bucket.
+      const key = [a._std.label, a._ev.gender || a._std.gender].filter(Boolean).join(" ") || "(no event)";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(a);
     });
     map.forEach((grp) => {
       grp.sort((a, b) => {
+        const oa = a.status === "out" ? 1 : 0; const ob = b.status === "out" ? 1 : 0;
+        if (oa !== ob) return oa - ob;
         const ha = parseInt(a.heat, 10) || 999; const hb = parseInt(b.heat, 10) || 999;
         if (ha !== hb) return ha - hb;
         const la = parseInt(a.lane, 10) || 999; const lb = parseInt(b.lane, 10) || 999;
@@ -2192,6 +2709,74 @@ function AthletesListPage({ Panel }) {
         )}
       </section>
 
+      {canViewUnifiedProfile && (
+        <div className="admin-subtabs" style={{ marginBottom: "1.5rem" }}>
+          <button
+            type="button"
+            className={`admin-subtab${pageTab === "athletes" ? " admin-subtab--active" : ""}`}
+            onClick={() => setPageTab("athletes")}
+          >
+            Athlètes ({athletes.length})
+          </button>
+          <button
+            type="button"
+            className={`admin-subtab${pageTab === "staff" ? " admin-subtab--active" : ""}`}
+            onClick={() => setPageTab("staff")}
+          >
+            Staff & accompagnateurs ({accompanyingPersons.length})
+          </button>
+        </div>
+      )}
+
+      {canViewUnifiedProfile && pageTab === "staff" && (
+        <section className="panel-grid panel-grid--1">
+          <Panel
+            title={`Staff & accompanying persons (${accompanyingPersons.length})`}
+            subtitle="Coaches, physios, family — detected from the Event column, kept separate from the athlete roster"
+          >
+            {accompanyingPersons.length === 0 ? (
+              <p className="panel-note">None imported yet for this edition.</p>
+            ) : (
+              <>
+                <ul className="compact-list" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem 1.5rem", marginBottom: "0.75rem" }}>
+                  {staffByRole.map(([role, count]) => (
+                    <li key={role}><strong>{count}</strong> {role}</li>
+                  ))}
+                </ul>
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Last name</th><th>First name</th><th>Nat.</th><th>Role</th>
+                        <th>Linked to</th><th>Status</th><th>Hotel</th><th>Arrival</th><th>Departure</th><th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accompanyingPersons.map((p) => (
+                        <tr key={p.id}>
+                          <td>{p.lastName}</td>
+                          <td>{p.firstName}</td>
+                          <td>{p.nationality || "—"}</td>
+                          <td><span className="status-pill">{p.staffRole || "—"}</span></td>
+                          <td>{p.linkedTo || "—"}</td>
+                          <td>{p.status ? <StatusBadge status={p.status} /> : "—"}</td>
+                          <td><HotelCell value={p.hotel} /></td>
+                          <td><TravelCell raw={p.arrival} prefix="arrival" referenceDate={meetingReferenceDate} /></td>
+                          <td><TravelCell raw={p.departure} prefix="departure" referenceDate={meetingReferenceDate} /></td>
+                          <td><RowDeleteCell athlete={p} onDelete={handleDeleteAccompanying} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </Panel>
+        </section>
+      )}
+
+      {pageTab === "athletes" && (
+      <>
       {/* ── Filters ── */}
       <div
         style={{
@@ -2340,15 +2925,15 @@ function AthletesListPage({ Panel }) {
                     })}
                     {canEdit && !displayedFields.find((f) => f.key === "waid") && <th>WAID</th>}
                     {canEdit && <th>WA sync</th>}
+                    {canEdit && <th></th>}
                   </tr>
                 </thead>
 
                 {groupByEvent
                   ? grouped.map(([eventKey, group]) => {
                       const ev = parseEventField(eventKey);
-                      const unstandardized = [...new Set(
-                        group.filter((a) => !a._std.standardized).map((a) => a.event || "(vide)"),
-                      )];
+                      const flaggedAthletes = group.filter((a) => !a._std.standardized);
+                      const isFixOpen = expandedEventGroups.has(eventKey);
                       return (
                         <tbody key={eventKey} className="event-group">
                           <tr className="event-group-header">
@@ -2361,16 +2946,34 @@ function AthletesListPage({ Panel }) {
                                 <span style={{ color: "#888", fontSize: "0.8rem", fontWeight: 400 }}>
                                   {group.length} athlete{group.length !== 1 ? "s" : ""}
                                 </span>
-                                {unstandardized.length > 0 && (
-                                  <span
+                                {flaggedAthletes.length > 0 && (
+                                  <button
+                                    type="button"
                                     className="status-pill status-pill--warn"
-                                    style={{ fontSize: "0.72rem" }}
-                                    title={`Épreuve brute non standard : ${unstandardized.join(" · ")}`}
+                                    style={{ fontSize: "0.72rem", cursor: "pointer", border: "none" }}
+                                    onClick={() => setExpandedEventGroups((current) => {
+                                      const next = new Set(current);
+                                      if (next.has(eventKey)) next.delete(eventKey); else next.add(eventKey);
+                                      return next;
+                                    })}
                                   >
-                                    ⚠ à vérifier
-                                  </span>
+                                    ⚠ à vérifier ({flaggedAthletes.length}) {isFixOpen ? "▲" : "▼"}
+                                  </button>
                                 )}
                               </div>
+                              {isFixOpen && flaggedAthletes.length > 0 && (
+                                <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff8ec", borderRadius: 6, fontSize: "0.85rem" }}>
+                                  {flaggedAthletes.map((a) => (
+                                    <EventCorrectionRow
+                                      key={a.id}
+                                      athlete={a}
+                                      onSave={handleFixEvent}
+                                      onSplit={handleSplitEvent}
+                                      onDelete={handleDeleteAthlete}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                             </td>
                           </tr>
                           {group.map((a) => (
@@ -2399,6 +3002,7 @@ function AthletesListPage({ Panel }) {
                                 <td><WaidCell athlete={a} onSave={handleSaveWaid} /></td>
                               )}
                               {canEdit && <td><WaSyncButton athlete={a} settings={settings} /></td>}
+                              {canEdit && <td><RowDeleteCell athlete={a} onDelete={handleDeleteAthlete} /></td>}
                             </tr>
                           ))}
                         </tbody>
@@ -2432,6 +3036,7 @@ function AthletesListPage({ Panel }) {
                             <td><WaidCell athlete={a} onSave={handleSaveWaid} /></td>
                           )}
                           {canEdit && <td><WaSyncButton athlete={a} settings={settings} /></td>}
+                          {canEdit && <td><RowDeleteCell athlete={a} onDelete={handleDeleteAthlete} /></td>}
                         </tr>
                       ))}
                     </tbody>
@@ -2459,6 +3064,8 @@ function AthletesListPage({ Panel }) {
             title={registryLoading ? "Fiche athlète (chargement…)" : "Fiche athlète"}
           />
         </section>
+      )}
+      </>
       )}
     </div>
   );
@@ -2816,43 +3423,6 @@ function AthleteImportPage({ Panel }) {
           </section>
         </>
       )}
-
-      <section className="panel-grid panel-grid--1">
-        <Panel
-          title={`Staff & accompanying persons (${accompanyingPersons.length})`}
-          subtitle="Coaches, physios, family — detected from the Event column, kept separate from the athlete roster"
-        >
-          {accompanyingPersons.length === 0 ? (
-            <p className="panel-note">None imported yet for this edition.</p>
-          ) : (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Last name</th><th>First name</th><th>Nat.</th><th>Role</th>
-                    <th>Linked to</th><th>Status</th><th>Hotel</th><th>Arrival</th><th>Departure</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accompanyingPersons.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.lastName}</td>
-                      <td>{p.firstName}</td>
-                      <td>{p.nationality || "—"}</td>
-                      <td><span className="status-pill">{p.staffRole || "—"}</span></td>
-                      <td>{p.linkedTo || "—"}</td>
-                      <td>{p.status ? <StatusBadge status={p.status} /> : "—"}</td>
-                      <td>{p.hotel || "—"}</td>
-                      <td><TravelCell raw={p.arrival} prefix="arrival" referenceDate={meetingReferenceDate} /></td>
-                      <td><TravelCell raw={p.departure} prefix="departure" referenceDate={meetingReferenceDate} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Panel>
-      </section>
 
       <section className="panel-grid panel-grid--1">
         <Panel title="Import history" subtitle="Every file received, in order, with the original Excel always downloadable">

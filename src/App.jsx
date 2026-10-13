@@ -515,7 +515,7 @@ export default function App() {
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "chef_transport_athletes"]} />}>
                   <Route path="transport" element={<AthleteTransportChiefPage />} />
                 </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes"]} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
                   <Route path="mes-transport" element={<AthleteTransportVolunteerPage />} />
                 </Route>
                 <Route path="registry" element={<Navigate replace to="/app/statistics/registry" />} />

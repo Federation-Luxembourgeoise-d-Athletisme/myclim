@@ -31,6 +31,19 @@ import {
 } from "./vip-helpers";
 import { buildAppUrl } from "../services/app-url";
 
+async function downloadWorkbook(workbook, filename) {
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function mapVipInvitation(snapshot) {
   return {
     id: snapshot.id,
@@ -219,6 +232,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [isExportingVip, setIsExportingVip] = useState(false);
   const allRegistrations = useMemo(
     () =>
       [...publicRegistrations, ...partnerRegistrations, ...adminRegistrations].sort((left, right) => {
@@ -769,6 +783,124 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
     }
   }
 
+  // Exports exactly the rows currently shown (respects search + filters), not
+  // the whole database — an admin filtering to one tour or one badge status
+  // expects the export to match what they're looking at on screen.
+  async function handleExportRegistrationsExcel() {
+    setIsExportingVip(true);
+    setError("");
+    setStatusMessage("");
+    try {
+      const ExcelJSModule = await import("exceljs");
+      const ExcelJS = ExcelJSModule.default ?? ExcelJSModule;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "MyCLIM";
+      workbook.created = new Date();
+      workbook.title = `VIP ${activeEditionId}`;
+
+      const sheet = workbook.addWorksheet("VIP");
+      sheet.columns = [
+        { header: "Prénom", key: "firstName", width: 16 },
+        { header: "Nom", key: "lastName", width: 16 },
+        { header: "Organisation", key: "organization", width: 24 },
+        { header: "Email", key: "email", width: 26 },
+        { header: "Téléphone", key: "phone", width: 16 },
+        { header: "Catégorie", key: "category", width: 20 },
+        { header: "Tour VIP", key: "vipTour", width: 30 },
+        { header: "Point de RDV", key: "pickupPoint", width: 18 },
+        { header: "Badge", key: "badgePrintStatus", width: 16 },
+        { header: "Source", key: "sourceType", width: 18 },
+        { header: "Invité(e) +1", key: "guestName", width: 20 },
+        { header: "Notes", key: "notes", width: 30 },
+      ];
+      sheet.getRow(1).font = { bold: true };
+
+      filteredRegistrationRows.forEach((registration) => {
+        sheet.addRow({
+          firstName: registration.firstName || "",
+          lastName: registration.lastName || "",
+          organization: registration.organization || "",
+          email: registration.email || "",
+          phone: registration.phone || "",
+          category: registration.matchedInvitation?.category || "",
+          vipTour: getVipTourChoiceLabel(registration.vipTourChoice || "none"),
+          pickupPoint: registration.pickupPoint || "",
+          badgePrintStatus: registration.badgePrintStatus || "non_imprime",
+          sourceType: registration.sourceType || "",
+          guestName: buildVipFullName({ firstName: registration.guestFirstName, lastName: registration.guestLastName }),
+          notes: registration.matchedInvitation?.notes || registration.notes || "",
+        });
+      });
+
+      const filename = `vip-inscrits-${activeEditionId}.xlsx`;
+      await downloadWorkbook(workbook, filename);
+      setStatusMessage(`Export Excel prêt : ${filename}`);
+    } catch (exportError) {
+      console.error("VIP Excel export failed", exportError);
+      setError("L'export Excel a échoué.");
+    } finally {
+      setIsExportingVip(false);
+    }
+  }
+
+  // The invitation list is primarily a mailing list — recipient, contact
+  // language and whether the invite mail already went out — rather than the
+  // richer per-guest details tracked once someone actually registers.
+  async function handleExportInvitationsExcel() {
+    setIsExportingVip(true);
+    setError("");
+    setStatusMessage("");
+    try {
+      const ExcelJSModule = await import("exceljs");
+      const ExcelJS = ExcelJSModule.default ?? ExcelJSModule;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "MyCLIM";
+      workbook.created = new Date();
+      workbook.title = `VIP — invitations ${activeEditionId}`;
+
+      const sheet = workbook.addWorksheet("Invitations");
+      sheet.columns = [
+        { header: "Prénom", key: "firstName", width: 16 },
+        { header: "Nom", key: "lastName", width: 16 },
+        { header: "Email", key: "email", width: 28 },
+        { header: "Organisation", key: "organization", width: 24 },
+        { header: "Catégorie", key: "category", width: 20 },
+        { header: "Langue mail", key: "invitationMailLanguage", width: 12 },
+        { header: "Mail envoyé", key: "mailSent", width: 14 },
+        { header: "Invité cette édition", key: "invitedThisEdition", width: 16 },
+        { header: "Archivé", key: "archived", width: 12 },
+        { header: "Déjà inscrit", key: "registered", width: 14 },
+        { header: "Notes", key: "notes", width: 30 },
+      ];
+      sheet.getRow(1).font = { bold: true };
+
+      filteredInvitationRows.forEach((invitation) => {
+        sheet.addRow({
+          firstName: invitation.firstName || "",
+          lastName: invitation.lastName || "",
+          email: invitation.email || "",
+          organization: invitation.organization || "",
+          category: invitation.category || "",
+          invitationMailLanguage: invitation.invitationMailLanguage || "",
+          mailSent: invitation.invitationMailStatus === "sent" ? "Oui" : "Non",
+          invitedThisEdition: invitation.invitedThisEdition === "oui" ? "Oui" : "Non",
+          archived: invitation.archived ? "Oui" : "Non",
+          registered: invitation.matchedRegistration ? "Oui" : "Non",
+          notes: invitation.notes || "",
+        });
+      });
+
+      const filename = `vip-invitations-${activeEditionId}.xlsx`;
+      await downloadWorkbook(workbook, filename);
+      setStatusMessage(`Export Excel prêt : ${filename}`);
+    } catch (exportError) {
+      console.error("VIP invitations Excel export failed", exportError);
+      setError("L'export Excel a échoué.");
+    } finally {
+      setIsExportingVip(false);
+    }
+  }
+
   const invitationRows = useMemo(
     () =>
       invitations
@@ -1000,7 +1132,20 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
             </form>
           </Panel>
 
-          <Panel title={t("vipInvitationListTitle")} subtitle={t("vipInvitationListSubtitle")}>
+          <Panel
+            title={t("vipInvitationListTitle")}
+            subtitle={t("vipInvitationListSubtitle")}
+            actions={
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={handleExportInvitationsExcel}
+                disabled={isExportingVip || filteredInvitationRows.length === 0}
+              >
+                {isExportingVip ? "Export…" : `Exporter Excel (${filteredInvitationRows.length})`}
+              </button>
+            }
+          >
             <div className="vip-admin-filters">
               <input
                 type="search"
@@ -1224,7 +1369,20 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
             </form>
           </Panel>
 
-          <Panel title={t("vipRegistrantListTitle")} subtitle={t("vipRegistrantListSubtitle")}>
+          <Panel
+            title={t("vipRegistrantListTitle")}
+            subtitle={t("vipRegistrantListSubtitle")}
+            actions={
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={handleExportRegistrationsExcel}
+                disabled={isExportingVip || filteredRegistrationRows.length === 0}
+              >
+                {isExportingVip ? "Export…" : `Exporter Excel (${filteredRegistrationRows.length})`}
+              </button>
+            }
+          >
             <div className="vip-admin-filters">
               <input
                 type="search"

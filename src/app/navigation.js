@@ -206,7 +206,10 @@ function buildAthletePortalNavigation(roles, portalSettings, { canImport }) {
     links.push(makeLink("/app/athlete-portal/transport", "navAthleteTransport", "Transport", "users"));
   }
 
-  if (roles.includes("benevole_transport_athletes")) {
+  // Admins/gestionnaires are transport volunteers by default (in addition to
+  // whoever actually holds benevole_transport_athletes) so the chief always
+  // has someone to fall back on assigning a lot to.
+  if (roles.includes("benevole_transport_athletes") || roles.includes("admin") || roles.includes("gestionnaire")) {
     links.push(makeLink("/app/athlete-portal/mes-transport", "navMyTransports", "Mes transports", "pin"));
   }
 

@@ -757,29 +757,33 @@ function useAthleteRegistry(enabled = true) {
   return { registry, loading };
 }
 
-function useAthleteTransportLots(enabled = true) {
+// editionId lets the transport chief view "test" edition lots (matching the
+// athletes/staff currently being rehearsed there) instead of always the real
+// active edition — same override pattern as useAthletes/useAccompanyingPersons.
+function useAthleteTransportLots(enabled = true, editionId = undefined) {
   const [lots, setLots] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { activeEditionId, loading: editionLoading } = useActiveEdition(enabled);
+  const { activeEditionId, loading: editionLoading } = useActiveEdition(enabled && !editionId);
+  const effectiveEditionId = editionId || activeEditionId;
 
   useEffect(() => {
-    if (!enabled || editionLoading) return undefined;
+    if (!enabled || (!editionId && editionLoading)) return undefined;
     const unsubscribe = onSnapshot(
       collection(db, ATHLETE_TRANSPORT_LOTS_COLLECTION),
       (snapshot) => {
         setLots(
           snapshot.docs
             .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((lot) => recordMatchesEdition(lot, activeEditionId)),
+            .filter((lot) => recordMatchesEdition(lot, effectiveEditionId)),
         );
         setLoading(false);
       },
       () => setLoading(false),
     );
     return unsubscribe;
-  }, [enabled, activeEditionId, editionLoading]);
+  }, [enabled, editionId, effectiveEditionId, editionLoading]);
 
-  return { lots, loading: loading || editionLoading };
+  return { lots, loading: loading || (!editionId && editionLoading) };
 }
 
 // ─── Import history ───────────────────────────────────────────────────────────
@@ -861,6 +865,11 @@ function useAthleteImportHistory(enabled = true, editionId = undefined) {
   return { history, loading };
 }
 
+// Admins and gestionnaires are transport volunteers by default, in addition
+// to whoever actually holds the benevole_transport_athletes role — the chief
+// always has someone to fall back on for a lot. `isDedicatedVolunteer` /
+// `fallbackRole` let the UI tell the two apart instead of listing them as
+// equivalent.
 function useTransportVolunteers(enabled = true) {
   const [volunteers, setVolunteers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -868,9 +877,21 @@ function useTransportVolunteers(enabled = true) {
   useEffect(() => {
     if (!enabled) { setLoading(false); return undefined; }
     const unsubscribe = onSnapshot(
-      query(collection(db, "users"), where("userTypes", "array-contains", "benevole_transport_athletes")),
+      query(collection(db, "users"), where("userTypes", "array-contains-any", ["benevole_transport_athletes", "admin", "gestionnaire"])),
       (snapshot) => {
-        setVolunteers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setVolunteers(snapshot.docs.map((d) => {
+          const data = d.data();
+          const types = data.userTypes || [];
+          const isDedicatedVolunteer = types.includes("benevole_transport_athletes");
+          return {
+            id: d.id,
+            ...data,
+            isDedicatedVolunteer,
+            fallbackRole: isDedicatedVolunteer
+              ? null
+              : types.includes("admin") ? "Admin" : types.includes("gestionnaire") ? "Gestionnaire" : null,
+          };
+        }));
         setLoading(false);
       },
       () => setLoading(false),
