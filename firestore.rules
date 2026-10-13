@@ -301,6 +301,14 @@ service cloud.firestore {
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
     }
 
+    // ── Roadbook athlètes ───────────────────────────────────────────────────
+    // Page publique /athletes/roadbook : lisible par tous une fois publiée,
+    // le brouillon reste réservé aux admins/gestionnaires (aperçu ?preview=1).
+    match /athleteRoadbooks/{editionId} {
+      allow read: if resource.data.status == "published" || isAdminOrManager();
+      allow write: if isAdminOrManager();
+    }
+
     // ── Documents partagés ──────────────────────────────────────────────────
     // Lecture ouverte aux bénévoles et chefs d'équipe (actuellement bloqué par catch-all)
     match /documents/{docId} {

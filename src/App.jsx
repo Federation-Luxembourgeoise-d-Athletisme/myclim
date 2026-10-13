@@ -102,6 +102,8 @@ const WebsiteEditionPageScreen = lazyNamed(() => import("./app/website-admin-pag
 const WebsiteEmagazinePageScreen = lazyNamed(() => import("./app/website-emagazine-page"), "WebsiteEmagazinePage");
 const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin-page"), "InvitationAdminPage");
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
+const AthleteRoadbookPage = lazyNamed(() => import("./site/athlete-roadbook-page"), "AthleteRoadbookPage");
+const AthleteRoadbookAdminPageScreen = lazyNamed(() => import("./app/athlete-roadbook-admin-page"), "AthleteRoadbookAdminPage");
 
 async function loadMailQueueModule() {
   if (!mailQueueModulePromise) {
@@ -276,6 +278,10 @@ function DocumentsPage() {
 
 function VipPage() {
   return <VipAdminPage Panel={Panel} loadMailQueueModule={loadMailQueueModule} />;
+}
+
+function AthleteRoadbookAdminPage() {
+  return <AthleteRoadbookAdminPageScreen Panel={Panel} />;
 }
 
 function PressAdminPage() {
@@ -460,6 +466,7 @@ export default function App() {
           <Route path="/vip" element={<VipAccessPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/vip/orga/:portalId" element={<VipPartnerPortalPage />} />
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
+          <Route path="/athletes/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
@@ -487,6 +494,7 @@ export default function App() {
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="vip" element={<VipPage />} />
                 <Route path="presse" element={<PressAdminPage />} />
+                <Route path="athlete-roadbook" element={<AthleteRoadbookAdminPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "chef_equipe"]} />}>
                 <Route path="equipe" element={<TeamPage />} />

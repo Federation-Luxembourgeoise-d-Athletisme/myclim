@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Athletes roadbook — maquette</title>
+<style>
+:root{--red:#e8001c;--red-soft:#fdecee;--slate:#6b8090;--slate-l:#b8c7d3;--ink:#111827;--muted:#4b5563;--dim:#9ca3af;--line:rgba(0,0,0,.08);--surface:#f4f6f9;--wash:#eef2f8;--card:#fff;--side:280px}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{margin:0;font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--surface);line-height:1.6}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.layout{display:grid;grid-template-columns:var(--side) minmax(0,1fr);min-height:100vh}
+aside{position:sticky;top:0;height:100vh;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:24px 18px 18px}
+.brand img{height:54px;display:block;margin:0 0 6px 4px}
+.brand p{margin:0 0 22px 6px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
+nav ol{list-style:none;margin:0;padding:0}
+nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:var(--muted);text-decoration:none;font-size:14.5px;font-weight:600;margin-bottom:2px}
+nav a span{font-size:12px;font-weight:700;color:var(--dim);width:20px}
+nav a:hover{background:var(--surface);color:var(--ink)}
+nav a.active{background:var(--red-soft);color:var(--red)}nav a.active span{color:var(--red)}
+.nav-group{margin:18px 0 6px 12px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+nav a .pill{margin-left:auto;font-style:normal;font-size:11px;font-weight:800;background:var(--red);color:#fff;border-radius:999px;padding:1px 7px}
+.who{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 18px;margin-bottom:16px}
+.who .av{width:42px;height:42px;border-radius:50%;background:var(--red-soft);display:grid;place-items:center;font-weight:800;color:var(--red)}
+.who small{display:block;color:var(--muted);font-size:13px}
+.days-tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.days-tabs button{border:1px solid rgba(0,0,0,.16);background:#fff;border-radius:999px;padding:7px 14px;font:600 13px inherit;font-family:inherit;color:var(--muted);cursor:pointer}
+.days-tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.slot{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-family:inherit;text-align:left;cursor:pointer;color:var(--ink)}
+.slot b{display:block;font-size:16px;font-weight:800}.slot span{font-size:12.5px;color:var(--muted)}
+.slot.full{background:var(--surface);color:var(--dim);cursor:not-allowed}.slot.full b{color:var(--dim)}
+.slot.mine{background:var(--red);border-color:var(--red);color:#fff}.slot.mine span{color:#fff}
+.booked{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--red-soft);border-radius:14px;padding:14px 18px;margin-bottom:14px;font-weight:600}
+.booked button,.form button.sec{border:1px solid rgba(0,0,0,.16);background:#fff;border-radius:999px;padding:7px 14px;font:600 13px inherit;font-family:inherit;cursor:pointer}
+.form{display:grid;gap:12px}
+.guest{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.guest .n{width:30px;height:30px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-weight:800}
+.guest input{border:1px solid rgba(0,0,0,.16);border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;min-width:0}
+.form .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn-red{background:var(--red);color:#fff;border:0;border-radius:999px;padding:11px 22px;font:700 14px inherit;font-family:inherit;cursor:pointer}
+.hint{color:var(--muted);font-size:13.5px;margin:0}
+.side-foot{margin-top:auto;display:grid;gap:10px}
+.lang{display:flex;background:var(--surface);border-radius:10px;padding:3px}
+.lang button{flex:1;border:0;background:none;color:var(--muted);font:700 13px inherit;font-family:inherit;padding:7px;border-radius:8px;cursor:pointer}
+.lang button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.btn-print{border:1px solid rgba(0,0,0,.16);background:#fff;color:var(--ink);border-radius:999px;padding:9px;font-weight:600;font-size:13px;font-family:inherit;cursor:pointer;display:flex;gap:8px;justify-content:center;align-items:center}
+.sos{background:var(--red);border-radius:14px;padding:12px 14px;color:#fff;text-decoration:none;display:flex;gap:10px;align-items:center}
+.sos small{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.9}
+.sos strong{font-size:16px}
+main{padding:40px clamp(20px,5vw,64px) 80px;max-width:1100px}
+.hero{background:var(--wash);border-radius:24px;padding:36px 40px;display:flex;justify-content:space-between;gap:24px;align-items:center;margin-bottom:48px}
+.eyebrow{margin:0;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.hero h1{margin:8px 0 10px;font-size:46px;line-height:1.05;font-weight:900;letter-spacing:-.01em}
+.hero h1 em{font-style:normal;color:var(--red)}
+.hero p.sub{margin:0;color:var(--muted);font-size:17px;max-width:560px}
+.meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;color:var(--ink);font-size:14.5px;font-weight:600}
+.meta span{display:flex;gap:7px;align-items:center}.meta svg{color:var(--red)}
+.wa{width:120px;flex:none}
+section{margin-bottom:60px}
+.sh{margin-bottom:20px}
+.sh h2{margin:6px 0 0;font-size:30px;font-weight:900;letter-spacing:-.01em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+.card h3{margin:0 0 10px;font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px}
+.card ul{margin:0;padding-left:18px;color:var(--muted);font-size:14.5px}.card li{margin:4px 0}
+.card.hl{background:var(--ink);color:#fff;border-color:var(--ink)}.card.hl ul{color:#d1d5db}.card.hl h3{color:#fff}
+.ico{width:38px;height:38px;border-radius:12px;background:var(--surface);display:grid;place-items:center;font-size:19px;flex:none}
+.lead{border-left:4px solid var(--red);background:#fff;padding:12px 16px;font-weight:600;margin:0 0 16px;border-radius:0}
+.map{height:160px;border-radius:16px;background:repeating-linear-gradient(45deg,#e6ebf2 0 12px,#f4f6f9 12px 24px);display:grid;place-items:center;color:var(--slate);font-size:13px;margin-bottom:16px;border:1px dashed var(--slate-l)}
+.days{display:grid;gap:16px}
+.day{background:var(--card);border:1px solid var(--line);border-radius:16px;display:grid;grid-template-columns:200px minmax(0,1fr);overflow:hidden}
+.day .d{padding:20px;border-right:1px solid var(--line);background:var(--surface)}
+.day .d strong{display:block;font-size:22px;font-weight:900;line-height:1.1;margin-top:4px}
+.day .d .acc{margin-top:14px;font-size:12.5px;font-weight:700;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;gap:6px}
+.day.comp{border-color:var(--red)}.day.comp .d{background:var(--red);color:#fff}.day.comp .d .eyebrow{color:#fff}
+.day.comp .d .acc{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.35);color:#fff}
+.day ul{list-style:none;margin:0;padding:6px 22px}
+.day li{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:14.5px}.day li:last-child{border:0}
+.day li b{display:block;font-weight:700}.day li span{color:var(--muted)}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.rule{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.rule b{display:block;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-bottom:4px}
+.rule span{font-size:15px;font-weight:600}
+.venue{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px}
+.zones{background:var(--ink);color:#fff;border-radius:16px;padding:20px 22px}
+.zones h3{margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#fca5ae}
+.zones ol{margin:0;padding:0;list-style:none;counter-reset:z}
+.zones li{counter-increment:z;display:flex;gap:10px;align-items:center;padding:5px 0;font-weight:600}
+.zones li::before{content:counter(z);width:24px;height:24px;border-radius:50%;background:var(--red);display:grid;place-items:center;font-size:12px;font-weight:800}
+.plan{min-height:280px;border-radius:16px;background:repeating-linear-gradient(45deg,#e6ebf2 0 12px,#f4f6f9 12px 24px);border:1px dashed var(--slate-l);display:grid;place-items:center;color:var(--slate);font-size:13px}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;font-size:14px}
+th{background:var(--ink);color:#fff;text-align:left;font-weight:700;padding:11px 12px;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+td{padding:11px 12px;border-top:1px solid var(--line)}
+tr.head td{background:var(--red);color:#fff;font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
+td.t{font-weight:800;width:84px}
+td.g{color:var(--slate);font-weight:600;width:110px}
+td.field{font-weight:700}
+td.field::after{content:"Field";margin-left:8px;font-size:11px;font-weight:700;color:var(--slate);background:var(--surface);border-radius:6px;padding:2px 6px}
+td.k{color:var(--red);font-weight:800}
+.tbl-wrap{overflow-x:auto;border-radius:16px}
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filters button{border:1px solid rgba(0,0,0,.16);background:#fff;border-radius:999px;padding:6px 14px;font:600 13px inherit;font-family:inherit;color:var(--muted);cursor:pointer}
+.filters button.on{background:var(--red);color:#fff;border-color:var(--red)}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.link{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;text-decoration:none;color:var(--ink);display:grid;gap:10px;justify-items:start}
+.link .qr{width:76px;height:76px;border-radius:10px;background:conic-gradient(#111827 25%,#fff 0 50%,#111827 0 75%,#fff 0) 0 0/19px 19px;border:6px solid #fff;outline:1px solid var(--line)}
+.link b{font-size:16px;font-weight:800}.link span{font-size:13px;color:var(--red);font-weight:700}
+.note{background:#fff8e1;border:1px solid #f3dc8f;color:#7a5b00;border-radius:10px;padding:10px 14px;font-size:13.5px;margin-bottom:24px}
+@media (max-width:860px){
+ .layout{grid-template-columns:minmax(0,1fr)}
+ aside{position:sticky;top:0;height:auto;z-index:5;padding:10px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+ .brand img{height:40px;margin:0}.brand p{display:none}
+ nav{grid-column:1/-1;grid-row:2;min-width:0;overflow-x:auto}nav ol{display:flex;gap:4px}nav a{white-space:nowrap;padding:8px 10px}
+ .side-foot{margin:0;display:flex}.btn-print,.sos{display:none}
+ main{padding:20px 16px 60px}.hero{flex-direction:column;align-items:flex-start;padding:26px 22px;border-radius:20px}.hero h1{font-size:36px}.wa{display:none}
+ .day{grid-template-columns:minmax(0,1fr)}.day .d{border-right:0;border-bottom:1px solid var(--line)}
+ .venue{grid-template-columns:minmax(0,1fr)}
+}
+@media print{aside{display:none}.layout{display:block}main{max-width:none;padding:0}section{break-inside:avoid}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2-7H7l-2 2H2l2-4-2-4h3l2 2h4L9 3h3z"/></symbol>
+  <symbol id="train" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14M9 20l-2 2M15 20l2 2M9 16l-1 4M15 16l1 4"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="gym" viewBox="0 0 24 24"><path d="M3 12h2M19 12h2M6 8v8M18 8v8M9 6v12M15 6v12M9 12h6"/></symbol>
+  <symbol id="stadium" viewBox="0 0 24 24"><ellipse cx="12" cy="10" rx="9" ry="4"/><path d="M3 10v5c0 2.2 4 4 9 4s9-1.8 9-4v-5M8 13.5v4.8M16 13.5v4.8"/></symbol>
+  <symbol id="lunch" viewBox="0 0 24 24"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2 6 0 8v10"/></symbol>
+  <symbol id="dinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="bus" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="13" rx="2"/><path d="M4 11h16M7 20v-3M17 20v-3"/></symbol>
+  <symbol id="door" viewBox="0 0 24 24"><path d="M14 3h5v18h-5M10 17l5-5-5-5M15 12H3"/></symbol>
+  <symbol id="cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16"/></symbol>
+  <symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="bed" viewBox="0 0 24 24"><path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="2"/></symbol>
+  <symbol id="phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
+  <symbol id="print" viewBox="0 0 24 24"><path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 9V3h10v6M7 14h10v7H7z"/></symbol>
+</svg>
+<div class="layout">
+<aside>
+  <div class="brand"><img src="../../src/assets/cmcm-logo.png" alt="CMCM Luxembourg Indoor Meeting"><p>Athletes roadbook</p></div>
+  <nav><ol>
+    <li><a href="#arrival" class="active"><span>01</span>Arrival &amp; departure</a></li>
+    <li><a href="#schedule"><span>02</span>Athlete schedule</a></li>
+    <li><a href="#competition"><span>03</span>Competition info</a></li>
+    <li><a href="#venue"><span>04</span>The Coque</a></li>
+    <li><a href="#timetable"><span>05</span>Timetable</a></li>
+    <li><a href="#calltimes"><span>06</span>Call times</a></li>
+    <li><a href="#links"><span>07</span>Photos &amp; links</a></li>
+  </ol>
+  <p class="nav-group">My bookings</p>
+  <ol>
+    <li><a href="#physio"><span>💆</span>Physio booking <em class="pill">1</em></a></li>
+    <li><a href="#tickets"><span>🎟️</span>Free tickets <em class="pill">2</em></a></li>
+  </ol></nav>
+  <div class="side-foot">
+    <div class="lang"><button class="on">EN</button><button>FR</button></div>
+    <button class="btn-print">🖨️Print / save as PDF</button>
+    <a class="sos" href="#">🆘<div><small>Emergency contact</small><strong>+352 621 000 000</strong></div></a>
+  </div>
+</aside>
+
+<main>
+  <p class="note">Maquette : contenu 2026 corrigé, plans et QR codes en emplacement réservé.</p>
+  <div class="hero">
+    <div>
+      <p class="eyebrow">Athletes information · Edition 24</p>
+      <h1>Athletes <em>roadbook</em></h1>
+      <p class="sub">Everything you need for your stay: travel, schedule, venue, timetable and call times.</p>
+      <div class="meta">
+        <span>📅17 January 2027</span>
+        <span>📍Coque, Luxembourg</span>
+        <span>🏨Meliá Luxembourg Hotel</span>
+      </div>
+    </div>
+    <img class="wa" src="../../src/assets/wa-indoor-tour-silver.png" alt="World Athletics Indoor Tour Silver">
+  </div>
+
+  <section id="arrival">
+    <div class="sh"><p class="eyebrow">01 · Travel</p><h2>Arrival &amp; departure</h2></div>
+    <p class="lead">Someone from the organisation will be waiting for you at the meeting point.</p>
+    <div class="map">Plan de l'aéroport (image téléversée dans l'admin)</div>
+    <div class="grid">
+      <div class="card"><h3><span class="ico">✈️</span>From Findel Airport</h3><ul><li>Go to the tram station (public transport is free)</li><li>Tram T1 towards « Stadion / Lycée Bouneweg »</li><li>Get off at Kirchberg, Philharmonie / Mudam</li><li>Walk to the Meliá Luxembourg Hotel</li></ul></div>
+      <div class="card hl"><h3><span class="ico">🚊</span>Tram hours</h3><ul><li>First tram to the airport: 4:00 AM from Stadion</li><li>First tram to Gare Centrale: 4:20 AM from Findel</li><li>Last tram at midnight</li><li>Airport ↔ hotel: about 18 minutes</li></ul></div>
+      <div class="card"><h3><span class="ico">✈️</span>To Findel Airport</h3><ul><li>Tram T1 towards « Findel – Luxembourg Airport »</li><li>Get off at the terminus</li></ul></div>
+      <div class="card"><h3><span class="ico">🚆</span>From / to the train station</h3><ul><li>Tram T1 towards « Findel » / « Luxexpo », get off at Philharmonie / Mudam</li><li>Back: tram T1 towards « Stadion », get off at « Gare Centrale »</li></ul></div>
+    </div>
+  </section>
+
+  <section id="schedule">
+    <div class="sh"><p class="eyebrow">02 · Your stay</p><h2>Athlete schedule</h2></div>
+    <div class="days">
+      <div class="day"><div class="d"><p class="eyebrow">Day −2</p><strong>Friday<br>15 January</strong><div class="acc">🚪 Coque: ARENA entrance</div></div>
+        <ul><li><span class="ico">🏋️</span><div><b>Hotel gym &amp; fitness center</b></div></li><li><span class="ico">🏟️</span><div><b>Coque center · bus shuttle</b><span>Gym 4:00–7:00 PM · Track 5:30–8:00 PM</span></div></li><li><span class="ico">🍽️</span><div><b>Dinner at the hotel</b><span>7:00–9:00 PM</span></div></li></ul></div>
+      <div class="day"><div class="d"><p class="eyebrow">Day −1</p><strong>Saturday<br>16 January</strong><div class="acc">🚪 Coque: ARENA entrance</div></div>
+        <ul><li><span class="ico">🏟️</span><div><b>Coque center · bus shuttle</b><span>Gym 4:00–7:00 PM · Track 10:30 AM–12:30 PM and 4:00–7:00 PM</span></div></li><li><span class="ico">🥗</span><div><b>Lunch at the hotel</b><span>12:00–2:30 PM</span></div></li><li><span class="ico">🍽️</span><div><b>Dinner at the hotel</b><span>7:00–10:00 PM</span></div></li></ul></div>
+      <div class="day comp"><div class="d"><p class="eyebrow">Competition day</p><strong>Sunday<br>17 January</strong><div class="acc">🚪 Coque: ATHLETE entrance · shuttle</div></div>
+        <ul><li><span class="ico">🥗</span><div><b>Lunch at the hotel</b><span>12:00–2:00 PM</span></div></li><li><span class="ico">🚌</span><div><b>Shuttle to the Coque</b><span>In front of the hotel and at the Coque at all times</span></div></li><li><span class="ico">🍽️</span><div><b>Dinner at the hotel</b><span>7:30–10:00 PM</span></div></li></ul></div>
+    </div>
+  </section>
+
+  <section id="competition">
+    <div class="sh"><p class="eyebrow">03 · Rules</p><h2>Competition information</h2></div>
+    <div class="rules">
+      <div class="rule"><b>⚡ 60m W · 60mH M/W</b><span>2 heats, 3Q + 2q</span></div>
+      <div class="rule"><b>⏱️ 200m W · 400m M</b><span>2 timed races, ONE combined result</span></div>
+      <div class="rule"><b>📏 Long jump</b><span>Order changes after rounds 3 and 5</span></div>
+      <div class="rule"><b>🎯 Pole vault</b><span>4.10 · 4.25 · 4.35 · 4.40, then +5cm. Jump-off for the victory</span></div>
+    </div>
+  </section>
+
+  <section id="venue">
+    <div class="sh"><p class="eyebrow">04 · Venue</p><h2>The Coque</h2></div>
+    <p class="lead">By tram: towards « Findel ». Meeting point at the hotel front desk for training.</p>
+    <div class="venue">
+      <div class="zones"><h3>Access zones</h3><ol><li>Infield</li><li>Warm-up</li><li>Coaching zone</li><li>Judges room</li><li>Mixed zone</li><li>VIP zone</li></ol></div>
+      <div class="plan">Plan de la Coque propre au roadbook (image téléversée)</div>
+    </div>
+  </section>
+
+  <section id="timetable">
+    <div class="sh"><p class="eyebrow">05 · Competition day</p><h2>Timetable</h2></div>
+    <table><tbody>
+      <tr class="head"><td>15:00</td><td colspan="2">Pre-program</td></tr>
+      <tr class="head"><td colspan="3">Main program</td></tr>
+      <tr><td class="t">16:06</td><td class="g">Women</td><td>60m heats</td></tr>
+      <tr><td class="t">16:17</td><td class="g">Men</td><td class="field">Long jump</td></tr>
+      <tr><td class="t">16:20</td><td class="g">Men</td><td>400m finals</td></tr>
+      <tr><td class="t">16:36</td><td class="g">Women</td><td>60m hurdles heats</td></tr>
+      <tr><td class="t">16:57</td><td class="g">Women</td><td class="field">Pole vault</td></tr>
+      <tr><td class="t">17:01</td><td class="g">Women</td><td>60m final</td></tr>
+      <tr><td class="t">…</td><td colspan="2" style="color:var(--dim)">repris automatiquement de Site web → Édition courante</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="calltimes">
+    <div class="sh"><p class="eyebrow">06 · Call room</p><h2>Call times</h2></div>
+    <div class="filters"><button class="on">All events</button><button>Women</button><button>Men</button><button>Sprints</button><button>Field</button></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Event</th><th>1st call 10'</th><th>Last call 3'</th><th>Official call room</th><th>Call room out</th><th>Warm-up infield</th><th>Presentation</th><th>Event start</th></tr></thead>
+      <tbody>
+        <tr><td><b>60m Heat 1 Women</b></td><td>15:43</td><td>15:50</td><td class="k">15:53</td><td>16:00</td><td>16:01–16:04</td><td>16:04</td><td class="k">16:06</td></tr>
+        <tr><td><b>60m Heat 2 Women</b></td><td>15:49</td><td>15:56</td><td class="k">15:59</td><td>16:06</td><td>16:07–16:10</td><td>16:10</td><td class="k">16:11</td></tr>
+        <tr><td><b>Long Jump Men</b></td><td>15:03</td><td>15:10</td><td class="k">15:13</td><td>15:21</td><td>15:24–16:09</td><td>16:14</td><td class="k">16:17</td></tr>
+        <tr><td><b>400m Final 1 Men</b></td><td>15:57</td><td>16:04</td><td class="k">16:07</td><td>16:13</td><td>16:14–16:18</td><td>16:18</td><td class="k">16:20</td></tr>
+        <tr><td><b>Pole Vault Women</b></td><td>15:13</td><td>15:20</td><td class="k">15:23</td><td>15:29</td><td>15:30–16:45</td><td>16:51</td><td class="k">16:57</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section id="links">
+    <div class="sh"><p class="eyebrow">07 · Follow the meeting</p><h2>Photos &amp; links</h2></div>
+    <p>Use the pictures freely, always crediting the meeting: Instagram @cmcm_lux_indoor_meet.</p>
+    <div class="links">
+      <a class="link" href="#"><div class="qr"></div><b>📸 Live photos</b><span>Open the gallery →</span></a>
+      <a class="link" href="#"><div class="qr"></div><b>📖 E-magazine</b><span>Read online →</span></a>
+      <a class="link" href="#"><div class="qr"></div><b>⏱️ Live results</b><span>Follow live →</span></a>
+      <a class="link" href="#"><div class="qr"></div><b>🆘 Emergency contact</b><span>+352 621 000 000</span></a>
+    </div>
+  </section>
+  <section id="physio">
+    <div class="sh"><p class="eyebrow">💆 My bookings</p><h2>Physio booking</h2></div>
+    <div class="who"><div class="av">JD</div><div><b>Jane Doe · 60m Women</b><small>Your personal link. Bookings are linked to your accreditation.</small></div></div>
+    <div class="booked"><span>✅ Your slot: Saturday 16 January · 17:20 – 17:40 · Physio room (Coque, level 0)</span><button>Cancel</button></div>
+    <div class="days-tabs"><button>Fri 15</button><button class="on">Sat 16</button><button>Sun 17</button></div>
+    <div class="slots">
+      <button class="slot full"><b>16:00</b><span>Full</span></button>
+      <button class="slot"><b>16:20</b><span>2 places left</span></button>
+      <button class="slot full"><b>16:40</b><span>Full</span></button>
+      <button class="slot"><b>17:00</b><span>1 place left</span></button>
+      <button class="slot mine"><b>17:20</b><span>Your booking</span></button>
+      <button class="slot"><b>17:40</b><span>2 places left</span></button>
+      <button class="slot"><b>18:00</b><span>2 places left</span></button>
+      <button class="slot"><b>18:20</b><span>1 place left</span></button>
+    </div>
+    <p class="hint" style="margin-top:12px">20-minute slots, one booking per athlete per day. Cancel at least 1 hour before so another athlete can take it.</p>
+  </section>
+
+  <section id="tickets">
+    <div class="sh"><p class="eyebrow">🎟️ My bookings</p><h2>Free tickets for your guests</h2></div>
+    <p class="hint" style="margin-bottom:14px">You can invite up to 2 people. Their names will be on the guest list at the public entrance: they just give their name, no ticket to print.</p>
+    <div class="form">
+      <div class="guest"><span class="n">1</span><input value="John" aria-label="Guest 1 first name"><input value="Doe" aria-label="Guest 1 last name"><input placeholder="Email (optional)" aria-label="Guest 1 email"></div>
+      <div class="guest"><span class="n">2</span><input placeholder="First name" aria-label="Guest 2 first name"><input placeholder="Last name" aria-label="Guest 2 last name"><input placeholder="Email (optional)" aria-label="Guest 2 email"></div>
+      <div class="row"><button class="btn-red">Save my guests</button><span class="hint">1 of 2 places used · changes possible until Saturday 16 January, 6 PM</span></div>
+    </div>
+  </section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll('nav a')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id))}})},{rootMargin:'-35% 0px -60% 0px'});
+document.querySelectorAll('main section').forEach(s=>io.observe(s));
+document.querySelectorAll('.lang button,.filters button').forEach(b=>b.addEventListener('click',()=>{[...b.parentNode.children].forEach(x=>x.classList.remove('on'));b.classList.add('on')}));
+</script>
+</body>
+</html>
