@@ -22,12 +22,14 @@ import { AuthFormField } from "./form-components";
 import {
   CASH_POST_KINDS,
   CASH_SALE_PAYMENT_METHODS,
+  CASH_SALE_STATUS_LABELS,
   DEFAULT_CASH_POSTS,
   DOOR_GUEST_LIST_CATEGORIES,
   DOOR_GUEST_LIST_SCOPES,
   buildDefaultCashArticles,
   buildPersonName,
   formatEuros,
+  isPaidSale,
   normalizeSearchValue,
   parseGuestImportRows,
   toCents,
@@ -223,6 +225,37 @@ function CashDeskAdminPage({ Panel }) {
       const response = await setCode({ postId: post.id });
       setRevealedCode({ postId: post.id, postName: post.name, code: response?.data?.code || "" });
     });
+  }
+
+  function handlePairReader(post) {
+    const pairingCode = window.prompt(
+      `Appairer un SumUp Solo à « ${post.name} »
+
+Sur le Solo : Connexions → API → Connecter. Saisis ici le code affiché (valable 5 minutes).`,
+    );
+    if (!pairingCode) return undefined;
+    return runAction(
+      `reader-${post.id}`,
+      async () => {
+        const pairReader = httpsCallable(functions, "pairSumupReader");
+        await pairReader({ postId: post.id, pairingCode });
+      },
+      `Solo appairé à « ${post.name} ».`,
+    );
+  }
+
+  function handleUnpairReader(post) {
+    if (!window.confirm(`Dissocier le Solo de « ${post.name} » ? Il faudra aussi faire Connexions → API → Déconnecter sur le Solo.`)) {
+      return undefined;
+    }
+    return runAction(
+      `reader-${post.id}`,
+      async () => {
+        const unpairReader = httpsCallable(functions, "unpairSumupReader");
+        await unpairReader({ postId: post.id });
+      },
+      `Solo dissocié de « ${post.name} ».`,
+    );
   }
 
   function handleDisconnectPost(post) {
@@ -461,7 +494,7 @@ function CashDeskAdminPage({ Panel }) {
 
   // ── Suivi ─────────────────────────────────────────────────────────────────
 
-  const paidSales = useMemo(() => sales.filter((sale) => sale.status !== "cancelled"), [sales]);
+  const paidSales = useMemo(() => sales.filter(isPaidSale), [sales]);
 
   const statsByPost = useMemo(() => {
     const stats = new Map(posts.map((post) => [post.id, { post, entries: 0, sales: 0, tickets: 0, totalCents: 0 }]));
@@ -522,7 +555,8 @@ function CashDeskAdminPage({ Panel }) {
         { header: "Billets", key: "tickets", width: 10 },
         { header: "Total (€)", key: "total", width: 12 },
         { header: "Paiement", key: "payment", width: 30 },
-        { header: "Statut", key: "status", width: 12 },
+        { header: "Statut", key: "status", width: 18 },
+        { header: "Réf. SumUp", key: "sumupCode", width: 18 },
       ];
       [...sales]
         .sort((left, right) => (left.createdAt?.toMillis?.() || 0) - (right.createdAt?.toMillis?.() || 0))
@@ -535,7 +569,8 @@ function CashDeskAdminPage({ Panel }) {
             tickets: (sale.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
             total: (Number(sale.totalCents) || 0) / 100,
             payment: CASH_SALE_PAYMENT_METHODS[sale.paymentMethod] || sale.paymentMethod || "",
-            status: sale.status === "cancelled" ? "Annulée" : "Payée",
+            status: CASH_SALE_STATUS_LABELS[sale.status] || sale.status || "",
+            sumupCode: sale.sumupTransactionCode || "",
           });
         });
 
@@ -641,13 +676,15 @@ function CashDeskAdminPage({ Panel }) {
                       <th>Type</th>
                       <th>Listes VIP</th>
                       <th>Code</th>
+                      <th>Terminal SumUp</th>
                       <th>Statut</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {posts.map((post) => {
-                      const isBusy = busyKey === `post-${post.id}` || busyKey === `code-${post.id}`;
+                      const isBusy =
+                        busyKey === `post-${post.id}` || busyKey === `code-${post.id}` || busyKey === `reader-${post.id}`;
                       return (
                         <tr key={post.id}>
                           <td><strong>{post.name}</strong></td>
@@ -678,6 +715,22 @@ function CashDeskAdminPage({ Panel }) {
                               <span className="status-pill status-pill--ok">Défini · {formatTimestamp(post.codeUpdatedAt)}</span>
                             ) : (
                               <span className="status-pill status-pill--pending">Aucun code</span>
+                            )}
+                          </td>
+                          <td>
+                            {post.sumupReaderId ? (
+                              <div className="cash-admin-actions">
+                                <span className="status-pill status-pill--ok">
+                                  Solo {post.sumupReaderSerial || post.sumupReaderId.slice(-6)}
+                                </span>
+                                <button className="button button--secondary button--small" type="button" disabled={isBusy} onClick={() => handleUnpairReader(post)}>
+                                  Dissocier
+                                </button>
+                              </div>
+                            ) : (
+                              <button className="button button--secondary button--small" type="button" disabled={isBusy} onClick={() => handlePairReader(post)}>
+                                Appairer un Solo
+                              </button>
                             )}
                           </td>
                           <td>
@@ -1131,11 +1184,16 @@ function CashDeskAdminPage({ Panel }) {
                       <td>{(sale.items || []).map((item) => `${item.quantity} × ${item.label}`).join(", ")}</td>
                       <td>{formatEuros(sale.totalCents)}</td>
                       <td>
-                        {sale.status === "cancelled" ? (
-                          <span className="status-pill status-pill--danger">Annulée</span>
-                        ) : (
-                          <span className="status-pill status-pill--ok">Payée</span>
-                        )}
+                        <span
+                          className={`status-pill ${
+                            sale.status === "paid" ? "status-pill--ok" : sale.status === "pending" ? "status-pill--pending" : "status-pill--danger"
+                          }`}
+                          title={sale.failureReason || ""}
+                        >
+                          {CASH_SALE_STATUS_LABELS[sale.status] || sale.status}
+                          {sale.paymentMethod === "sumup_solo" ? " · Solo" : ""}
+                        </span>
+                        {sale.amountMismatch ? <span className="status-pill status-pill--danger">Montant SumUp différent</span> : null}
                       </td>
                     </tr>
                   ))}

@@ -9,6 +9,7 @@ import {
   computeCartTotalCents,
   evaluateCheckIn,
   filterDoorEntries,
+  isPaidSale,
   normalizeCashPostCode,
   parseGuestImportRows,
   toCents,
@@ -124,4 +125,11 @@ test("parseGuestImportRows reports a file without any name column", () => {
 
 test("normalizeCashPostCode ignores separators and case", () => {
   assert.equal(normalizeCashPostCode(" ab3-k9 7q "), "AB3K97Q");
+});
+
+test("isPaidSale only counts confirmed sales", () => {
+  assert.equal(isPaidSale({ status: "paid" }), true);
+  assert.equal(isPaidSale({ status: "pending" }), false);
+  assert.equal(isPaidSale({ status: "failed" }), false);
+  assert.equal(isPaidSale({ status: "cancelled" }), false);
 });

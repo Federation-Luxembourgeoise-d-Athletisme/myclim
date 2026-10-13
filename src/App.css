@@ -6419,3 +6419,56 @@ tr.row--warning > td {
     justify-content: flex-start;
   }
 }
+
+/* ── Caisse jour J : terminal SumUp Solo ─────────────────────────────────── */
+
+.cash-desk-reader {
+  appearance: none;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.cash-desk-reader--ok {
+  background: #daf2df;
+  color: #216344;
+  border-color: #b5e2c0;
+}
+
+.cash-desk-reader--pending {
+  background: rgba(245, 158, 11, 0.16);
+  color: #7a4f05;
+  border-color: rgba(245, 158, 11, 0.32);
+}
+
+.cash-desk-reader--danger {
+  background: #fde9e9;
+  color: #9f2020;
+  border-color: #efb3b3;
+}
+
+.cash-desk-manual-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #1a4aa1;
+  text-decoration: underline;
+  cursor: pointer;
+  flex-basis: 100%;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.cash-desk-payment--pending {
+  border-color: #8db7d3;
+  background: #eef6fd;
+}
+
+.cash-desk-payment--failed {
+  border-color: #efb3b3;
+  background: #fde9e9;
+}
