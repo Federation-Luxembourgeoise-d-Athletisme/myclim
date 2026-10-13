@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
+import { getCashPostIdFromUid, isTechnicalSessionUid } from "../context/technical-sessions";
 import { useLanguage } from "./language-context";
 import { getActiveRoles, getDefaultRouteByRoles } from "./navigation";
 
@@ -20,7 +21,14 @@ function RequireAuth() {
       </div>
     );
   }
-  return currentUser ? <Outlet /> : <Navigate to="/login" replace state={{ from: location }} />;
+  if (!currentUser) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  // Ordinateur de caisse ou portail VIP : session technique sans accès à /app.
+  if (isTechnicalSessionUid(currentUser.uid)) {
+    return <Navigate to={getCashPostIdFromUid(currentUser.uid) ? "/caisse" : "/"} replace />;
+  }
+  return <Outlet />;
 }
 
 function RequireRouteAccess({ allowedRoles }) {

@@ -5918,3 +5918,504 @@ tr.row--warning > td {
     flex-direction: column;
   }
 }
+
+/* ── Caisse jour J : admin (/app/caisse) ─────────────────────────────────── */
+
+.cash-admin-code {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+  color: #12313c;
+}
+
+.cash-admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cash-admin-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.cash-admin-form .field {
+  flex: 1 1 160px;
+}
+
+.cash-admin-fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 1px solid #d6e4e9;
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.cash-admin-inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.cash-admin-row--selected td {
+  background: #eef6fd;
+}
+
+.cash-admin-total-row td {
+  font-weight: 800;
+  border-top: 2px solid #c5d9f1;
+}
+
+.cash-admin-file {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cash-admin-file input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cash-admin-import {
+  border: 1px solid #c5d9f1;
+  background: #f4f9fe;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.cash-admin-search {
+  width: 100%;
+  max-width: 360px;
+  margin: 18px 0 10px;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #d6e4e9;
+  border-radius: 10px;
+}
+
+/* ── Caisse jour J : poste d'entrée (/caisse) ────────────────────────────── */
+
+.cash-desk {
+  min-height: 100vh;
+  padding: 16px clamp(16px, 3vw, 32px) 32px;
+  color: #12313c;
+}
+
+.cash-desk--login {
+  display: grid;
+  place-items: center;
+}
+
+.cash-desk-login {
+  width: min(440px, 100%);
+  background: #ffffff;
+  border: 1px solid #d6e4e9;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 18px 40px rgba(18, 49, 60, 0.08);
+  display: grid;
+  gap: 14px;
+}
+
+.cash-desk-login h1,
+.cash-desk-login p {
+  margin: 0;
+}
+
+.cash-desk-login__code {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-align: center;
+  padding: 0.6rem;
+  border: 2px solid #c5d9f1;
+  border-radius: 14px;
+  text-transform: uppercase;
+}
+
+.cash-desk-post-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.cash-desk-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  background: #ffffff;
+  border: 1px solid #d6e4e9;
+  border-radius: 18px;
+  padding: 14px 20px;
+}
+
+.cash-desk-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.cash-desk-header .eyebrow {
+  margin: 0;
+}
+
+.cash-desk-header__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 1.05rem;
+}
+
+.cash-desk-header__operator {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.cash-desk-header__operator label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cash-desk-header__operator input {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #d6e4e9;
+  border-radius: 10px;
+  width: 160px;
+}
+
+.cash-desk-banner {
+  margin: 12px 0 0;
+}
+
+.cash-desk-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.cash-desk-tab {
+  flex: 1;
+  appearance: none;
+  border: 2px solid #d6e4e9;
+  background: #ffffff;
+  color: #21404c;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cash-desk-tab--active {
+  border-color: #1a4aa1;
+  background: #eef6fd;
+  color: #1a4aa1;
+}
+
+.cash-desk-panel {
+  background: #ffffff;
+  border: 1px solid #d6e4e9;
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.cash-desk-search {
+  width: 100%;
+  font-size: 1.5rem;
+  padding: 0.8rem 1rem;
+  border: 2px solid #c5d9f1;
+  border-radius: 14px;
+}
+
+.cash-desk-search:focus {
+  outline: none;
+  border-color: #1a4aa1;
+}
+
+.cash-desk-hint {
+  color: #5b7480;
+  margin: 12px 0;
+}
+
+.cash-desk-feedback {
+  margin: 12px 0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.cash-desk-feedback--ok {
+  background: #daf2df;
+  color: #216344;
+}
+
+.cash-desk-feedback--warn {
+  background: rgba(245, 158, 11, 0.16);
+  color: #7a4f05;
+}
+
+.cash-desk-feedback--error {
+  background: #fde9e9;
+  color: #9f2020;
+}
+
+.cash-desk-results {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.cash-desk-guest {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #d6e4e9;
+  border-radius: 14px;
+  padding: 12px 16px;
+}
+
+.cash-desk-guest--done {
+  background: #f3f7f4;
+}
+
+.cash-desk-guest__info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.cash-desk-guest__info strong {
+  font-size: 1.25rem;
+}
+
+.cash-desk-guest__notes {
+  flex-basis: 100%;
+  color: #7a4f05;
+}
+
+.cash-desk-guest__status {
+  display: grid;
+  text-align: right;
+  font-weight: 700;
+}
+
+.cash-desk-guest__status small {
+  font-weight: 500;
+  color: #5b7480;
+}
+
+.cash-desk-guest__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cash-desk-badge {
+  border-radius: 6px;
+  padding: 0.15rem 0.5rem;
+  background: #e6f0f8;
+  color: #174b77;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.cash-desk-badge--vip {
+  background: #12313c;
+  color: #f4d48a;
+}
+
+.cash-desk-sales {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.cash-desk-articles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.cash-desk-article {
+  position: relative;
+  appearance: none;
+  display: grid;
+  gap: 6px;
+  min-height: 120px;
+  align-content: center;
+  text-align: left;
+  padding: 16px;
+  border: 2px solid #c5d9f1;
+  border-radius: 16px;
+  background: #f4f9fe;
+  color: #12313c;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cash-desk-article:hover:not(:disabled) {
+  border-color: #1a4aa1;
+}
+
+.cash-desk-article:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cash-desk-article strong {
+  font-size: 1.5rem;
+}
+
+.cash-desk-article em {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-style: normal;
+  background: #1a4aa1;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+
+.cash-desk-cart {
+  border: 1px solid #d6e4e9;
+  border-radius: 16px;
+  padding: 16px;
+  background: #fbfdff;
+}
+
+.cash-desk-cart h2,
+.cash-desk-recent h3 {
+  margin: 0 0 10px;
+}
+
+.cash-desk-cart ul,
+.cash-desk-recent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.cash-desk-cart li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.cash-desk-cart__qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cash-desk-cart__qty button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #c5d9f1;
+  background: #ffffff;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.cash-desk-cart__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 16px 0 12px;
+  padding-top: 12px;
+  border-top: 2px solid #d6e4e9;
+  font-size: 1.1rem;
+}
+
+.cash-desk-cart__total strong {
+  font-size: 2rem;
+}
+
+.cash-desk-cart__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cash-desk-cart__actions .button--primary {
+  flex: 1;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.cash-desk-payment {
+  display: grid;
+  gap: 12px;
+  border: 2px solid #f4c35a;
+  background: #fff8e6;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.cash-desk-payment p {
+  margin: 0;
+}
+
+.cash-desk-recent {
+  margin-top: 20px;
+}
+
+.cash-desk-recent li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.cash-desk-recent--cancelled {
+  color: #8095a1;
+  text-decoration: line-through;
+}
+
+.cash-desk-recent em {
+  font-style: normal;
+}
+
+@media (max-width: 860px) {
+  .cash-desk-sales,
+  .cash-desk-guest {
+    grid-template-columns: 1fr;
+  }
+
+  .cash-desk-guest__status {
+    text-align: left;
+  }
+
+  .cash-desk-guest__actions {
+    justify-content: flex-start;
+  }
+}
