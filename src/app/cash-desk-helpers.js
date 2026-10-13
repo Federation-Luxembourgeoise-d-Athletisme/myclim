@@ -285,6 +285,8 @@ function evaluateCheckIn({ places, admittedCount = 0, count, force = false }) {
 const GUEST_IMPORT_HEADER_ALIASES = {
   firstName: ["prenom", "first name", "firstname", "vorname"],
   lastName: ["nom", "last name", "lastname", "surname", "nachname", "nom de famille"],
+  // Reconnue seulement pour refuser le fichier : prénom et nom doivent
+  // toujours être deux colonnes séparées (règle de toute l'app).
   fullName: ["nom complet", "full name", "name", "invite", "invité"],
   organization: ["organisation", "organization", "societe", "société", "entreprise", "company", "club"],
   email: ["email", "e-mail", "mail", "courriel"],
@@ -310,10 +312,10 @@ function parseGuestImportRows(rows = []) {
   if (!rows.length) return { guests: [], skipped: 0, columns: {} };
 
   const columns = mapGuestImportHeaders(rows[0]);
-  const hasNameColumn =
-    columns.firstName !== undefined || columns.lastName !== undefined || columns.fullName !== undefined;
-  if (!hasNameColumn) {
-    return { guests: [], skipped: rows.length - 1, columns, error: "missing_name_column" };
+  const hasSeparateNames = columns.firstName !== undefined && columns.lastName !== undefined;
+  if (!hasSeparateNames) {
+    const error = columns.fullName !== undefined ? "full_name_only" : "missing_name_column";
+    return { guests: [], skipped: rows.length - 1, columns, error };
   }
 
   const read = (row, field) => (columns[field] === undefined ? "" : normalizeCashText(row[columns[field]]));
@@ -321,12 +323,8 @@ function parseGuestImportRows(rows = []) {
   let skipped = 0;
 
   rows.slice(1).forEach((row) => {
-    let firstName = read(row, "firstName");
-    let lastName = read(row, "lastName");
-    const fullName = read(row, "fullName");
-    if (!firstName && !lastName && fullName) {
-      lastName = fullName;
-    }
+    const firstName = read(row, "firstName");
+    const lastName = read(row, "lastName");
     const organization = read(row, "organization");
 
     if (!firstName && !lastName && !organization) {

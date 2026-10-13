@@ -422,8 +422,12 @@ function CashDeskAdminPage({ Panel }) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
       const parsed = parseGuestImportRows(rows);
-      if (parsed.error === "missing_name_column") {
-        setError("Colonne de nom introuvable. La première ligne doit contenir « Prénom » et/ou « Nom » (ou « Nom complet »).");
+      if (parsed.error === "full_name_only") {
+        setError("Ce fichier n'a qu'une colonne de nom. Sépare-la en deux colonnes « Prénom » et « Nom » avant d'importer.");
+        return;
+      }
+      if (parsed.error) {
+        setError("Colonnes « Prénom » et « Nom » introuvables sur la première ligne.");
         return;
       }
       setPendingImport({ ...parsed, fileName: file.name, listId: selectedList.id });
