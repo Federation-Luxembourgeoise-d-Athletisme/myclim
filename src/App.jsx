@@ -102,6 +102,8 @@ const WebsiteEditionPageScreen = lazyNamed(() => import("./app/website-admin-pag
 const WebsiteEmagazinePageScreen = lazyNamed(() => import("./app/website-emagazine-page"), "WebsiteEmagazinePage");
 const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin-page"), "InvitationAdminPage");
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
+const CashDeskPage = lazyNamed(() => import("./app/cash-desk-page"), "CashDeskPage");
+const CashDeskAdminPageScreen = lazyNamed(() => import("./app/cash-desk-admin-page"), "CashDeskAdminPage");
 
 async function loadMailQueueModule() {
   if (!mailQueueModulePromise) {
@@ -276,6 +278,10 @@ function DocumentsPage() {
 
 function VipPage() {
   return <VipAdminPage Panel={Panel} loadMailQueueModule={loadMailQueueModule} />;
+}
+
+function CashDeskAdminPage() {
+  return <CashDeskAdminPageScreen Panel={Panel} />;
 }
 
 function PressAdminPage() {
@@ -460,6 +466,7 @@ export default function App() {
           <Route path="/vip" element={<VipAccessPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/vip/orga/:portalId" element={<VipPartnerPortalPage />} />
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
+          <Route path="/caisse" element={<CashDeskPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
@@ -487,6 +494,7 @@ export default function App() {
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="vip" element={<VipPage />} />
                 <Route path="presse" element={<PressAdminPage />} />
+                <Route path="caisse" element={<CashDeskAdminPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "chef_equipe"]} />}>
                 <Route path="equipe" element={<TeamPage />} />

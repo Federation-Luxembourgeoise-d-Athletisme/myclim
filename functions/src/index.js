@@ -1,7 +1,7 @@
 /* global process */
 
 import admin from "firebase-admin";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
@@ -366,6 +366,160 @@ export const verifyVipPortalAccess = onCall({ region: REGION }, async (request) 
   const token = await auth.createCustomToken(uid, { vipPortalId: portalId });
 
   return { token };
+});
+
+// ── Caisse jour J : accès des ordinateurs de caisse par code de poste ───────
+// Le code n'est jamais stocké en clair : cashPostSecrets/{postId} garde un
+// hash scrypt salé. Un poste ouvert obtient une session technique
+// (uid cash-post-{postId}) portant les claims cashPostId + cashAccessVersion ;
+// les règles Firestore comparent cette version à cashPosts/{postId}, donc
+// régénérer le code ou incrémenter accessVersion coupe immédiatement les
+// sessions ouvertes.
+const CASH_POST_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const CASH_POST_CODE_LENGTH = 8;
+const CASH_ACCESS_MAX_FAILURES = 10;
+const CASH_ACCESS_WINDOW_MS = 15 * 60 * 1000;
+
+function normalizeCashPostCode(value) {
+  return String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function generateCashPostCode() {
+  const bytes = randomBytes(CASH_POST_CODE_LENGTH);
+  return Array.from(bytes, (byte) => CASH_POST_CODE_ALPHABET[byte % CASH_POST_CODE_ALPHABET.length]).join("");
+}
+
+function hashCashPostCode(code, salt) {
+  return scryptSync(normalizeCashPostCode(code), salt, 32).toString("hex");
+}
+
+async function assertManagerRequester(request) {
+  const requesterUid = String(request.auth?.uid || "").trim();
+  if (!requesterUid) {
+    throw new HttpsError("unauthenticated", "Authentification requise.");
+  }
+
+  const requesterSnapshot = await db.collection("users").doc(requesterUid).get();
+  const requesterRoles = Array.isArray(requesterSnapshot.data()?.userTypes) ? requesterSnapshot.data().userTypes : [];
+
+  if (!requesterRoles.includes("admin") && !requesterRoles.includes("gestionnaire")) {
+    throw new HttpsError("permission-denied", "Réservé aux administrateurs et gestionnaires.");
+  }
+
+  return { requesterUid };
+}
+
+export const setCashPostCode = onCall({ region: REGION }, async (request) => {
+  const { requesterUid } = await assertManagerRequester(request);
+  const postId = String(request.data?.postId || "").trim();
+  if (!postId) {
+    throw new HttpsError("invalid-argument", "Identifiant de poste manquant.");
+  }
+
+  const postRef = db.collection("cashPosts").doc(postId);
+  const postSnapshot = await postRef.get();
+  if (!postSnapshot.exists) {
+    throw new HttpsError("not-found", "Ce poste de caisse n'existe pas.");
+  }
+
+  const code = generateCashPostCode();
+  const salt = randomBytes(16).toString("hex");
+
+  await db.collection("cashPostSecrets").doc(postId).set({
+    codeHash: hashCashPostCode(code, salt),
+    salt,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedBy: requesterUid,
+  });
+
+  await postRef.set(
+    {
+      hasCode: true,
+      accessVersion: admin.firestore.FieldValue.increment(1),
+      codeUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      codeUpdatedBy: requesterUid,
+    },
+    { merge: true },
+  );
+
+  return { code: `${code.slice(0, 4)}-${code.slice(4)}` };
+});
+
+async function registerCashAccessFailure(attemptRef) {
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(attemptRef);
+    const now = Date.now();
+    const data = snapshot.exists ? snapshot.data() : {};
+    const windowStart = Number(data.windowStartMs) || 0;
+    const inWindow = now - windowStart < CASH_ACCESS_WINDOW_MS;
+
+    transaction.set(attemptRef, {
+      windowStartMs: inWindow ? windowStart : now,
+      failures: inWindow ? (Number(data.failures) || 0) + 1 : 1,
+    });
+  });
+}
+
+export const openCashPostSession = onCall({ region: REGION }, async (request) => {
+  const code = normalizeCashPostCode(request.data?.code);
+  if (code.length !== CASH_POST_CODE_LENGTH) {
+    throw new HttpsError("permission-denied", "Code incorrect.");
+  }
+
+  const clientIp = String(request.rawRequest?.ip || "unknown");
+  const attemptRef = db
+    .collection("cashAccessAttempts")
+    .doc(createHash("sha256").update(clientIp).digest("hex"));
+  const attemptSnapshot = await attemptRef.get();
+  const attempts = attemptSnapshot.exists ? attemptSnapshot.data() : null;
+  if (
+    attempts &&
+    Date.now() - (Number(attempts.windowStartMs) || 0) < CASH_ACCESS_WINDOW_MS &&
+    (Number(attempts.failures) || 0) >= CASH_ACCESS_MAX_FAILURES
+  ) {
+    throw new HttpsError("resource-exhausted", "Trop d'essais. Réessaie dans quelques minutes.");
+  }
+
+  const secretsSnapshot = await db.collection("cashPostSecrets").get();
+  const matchingSecret = secretsSnapshot.docs.find((secretDoc) => {
+    const { codeHash, salt } = secretDoc.data() || {};
+    if (!codeHash || !salt) return false;
+    const expected = Buffer.from(String(codeHash), "hex");
+    const actual = Buffer.from(hashCashPostCode(code, salt), "hex");
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+  });
+
+  if (!matchingSecret) {
+    await registerCashAccessFailure(attemptRef);
+    throw new HttpsError("permission-denied", "Code incorrect.");
+  }
+
+  const postId = matchingSecret.id;
+  const postSnapshot = await db.collection("cashPosts").doc(postId).get();
+  const post = postSnapshot.exists ? postSnapshot.data() : null;
+  if (!post || post.active === false) {
+    throw new HttpsError("failed-precondition", "Ce poste de caisse est fermé.");
+  }
+
+  const uid = `cash-post-${postId}`;
+  const claims = { cashPostId: postId, cashAccessVersion: Number(post.accessVersion) || 0 };
+  try {
+    await auth.createUser({ uid, displayName: String(post.name || postId) });
+  } catch (error) {
+    if (error?.code !== "auth/uid-already-exists") {
+      throw error;
+    }
+  }
+  await auth.setCustomUserClaims(uid, claims);
+
+  if (attemptSnapshot.exists) {
+    await attemptRef.delete();
+  }
+
+  const token = await auth.createCustomToken(uid, claims);
+  return { token, postId };
 });
 
 export const deletePlatformUser = onCall({ region: REGION }, async (request) => {
