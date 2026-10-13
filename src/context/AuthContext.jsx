@@ -22,6 +22,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { ACTIVE_EDITION_DOC_PATH, DEFAULT_ACTIVE_EDITION, normalizeEditionId } from "../app/edition";
 import { AuthContext } from "./auth-context";
+import { isTechnicalSessionUid } from "./technical-sessions";
 import { auth, db, functions } from "../services/firebase";
 let mailQueueModulePromise;
 
@@ -209,6 +210,13 @@ export function AuthProvider({ children }) {
 
       try {
         if (!user) {
+          unsubscribeUserProfile();
+          setUserProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        if (isTechnicalSessionUid(user.uid)) {
           unsubscribeUserProfile();
           setUserProfile(null);
           setLoading(false);

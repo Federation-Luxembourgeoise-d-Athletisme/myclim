@@ -117,6 +117,33 @@ service cloud.firestore {
         );
     }
 
+    // ── Caisse jour J ────────────────────────────────────────────────────────
+    // Session technique d'un ordinateur de caisse, ouverte par code via la
+    // Cloud Function openCashPostSession (claims cashPostId +
+    // cashAccessVersion). Elle n'est valide que si le poste est actif et que
+    // sa version d'accès n'a pas changé depuis (régénérer le code coupe
+    // immédiatement les sessions déjà ouvertes).
+    function cashPostIdClaim() {
+      return isSignedIn() && request.auth.token.cashPostId is string
+        ? request.auth.token.cashPostId
+        : "";
+    }
+
+    function cashPostDoc() {
+      return get(/databases/$(database)/documents/cashPosts/$(cashPostIdClaim()));
+    }
+
+    function isValidCashSession() {
+      return cashPostIdClaim() != "" &&
+        exists(/databases/$(database)/documents/cashPosts/$(cashPostIdClaim())) &&
+        cashPostDoc().data.get("active", true) == true &&
+        cashPostDoc().data.get("accessVersion", 0) == request.auth.token.cashAccessVersion;
+    }
+
+    function isVipCashSession() {
+      return isValidCashSession() && cashPostDoc().data.get("showVipLists", false) == true;
+    }
+
     function isParentOwnerCreate() {
       return isSignedIn() &&
         request.resource.data.parentUserId == request.auth.uid;
@@ -251,7 +278,7 @@ service cloud.firestore {
 
     match /vipPublicRegistrations/{registrationId} {
       allow create: if true;
-      allow read: if isAdminOrManager() || isVipTourGuide();
+      allow read: if isAdminOrManager() || isVipTourGuide() || isVipCashSession();
       allow update, delete: if isAdminOrManager();
     }
 
@@ -274,7 +301,7 @@ service cloud.firestore {
     }
 
     match /vipAdminRegistrations/{registrationId} {
-      allow read: if isAdminOrManager() || isVipTourGuide();
+      allow read: if isAdminOrManager() || isVipTourGuide() || isVipCashSession();
       allow write: if isAdminOrManager();
     }
 
@@ -295,7 +322,7 @@ service cloud.firestore {
     // verifyVipPortalAccess après vérification du mot de passe côté serveur
     // (custom claim vipPortalId posé sur le compte technique du portail).
     match /vipPartnerPortals/{portalId}/entries/{entryId} {
-      allow read: if isAdminOrManager() || isVipTourGuide() ||
+      allow read: if isAdminOrManager() || isVipTourGuide() || isVipCashSession() ||
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
       allow create, update, delete: if isAdminOrManager() ||
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
@@ -307,6 +334,62 @@ service cloud.firestore {
     match /athleteRoadbooks/{editionId} {
       allow read: if resource.data.status == "published" || isAdminOrManager();
       allow write: if isAdminOrManager();
+    }
+
+    // ── Caisse jour J ────────────────────────────────────────────────────────
+    // Chaque ordinateur de caisse ne lit que son propre poste.
+    match /cashPosts/{postId} {
+      allow read: if isAdminOrManager() || cashPostIdClaim() == postId;
+      allow write: if isAdminOrManager();
+    }
+
+    // Hash des codes : écrit et lu uniquement par les Cloud Functions.
+    match /cashPostSecrets/{postId} {
+      allow read, write: if false;
+    }
+
+    match /cashAccessAttempts/{attemptId} {
+      allow read, write: if false;
+    }
+
+    match /cashArticles/{articleId} {
+      allow read: if isAdminOrManager() || isValidCashSession();
+      allow write: if isAdminOrManager();
+    }
+
+    match /doorGuestLists/{listId} {
+      allow read: if isAdminOrManager() || isValidCashSession();
+      allow write: if isAdminOrManager();
+    }
+
+    match /doorGuests/{guestId} {
+      allow read: if isAdminOrManager() || isValidCashSession();
+      allow write: if isAdminOrManager();
+    }
+
+    // Un check-in par invité et par édition (id déterministe), partagé par
+    // tous les postes pour bloquer une double entrée. Le poste qui écrit doit
+    // se déclarer comme dernier poste.
+    match /doorCheckIns/{checkInId} {
+      allow read: if isAdminOrManager() || isValidCashSession();
+      allow create, update: if isAdminOrManager() ||
+        (isValidCashSession() && request.resource.data.lastPostId == cashPostIdClaim());
+      allow delete: if isAdminOrManager();
+    }
+
+    // Ventes : un poste ne voit et ne crée que ses propres ventes, et ne peut
+    // ensuite que les annuler (pas modifier montant ou articles).
+    match /cashSales/{saleId} {
+      allow read: if isAdminOrManager() ||
+        (isValidCashSession() && resource.data.postId == cashPostIdClaim());
+      allow create: if isAdminOrManager() ||
+        (isValidCashSession() && request.resource.data.postId == cashPostIdClaim());
+      allow update: if isAdminOrManager() ||
+        (isValidCashSession() &&
+         resource.data.postId == cashPostIdClaim() &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(["status", "cancelledAt", "cancelledBy", "updatedAt"]));
+      allow delete: if isAdmin();
     }
 
     // ── Documents partagés ──────────────────────────────────────────────────
