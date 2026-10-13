@@ -43,6 +43,7 @@ function formatRoleLabel(role, t) {
     chef_transport_athletes: "roleLabelAthleteTransportLead",
     benevole_transport_athletes: "roleLabelAthleteTransportVolunteer",
     meeting_director: "roleLabelMeetingDirector",
+    kine: "roleLabelPhysio",
   };
 
   const labelKey = labelKeys[role];

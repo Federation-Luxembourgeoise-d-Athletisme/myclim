@@ -1,4 +1,4 @@
-/* global process */
+/* global process, Buffer */
 
 import admin from "firebase-admin";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
@@ -586,3 +586,11 @@ export const deletePlatformUser = onCall({ region: REGION }, async (request) => 
     ...referenceCleanup,
   };
 });
+
+export {
+  bookPhysioSlot,
+  cancelPhysioBooking,
+  getAthleteHub,
+  identifyAthlete,
+  saveAthleteGuests,
+} from "./athlete-hub.js";

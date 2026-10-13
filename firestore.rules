@@ -49,6 +49,10 @@ service cloud.firestore {
       return isSignedIn() && "chef_transport_athletes" in userTypes();
     }
 
+    function isPhysio() {
+      return isSignedIn() && "kine" in userTypes();
+    }
+
     function isAthleteTransportVolunteer() {
       return isSignedIn() && "benevole_transport_athletes" in userTypes();
     }
@@ -326,6 +330,27 @@ service cloud.firestore {
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
       allow create, update, delete: if isAdminOrManager() ||
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
+    }
+
+    // ── Kiné ────────────────────────────────────────────────────────────────
+    // Chaque kiné gère ses propres plages d'ouverture ; tous les kinés voient
+    // et gèrent toutes les réservations (planning commun). Les athlètes
+    // réservent via les Cloud Functions de l'espace athlète (athlete-hub.js).
+    match /physioSessions/{sessionId} {
+      allow read: if isAdminOrManager() || isPhysio();
+      allow create: if isAdminOrManager() ||
+        (isPhysio() && request.resource.data.physioUid == request.auth.uid);
+      allow update, delete: if isAdminOrManager() ||
+        (isPhysio() && resource.data.physioUid == request.auth.uid);
+    }
+
+    match /physioBookings/{bookingId} {
+      allow read, write: if isAdminOrManager() || isPhysio();
+    }
+
+    // Limite d'essais d'identification : Cloud Functions uniquement.
+    match /athleteHubAttempts/{attemptId} {
+      allow read, write: if false;
     }
 
     // ── Roadbook athlètes ───────────────────────────────────────────────────

@@ -104,6 +104,7 @@ const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
 const AthleteRoadbookPage = lazyNamed(() => import("./site/athlete-roadbook-page"), "AthleteRoadbookPage");
 const AthleteRoadbookAdminPageScreen = lazyNamed(() => import("./app/athlete-roadbook-admin-page"), "AthleteRoadbookAdminPage");
+const PhysioPageScreen = lazyNamed(() => import("./app/physio-page"), "PhysioPage");
 const CashDeskPage = lazyNamed(() => import("./app/cash-desk-page"), "CashDeskPage");
 const CashDeskAdminPageScreen = lazyNamed(() => import("./app/cash-desk-admin-page"), "CashDeskAdminPage");
 
@@ -284,6 +285,10 @@ function VipPage() {
 
 function AthleteRoadbookAdminPage() {
   return <AthleteRoadbookAdminPageScreen Panel={Panel} />;
+}
+
+function PhysioPage() {
+  return <PhysioPageScreen Panel={Panel} />;
 }
 
 function CashDeskAdminPage() {
@@ -503,6 +508,9 @@ export default function App() {
                 <Route path="presse" element={<PressAdminPage />} />
                 <Route path="athlete-roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "kine"]} />}>
+                <Route path="kine" element={<PhysioPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "chef_equipe"]} />}>
                 <Route path="equipe" element={<TeamPage />} />
