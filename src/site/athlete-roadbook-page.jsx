@@ -20,6 +20,7 @@ import {
 } from "../app/athlete-roadbook-shared";
 import cmcmLogo from "../assets/cmcm-logo.png";
 import waLogo from "../assets/wa-indoor-tour-silver.png";
+import { AthleteHubSections, HUB_COPY } from "./athlete-hub-sections";
 import "./athlete-roadbook.css";
 
 const COPY = {
@@ -120,6 +121,7 @@ const COPY = {
 };
 
 const SECTION_IDS = ["arrival", "schedule", "competition", "venue", "timetable", "calltimes", "links"];
+const HUB_SECTION_IDS = ["physio", "tickets"];
 
 function LineList({ text, className = "" }) {
   const lines = splitLines(text);
@@ -243,7 +245,7 @@ function AthleteRoadbookPage() {
       },
       { rootMargin: "-35% 0px -60% 0px" },
     );
-    SECTION_IDS.forEach((id) => {
+    [...SECTION_IDS, ...HUB_SECTION_IDS].forEach((id) => {
       const element = document.getElementById(id);
       if (element) observer.observe(element);
     });
@@ -295,6 +297,17 @@ function AthleteRoadbookPage() {
                 <a href={`#${id}`} className={activeSection === id ? "rb-nav--active" : ""}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
                   {copy.nav[id]}
+                </a>
+              </li>
+            ))}
+          </ol>
+          <p className="rb-nav__group">{HUB_COPY[language].eyebrow}</p>
+          <ol>
+            {HUB_SECTION_IDS.map((id) => (
+              <li key={id}>
+                <a href={`#${id}`} className={activeSection === id ? "rb-nav--active" : ""}>
+                  <span aria-hidden="true">{id === "physio" ? "💆" : "🎟️"}</span>
+                  {id === "physio" ? HUB_COPY[language].physioTitle : HUB_COPY[language].ticketsTitle}
                 </a>
               </li>
             ))}
@@ -537,6 +550,8 @@ function AthleteRoadbookPage() {
             ) : null}
           </div>
         </section>
+
+        <AthleteHubSections language={language} indexOffset={SECTION_IDS.length} />
       </main>
     </div>
   );
