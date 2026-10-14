@@ -158,8 +158,8 @@ const DEFAULT_ROADBOOK = {
   },
   photos: {
     text: L(
-      "You can use the pictures freely, provided you always credit the meeting by tagging and mentioning it. Instagram: @cmcm_lux_indoor_meet",
-      "Tu peux utiliser les photos librement, à condition de toujours créditer le meeting en le taguant et en le mentionnant. Instagram : @cmcm_lux_indoor_meet",
+      "The photos are free to use. Please always tag and credit the meeting and the photographer: @cmcm_lux_indoor_meet - Sprintshot",
+      "Les photos sont gratuites et libres d'utilisation. Merci de toujours taguer et créditer le meeting et le photographe : @cmcm_lux_indoor_meet - Sprintshot",
     ),
     url: "",
   },
