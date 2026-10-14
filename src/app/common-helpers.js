@@ -4,7 +4,7 @@ function getDocumentUploadErrorMessage(error) {
   const code = error?.code || "";
 
   if (code === "permission-denied") {
-    return "Écriture Firestore refusée. Vérifie les règles Firestore pour la collection documents.";
+    return "Écriture Firestore refusée. Vérifiez les règles Firestore pour la collection documents.";
   }
 
   return error?.message || "L'enregistrement du document a échoué.";
