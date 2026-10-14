@@ -1,4 +1,4 @@
-/* global process */
+/* global process, Buffer */
 
 import admin from "firebase-admin";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
@@ -7,8 +7,6 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
 import { sendMail } from "./mailer.js";
 
-// Paiement SumUp Solo de la caisse jour J (voir cash-desk-sumup.js).
-export * from "./cash-desk-sumup.js";
 
 admin.initializeApp();
 const db = admin.firestore();

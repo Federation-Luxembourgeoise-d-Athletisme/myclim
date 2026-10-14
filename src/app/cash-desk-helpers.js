@@ -1,4 +1,4 @@
-// Caisse du jour J : logique pure (sans Firebase) partagée entre l'admin
+// Contrôle des entrées du jour J : logique pure (sans Firebase) partagée entre l'admin
 // (/app/caisse) et l'écran des postes d'entrée (/caisse), testée dans
 // tests/cash-desk-helpers.test.js.
 
@@ -29,25 +29,6 @@ const DOOR_GUEST_LIST_SCOPES = [
   { value: "vip", label: "Entrée VIP" },
 ];
 
-const CASH_SALE_PAYMENT_METHODS = {
-  sumup_solo: "SumUp Solo (envoyé par la caisse)",
-  sumup_manual: "SumUp (montant saisi sur le Solo)",
-  free: "Gratuit",
-};
-
-const CASH_SALE_STATUS_LABELS = {
-  paid: "Payée",
-  pending: "En attente du Solo",
-  failed: "Échouée",
-  cancelled: "Annulée",
-};
-
-// Seules les ventes payées comptent dans les totaux : une vente Solo reste
-// « pending » jusqu'à confirmation par SumUp, puis passe « paid » ou « failed ».
-function isPaidSale(sale) {
-  return sale?.status === "paid";
-}
-
 const VIP_SOURCE_LABELS = {
   vip_public: "VIP — formulaire",
   vip_admin: "VIP — ajout orga",
@@ -71,83 +52,10 @@ function buildPersonName(firstName, lastName) {
   return [normalizeCashText(firstName), normalizeCashText(lastName)].filter(Boolean).join(" ");
 }
 
-function toCents(value) {
-  if (typeof value === "number") return Number.isFinite(value) ? Math.round(value * 100) : 0;
-  const normalized = String(value || "").replace(/\s|€/g, "").replace(",", ".");
-  const parsed = Number.parseFloat(normalized);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
-}
-
-function formatEuros(cents) {
-  const value = (Number(cents) || 0) / 100;
-  return `${value.toLocaleString("fr-LU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-}
-
-// Articles proposés par défaut à partir de la grille tarifaire officielle
-// (prix « sur place »), voir src/site/ticket-pricing-config.js.
-function buildDefaultCashArticles(pricing) {
-  return [
-    {
-      id: "adulte",
-      label: "Entrée adulte",
-      priceCents: toCents(pricing?.regular?.onSite ?? 0),
-      postKinds: ["public", "vip"],
-      sortOrder: 1,
-    },
-    {
-      id: "moins-18",
-      label: "Moins de 18 ans",
-      priceCents: toCents(pricing?.under18?.onSite ?? 0),
-      postKinds: ["public", "vip"],
-      sortOrder: 2,
-    },
-    {
-      id: "vip",
-      label: "Entrée VIP",
-      priceCents: toCents(pricing?.vip?.onSite ?? 0),
-      postKinds: ["vip"],
-      sortOrder: 3,
-    },
-  ];
-}
-
-function articleIsAvailableForPost(article, post) {
-  if (!article || article.active === false) return false;
-  const kinds = Array.isArray(article.postKinds) ? article.postKinds : [];
-  if (!kinds.length) return true;
-  return kinds.includes(post?.kind);
-}
-
 function guestListIsVisibleForPost(list, post) {
   if (!list || list.active === false) return false;
   const scope = list.postScope || "all";
   return scope === "all" || scope === post?.kind;
-}
-
-// Panier : { [articleId]: quantité } → lignes figées (libellé/prix au moment
-// de la vente) et total en centimes.
-function buildCartLines(cart = {}, articles = []) {
-  return articles
-    .filter((article) => Number(cart[article.id]) > 0)
-    .map((article) => {
-      const quantity = Math.max(0, Math.floor(Number(cart[article.id]) || 0));
-      const unitPriceCents = Math.max(0, Math.round(Number(article.priceCents) || 0));
-      return {
-        articleId: article.id,
-        label: normalizeCashText(article.label),
-        unitPriceCents,
-        quantity,
-        lineTotalCents: unitPriceCents * quantity,
-      };
-    });
-}
-
-function computeCartTotalCents(lines = []) {
-  return lines.reduce((sum, line) => sum + (Number(line.lineTotalCents) || 0), 0);
-}
-
-function countCartTickets(lines = []) {
-  return lines.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
 }
 
 function buildCheckInKey(editionId, sourceType, sourceId) {
@@ -372,26 +280,16 @@ function normalizeCashPostCode(value) {
 
 export {
   CASH_POST_KINDS,
-  CASH_SALE_PAYMENT_METHODS,
-  CASH_SALE_STATUS_LABELS,
   DEFAULT_CASH_POSTS,
   DOOR_GUEST_LIST_CATEGORIES,
   DOOR_GUEST_LIST_SCOPES,
-  articleIsAvailableForPost,
-  buildCartLines,
   buildCheckInKey,
-  buildDefaultCashArticles,
   buildDoorEntries,
   buildPersonName,
-  computeCartTotalCents,
-  countCartTickets,
   evaluateCheckIn,
   filterDoorEntries,
-  formatEuros,
   guestListIsVisibleForPost,
-  isPaidSale,
   normalizeCashPostCode,
   normalizeSearchValue,
   parseGuestImportRows,
-  toCents,
 };
