@@ -203,7 +203,7 @@ export function SiteLayout() {
               </p>
               <div className="site-footer__social">
                 <a
-                  href="https://www.instagram.com/luxembourg_indoor_meeting/"
+                  href="https://www.instagram.com/cmcm_lux_indoor_meet/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="site-footer__social-link"
