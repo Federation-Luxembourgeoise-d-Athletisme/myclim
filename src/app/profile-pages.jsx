@@ -9,10 +9,12 @@ import {
   buildVolunteerApplicationPayload,
   createEmptyVolunteerProfileFormData,
   createVolunteerProfileFormData,
-  getRoleLabel,
+  formatRoleLabel,
+  formatVolunteerSupportAvailabilityOption,
 } from "./volunteer-helpers";
 import { useVolunteerApplication } from "./volunteer-hooks";
-import { VOLUNTEER_LANGUAGE_OPTIONS, buildUserSearchTokens, getAgeFromBirthDate } from "./utils";
+import { VOLUNTEER_LANGUAGE_OPTIONS, buildUserSearchTokens, getAgeFromBirthDate, getVolunteerLanguageOptionLabel } from "./utils";
+import { useLanguage } from "./language-context";
 import { getActiveRoles } from "./navigation";
 import { useAuth } from "../context/auth-context";
 import { auth, db } from "../services/firebase";
@@ -71,6 +73,7 @@ function VolunteerProfilePage(props) {
     loadMailQueueModule,
   } = props;
   const { currentUser, userProfile } = useAuth();
+  const { t, language } = useLanguage();
   const { application: volunteerApplication, loading, error } = useVolunteerApplication(currentUser?.uid);
   const { activeEditionId, activeEditionLabel } = useActiveEdition(Boolean(currentUser?.uid));
   const volunteerRoleOptions = useVolunteerRoleOptions();
@@ -140,23 +143,17 @@ function VolunteerProfilePage(props) {
     if (!currentUser?.uid) return;
 
     if (!formData.meetingDayConfirmed) {
-      setErrorMessage(
-        "Merci de confirmer explicitement votre présence le dimanche 17/01/2027 avant d'envoyer votre candidature.",
-      );
+      setErrorMessage(t("errorSundayConfirmRequired"));
       return;
     }
 
     if (isUnder14Volunteer) {
-      setErrorMessage(
-        "Désolée, nous ne pouvons malheureusement pas prendre de bénévole de moins de 14 ans sauf pour le rôle de porte-panier dans la mesure des places disponibles.",
-      );
+      setErrorMessage(t("under14Body"));
       return;
     }
 
     if (!formData.imageConsent) {
-      setErrorMessage(
-        "La présence sur l'événement implique des prises de vue globales photo et vidéo. Sans accord sur ce point, nous ne pouvons malheureusement pas retenir votre candidature.",
-      );
+      setErrorMessage(t("errorImageConsentRequired"));
       return;
     }
 
@@ -207,11 +204,7 @@ function VolunteerProfilePage(props) {
         });
       }
 
-      setStatusMessage(
-        volunteerApplication?.id
-          ? "Dossier bénévole mis à jour."
-          : "Dossier bénévole créé. Le module bénévole est maintenant actif sur ce compte.",
-      );
+      setStatusMessage(volunteerApplication?.id ? t("vpSaved") : t("vpCreated"));
 
       try {
         const { buildVolunteerModuleCompletedMail, enqueueTransactionalMail } = await loadMailQueueModule();
@@ -230,7 +223,7 @@ function VolunteerProfilePage(props) {
     } catch (saveError) {
       console.error("Volunteer module save failed", saveError);
       setErrorMessage(
-        `La sauvegarde du dossier bénévole a échoué. ${saveError?.message ? `(${saveError.message})` : ""}`.trim(),
+        `${t("vpSaveError")} ${saveError?.message ? `(${saveError.message})` : ""}`.trim(),
       );
     } finally {
       setIsSaving(false);
@@ -241,86 +234,82 @@ function VolunteerProfilePage(props) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Espace bénévole</p>
-          <h1>{volunteerApplication ? "Mon dossier bénévole" : "Devenir bénévole"}</h1>
-          <p>
-            {volunteerApplication
-              ? "Retrouve ici tes réponses de candidature et garde ton dossier bénévole à jour."
-              : "Ajoute le parcours bénévole à ton compte actuel sans recréer un second accès."}
-          </p>
+          <p className="eyebrow">{t("vpEyebrow")}</p>
+          <h1>{volunteerApplication ? t("vpTitleExisting") : t("vpTitleNew")}</h1>
+          <p>{volunteerApplication ? t("vpIntroExisting") : t("vpIntroNew")}</p>
         </div>
         {volunteerApplication ? (
           <div className="status-cluster">
             <span className="status-pill status-pill--accent">
-              {formatVolunteerApplicationStatus(volunteerApplication.status)}
+              {formatVolunteerApplicationStatus(volunteerApplication.status, t)}
             </span>
           </div>
         ) : null}
       </section>
 
       <section className="panel-grid panel-grid--2">
-        <Panel title="Situation du dossier">
+        <Panel title={t("vpStatusPanelTitle")}>
           <dl className="detail-list">
             <div>
-              <dt>Compte utilisé</dt>
+              <dt>{t("vpAccountUsed")}</dt>
               <dd>{currentUser?.email}</dd>
             </div>
             <div>
-              <dt>Statut bénévole</dt>
-              <dd>{volunteerApplication?.status || "Non démarré"}</dd>
+              <dt>{t("vpVolunteerStatus")}</dt>
+              <dd>{volunteerApplication ? formatVolunteerApplicationStatus(volunteerApplication.status, t) : t("vpNotStarted")}</dd>
             </div>
             <div>
-              <dt>Édition active</dt>
+              <dt>{t("vpActiveEdition")}</dt>
               <dd>{activeEditionLabel}</dd>
             </div>
             <div>
-              <dt>Rôle actif</dt>
-              <dd>{getActiveRoles(userProfile).map(getRoleLabel).join(", ")}</dd>
+              <dt>{t("vpActiveRole")}</dt>
+              <dd>{getActiveRoles(userProfile).map((role) => formatRoleLabel(role, t)).join(", ")}</dd>
             </div>
           </dl>
           {error ? <p className="panel-note">{error}</p> : null}
-          {loading ? <p className="panel-note">Chargement du dossier bénévole...</p> : null}
+          {loading ? <p className="panel-note">{t("vpLoading")}</p> : null}
         </Panel>
 
-        <Panel title="Ce que permet ce module">
+        <Panel title={t("vpModulePanelTitle")}>
           <ul className="compact-list">
-            <li>Créer un dossier bénévole sur le même compte que le module parent</li>
-            <li>Retrouver ensuite les affectations, documents et accréditations bénévoles</li>
-            <li>Mettre à jour certaines informations de candidature si besoin</li>
+            <li>{t("vpModuleItemCreate")}</li>
+            <li>{t("vpModuleItemFind")}</li>
+            <li>{t("vpModuleItemUpdate")}</li>
           </ul>
         </Panel>
       </section>
 
-      <Panel title="Mes informations bénévoles" subtitle="Ces réponses servent au traitement de ta candidature et aux affectations.">
+      <Panel title={t("vpInfoPanelTitle")} subtitle={t("vpInfoPanelSubtitle")}>
         <form className="profile-form" onSubmit={handleSubmit}>
           <div className="panel-grid panel-grid--2">
-            <AuthFormField label="Prénom">
+            <AuthFormField label={t("fieldFirstName")}>
               <input name="firstName" onChange={handleChange} required value={formData.firstName} />
             </AuthFormField>
-            <AuthFormField label="Nom">
+            <AuthFormField label={t("fieldLastName")}>
               <input name="lastName" onChange={handleChange} required value={formData.lastName} />
             </AuthFormField>
           </div>
 
           <div className="panel-grid panel-grid--2">
-            <AuthFormField label="Email">
+            <AuthFormField label={t("fieldEmail")}>
               <input disabled value={currentUser?.email || ""} />
             </AuthFormField>
-            <AuthFormField label="Téléphone">
+            <AuthFormField label={t("fieldPhone")}>
               <PhoneInput name="phone" onChange={handleChange} required value={formData.phone} />
             </AuthFormField>
           </div>
 
           <div className="panel-grid panel-grid--2">
-            <AuthFormField label="Date de naissance">
+            <AuthFormField label={t("fieldBirthDate")}>
               <input name="birthDate" onChange={handleChange} required type="date" value={formData.birthDate} />
             </AuthFormField>
-            <AuthFormField label="Genre">
+            <AuthFormField label={t("fieldGender")}>
               <select name="gender" onChange={handleChange} value={formData.gender}>
-                <option value="">Sélectionner</option>
-                <option value="femme">Femme</option>
-                <option value="homme">Homme</option>
-                <option value="autre">Autre</option>
+                <option value="">{t("fieldSelectPlaceholder")}</option>
+                <option value="femme">{t("genderFemale")}</option>
+                <option value="homme">{t("genderMale")}</option>
+                <option value="autre">{t("otherLabel")}</option>
               </select>
             </AuthFormField>
           </div>
@@ -328,23 +317,15 @@ function VolunteerProfilePage(props) {
           {volunteerAge !== null ? (
             <div className={`notice-card${isUnder14Volunteer ? " notice-card--danger" : isMinorVolunteer ? " notice-card--warn" : " notice-card--ok"}`}>
               <strong>
-                {isUnder14Volunteer
-                  ? "Moins de 14 ans"
-                  : isMinorVolunteer
-                    ? "Bénévole mineur"
-                    : "Candidature adulte"}
+                {isUnder14Volunteer ? t("under14Title") : isMinorVolunteer ? t("minorTitle") : t("adultTitle")}
               </strong>
               <p>
-                {isUnder14Volunteer
-                  ? "Désolée, nous ne pouvons malheureusement pas prendre de bénévole de moins de 14 ans sauf pour le rôle de porte-panier dans la mesure des places disponibles."
-                  : isMinorVolunteer
-                    ? "Votre date de naissance indique un bénévole mineur. Un contact de responsable légal est obligatoire et devra valider l'autorisation par email."
-                    : "Vous pouvez poursuivre la candidature bénévole normale."}
+                {isUnder14Volunteer ? t("under14Body") : isMinorVolunteer ? t("minorBody") : t("adultBody")}
               </p>
               {isUnder14Volunteer ? (
                 <div className="auth-links">
                   <NavLink className="button button--secondary button-link" to="/pre-programme">
-                    Créer un compte parent
+                    {t("createParentAccountLink")}
                   </NavLink>
                 </div>
               ) : null}
@@ -354,11 +335,11 @@ function VolunteerProfilePage(props) {
           {isMinorVolunteer ? (
             <section className="minor-guardian-card">
               <div className="form-section-head">
-                <p className="eyebrow">Responsable légal</p>
-                <h3>Validation obligatoire pour les 14-17 ans</h3>
+                <p className="eyebrow">{t("guardianEyebrow")}</p>
+                <h3>{t("guardianHeading")}</h3>
               </div>
               <div className="panel-grid panel-grid--2">
-                <AuthFormField label="Prénom du responsable légal">
+                <AuthFormField label={t("guardianFirstNameLabel")}>
                   <input
                     name="guardianFirstName"
                     onChange={handleChange}
@@ -366,7 +347,7 @@ function VolunteerProfilePage(props) {
                     value={formData.guardianFirstName}
                   />
                 </AuthFormField>
-                <AuthFormField label="Nom du responsable légal">
+                <AuthFormField label={t("guardianLastNameLabel")}>
                   <input
                     name="guardianLastName"
                     onChange={handleChange}
@@ -376,7 +357,7 @@ function VolunteerProfilePage(props) {
                 </AuthFormField>
               </div>
               <div className="panel-grid panel-grid--2">
-                <AuthFormField label="Email du responsable légal">
+                <AuthFormField label={t("guardianEmailLabel")}>
                   <input
                     name="guardianEmail"
                     onChange={handleChange}
@@ -385,7 +366,7 @@ function VolunteerProfilePage(props) {
                     value={formData.guardianEmail}
                   />
                 </AuthFormField>
-                <AuthFormField label="Téléphone du responsable légal">
+                <AuthFormField label={t("guardianPhoneLabel")}>
                   <PhoneInput
                     name="guardianPhone"
                     onChange={handleChange}
@@ -400,8 +381,8 @@ function VolunteerProfilePage(props) {
           <div className="panel-grid panel-grid--2">
             <div className="language-card">
               <div className="form-section-head">
-                <p className="eyebrow">Langues</p>
-                <h3>Quelles langues parlez-vous ?</h3>
+                <p className="eyebrow">{t("languagesEyebrow")}</p>
+                <h3>{t("languagesHeading")}</h3>
               </div>
               <div className="choice-grid">
                 {VOLUNTEER_LANGUAGE_OPTIONS.map((option) => (
@@ -412,21 +393,21 @@ function VolunteerProfilePage(props) {
                       onChange={() => toggleLanguageOption(option)}
                     />
                     <div>
-                      <strong>{option}</strong>
+                      <strong>{getVolunteerLanguageOptionLabel(option, language)}</strong>
                     </div>
                   </label>
                 ))}
               </div>
               {formData.languages.includes("Autre") ? (
-                <AuthFormField label="Autre langue">
+                <AuthFormField label={t("otherLanguageLabel")}>
                   <input name="otherLanguage" onChange={handleChange} value={formData.otherLanguage} />
                 </AuthFormField>
               ) : null}
             </div>
             <div className="lunex-card">
               <div className="form-section-head">
-                <p className="eyebrow">LUNEX</p>
-                <h3>Êtes-vous étudiant LUNEX ?</h3>
+                <p className="eyebrow">{t("lunexEyebrow")}</p>
+                <h3>{t("lunexHeading")}</h3>
               </div>
               <div className="lunex-choice-row">
                 <label className="selection-card selection-card--inline">
@@ -438,7 +419,7 @@ function VolunteerProfilePage(props) {
                     value="oui"
                   />
                   <div>
-                    <strong>Oui</strong>
+                    <strong>{t("yesLabel")}</strong>
                   </div>
                 </label>
                 <label className="selection-card selection-card--inline">
@@ -450,12 +431,12 @@ function VolunteerProfilePage(props) {
                     value="non"
                   />
                   <div>
-                    <strong>Non</strong>
+                    <strong>{t("noLabel")}</strong>
                   </div>
                 </label>
               </div>
               {formData.lunexStudent === "oui" ? (
-                <AuthFormField label="Programme LUNEX">
+                <AuthFormField label={t("lunexProgramLabel")}>
                   <input name="lunexProgram" onChange={handleChange} value={formData.lunexProgram} />
                 </AuthFormField>
               ) : null}
@@ -463,7 +444,7 @@ function VolunteerProfilePage(props) {
           </div>
 
           <div className="panel-grid panel-grid--2">
-            <AuthFormField label="Taille t-shirt">
+            <AuthFormField label={t("fieldTshirtSize")}>
               <select name="tshirtSize" onChange={handleChange} value={formData.tshirtSize}>
                 <option>S</option>
                 <option>M</option>
@@ -474,13 +455,13 @@ function VolunteerProfilePage(props) {
             <div />
           </div>
 
-          <AuthFormField label="Profession / occupation">
+          <AuthFormField label={t("occupationLabel")}>
             <input name="occupation" onChange={handleChange} value={formData.occupation} />
           </AuthFormField>
-          <AuthFormField label="Expérience au CMCM Luxembourg Indoor Meeting">
+          <AuthFormField label={t("cmcmExperienceLabel")}>
             <textarea name="cmcmExperience" onChange={handleChange} rows="3" value={formData.cmcmExperience} />
           </AuthFormField>
-          <AuthFormField label="Autre expérience bénévole">
+          <AuthFormField label={t("otherVolunteerExperienceLabel")}>
             <textarea
               name="volunteerExperience"
               onChange={handleChange}
@@ -490,22 +471,13 @@ function VolunteerProfilePage(props) {
           </AuthFormField>
           <div className="availability-card">
             <div className="form-section-head">
-              <p className="eyebrow">Disponibilités</p>
-              <h3>Quand pouvez-vous être présent(e) ?</h3>
+              <p className="eyebrow">{t("availabilityEyebrow")}</p>
+              <h3>{t("availabilityHeading")}</h3>
             </div>
-            <p className="availability-lead">
-              Les briefings du matin sont obligatoires. Pour le meeting, nous avons besoin de
-              bénévoles disponibles le dimanche 17/01/2027 de 9h30 à 19h00. Les horaires exacts
-              seront confirmés plus tard, mais cette amplitude doit être considérée comme
-              indispensable pour le jour du meeting. Toute aide avant l'événement est la bienvenue,
-              et nous serions particulièrement reconnaissants pour les aides disponibles le lundi.
-            </p>
+            <p className="availability-lead">{t("availabilityIntro")}</p>
             <div className="notice-card notice-card--warn">
-              <strong>Dimanche 17/01/2027 obligatoire</strong>
-              <p>
-                Disponibilité requise pour le briefing, la collation avant le meeting, l'ouverture
-                des portes à 13h00 et la compétition de 16h à 19h00.
-              </p>
+              <strong>{t("mandatorySundayTitle")}</strong>
+              <p>{t("mandatorySundayBody")}</p>
             </div>
             <label className="selection-card availability-confirm-card">
               <input
@@ -515,17 +487,11 @@ function VolunteerProfilePage(props) {
                 type="checkbox"
               />
               <div>
-                <strong>Je confirme être disponible le dimanche 17/01/2027</strong>
-                <p>
-                  J'ai bien compris que ma présence de 9h30 à 19h00 environ, briefing compris, est
-                  indispensable pour le jour du meeting.
-                </p>
+                <strong>{t("confirmSundayLabel")}</strong>
+                <p>{t("confirmSundayBody")}</p>
               </div>
             </label>
-            <p className="availability-subnote">
-              Vous pouvez aussi nous indiquer ci-dessous si vous êtes disponible pour aider avant
-              le meeting ou lors du rangement du lundi.
-            </p>
+            <p className="availability-subnote">{t("availabilitySubnote")}</p>
             <div className="availability-options">
               {VOLUNTEER_SUPPORT_AVAILABILITY_OPTIONS.map((option) => (
                 <label key={option} className="selection-card">
@@ -535,7 +501,7 @@ function VolunteerProfilePage(props) {
                     onChange={() => toggleAvailabilityOption(option)}
                   />
                   <div>
-                    <strong>{option}</strong>
+                    <strong>{formatVolunteerSupportAvailabilityOption(option, t)}</strong>
                   </div>
                 </label>
               ))}
@@ -543,12 +509,9 @@ function VolunteerProfilePage(props) {
           </div>
           <div className="language-card">
             <div className="form-section-head">
-              <p className="eyebrow">Préférences de mission</p>
-              <h3>Sur quelles missions aimerais-tu aider ?</h3>
-              <p className="availability-lead">
-                Tu peux en choisir plusieurs. Cela nous indique tes envies, mais ne garantit pas d'obtenir l'une de
-                ces missions — l'équipe attribue les rôles selon les besoins réels de l'événement.
-              </p>
+              <p className="eyebrow">{t("missionPreferencesEyebrow")}</p>
+              <h3>{t("missionPreferencesLabel")}</h3>
+              <p className="availability-lead">{t("missionPreferencesHint")}</p>
             </div>
             {volunteerRoleOptions.length ? (
               <div className="choice-grid">
@@ -564,10 +527,10 @@ function VolunteerProfilePage(props) {
                 ))}
               </div>
             ) : (
-              <p className="availability-lead">La liste des missions n'est pas encore disponible.</p>
+              <p className="availability-lead">{t("vpMissionsUnavailable")}</p>
             )}
           </div>
-          <AuthFormField label="Informations sécurité / santé">
+          <AuthFormField label={t("healthSafetyLabel")}>
             <textarea
               name="healthSafetyInfo"
               onChange={handleChange}
@@ -585,19 +548,15 @@ function VolunteerProfilePage(props) {
                 type="checkbox"
               />
               <div>
-                <strong>Édition suivante</strong>
-                <p>J'accepte d'être recontacté pour la prochaine édition.</p>
+                <strong>{t("nextEditionTitle")}</strong>
+                <p>{t("nextEditionBody")}</p>
               </div>
             </label>
             <label className="selection-card">
               <input checked={formData.imageConsent} name="imageConsent" onChange={handleChange} type="checkbox" />
               <div>
-                <strong>Droit à l'image</strong>
-                <p>
-                  La présence sur l'événement implique des prises de vue photo et vidéo dans les
-                  espaces du meeting. Sans accord sur ce point, nous ne pourrons malheureusement
-                  pas retenir votre participation.
-                </p>
+                <strong>{t("imageRightsTitle")}</strong>
+                <p>{t("imageRightsBody")}</p>
               </div>
             </label>
           </div>
@@ -607,7 +566,7 @@ function VolunteerProfilePage(props) {
 
           <div className="profile-form__actions">
             <button className="button button--primary" disabled={isSaving || loading} type="submit">
-              {isSaving ? "Sauvegarde..." : volunteerApplication ? "Mettre à jour le dossier" : "Activer le parcours bénévole"}
+              {isSaving ? t("commonSaving") : volunteerApplication ? t("vpUpdateButton") : t("vpActivateButton")}
             </button>
           </div>
         </form>
@@ -619,6 +578,7 @@ function VolunteerProfilePage(props) {
 function ProfilePage(props) {
   const { Panel } = props;
   const { currentUser, userProfile } = useAuth();
+  const { t } = useLanguage();
   const assignmentHistoryEntries = useMemo(
     () => normalizeAssignmentHistoryEntries(userProfile?.assignmentHistoryByEdition),
     [userProfile?.assignmentHistoryByEdition],
@@ -687,9 +647,9 @@ function ProfilePage(props) {
         phone: formData.phone.trim(),
         updatedAt: serverTimestamp(),
       });
-      setStatusMessage("Profil mis à jour.");
+      setStatusMessage(t("accountSaved"));
     } catch {
-      setErrorMessage("La mise à jour du profil a échoué.");
+      setErrorMessage(t("accountSaveError"));
     } finally {
       setIsSaving(false);
     }
@@ -700,17 +660,17 @@ function ProfilePage(props) {
     if (!currentUser?.email) return;
 
     if (!passwordForm.currentPassword || !passwordForm.nextPassword || !passwordForm.confirmPassword) {
-      setPasswordErrorMessage("Complète les trois champs pour changer le mot de passe.");
+      setPasswordErrorMessage(t("accountPasswordFieldsRequired"));
       return;
     }
 
     if (passwordForm.nextPassword.length < 6) {
-      setPasswordErrorMessage("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+      setPasswordErrorMessage(t("accountPasswordTooShort"));
       return;
     }
 
     if (passwordForm.nextPassword !== passwordForm.confirmPassword) {
-      setPasswordErrorMessage("La confirmation du nouveau mot de passe ne correspond pas.");
+      setPasswordErrorMessage(t("accountPasswordMismatch"));
       return;
     }
 
@@ -727,12 +687,12 @@ function ProfilePage(props) {
         nextPassword: "",
         confirmPassword: "",
       });
-      setPasswordStatusMessage("Mot de passe mis à jour.");
+      setPasswordStatusMessage(t("accountPasswordUpdated"));
     } catch (error) {
       if (error?.code === "auth/invalid-credential" || error?.code === "auth/wrong-password") {
-        setPasswordErrorMessage("Le mot de passe actuel est incorrect.");
+        setPasswordErrorMessage(t("accountPasswordWrong"));
       } else {
-        setPasswordErrorMessage("La mise à jour du mot de passe a échoué.");
+        setPasswordErrorMessage(t("accountPasswordError"));
       }
     } finally {
       setIsSavingPassword(false);
@@ -743,27 +703,27 @@ function ProfilePage(props) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Profil</p>
-          <h1>Mon compte</h1>
-          <p>Centralise ton identité, tes coordonnées et les informations essentielles de ton accès MyCLIM.</p>
+          <p className="eyebrow">{t("accountEyebrow")}</p>
+          <h1>{t("accountTitle")}</h1>
+          <p>{t("accountIntro")}</p>
         </div>
       </section>
       <section>
-        <Panel title="Identité" subtitle="Ces informations alimentent ton espace personnel et les vues admin.">
+        <Panel title={t("accountIdentityTitle")} subtitle={t("accountIdentitySubtitle")}>
           <form className="profile-form" onSubmit={handleSubmit}>
             <div className="panel-grid panel-grid--2">
-              <AuthFormField label="Prénom">
+              <AuthFormField label={t("fieldFirstName")}>
                 <input name="firstName" onChange={handleChange} value={formData.firstName} />
               </AuthFormField>
-              <AuthFormField label="Nom">
+              <AuthFormField label={t("fieldLastName")}>
                 <input name="lastName" onChange={handleChange} value={formData.lastName} />
               </AuthFormField>
             </div>
             <div className="panel-grid panel-grid--2">
-              <AuthFormField label="Email" hint="L'adresse de connexion n'est pas modifiable ici.">
+              <AuthFormField label={t("fieldEmail")} hint={t("accountEmailHint")}>
                 <input disabled value={currentUser?.email || ""} />
               </AuthFormField>
-              <AuthFormField label="Téléphone">
+              <AuthFormField label={t("fieldPhone")}>
                 <PhoneInput name="phone" onChange={handleChange} value={formData.phone} />
               </AuthFormField>
             </div>
@@ -771,7 +731,7 @@ function ProfilePage(props) {
             {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
             <div className="profile-form__actions">
               <button className="button button--primary" disabled={isSaving} type="submit">
-                {isSaving ? "Sauvegarde..." : "Enregistrer"}
+                {isSaving ? t("commonSaving") : t("commonSave")}
               </button>
             </div>
           </form>
@@ -779,31 +739,31 @@ function ProfilePage(props) {
       </section>
 
       <Panel
-        title="Historique des affectations"
-        subtitle="Les éditions passées restent mémorisées sur ton compte, sans être réactivées dans l'édition en cours."
+        title={t("accountHistoryTitle")}
+        subtitle={t("accountHistorySubtitle")}
       >
         {assignmentHistoryEntries.length ? (
           <div className="compact-list">
             {assignmentHistoryEntries.map((entry) => (
               <div key={entry.editionId} className="detail-list" style={{ marginBottom: "1rem" }}>
                 <div>
-                  <dt>Édition</dt>
+                  <dt>{t("accountHistoryEdition")}</dt>
                   <dd>{getEditionLabel(entry.editionId)}</dd>
                 </div>
                 <div>
-                  <dt>Statut</dt>
-                  <dd>{entry.assignmentStatus || "En attente"}</dd>
+                  <dt>{t("accountHistoryStatus")}</dt>
+                  <dd>{entry.assignmentStatus || t("accountHistoryPending")}</dd>
                 </div>
                 <div>
-                  <dt>Poste principal</dt>
+                  <dt>{t("accountHistoryMainRole")}</dt>
                   <dd>{entry.assignedRole || "—"}</dd>
                 </div>
                 <div>
-                  <dt>Équipes</dt>
+                  <dt>{t("accountHistoryTeams")}</dt>
                   <dd>{entry.assignedTeams.length ? entry.assignedTeams.join(", ") : "—"}</dd>
                 </div>
                 <div>
-                  <dt>Rôles d'équipe</dt>
+                  <dt>{t("accountHistoryTeamRoles")}</dt>
                   <dd>
                     {entry.teamRoleAssignments.length
                       ? entry.teamRoleAssignments.map((row) => `${row.teamName}: ${row.teamRole}`).join(" · ")
@@ -814,17 +774,17 @@ function ProfilePage(props) {
             ))}
           </div>
         ) : (
-          <p className="panel-note">Aucune affectation archivée sur ce compte pour le moment.</p>
+          <p className="panel-note">{t("accountHistoryEmpty")}</p>
         )}
       </Panel>
 
       <Panel
-        title="Sécurité"
-        subtitle="Change ton mot de passe si nécessaire. Firebase demandera une réauthentification avec le mot de passe actuel."
+        title={t("accountSecurityTitle")}
+        subtitle={t("accountSecuritySubtitle")}
       >
         <form className="profile-form" onSubmit={handlePasswordSubmit}>
           <div className="panel-grid panel-grid--2">
-            <AuthFormField label="Mot de passe actuel">
+            <AuthFormField label={t("accountCurrentPassword")}>
               <input
                 name="currentPassword"
                 onChange={handlePasswordChange}
@@ -835,7 +795,7 @@ function ProfilePage(props) {
             <div />
           </div>
           <div className="panel-grid panel-grid--2">
-            <AuthFormField label="Nouveau mot de passe">
+            <AuthFormField label={t("accountNewPassword")}>
               <input
                 name="nextPassword"
                 onChange={handlePasswordChange}
@@ -843,7 +803,7 @@ function ProfilePage(props) {
                 value={passwordForm.nextPassword}
               />
             </AuthFormField>
-            <AuthFormField label="Confirmer le nouveau mot de passe">
+            <AuthFormField label={t("accountConfirmNewPassword")}>
               <input
                 name="confirmPassword"
                 onChange={handlePasswordChange}
@@ -858,7 +818,7 @@ function ProfilePage(props) {
           ) : null}
           <div className="profile-form__actions">
             <button className="button button--primary" disabled={isSavingPassword} type="submit">
-              {isSavingPassword ? "Mise à jour..." : "Changer le mot de passe"}
+              {isSavingPassword ? t("accountPasswordUpdating") : t("accountPasswordButton")}
             </button>
           </div>
         </form>

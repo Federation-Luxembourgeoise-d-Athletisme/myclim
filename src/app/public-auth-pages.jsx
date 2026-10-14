@@ -6,6 +6,7 @@ import portePanierHomeImage from "../assets/porte-panier-home.jpg";
 import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
 import { isPreprogramOpenForEdition, useActiveEdition, useVolunteerRoleOptions } from "./edition";
 import { useLanguage } from "./language-context";
+import { formatVolunteerSupportAvailabilityOption } from "./volunteer-helpers";
 import {
   VOLUNTEER_LANGUAGE_OPTIONS,
   getAgeFromBirthDate,
@@ -28,13 +29,6 @@ const VOLUNTEER_SUPPORT_AVAILABILITY_OPTIONS = [
   "Avant-meeting - samedi après-midi",
   "Après-meeting - lundi 9h-12h",
 ];
-const VOLUNTEER_SUPPORT_AVAILABILITY_LABEL_KEYS = {
-  "Avant-meeting - vendredi matin": "availabilityFridayMorning",
-  "Avant-meeting - vendredi après-midi": "availabilityFridayAfternoon",
-  "Avant-meeting - samedi matin": "availabilitySaturdayMorning",
-  "Avant-meeting - samedi après-midi": "availabilitySaturdayAfternoon",
-  "Après-meeting - lundi 9h-12h": "availabilityMondayAfterMeeting",
-};
 const RGPD_DISCLAIMER =
   "En envoyant ce formulaire, vous acceptez que vos données personnelles soient traitées par la Fédération Luxembourgeoise d'Athlétisme uniquement dans le cadre de votre inscription, de votre participation au CMCM Luxembourg Indoor Meeting et des communications associées.";
 
@@ -234,7 +228,7 @@ function VolunteerAccessPage() {
             <AuthFormField label={t("occupationLabel")}><input name="occupation" value={formData.occupation} onChange={handleApplicationChange} /></AuthFormField>
             <AuthFormField label={t("cmcmExperienceLabel")}><textarea name="cmcmExperience" rows="3" value={formData.cmcmExperience} onChange={handleApplicationChange} /></AuthFormField>
             <AuthFormField label={t("otherVolunteerExperienceLabel")}><textarea name="volunteerExperience" rows="3" value={formData.volunteerExperience} onChange={handleApplicationChange} /></AuthFormField>
-            <div className="availability-card"><div className="form-section-head"><p className="eyebrow">{t("availabilityEyebrow")}</p><h3>{t("availabilityHeading")}</h3></div><p className="availability-lead">{t("availabilityIntro")}</p><div className="notice-card notice-card--warn"><strong>{t("mandatorySundayTitle")}</strong><p>{t("mandatorySundayBody")}</p></div><label className="selection-card availability-confirm-card"><input checked={formData.meetingDayConfirmed} name="meetingDayConfirmed" type="checkbox" onChange={handleApplicationChange} /><div><strong>{t("confirmSundayLabel")}</strong><p>{t("confirmSundayBody")}</p></div></label><p className="availability-subnote">{t("availabilitySubnote")}</p><div className="availability-options">{VOLUNTEER_SUPPORT_AVAILABILITY_OPTIONS.map((option) => (<label key={option} className="selection-card"><input checked={formData.availability.includes(option)} type="checkbox" onChange={() => toggleAvailabilityOption(option)} /><div><strong>{t(VOLUNTEER_SUPPORT_AVAILABILITY_LABEL_KEYS[option])}</strong></div></label>))}</div></div>
+            <div className="availability-card"><div className="form-section-head"><p className="eyebrow">{t("availabilityEyebrow")}</p><h3>{t("availabilityHeading")}</h3></div><p className="availability-lead">{t("availabilityIntro")}</p><div className="notice-card notice-card--warn"><strong>{t("mandatorySundayTitle")}</strong><p>{t("mandatorySundayBody")}</p></div><label className="selection-card availability-confirm-card"><input checked={formData.meetingDayConfirmed} name="meetingDayConfirmed" type="checkbox" onChange={handleApplicationChange} /><div><strong>{t("confirmSundayLabel")}</strong><p>{t("confirmSundayBody")}</p></div></label><p className="availability-subnote">{t("availabilitySubnote")}</p><div className="availability-options">{VOLUNTEER_SUPPORT_AVAILABILITY_OPTIONS.map((option) => (<label key={option} className="selection-card"><input checked={formData.availability.includes(option)} type="checkbox" onChange={() => toggleAvailabilityOption(option)} /><div><strong>{formatVolunteerSupportAvailabilityOption(option, t)}</strong></div></label>))}</div></div>
             <div className="language-card">
               <div className="form-section-head">
                 <p className="eyebrow">{t("missionPreferencesEyebrow")}</p>

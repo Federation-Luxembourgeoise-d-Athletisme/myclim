@@ -14,6 +14,7 @@ import { useTeamConfiguration } from "./config-hooks";
 import { useDocumentsCollection } from "./documents-hooks";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { useVolunteerApplication, useVolunteerApplicationsList } from "./volunteer-hooks";
+import { formatRoleLabel } from "./volunteer-helpers";
 import { useParentU14Children, useU14RequestsList } from "./u14-hooks";
 import { buildUserIdentitySet, formatVolunteerApplicationStatus, isTeamLeadAssignment } from "./common-helpers";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH, TEAM_CONFIGURATION_DOC_PATH } from "./seed-data";
@@ -29,25 +30,6 @@ function flattenNavigationItems(items) {
 function isRouteMatch(pathname, targetPath) {
   if (targetPath === "/app") return pathname === targetPath;
   return pathname === targetPath || pathname.startsWith(`${targetPath}/`);
-}
-
-function formatRoleLabel(role, t) {
-  const labelKeys = {
-    admin: "roleLabelAdmin",
-    budget: "roleLabelBudget",
-    gestionnaire: "roleLabelManager",
-    chef_equipe: "roleLabelTeamLead",
-    benevole: "roleLabelVolunteer",
-    parent_u14: "roleLabelParentU14",
-    gestionnaire_site: "roleLabelWebsiteManager",
-    chef_transport_athletes: "roleLabelAthleteTransportLead",
-    benevole_transport_athletes: "roleLabelAthleteTransportVolunteer",
-    meeting_director: "roleLabelMeetingDirector",
-    kine: "roleLabelPhysio",
-  };
-
-  const labelKey = labelKeys[role];
-  return labelKey ? t(labelKey) : String(role || "").replaceAll("_", " ");
 }
 
 function NavIcon({ icon }) {
