@@ -742,7 +742,7 @@ export function buildVipInvitationMail({
     customGreetingLabel || (fullName ? `${invitationLanguage === "en" ? "Dear" : "Bonjour"} ${fullName}` : automaticGreetingLabel);
   const greetingWithComma = /[,;:]$/.test(greetingLine) ? greetingLine : `${greetingLine},`;
   const meetingPlaceFr = "à la Coque, à Luxembourg";
-  const meetingPlaceEn = "at d'Coque in Luxembourg";
+  const meetingPlaceEn = "at the Coque in Luxembourg";
 
   return {
     type: "vip-invitation",
