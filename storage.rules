@@ -31,6 +31,20 @@ service firebase.storage {
       allow write: if isWebsiteManager();
     }
 
+    // Visuels du module Communication (export Canva) — organisation uniquement.
+    function isCommunicationMember() {
+      return request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userTypes is list &&
+        (
+          "admin" in firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userTypes ||
+          "gestionnaire" in firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userTypes
+        );
+    }
+
+    match /com-visuels/{allPaths=**} {
+      allow read, write: if isCommunicationMember();
+    }
+
     // Documents internes — lecture réservée aux utilisateurs connectés
     match /documents/{fileName} {
       allow read: if request.auth != null;

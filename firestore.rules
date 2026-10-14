@@ -364,6 +364,112 @@ service cloud.firestore {
       allow delete: if isAdminOrManager();
     }
 
+    // ── Module Communication (porté de myFLA) ────────────────────────────────
+    // Calendrier éditorial, publications, rubriques, événements, tâches,
+    // infos privées des partenaires et contreparties : réservé à
+    // l'organisation (admin, gestionnaire). Le champ `validation` d'une
+    // publication est écrit par la Cloud Function comPublicationValidation ;
+    // la règle générale en fin de fichier (admin/gestionnaire : tout) empêche
+    // d'en faire un verrou strict, le refus ci-dessous évite surtout les erreurs.
+    function comPublicationIsValid() {
+      return request.resource.data.titre is string &&
+        request.resource.data.titre.size() <= 200 &&
+        request.resource.data.date is string &&
+        request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}────────────────────────────────────────────────
+    // Lecture ouverte aux bénévoles et chefs d'équipe (actuellement bloqué par catch-all)
+    match /documents/{docId} {
+      allow read:   if isSignedIn();
+      allow write:  if isAdminOrManager();
+      // Un chef d'équipe peut publier des documents pour son équipe et retirer
+      // uniquement ceux qu'il a lui-même ajoutés (pas les documents admin/globaux).
+      allow create: if (
+        isTeamLead() &&
+        request.resource.data.documentType == "document" &&
+        request.resource.data.scope == "teams" &&
+        request.resource.data.uploadedByUid == request.auth.uid
+      ) || (
+        canManageInvoices() &&
+        request.resource.data.documentType == "invoice" &&
+        request.resource.data.uploadedByUid == request.auth.uid
+      );
+      // Le classement d'une facture (lier/délier une ligne de budget) doit rester
+      // possible pour les mêmes personnes autorisées à déposer des factures.
+      allow update: if canManageInvoices() && resource.data.documentType == "invoice";
+      // Toute personne autorisée à déposer une facture (pas seulement chef
+      // d'équipe) doit pouvoir retirer celle qu'elle a elle-même déposée.
+      allow delete: if (isTeamLead() && resource.data.uploadedByUid == request.auth.uid) ||
+        (canManageInvoices() && resource.data.documentType == "invoice" && resource.data.uploadedByUid == request.auth.uid);
+    }
+
+    // ── Budget ────────────────────────────────────────────────────────────────
+    // Le rôle "budget" pilote le module budget/factures sans être gestionnaire.
+    match /budgets/{document=**} {
+      allow read, write: if isAdminOrManager() || isBudgetManager();
+    }
+
+    // ── Site public (gestion contenu) ───────────────────────────────────────
+    match /siteSponsors/{docId} {
+      allow read: if true;
+      allow write: if isWebsiteManager();
+    }
+
+    match /siteNews/{docId} {
+      allow read: if true;
+      allow write: if isWebsiteManager();
+    }
+
+    match /sitePressReleases/{docId} {
+      allow read: if true;
+      allow write: if isWebsiteManager();
+    }
+
+    match /siteContent/{docId} {
+      allow read: if true;
+      allow write: if isWebsiteManager();
+    }
+
+    match /{document=**} {
+      allow read, write: if isAdminOrManager();
+    }
+  }
+}
+) &&
+        (!('texte' in request.resource.data) || request.resource.data.texte == null ||
+          (request.resource.data.texte is string && request.resource.data.texte.size() <= 10000)) &&
+        (!('notes' in request.resource.data) || request.resource.data.notes == null ||
+          (request.resource.data.notes is string && request.resource.data.notes.size() <= 5000));
+    }
+
+    match /com_publications/{publicationId} {
+      allow read, delete: if isAdminOrManager();
+      allow create: if isAdminOrManager() && comPublicationIsValid() &&
+        !('validation' in request.resource.data);
+      allow update: if isAdminOrManager() && comPublicationIsValid() &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["validation"]);
+    }
+
+    match /com_rubriques/{rubriqueId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    match /com_events/{eventId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    match /com_tasks/{taskId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    // Contact, contrat et notes des partenaires : jamais dans siteSponsors,
+    // qui est public (logos du site).
+    match /com_partner_details/{sponsorId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    match /com_obligations/{obligationId} {
+      allow read, write: if isAdminOrManager();
+    }
+
     // ── Documents partagés ──────────────────────────────────────────────────
     // Lecture ouverte aux bénévoles et chefs d'équipe (actuellement bloqué par catch-all)
     match /documents/{docId} {
