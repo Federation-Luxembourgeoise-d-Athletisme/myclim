@@ -15,6 +15,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
+import { LINKS_PAGE_DOC_ID, normalizeLinksPage } from "./links-page-config";
 import { getSponsorMediaSettings } from "./sponsor-media-utils";
 import {
   normalizeSponsorCategories,
@@ -304,4 +305,27 @@ export function useSiteContent(key) {
 
 export async function setSiteContent(key, content) {
   await setDoc(doc(db, SITE_CONTENT_COL, key), { content, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+// ─── Page liens grand public (/links) ────────────────────────────────────────
+
+export function useLinksPageSettings() {
+  const [settings, setSettings] = useState(() => normalizeLinksPage());
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, SITE_CONTENT_COL, LINKS_PAGE_DOC_ID),
+      (snap) => {
+        setSettings(normalizeLinksPage(snap.exists() ? snap.data() : {}));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return unsub;
+  }, []);
+  return { settings, loading };
+}
+
+export async function saveLinksPageSettings(settings) {
+  await setDoc(doc(db, SITE_CONTENT_COL, LINKS_PAGE_DOC_ID), { ...normalizeLinksPage(settings), updatedAt: serverTimestamp() });
 }
