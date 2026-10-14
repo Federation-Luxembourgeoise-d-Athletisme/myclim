@@ -16,6 +16,7 @@ import { useMeetingEditions } from "./meeting-history-hooks";
 import { useVolunteerApplication, useVolunteerApplicationsList } from "./volunteer-hooks";
 import { formatRoleLabel } from "./volunteer-helpers";
 import { useParentU14Children, useU14RequestsList } from "./u14-hooks";
+import { formatParentRequestSchedule, formatParentRequestStatus, normalizeComparableValue } from "./u14-helpers";
 import { buildUserIdentitySet, formatVolunteerApplicationStatus, isTeamLeadAssignment } from "./common-helpers";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH, TEAM_CONFIGURATION_DOC_PATH } from "./seed-data";
 import { getDisplayName, normalizeRole } from "./utils";
@@ -503,8 +504,8 @@ function DashboardHome(props) {
     nextVolunteerRole?.roleName || userProfile?.assignedRole || t("dashboardNoAssignmentYet");
   const volunteerShiftSummary = userProfile?.shift || nextVolunteerRole?.shiftTime || t("assignmentsToBeConfirmed");
   const volunteerBriefingSummary = nextVolunteerRole?.briefingTime || t("dashboardBriefingToBeConfirmed");
-  const parentConfirmedCount = parentRequestRows.filter((child) => child.status === "Confirmée").length;
-  const parentPendingCount = parentRequestRows.filter((child) => child.status !== "Confirmée").length;
+  const parentConfirmedCount = parentRequestRows.filter((child) => normalizeComparableValue(child.status) === "valide").length;
+  const parentPendingCount = parentRequestRows.length - parentConfirmedCount;
   const adminDataLoading = teamsLoading || volunteerApplicationsLoading || documentsLoading || u14RequestsLoading;
   const volunteerDataLoading = teamsLoading || documentsLoading;
   const leadDataLoading = teamsLoading || documentsLoading;
@@ -591,7 +592,7 @@ function DashboardHome(props) {
               {parentRowsLoading ? <li>{t("dashboardLoadingU14Requests")}</li> : null}
               {!parentRowsLoading && parentRequestRows.length === 0 ? <li>{t("dashboardNoU14Request")}</li> : null}
               {!parentRowsLoading && parentRequestRows.map((child) => (
-                <li key={child.id}>{child.name}: {child.status} - {child.schedule}</li>
+                <li key={child.id}>{child.name}: {formatParentRequestStatus(child.status, t)} - {formatParentRequestSchedule(child, t)}</li>
               ))}
             </ul>
           </Panel>
