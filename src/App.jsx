@@ -99,6 +99,8 @@ const WebsiteSponsorsPageScreen = lazyNamed(() => import("./app/website-admin-pa
 const WebsitePressPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsitePressPage");
 const WebsiteEditionPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteEditionPage");
 const WebsiteEmagazinePageScreen = lazyNamed(() => import("./app/website-emagazine-page"), "WebsiteEmagazinePage");
+const WebsiteLinksPageScreen = lazyNamed(() => import("./app/website-links-page"), "WebsiteLinksPage");
+const SiteLinks = lazyNamed(() => import("./site/site-links"), "SiteLinks");
 const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin-page"), "InvitationAdminPage");
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
 const AthleteRoadbookPage = lazyNamed(() => import("./site/athlete-roadbook-page"), "AthleteRoadbookPage");
@@ -354,6 +356,10 @@ function WebsiteEditionPage() {
   return <WebsiteEditionPageScreen Panel={Panel} />;
 }
 
+function WebsiteLinksPage() {
+  return <WebsiteLinksPageScreen Panel={Panel} />;
+}
+
 function WebsiteEmagazinePage() {
   return <WebsiteEmagazinePageScreen Panel={Panel} />;
 }
@@ -479,6 +485,7 @@ export default function App() {
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/athletes/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/caisse" element={<CashDeskPage />} />
+          <Route path="/links" element={<SiteLinks />} />
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<RequireAuth />}>
@@ -560,6 +567,7 @@ export default function App() {
                 <Route index element={<WebsiteDashboardPage />} />
                 <Route path="edition" element={<WebsiteEditionPage />} />
                 <Route path="emagazine" element={<WebsiteEmagazinePage />} />
+                <Route path="links" element={<WebsiteLinksPage />} />
                 <Route path="news" element={<WebsiteNewsPage />} />
                   <Route path="sponsors" element={<WebsiteSponsorsPage />} />
                   <Route path="press" element={<WebsitePressPage />} />

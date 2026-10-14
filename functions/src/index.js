@@ -7,6 +7,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
 import { sendMail } from "./mailer.js";
 
+
 admin.initializeApp();
 const db = admin.firestore();
 const auth = admin.auth();

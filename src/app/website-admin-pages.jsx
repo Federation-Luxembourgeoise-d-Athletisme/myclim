@@ -1059,6 +1059,13 @@ export function WebsiteDashboardPage({ Panel }) {
       cta: "Configure magazine",
     },
     {
+      to: "/app/website/links",
+      icon: "🔗",
+      title: "Page liens (QR)",
+      desc: "Liens grand public derrière le QR code : photos, billets, accès, réseaux",
+      cta: "Configurer la page",
+    },
+    {
       to: "/app/website/news",
       icon: "📰",
       title: "News",

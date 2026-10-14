@@ -377,11 +377,6 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    match /cashArticles/{articleId} {
-      allow read: if isAdminOrManager() || isValidCashSession();
-      allow write: if isAdminOrManager();
-    }
-
     match /doorGuestLists/{listId} {
       allow read: if isAdminOrManager() || isValidCashSession();
       allow write: if isAdminOrManager();
@@ -400,21 +395,6 @@ service cloud.firestore {
       allow create, update: if isAdminOrManager() ||
         (isValidCashSession() && request.resource.data.lastPostId == cashPostIdClaim());
       allow delete: if isAdminOrManager();
-    }
-
-    // Ventes : un poste ne voit et ne crée que ses propres ventes, et ne peut
-    // ensuite que les annuler (pas modifier montant ou articles).
-    match /cashSales/{saleId} {
-      allow read: if isAdminOrManager() ||
-        (isValidCashSession() && resource.data.postId == cashPostIdClaim());
-      allow create: if isAdminOrManager() ||
-        (isValidCashSession() && request.resource.data.postId == cashPostIdClaim());
-      allow update: if isAdminOrManager() ||
-        (isValidCashSession() &&
-         resource.data.postId == cashPostIdClaim() &&
-         request.resource.data.diff(resource.data).affectedKeys()
-           .hasOnly(["status", "cancelledAt", "cancelledBy", "updatedAt"]));
-      allow delete: if isAdmin();
     }
 
     // ── Documents partagés ──────────────────────────────────────────────────

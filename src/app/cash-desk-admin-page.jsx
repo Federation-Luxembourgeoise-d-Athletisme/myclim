@@ -16,31 +16,24 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "../services/firebase";
 import { buildAppUrl } from "../services/app-url";
-import { TICKET_PRICING } from "../site/ticket-pricing-config";
 import { useActiveEdition } from "./edition";
 import { AuthFormField } from "./form-components";
 import {
   CASH_POST_KINDS,
-  CASH_SALE_PAYMENT_METHODS,
   DEFAULT_CASH_POSTS,
   DOOR_GUEST_LIST_CATEGORIES,
   DOOR_GUEST_LIST_SCOPES,
-  buildDefaultCashArticles,
   buildPersonName,
-  formatEuros,
   normalizeSearchValue,
   parseGuestImportRows,
-  toCents,
 } from "./cash-desk-helpers";
 
 const TABS = [
   { id: "postes", label: "Postes & accès" },
-  { id: "articles", label: "Articles" },
   { id: "listes", label: "Listes d'invités" },
   { id: "suivi", label: "Suivi" },
 ];
 
-const EMPTY_ARTICLE_FORM = { label: "", price: "", postKinds: ["public", "vip"] };
 const EMPTY_LIST_FORM = { name: "", category: "sponsors", postScope: "all" };
 const EMPTY_GUEST_FORM = { firstName: "", lastName: "", organization: "", email: "", places: "1", notes: "" };
 
@@ -79,18 +72,14 @@ function CashDeskAdminPage({ Panel }) {
   const { activeEditionId, activeEditionLabel, loading: editionLoading } = useActiveEdition(true);
   const [activeTab, setActiveTab] = useState("postes");
   const [posts, setPosts] = useState([]);
-  const [articles, setArticles] = useState([]);
   const [guestLists, setGuestLists] = useState([]);
   const [guests, setGuests] = useState([]);
-  const [sales, setSales] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [busyKey, setBusyKey] = useState("");
   const [revealedCode, setRevealedCode] = useState(null);
   const [newPostForm, setNewPostForm] = useState({ name: "", kind: "public" });
-  const [articleForm, setArticleForm] = useState(EMPTY_ARTICLE_FORM);
-  const [editingArticleId, setEditingArticleId] = useState("");
   const [listForm, setListForm] = useState(EMPTY_LIST_FORM);
   const [selectedListId, setSelectedListId] = useState("");
   const [guestForm, setGuestForm] = useState(EMPTY_GUEST_FORM);
@@ -124,10 +113,8 @@ function CashDeskAdminPage({ Panel }) {
       );
 
     const unsubscribers = [
-      listen("cashArticles", (items) => setArticles(sortByOrder(items)), "les articles"),
       listen("doorGuestLists", (items) => setGuestLists(sortByOrder(items)), "les listes d'invités"),
       listen("doorGuests", setGuests, "les invités"),
-      listen("cashSales", setSales, "les ventes"),
       listen("doorCheckIns", setCheckIns, "les entrées"),
     ];
 
@@ -230,81 +217,6 @@ function CashDeskAdminPage({ Panel }) {
       return undefined;
     }
     return handleUpdatePost(post, { accessVersion: increment(1) }, `« ${post.name} » est déconnecté.`);
-  }
-
-  // ── Articles ──────────────────────────────────────────────────────────────
-
-  function handleSeedArticles() {
-    return runAction(
-      "seed-articles",
-      async () => {
-        const batch = writeBatch(db);
-        buildDefaultCashArticles(TICKET_PRICING).forEach(({ id, ...article }) => {
-          batch.set(doc(db, "cashArticles", `${activeEditionId}-${id}`), {
-            ...article,
-            editionId: activeEditionId,
-            active: true,
-            createdAt: serverTimestamp(),
-          });
-        });
-        await batch.commit();
-      },
-      "Articles créés à partir de la grille tarifaire (prix sur place).",
-    );
-  }
-
-  function toggleArticleFormKind(kind) {
-    setArticleForm((current) => ({
-      ...current,
-      postKinds: current.postKinds.includes(kind)
-        ? current.postKinds.filter((value) => value !== kind)
-        : [...current.postKinds, kind],
-    }));
-  }
-
-  function handleArticleSubmit(event) {
-    event.preventDefault();
-    const label = articleForm.label.trim();
-    if (!label) return undefined;
-    const payload = {
-      label,
-      priceCents: toCents(articleForm.price),
-      postKinds: articleForm.postKinds,
-      updatedAt: serverTimestamp(),
-    };
-    return runAction(
-      "article",
-      async () => {
-        if (editingArticleId) {
-          await updateDoc(doc(db, "cashArticles", editingArticleId), payload);
-        } else {
-          await addDoc(collection(db, "cashArticles"), {
-            ...payload,
-            editionId: activeEditionId,
-            active: true,
-            sortOrder: articles.length + 1,
-            createdAt: serverTimestamp(),
-          });
-        }
-        setArticleForm(EMPTY_ARTICLE_FORM);
-        setEditingArticleId("");
-      },
-      editingArticleId ? "Article mis à jour." : "Article ajouté.",
-    );
-  }
-
-  function handleEditArticle(article) {
-    setEditingArticleId(article.id);
-    setArticleForm({
-      label: article.label || "",
-      price: String((Number(article.priceCents) || 0) / 100).replace(".", ","),
-      postKinds: Array.isArray(article.postKinds) ? article.postKinds : [],
-    });
-  }
-
-  function handleDeleteArticle(article) {
-    if (!window.confirm(`Supprimer l'article « ${article.label} » ? Les ventes déjà faites le gardent.`)) return undefined;
-    return runAction(`article-${article.id}`, () => deleteDoc(doc(db, "cashArticles", article.id)), "Article supprimé.");
   }
 
   // ── Listes d'invités ──────────────────────────────────────────────────────
@@ -465,49 +377,20 @@ function CashDeskAdminPage({ Panel }) {
 
   // ── Suivi ─────────────────────────────────────────────────────────────────
 
-  const paidSales = useMemo(() => sales.filter((sale) => sale.status !== "cancelled"), [sales]);
-
-  const statsByPost = useMemo(() => {
-    const stats = new Map(posts.map((post) => [post.id, { post, entries: 0, sales: 0, tickets: 0, totalCents: 0 }]));
-    const ensure = (postId, postName) => {
-      if (!stats.has(postId)) stats.set(postId, { post: { id: postId, name: postName || postId }, entries: 0, sales: 0, tickets: 0, totalCents: 0 });
-      return stats.get(postId);
-    };
+  const entriesByPost = useMemo(() => {
+    const counts = new Map(posts.map((post) => [post.id, { post, entries: 0 }]));
     checkIns.forEach((checkIn) => {
       (Array.isArray(checkIn.history) ? checkIn.history : []).forEach((event) => {
-        ensure(event.postId, event.postName).entries += Number(event.count) || 0;
+        if (!counts.has(event.postId)) {
+          counts.set(event.postId, { post: { id: event.postId, name: event.postName || event.postId }, entries: 0 });
+        }
+        counts.get(event.postId).entries += Number(event.count) || 0;
       });
     });
-    paidSales.forEach((sale) => {
-      const stat = ensure(sale.postId, sale.postName);
-      stat.sales += 1;
-      stat.tickets += (sale.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-      stat.totalCents += Number(sale.totalCents) || 0;
-    });
-    return [...stats.values()];
-  }, [checkIns, paidSales, posts]);
+    return [...counts.values()];
+  }, [checkIns, posts]);
 
-  const totals = useMemo(
-    () =>
-      statsByPost.reduce(
-        (sum, stat) => ({
-          entries: sum.entries + stat.entries,
-          sales: sum.sales + stat.sales,
-          tickets: sum.tickets + stat.tickets,
-          totalCents: sum.totalCents + stat.totalCents,
-        }),
-        { entries: 0, sales: 0, tickets: 0, totalCents: 0 },
-      ),
-    [statsByPost],
-  );
-
-  const recentSales = useMemo(
-    () =>
-      [...sales]
-        .sort((left, right) => (right.createdAt?.toMillis?.() || 0) - (left.createdAt?.toMillis?.() || 0))
-        .slice(0, 30),
-    [sales],
-  );
+  const totalEntries = entriesByPost.reduce((sum, row) => sum + row.entries, 0);
 
   function handleExport() {
     return runAction("export", async () => {
@@ -516,32 +399,6 @@ function CashDeskAdminPage({ Panel }) {
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "MyCLIM";
       workbook.created = new Date();
-
-      const salesSheet = workbook.addWorksheet("Ventes");
-      salesSheet.columns = [
-        { header: "Date", key: "date", width: 18 },
-        { header: "Poste", key: "post", width: 18 },
-        { header: "Caissier", key: "operator", width: 18 },
-        { header: "Articles", key: "items", width: 40 },
-        { header: "Billets", key: "tickets", width: 10 },
-        { header: "Total (€)", key: "total", width: 12 },
-        { header: "Paiement", key: "payment", width: 30 },
-        { header: "Statut", key: "status", width: 12 },
-      ];
-      [...sales]
-        .sort((left, right) => (left.createdAt?.toMillis?.() || 0) - (right.createdAt?.toMillis?.() || 0))
-        .forEach((sale) => {
-          salesSheet.addRow({
-            date: formatTimestamp(sale.createdAt),
-            post: sale.postName || sale.postId,
-            operator: sale.operator || "",
-            items: (sale.items || []).map((item) => `${item.quantity} × ${item.label}`).join(", "),
-            tickets: (sale.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
-            total: (Number(sale.totalCents) || 0) / 100,
-            payment: CASH_SALE_PAYMENT_METHODS[sale.paymentMethod] || sale.paymentMethod || "",
-            status: sale.status === "cancelled" ? "Annulée" : "Payée",
-          });
-        });
 
       const entriesSheet = workbook.addWorksheet("Entrées invités");
       entriesSheet.columns = [
@@ -565,10 +422,8 @@ function CashDeskAdminPage({ Panel }) {
         });
       });
 
-      [salesSheet, entriesSheet].forEach((sheet) => {
-        sheet.getRow(1).font = { bold: true };
-      });
-      await downloadWorkbook(workbook, `caisse-${activeEditionId}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      entriesSheet.getRow(1).font = { bold: true };
+      await downloadWorkbook(workbook, `entrees-${activeEditionId}-${new Date().toISOString().slice(0, 10)}.xlsx`);
     });
   }
 
@@ -581,8 +436,8 @@ function CashDeskAdminPage({ Panel }) {
           <p className="eyebrow">Jour J · {activeEditionLabel}</p>
           <h1>Caisse & entrées</h1>
           <p>
-            Postes de caisse des entrées, codes d'accès des ordinateurs, articles vendus et listes d'invités consultables à
-            l'entrée. Les ordinateurs ouvrent <a href={cashDeskUrl} target="_blank" rel="noreferrer">{cashDeskUrl}</a> et
+            Postes de caisse des entrées, codes d'accès des ordinateurs et listes d'invités consultables à l'entrée. Les
+            billets se vendent directement sur les terminaux SumUp. Les ordinateurs ouvrent <a href={cashDeskUrl} target="_blank" rel="noreferrer">{cashDeskUrl}</a> et
             saisissent le code de leur poste, sans compte bénévole.
           </p>
         </div>
@@ -651,7 +506,8 @@ function CashDeskAdminPage({ Panel }) {
                   </thead>
                   <tbody>
                     {posts.map((post) => {
-                      const isBusy = busyKey === `post-${post.id}` || busyKey === `code-${post.id}`;
+                      const isBusy =
+                        busyKey === `post-${post.id}` || busyKey === `code-${post.id}`;
                       return (
                         <tr key={post.id}>
                           <td><strong>{post.name}</strong></td>
@@ -746,122 +602,6 @@ function CashDeskAdminPage({ Panel }) {
             </form>
           </Panel>
         </>
-      ) : null}
-
-      {activeTab === "articles" ? (
-        <Panel
-          title="Articles vendus en caisse"
-          subtitle={`Billets et prix (${activeEditionLabel}). Le type de poste détermine où chaque article apparaît.`}
-          actions={
-            !articles.length ? (
-              <button className="button button--primary button--small" type="button" disabled={busyKey === "seed-articles"} onClick={handleSeedArticles}>
-                Créer depuis la grille tarifaire
-              </button>
-            ) : null
-          }
-        >
-          {articles.length ? (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Article</th>
-                    <th>Prix</th>
-                    <th>Postes</th>
-                    <th>Statut</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {articles.map((article) => (
-                    <tr key={article.id}>
-                      <td><strong>{article.label}</strong></td>
-                      <td>{formatEuros(article.priceCents)}</td>
-                      <td>
-                        {(article.postKinds || [])
-                          .map((kind) => CASH_POST_KINDS.find((option) => option.value === kind)?.label || kind)
-                          .join(", ") || "Tous"}
-                      </td>
-                      <td>
-                        <label className="cash-admin-inline-check">
-                          <input
-                            type="checkbox"
-                            checked={article.active !== false}
-                            onChange={(event) =>
-                              runAction(`article-${article.id}`, () =>
-                                updateDoc(doc(db, "cashArticles", article.id), { active: event.target.checked, updatedAt: serverTimestamp() }),
-                              )
-                            }
-                          />
-                          En vente
-                        </label>
-                      </td>
-                      <td>
-                        <div className="cash-admin-actions">
-                          <button className="button button--secondary button--small" type="button" onClick={() => handleEditArticle(article)}>
-                            Modifier
-                          </button>
-                          <button className="button button--danger-soft button--small" type="button" onClick={() => handleDeleteArticle(article)}>
-                            Supprimer
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="panel-note">
-              Aucun article. La grille tarifaire officielle propose : adulte {formatEuros(toCents(TICKET_PRICING.regular.onSite))},
-              moins de 18 ans {formatEuros(toCents(TICKET_PRICING.under18.onSite))}, VIP {formatEuros(toCents(TICKET_PRICING.vip.onSite))} (prix sur place).
-            </p>
-          )}
-
-          <form className="auth-form auth-form--compact cash-admin-form" onSubmit={handleArticleSubmit}>
-            <AuthFormField label={editingArticleId ? "Modifier l'article" : "Nouvel article"} required>
-              <input
-                value={articleForm.label}
-                placeholder="Ex. Entrée famille"
-                onChange={(event) => setArticleForm((current) => ({ ...current, label: event.target.value }))}
-              />
-            </AuthFormField>
-            <AuthFormField label="Prix (€)" required>
-              <input
-                inputMode="decimal"
-                value={articleForm.price}
-                placeholder="15,00"
-                onChange={(event) => setArticleForm((current) => ({ ...current, price: event.target.value }))}
-              />
-            </AuthFormField>
-            <fieldset className="cash-admin-fieldset">
-              <legend>Postes</legend>
-              {CASH_POST_KINDS.map((kind) => (
-                <label key={kind.value} className="cash-admin-inline-check">
-                  <input type="checkbox" checked={articleForm.postKinds.includes(kind.value)} onChange={() => toggleArticleFormKind(kind.value)} />
-                  {kind.label}
-                </label>
-              ))}
-            </fieldset>
-            <div className="cash-admin-actions">
-              <button className="button button--primary" type="submit" disabled={busyKey === "article" || !articleForm.label.trim()}>
-                {editingArticleId ? "Enregistrer" : "Ajouter"}
-              </button>
-              {editingArticleId ? (
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => {
-                    setEditingArticleId("");
-                    setArticleForm(EMPTY_ARTICLE_FORM);
-                  }}
-                >
-                  Annuler
-                </button>
-              ) : null}
-            </div>
-          </form>
-        </Panel>
       ) : null}
 
       {activeTab === "listes" ? (
@@ -1072,87 +812,38 @@ function CashDeskAdminPage({ Panel }) {
       ) : null}
 
       {activeTab === "suivi" ? (
-        <>
-          <Panel
-            title="Bilan par poste"
-            subtitle="Mis à jour en direct pendant l'événement."
-            actions={
-              <button className="button button--secondary button--small" type="button" disabled={busyKey === "export"} onClick={handleExport}>
-                Exporter en Excel
-              </button>
-            }
-          >
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Poste</th>
-                    <th>Entrées invités</th>
-                    <th>Ventes</th>
-                    <th>Billets vendus</th>
-                    <th>Montant</th>
+        <Panel
+          title="Entrées par poste"
+          subtitle="Invités validés à l'entrée, mis à jour en direct pendant l'événement."
+          actions={
+            <button className="button button--secondary button--small" type="button" disabled={busyKey === "export"} onClick={handleExport}>
+              Exporter en Excel
+            </button>
+          }
+        >
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Poste</th>
+                  <th>Entrées invités</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entriesByPost.map((row) => (
+                  <tr key={row.post.id}>
+                    <td><strong>{row.post.name}</strong></td>
+                    <td>{row.entries}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {statsByPost.map((stat) => (
-                    <tr key={stat.post.id}>
-                      <td><strong>{stat.post.name}</strong></td>
-                      <td>{stat.entries}</td>
-                      <td>{stat.sales}</td>
-                      <td>{stat.tickets}</td>
-                      <td>{formatEuros(stat.totalCents)}</td>
-                    </tr>
-                  ))}
-                  <tr className="cash-admin-total-row">
-                    <td>Total</td>
-                    <td>{totals.entries}</td>
-                    <td>{totals.sales}</td>
-                    <td>{totals.tickets}</td>
-                    <td>{formatEuros(totals.totalCents)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </Panel>
-
-          <Panel title="Dernières ventes">
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Heure</th>
-                    <th>Poste</th>
-                    <th>Articles</th>
-                    <th>Total</th>
-                    <th>Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentSales.map((sale) => (
-                    <tr key={sale.id}>
-                      <td>{formatTimestamp(sale.createdAt)}</td>
-                      <td>{sale.postName || sale.postId}</td>
-                      <td>{(sale.items || []).map((item) => `${item.quantity} × ${item.label}`).join(", ")}</td>
-                      <td>{formatEuros(sale.totalCents)}</td>
-                      <td>
-                        {sale.status === "cancelled" ? (
-                          <span className="status-pill status-pill--danger">Annulée</span>
-                        ) : (
-                          <span className="status-pill status-pill--ok">Payée</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {!recentSales.length ? (
-                    <tr>
-                      <td colSpan={5}>Aucune vente pour l'instant.</td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
-        </>
+                ))}
+                <tr className="cash-admin-total-row">
+                  <td>Total</td>
+                  <td>{totalEntries}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Panel>
       ) : null}
     </div>
   );

@@ -2,14 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { signInWithCustomToken, signOut } from "firebase/auth";
 import {
   Timestamp,
-  addDoc,
   collection,
   doc,
   onSnapshot,
   query,
   runTransaction,
   serverTimestamp,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -19,20 +17,14 @@ import { getCashPostIdFromUid } from "../context/technical-sessions";
 import { recordMatchesEdition, useActiveEdition } from "./edition";
 import { getActiveRoles } from "./navigation";
 import {
-  articleIsAvailableForPost,
-  buildCartLines,
   buildDoorEntries,
-  computeCartTotalCents,
-  countCartTickets,
   evaluateCheckIn,
   filterDoorEntries,
-  formatEuros,
   normalizeCashPostCode,
 } from "./cash-desk-helpers";
 
 const OPERATOR_STORAGE_KEY = "myclim-cash-operator";
 const MAX_VISIBLE_RESULTS = 40;
-
 function readStoredOperator() {
   try {
     return window.localStorage.getItem(OPERATOR_STORAGE_KEY) || "";
@@ -190,7 +182,6 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
   const { activeEditionId, activeEditionLabel, loading: editionLoading } = useActiveEdition(true);
   const [post, setPost] = useState(null);
   const [postError, setPostError] = useState("");
-  const [articles, setArticles] = useState([]);
   const [guestLists, setGuestLists] = useState([]);
   const [guests, setGuests] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
@@ -198,8 +189,6 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
   const [vipPublic, setVipPublic] = useState([]);
   const [vipPortals, setVipPortals] = useState([]);
   const [vipPortalEntries, setVipPortalEntries] = useState({});
-  const [sales, setSales] = useState([]);
-  const [activeTab, setActiveTab] = useState("");
   const [operator, setOperator] = useState(readStoredOperator);
   const [loadError, setLoadError] = useState("");
 
@@ -248,13 +237,8 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
     sessionAccessVersion !== null &&
     Number(post.accessVersion || 0) !== sessionAccessVersion;
 
-  const postKind = post?.kind || "";
   const showVipLists = Boolean(post?.showVipLists);
   const postIsOpen = Boolean(post) && post.active !== false && !sessionRevoked;
-
-  useEffect(() => {
-    if (!activeTab && postKind) setActiveTab(postKind === "vip" ? "invites" : "vente");
-  }, [activeTab, postKind]);
 
   useEffect(() => {
     if (editionLoading || !postIsOpen) return undefined;
@@ -266,19 +250,13 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
     const byEdition = (name) => query(collection(db, name), where("editionId", "==", activeEditionId));
 
     const unsubscribers = [
-      onSnapshot(byEdition("cashArticles"), (snapshot) => setArticles(mapSnapshot(snapshot)), fail("les articles")),
       onSnapshot(byEdition("doorGuestLists"), (snapshot) => setGuestLists(mapSnapshot(snapshot)), fail("les listes")),
       onSnapshot(byEdition("doorGuests"), (snapshot) => setGuests(mapSnapshot(snapshot)), fail("les invités")),
       onSnapshot(byEdition("doorCheckIns"), (snapshot) => setCheckIns(mapSnapshot(snapshot)), fail("les entrées")),
-      onSnapshot(
-        query(collection(db, "cashSales"), where("postId", "==", postId)),
-        (snapshot) => setSales(mapSnapshot(snapshot).filter((sale) => sale.editionId === activeEditionId)),
-        fail("les ventes"),
-      ),
     ];
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [activeEditionId, editionLoading, postId, postIsOpen]);
+  }, [activeEditionId, editionLoading, postIsOpen]);
 
   useEffect(() => {
     if (editionLoading || !postIsOpen || !showVipLists) {
@@ -340,15 +318,6 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
     [activeEditionId, checkIns, guestLists, guests, post, vipAdmin, vipPortalEntries, vipPublic],
   );
 
-  const postArticles = useMemo(
-    () =>
-      articles
-        .filter((article) => articleIsAvailableForPost(article, post))
-        .sort((left, right) => (Number(left.sortOrder) || 0) - (Number(right.sortOrder) || 0)),
-    [articles, post],
-  );
-
-  const paidSales = sales.filter((sale) => sale.status !== "cancelled");
   const postEntriesCount = checkIns.reduce(
     (sum, checkIn) =>
       sum +
@@ -406,13 +375,12 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
     <div className="cash-desk">
       <header className="cash-desk-header">
         <div>
-          <p className="eyebrow">Caisse · {activeEditionLabel}</p>
+          <p className="eyebrow">Contrôle des entrées · {activeEditionLabel}</p>
           <h1>{post.name}</h1>
         </div>
         <div className="cash-desk-header__stats">
-          <span><strong>{postEntriesCount}</strong> entrées invités</span>
-          <span><strong>{paidSales.length}</strong> ventes</span>
-          <span><strong>{formatEuros(paidSales.reduce((sum, sale) => sum + (Number(sale.totalCents) || 0), 0))}</strong></span>
+          <span><strong>{doorEntries.length}</strong> invités sur les listes</span>
+          <span><strong>{postEntriesCount}</strong> entrées validées ici</span>
         </div>
         <div className="cash-desk-header__operator">
           <label>
@@ -427,39 +395,7 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
 
       {loadError ? <p className="form-error cash-desk-banner">{loadError}</p> : null}
 
-      <nav className="cash-desk-tabs" aria-label="Sections de la caisse">
-        <button
-          type="button"
-          className={`cash-desk-tab ${activeTab === "invites" ? "cash-desk-tab--active" : ""}`}
-          onClick={() => setActiveTab("invites")}
-        >
-          Invités ({doorEntries.length})
-        </button>
-        <button
-          type="button"
-          className={`cash-desk-tab ${activeTab === "vente" ? "cash-desk-tab--active" : ""}`}
-          onClick={() => setActiveTab("vente")}
-        >
-          Vente de billets
-        </button>
-      </nav>
-
-      {activeTab === "invites" ? (
-        <CashDeskGuests
-          entries={doorEntries}
-          editionId={activeEditionId}
-          post={post}
-          operator={operator}
-        />
-      ) : (
-        <CashDeskSales
-          articles={postArticles}
-          sales={sales}
-          editionId={activeEditionId}
-          post={post}
-          operator={operator}
-        />
-      )}
+      <CashDeskGuests entries={doorEntries} editionId={activeEditionId} post={post} operator={operator} />
     </div>
   );
 }
@@ -633,184 +569,6 @@ function CashDeskGuests({ entries, editionId, post, operator }) {
       {results.length > MAX_VISIBLE_RESULTS ? (
         <p className="cash-desk-hint">{results.length - MAX_VISIBLE_RESULTS} autre(s) résultat(s) : affine la recherche.</p>
       ) : null}
-    </section>
-  );
-}
-
-function CashDeskSales({ articles, sales, editionId, post, operator }) {
-  const [cart, setCart] = useState({});
-  const [step, setStep] = useState("cart");
-  const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-
-  const lines = useMemo(() => buildCartLines(cart, articles), [articles, cart]);
-  const totalCents = computeCartTotalCents(lines);
-  const ticketCount = countCartTickets(lines);
-  const recentSales = useMemo(
-    () => [...sales].sort((left, right) => (right.createdAt?.toMillis?.() || 0) - (left.createdAt?.toMillis?.() || 0)).slice(0, 8),
-    [sales],
-  );
-
-  function changeQuantity(articleId, delta) {
-    setFeedback(null);
-    setCart((current) => {
-      const nextQuantity = Math.max(0, (Number(current[articleId]) || 0) + delta);
-      return { ...current, [articleId]: nextQuantity };
-    });
-  }
-
-  function resetCart() {
-    setCart({});
-    setStep("cart");
-  }
-
-  async function recordSale(paymentMethod) {
-    setSaving(true);
-    setFeedback(null);
-    try {
-      await addDoc(collection(db, "cashSales"), {
-        editionId,
-        postId: post.id,
-        postName: post.name,
-        operator,
-        items: lines,
-        ticketCount,
-        totalCents,
-        currency: "EUR",
-        paymentMethod,
-        status: "paid",
-        createdAt: serverTimestamp(),
-      });
-      setFeedback({ type: "ok", message: `Vente enregistrée : ${ticketCount} billet(s), ${formatEuros(totalCents)}.` });
-      resetCart();
-    } catch (saleError) {
-      console.error("Cash sale failed", saleError);
-      setFeedback({ type: "error", message: "Vente non enregistrée. Vérifie la connexion puis réessaie." });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function cancelSale(sale) {
-    if (!window.confirm(`Annuler la vente de ${formatEuros(sale.totalCents)} ? Si le client a payé, rembourse-le aussi sur le Solo.`)) return;
-    try {
-      await updateDoc(doc(db, "cashSales", sale.id), {
-        status: "cancelled",
-        cancelledAt: serverTimestamp(),
-        cancelledBy: operator || post.name,
-        updatedAt: serverTimestamp(),
-      });
-    } catch (cancelError) {
-      console.error("Cash sale cancel failed", cancelError);
-      setFeedback({ type: "error", message: "Annulation impossible. Vérifie la connexion." });
-    }
-  }
-
-  return (
-    <section className="cash-desk-panel cash-desk-sales">
-      <div className="cash-desk-articles">
-        {articles.map((article) => (
-          <button
-            key={article.id}
-            type="button"
-            className="cash-desk-article"
-            disabled={step !== "cart"}
-            onClick={() => changeQuantity(article.id, 1)}
-          >
-            <span>{article.label}</span>
-            <strong>{formatEuros(article.priceCents)}</strong>
-            {cart[article.id] ? <em>×{cart[article.id]}</em> : null}
-          </button>
-        ))}
-        {!articles.length ? <p className="cash-desk-hint">Aucun article en vente sur ce poste. Préviens l'organisation.</p> : null}
-      </div>
-
-      <aside className="cash-desk-cart">
-        <h2>Panier</h2>
-        {lines.length ? (
-          <ul>
-            {lines.map((line) => (
-              <li key={line.articleId}>
-                <span>{line.label}</span>
-                <div className="cash-desk-cart__qty">
-                  <button type="button" disabled={step !== "cart"} onClick={() => changeQuantity(line.articleId, -1)} aria-label={`Retirer un ${line.label}`}>
-                    −
-                  </button>
-                  <strong>{line.quantity}</strong>
-                  <button type="button" disabled={step !== "cart"} onClick={() => changeQuantity(line.articleId, 1)} aria-label={`Ajouter un ${line.label}`}>
-                    +
-                  </button>
-                </div>
-                <span>{formatEuros(line.lineTotalCents)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="cash-desk-hint">Touche un article pour l'ajouter.</p>
-        )}
-
-        <p className="cash-desk-cart__total">
-          Total <strong>{formatEuros(totalCents)}</strong>
-        </p>
-
-        {feedback ? <p className={`cash-desk-feedback cash-desk-feedback--${feedback.type}`}>{feedback.message}</p> : null}
-
-        {step === "cart" ? (
-          <div className="cash-desk-cart__actions">
-            {!lines.length ? null : totalCents > 0 ? (
-              <button className="button button--primary" type="button" onClick={() => setStep("payment")}>
-                Encaisser {formatEuros(totalCents)}
-              </button>
-            ) : (
-              <button className="button button--primary" type="button" disabled={saving} onClick={() => recordSale("free")}>
-                Valider (gratuit)
-              </button>
-            )}
-            {lines.length ? (
-              <button className="button button--secondary" type="button" onClick={resetCart}>
-                Vider
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="cash-desk-payment">
-            <p>
-              Saisis <strong>{formatEuros(totalCents)}</strong> sur le terminal SumUp Solo et fais payer le client.
-              Valide ici seulement quand le Solo affiche le paiement accepté.
-            </p>
-            <div className="cash-desk-cart__actions">
-              <button className="button button--primary" type="button" disabled={saving} onClick={() => recordSale("sumup_manual")}>
-                {saving ? "Enregistrement…" : "Paiement accepté"}
-              </button>
-              <button className="button button--secondary" type="button" disabled={saving} onClick={() => setStep("cart")}>
-                Paiement refusé / retour
-              </button>
-            </div>
-          </div>
-        )}
-
-        {recentSales.length ? (
-          <div className="cash-desk-recent">
-            <h3>Dernières ventes</h3>
-            <ul>
-              {recentSales.map((sale) => (
-                <li key={sale.id} className={sale.status === "cancelled" ? "cash-desk-recent--cancelled" : ""}>
-                  <span>{formatTime(sale.createdAt)}</span>
-                  <span>{(sale.items || []).map((item) => `${item.quantity}× ${item.label}`).join(", ")}</span>
-                  <span>{formatEuros(sale.totalCents)}</span>
-                  {sale.status === "cancelled" ? (
-                    <em>Annulée</em>
-                  ) : (
-                    <button type="button" className="button button--danger-soft button--small" onClick={() => cancelSale(sale)}>
-                      Annuler
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </aside>
     </section>
   );
 }

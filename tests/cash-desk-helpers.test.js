@@ -2,46 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildCartLines,
   buildCheckInKey,
-  buildDefaultCashArticles,
   buildDoorEntries,
-  computeCartTotalCents,
   evaluateCheckIn,
   filterDoorEntries,
   normalizeCashPostCode,
   parseGuestImportRows,
-  toCents,
 } from "../src/app/cash-desk-helpers.js";
-import { TICKET_PRICING } from "../src/site/ticket-pricing-config.js";
-
-test("toCents accepts numbers and French-formatted strings", () => {
-  assert.equal(toCents(15), 1500);
-  assert.equal(toCents("12,50"), 1250);
-  assert.equal(toCents("90 €"), 9000);
-  assert.equal(toCents("abc"), 0);
-});
-
-test("buildDefaultCashArticles uses the on-site prices", () => {
-  const articles = buildDefaultCashArticles(TICKET_PRICING);
-  assert.deepEqual(
-    articles.map((article) => [article.id, article.priceCents]),
-    [["adulte", 1500], ["moins-18", 0], ["vip", 9000]],
-  );
-});
-
-test("buildCartLines freezes label and price, and totals the cart", () => {
-  const lines = buildCartLines(
-    { adulte: 2, vip: 1, "moins-18": 0 },
-    [
-      { id: "adulte", label: "Entrée adulte", priceCents: 1500 },
-      { id: "moins-18", label: "Moins de 18 ans", priceCents: 0 },
-      { id: "vip", label: "Entrée VIP", priceCents: 9000 },
-    ],
-  );
-  assert.equal(lines.length, 2);
-  assert.equal(computeCartTotalCents(lines), 12000);
-});
 
 test("buildDoorEntries merges VIP sources without duplicates and hides VIP on public posts", () => {
   const input = {
