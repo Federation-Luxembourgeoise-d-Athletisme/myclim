@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { DEFAULT_LINKS_PAGE, LINKS_PAGE_BLOCKS, PUBLIC_LINKS_URL } from "../site/links-page-config";
 import { saveLinksPageSettings, useLinksPageSettings } from "../site/site-hooks";
 import { AuthFormField } from "./form-components";
+import "./website-links-page.css";
 
 // Admin de la page « liens » grand public (/links) : liens éditables, blocs
 // affichés et QR code à imprimer. Les infos d'édition (date, lieu, résultats,
