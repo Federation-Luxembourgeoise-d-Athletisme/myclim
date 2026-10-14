@@ -78,7 +78,6 @@ const lazyNamed = (factory, exportName) =>
   lazy(() => factory().then((module) => ({ default: module[exportName] })));
 const LoginPage = lazyNamed(() => import("./app/public-auth-pages"), "LoginPage");
 const VolunteerAccessPage = lazyNamed(() => import("./app/public-auth-pages"), "VolunteerAccessPage");
-const RegisterPage = lazyNamed(() => import("./app/public-auth-pages"), "RegisterPage");
 const U14AccessPage = lazyNamed(() => import("./app/public-auth-pages"), "U14AccessPage");
 const VipAccessPage = lazyNamed(() => import("./app/vip-pages"), "VipAccessPage");
 const VipPartnerPortalPage = lazyNamed(() => import("./app/vip-pages"), "VipPartnerPortalPage");
@@ -104,6 +103,9 @@ const WebsiteLinksPageScreen = lazyNamed(() => import("./app/website-links-page"
 const SiteLinks = lazyNamed(() => import("./site/site-links"), "SiteLinks");
 const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin-page"), "InvitationAdminPage");
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
+const AthleteRoadbookPage = lazyNamed(() => import("./site/athlete-roadbook-page"), "AthleteRoadbookPage");
+const AthleteRoadbookAdminPageScreen = lazyNamed(() => import("./app/athlete-roadbook-admin-page"), "AthleteRoadbookAdminPage");
+const PhysioPageScreen = lazyNamed(() => import("./app/physio-page"), "PhysioPage");
 const CashDeskPage = lazyNamed(() => import("./app/cash-desk-page"), "CashDeskPage");
 const CashDeskAdminPageScreen = lazyNamed(() => import("./app/cash-desk-admin-page"), "CashDeskAdminPage");
 
@@ -280,6 +282,14 @@ function DocumentsPage() {
 
 function VipPage() {
   return <VipAdminPage Panel={Panel} loadMailQueueModule={loadMailQueueModule} />;
+}
+
+function AthleteRoadbookAdminPage() {
+  return <AthleteRoadbookAdminPageScreen Panel={Panel} />;
+}
+
+function PhysioPage() {
+  return <PhysioPageScreen Panel={Panel} />;
 }
 
 function CashDeskAdminPage() {
@@ -468,14 +478,15 @@ export default function App() {
           {/* ── Auth & standalone public pages ───────────── */}
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/benevoles" element={<VolunteerAccessPage />} />
+          <Route path="/volunteer-apply" element={<Navigate replace to="/benevoles" />} />
           <Route path="/pre-programme" element={<U14AccessPage />} />
           <Route path="/vip" element={<VipAccessPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/vip/orga/:portalId" element={<VipPartnerPortalPage />} />
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
+          <Route path="/athletes/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/caisse" element={<CashDeskPage />} />
           <Route path="/links" element={<SiteLinks />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
 
           <Route element={<RequireAuth />}>
             <Route path="/app" element={<AppShell />}>
@@ -501,7 +512,11 @@ export default function App() {
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="vip" element={<VipPage />} />
                 <Route path="presse" element={<PressAdminPage />} />
+                <Route path="athlete-roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "kine"]} />}>
+                <Route path="kine" element={<PhysioPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "chef_equipe"]} />}>
                 <Route path="equipe" element={<TeamPage />} />

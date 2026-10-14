@@ -32,6 +32,39 @@ function getRoleLabel(role) {
   );
 }
 
+const ROLE_LABEL_KEYS = {
+  admin: "roleLabelAdmin",
+  budget: "roleLabelBudget",
+  gestionnaire: "roleLabelManager",
+  chef_equipe: "roleLabelTeamLead",
+  benevole: "roleLabelVolunteer",
+  parent_u14: "roleLabelParentU14",
+  gestionnaire_site: "roleLabelWebsiteManager",
+  chef_transport_athletes: "roleLabelAthleteTransportLead",
+  benevole_transport_athletes: "roleLabelAthleteTransportVolunteer",
+  meeting_director: "roleLabelMeetingDirector",
+  kine: "roleLabelPhysio",
+};
+
+function formatRoleLabel(role, t) {
+  const labelKey = ROLE_LABEL_KEYS[role];
+  return labelKey ? t(labelKey) : String(role || "").replaceAll("_", " ");
+}
+
+// Availability values are stored in French; these keys translate them for display.
+const VOLUNTEER_SUPPORT_AVAILABILITY_LABEL_KEYS = {
+  "Avant-meeting - vendredi matin": "availabilityFridayMorning",
+  "Avant-meeting - vendredi après-midi": "availabilityFridayAfternoon",
+  "Avant-meeting - samedi matin": "availabilitySaturdayMorning",
+  "Avant-meeting - samedi après-midi": "availabilitySaturdayAfternoon",
+  "Après-meeting - lundi 9h-12h": "availabilityMondayAfterMeeting",
+};
+
+function formatVolunteerSupportAvailabilityOption(option, t) {
+  const labelKey = VOLUNTEER_SUPPORT_AVAILABILITY_LABEL_KEYS[option];
+  return labelKey ? t(labelKey) : option;
+}
+
 function normalizeVolunteerYesNoValue(value) {
   return String(value || "").trim().toLowerCase() === "oui" ? "oui" : "non";
 }
@@ -273,6 +306,8 @@ export {
   buildVolunteerSupportAvailabilityLabel,
   createEmptyVolunteerProfileFormData,
   createVolunteerProfileFormData,
+  formatRoleLabel,
+  formatVolunteerSupportAvailabilityOption,
   getRoleLabel,
   mapVolunteerApplicationToAdminVolunteer,
 };

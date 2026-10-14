@@ -13,7 +13,7 @@ import {
 test('getDocumentUploadErrorMessage maps permission-denied clearly', () => {
   assert.equal(
     getDocumentUploadErrorMessage({ code: 'permission-denied' }),
-    "Écriture Firestore refusée. Vérifie les règles Firestore pour la collection documents.",
+    "Écriture Firestore refusée. Vérifiez les règles Firestore pour la collection documents.",
   );
 });
 

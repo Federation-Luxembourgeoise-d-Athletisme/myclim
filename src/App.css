@@ -6235,3 +6235,109 @@ tr.row--warning > td {
   }
 }
 
+/* ── Kiné (/app/kine) ─────────────────────────────────────────────────── */
+
+.physio-days {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.physio-day {
+  border: 1px solid #c5d9f1;
+  background: #fff;
+  color: #1a4aa1;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.physio-day--active {
+  background: #1a4aa1;
+  color: #fff;
+  border-color: #1a4aa1;
+}
+
+.physio-planning th small {
+  display: block;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.physio-planning__time {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.physio-cell {
+  min-width: 170px;
+  vertical-align: top;
+}
+
+.physio-cell strong,
+.physio-cell small {
+  display: block;
+}
+
+.physio-cell small {
+  color: #546770;
+  margin-bottom: 6px;
+}
+
+.physio-cell--booked {
+  background: #eef6fd;
+}
+
+.physio-cell--done {
+  background: #daf2df;
+}
+
+.physio-cell--closed {
+  color: #b8c2c8;
+}
+
+.physio-cell__add {
+  border: 1px dashed #c5d9f1;
+  background: transparent;
+  color: #546770;
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.physio-cell__add:hover {
+  border-color: #1a4aa1;
+  color: #1a4aa1;
+}
+
+.physio-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.physio-walkin,
+.physio-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.physio-walkin {
+  background: #fff8e1;
+  border: 1px solid #f3dc8f;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.physio-walkin p {
+  width: 100%;
+  margin: 0;
+}

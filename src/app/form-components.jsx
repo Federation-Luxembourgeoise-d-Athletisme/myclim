@@ -57,8 +57,9 @@ function PhoneInput({
   value,
   onChange,
   required = false,
-  placeholder = "Numéro local",
+  placeholder,
 }) {
+  const { t, language } = useLanguage();
   const phoneParts = useMemo(() => parsePhoneValue(value), [value]);
   const [countryCode, setCountryCode] = useState(phoneParts.countryCode);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -66,15 +67,29 @@ function PhoneInput({
   const pickerRef = useRef(null);
   const effectiveCountryCode = String(value || "").trim() ? phoneParts.countryCode : countryCode;
 
+  const countryOptions = useMemo(() => {
+    let regionNames = null;
+    try {
+      regionNames = new Intl.DisplayNames([language], { type: "region" });
+    } catch {
+      regionNames = null;
+    }
+
+    return PHONE_COUNTRY_OPTIONS.map((option) => ({
+      ...option,
+      label: regionNames?.of(option.region) || option.label,
+    }));
+  }, [language]);
+
   const filteredCountryOptions = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
-    if (!normalizedSearch) return PHONE_COUNTRY_OPTIONS;
+    if (!normalizedSearch) return countryOptions;
 
-    return PHONE_COUNTRY_OPTIONS.filter((option) => {
+    return countryOptions.filter((option) => {
       const countryLabel = option.label.toLowerCase();
       return countryLabel.includes(normalizedSearch) || option.code.includes(normalizedSearch);
     });
-  }, [searchTerm]);
+  }, [countryOptions, searchTerm]);
 
   useEffect(() => {
     if (!isPickerOpen) return undefined;
@@ -135,7 +150,7 @@ function PhoneInput({
               className="phone-picker__search"
               inputMode="search"
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Chercher un pays"
+              placeholder={t("phoneSearchCountry")}
               value={searchTerm}
             />
             <div className="phone-picker__list" role="listbox">
@@ -151,7 +166,7 @@ function PhoneInput({
                 </button>
               ))}
               {filteredCountryOptions.length === 0 ? (
-                <p className="phone-picker__empty">Aucun pays trouvé.</p>
+                <p className="phone-picker__empty">{t("phoneNoCountryFound")}</p>
               ) : null}
             </div>
           </div>
@@ -163,7 +178,7 @@ function PhoneInput({
         inputMode="tel"
         name={name}
         onChange={handleNumberChange}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("phoneLocalNumberPlaceholder")}
         required={required}
         type="tel"
         value={phoneParts.localNumber}

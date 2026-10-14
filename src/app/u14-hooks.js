@@ -266,6 +266,7 @@ function useParentU14Children(parentUserId) {
         submittedAt: request?.submittedAt ? formatDateTimeForDisplay(request.submittedAt) : "-",
         schedule: practicalInfo,
         requestType: request?.requestType || "",
+        requestedEvent: request?.requestedEvent || "",
         raceCode:
           request?.raceCode ||
           getU14RaceCode({

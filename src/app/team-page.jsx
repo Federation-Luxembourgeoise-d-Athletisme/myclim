@@ -131,7 +131,7 @@ function TeamPage(props) {
         updatedAt: serverTimestamp(),
       });
       setDocumentForm(emptyTeamDocumentForm);
-      setDocumentStatus("Document ajouté et visible par ton équipe.");
+      setDocumentStatus("Document ajouté et visible par votre équipe.");
     } catch (persistError) {
       console.error("Impossible d'enregistrer le document d'équipe.", persistError);
       setDocumentStatus(getDocumentUploadErrorMessage(persistError));
@@ -245,7 +245,7 @@ function TeamPage(props) {
 
           <Panel
             title="Documents équipe"
-            subtitle="Dépose un fichier ou colle un lien visible par ton équipe. Les administrateurs voient aussi ces documents dans l'espace documentaire."
+            subtitle="Déposez un fichier ou collez un lien visible par votre équipe. Les administrateurs voient aussi ces documents dans l'espace documentaire."
           >
             <form className="section-stack" onSubmit={addDocument}>
               <AuthFormField label="Titre du document">

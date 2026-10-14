@@ -565,7 +565,7 @@ export function SiteHome() {
                   Event details
                 </NavLink>
                 <a
-                  href="/volunteer-apply"
+                  href="/benevoles"
                   className="site-btn site-btn--secondary site-btn--sm"
                 >
                   Become a volunteer
@@ -900,7 +900,7 @@ export function SiteHome() {
             <NavLink to="/become-a-partner" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
               Become a partner
             </NavLink>
-            <a href="/volunteer-apply" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
+            <a href="/benevoles" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
               Become a volunteer
             </a>
             <NavLink to="/pre-programme" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>

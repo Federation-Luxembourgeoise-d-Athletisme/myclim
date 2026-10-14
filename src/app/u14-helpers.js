@@ -129,33 +129,64 @@ function getValidRequestedEventForCategory(category, requestedEvent) {
   return allowedEvents.includes(requestedEvent) ? requestedEvent : allowedEvents[0];
 }
 
-function getPreProgramSubmissionErrorMessage(error) {
+function getPreProgramSubmissionErrorMessage(error, t) {
   switch (error?.code) {
     case "preprogram/users-write-failed":
     case "preprogram/child-write-failed":
     case "preprogram/request-write-failed":
       return error.message;
     case "auth/email-already-in-use":
-      return "Un compte existe déjà avec cette adresse email.";
+      return t("u14ErrEmailInUse");
     case "auth/invalid-email":
-      return "L'adresse email du parent n'est pas valide.";
+      return t("u14ErrParentEmailInvalid");
     case "auth/missing-password":
-      return "Le mot de passe est manquant.";
+      return t("errMissingPassword");
     case "auth/weak-password":
-      return "Le mot de passe doit contenir au moins 6 caractères.";
+      return t("errWeakPassword");
     case "auth/network-request-failed":
-      return "La création du compte a échoué à cause d'un problème réseau. Réessaie dans un instant.";
+      return t("errNetworkFailed");
     case "permission-denied":
     case "firestore/permission-denied":
-      return "La création du compte a été refusée par les règles d'accès.";
+      return t("u14ErrPermission");
     case "unavailable":
     case "firestore/unavailable":
-      return "Le service d'inscription est momentanément indisponible. Réessaie plus tard.";
+      return t("errServiceUnavailable");
     default:
       return error?.message
-        ? `La création du compte a échoué : ${error.message}`
-        : "La création du compte a échoué pour une raison inconnue.";
+        ? t("u14ErrGenericWithMessage").replace("{message}", error.message)
+        : t("u14ErrGeneric");
   }
+}
+
+const PARENT_REQUEST_TYPE_LABEL_KEYS = {
+  preprogram: "u14TypePreprogramShort",
+  porte_panier: "u14TypeBasket",
+  preprogram_ou_porte_panier: "u14TypeEither",
+};
+
+// The hook returns French status labels; they also drive the pill colours.
+const PARENT_REQUEST_STATUS_LABEL_KEYS = {
+  desiste: "u14StatusWithdrawn",
+  "non retenue": "u14StatusNotSelected",
+  "liste d'attente": "u14StatusWaitlist",
+  "demande enregistree": "u14StatusRegistered",
+  valide: "u14StatusConfirmed",
+  retenu: "u14StatusSelected",
+};
+
+function formatParentRequestType(requestType, t) {
+  return t(PARENT_REQUEST_TYPE_LABEL_KEYS[String(requestType || "").trim().toLowerCase()] || "u14TypeDefault");
+}
+
+function formatParentRequestStatus(status, t) {
+  const labelKey = PARENT_REQUEST_STATUS_LABEL_KEYS[normalizeComparableValue(status)];
+  return labelKey ? t(labelKey) : status;
+}
+
+function formatParentRequestSchedule(row, t) {
+  if (row.requestType === "porte_panier") return t("mcScheduleBasket");
+  if (row.requestedEvent) return t("mcScheduleRace").replace("{event}", row.requestedEvent);
+  return t("mcScheduleTbc");
 }
 
 function getProtectedSlotStatusLabel(status) {
@@ -513,6 +544,9 @@ export {
   formatU14RequestStatusLabel,
   getAdminApprovalLabel,
   getParentDecisionLabel,
+  formatParentRequestSchedule,
+  formatParentRequestStatus,
+  formatParentRequestType,
   getPreProgramSubmissionErrorMessage,
   getProtectedSlotStatusLabel,
   getTimestampMs,

@@ -52,16 +52,16 @@ function getVolunteerLanguageOptionLabel(option, language) {
   return VOLUNTEER_LANGUAGE_OPTION_LABELS[language]?.[option] || option;
 }
 const PHONE_COUNTRY_OPTIONS = [
-  { code: "+352", label: "Luxembourg" },
-  { code: "+33", label: "France" },
-  { code: "+32", label: "Belgique" },
-  { code: "+49", label: "Allemagne" },
-  { code: "+41", label: "Suisse" },
-  { code: "+351", label: "Portugal" },
-  { code: "+34", label: "Espagne" },
-  { code: "+39", label: "Italie" },
-  { code: "+31", label: "Pays-Bas" },
-  { code: "+44", label: "Royaume-Uni" },
+  { code: "+352", region: "LU", label: "Luxembourg" },
+  { code: "+33", region: "FR", label: "France" },
+  { code: "+32", region: "BE", label: "Belgique" },
+  { code: "+49", region: "DE", label: "Allemagne" },
+  { code: "+41", region: "CH", label: "Suisse" },
+  { code: "+351", region: "PT", label: "Portugal" },
+  { code: "+34", region: "ES", label: "Espagne" },
+  { code: "+39", region: "IT", label: "Italie" },
+  { code: "+31", region: "NL", label: "Pays-Bas" },
+  { code: "+44", region: "GB", label: "Royaume-Uni" },
 ];
 
 function parsePhoneValue(value) {

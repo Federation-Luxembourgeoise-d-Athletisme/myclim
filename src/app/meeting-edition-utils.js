@@ -18,3 +18,20 @@ export function formatEditionLabel(edition, options = {}) {
 
   return `${prefix}${withHash ? "#" : ""}${displayNumber}`;
 }
+
+// Numéro d'une édition pas encore numérotée dans les réglages (ex. l'édition
+// à venir) : déduit de la dernière édition numérotée qui la précède.
+export function inferEditionDisplayNumber(edition, knownEditions = []) {
+  const direct = getEditionDisplayNumber(edition);
+  if (direct) return direct;
+
+  const year = Number(edition?.year ?? edition?.id);
+  if (!Number.isFinite(year)) return null;
+
+  const previous = knownEditions
+    .map((candidate) => ({ year: Number(candidate?.year ?? candidate?.id), number: getEditionDisplayNumber(candidate) }))
+    .filter((candidate) => candidate.number && candidate.year < year)
+    .sort((left, right) => right.year - left.year)[0];
+
+  return previous ? previous.number + (year - previous.year) : null;
+}
