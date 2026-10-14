@@ -1,4 +1,4 @@
-const DEFAULT_PUBLIC_APP_BASE_URL = "https://myclim.app";
+const DEFAULT_PUBLIC_APP_BASE_URL = "https://cmcm-luxembourg-indoor-meeting.lu";
 
 function normalizeBaseUrl(value) {
   return String(value || "").trim().replace(/\/$/, "");
