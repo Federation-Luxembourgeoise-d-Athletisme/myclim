@@ -315,15 +315,6 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function register(email, password, profileData = {}) {
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
-    const baseProfile = buildBaseProfile(credential.user, profileData);
-
-    await setDoc(doc(db, "users", credential.user.uid), baseProfile, { merge: true });
-
-    return credential;
-  }
-
   async function login(email, password, rememberMe = true) {
     await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
     return signInWithEmailAndPassword(auth, email, password);
@@ -706,7 +697,6 @@ export function AuthProvider({ children }) {
         login,
         logout,
         requestPasswordReset,
-        register,
         userProfile,
       }}
     >

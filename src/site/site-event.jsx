@@ -750,7 +750,7 @@ export function SiteEvent() {
               <p style={{ color: "var(--site-text-muted)", lineHeight: 1.75, marginBottom: 24 }}>
                 Each year, over 100 volunteers ensure the smooth running of the event — from athlete escort to timing, accreditation, hospitality and media support. It's an incredible experience and a great way to contribute to Luxembourg athletics.
               </p>
-              <a href="/volunteer-apply" className="site-btn site-btn--primary site-btn--sm">
+              <a href="/benevoles" className="site-btn site-btn--primary site-btn--sm">
                 Apply to volunteer →
               </a>
             </div>

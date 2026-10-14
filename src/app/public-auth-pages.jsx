@@ -29,8 +29,6 @@ const VOLUNTEER_SUPPORT_AVAILABILITY_OPTIONS = [
   "Avant-meeting - samedi après-midi",
   "Après-meeting - lundi 9h-12h",
 ];
-const RGPD_DISCLAIMER =
-  "En envoyant ce formulaire, vous acceptez que vos données personnelles soient traitées par la Fédération Luxembourgeoise d'Athlétisme uniquement dans le cadre de votre inscription, de votre participation au CMCM Luxembourg Indoor Meeting et des communications associées.";
 
 function getVolunteerApplicationSubmissionErrorMessage(error, t) {
   switch (error?.code) {
@@ -264,31 +262,6 @@ function VolunteerAccessPage() {
   );
 }
 
-function RegisterPage() {
-  const { register } = useAuth();
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", wantsVolunteerModule: true, wantsParentModule: false });
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  function handleChange(event) { const { name, type, checked, value } = event.target; setFormData((current) => ({ ...current, [name]: type === "checkbox" ? checked : value })); }
-  async function handleSubmit(event) { event.preventDefault(); setError(""); setIsSubmitting(true); const userTypes = []; if (formData.wantsVolunteerModule) userTypes.push("benevole"); if (formData.wantsParentModule) userTypes.push("parent_u14"); try { await register(formData.email, formData.password, { firstName: formData.firstName, lastName: formData.lastName, phone: formData.phone, userTypes: userTypes.length ? userTypes : ["benevole"] }); navigate("/app"); } catch { setError("Creation de compte impossible. Cet email est peut-etre deja utilise."); } finally { setIsSubmitting(false); } }
-  return (
-    <AuthLayout title="Creer un compte unique et activer les bons modules" subtitle="Créez votre accès personnel puis activez l'espace bénévole, l'espace parent U14, ou les deux selon votre besoin." sideCard={<><h3>Creation de compte</h3><p>Ce parcours est idéal si vous voulez d'abord ouvrir votre espace puis compléter les modules tranquillement ensuite.</p></>}>
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <div><p className="eyebrow">Creation de compte</p><h2>Ouvrir mon espace</h2></div>
-        <div className="field-grid"><AuthFormField label="Prenom"><input name="firstName" value={formData.firstName} onChange={handleChange} /></AuthFormField><AuthFormField label="Nom"><input name="lastName" value={formData.lastName} onChange={handleChange} /></AuthFormField></div>
-        <AuthFormField label="Email"><input name="email" type="email" value={formData.email} onChange={handleChange} /></AuthFormField>
-        <div className="field-grid"><AuthFormField label="Telephone"><PhoneInput name="phone" value={formData.phone} onChange={handleChange} /></AuthFormField><AuthFormField label="Mot de passe"><input name="password" type="password" autoComplete="new-password" value={formData.password} onChange={handleChange} /></AuthFormField></div>
-        <div className="selection-card-group"><label className="selection-card"><input checked={formData.wantsVolunteerModule} name="wantsVolunteerModule" onChange={handleChange} type="checkbox" /><div><strong>Module benevole</strong><p>Profil, disponibilites, affectations, documents et accreditation.</p></div></label><label className="selection-card"><input checked={formData.wantsParentModule} name="wantsParentModule" onChange={handleChange} type="checkbox" /><div><strong>Module parent / U14</strong><p>Ajout des enfants, demandes U14, statuts et convocations.</p></div></label></div>
-        {error ? <p className="form-error">{error}</p> : null}
-        <p className="panel-note">{RGPD_DISCLAIMER}</p>
-        <button className="button button--primary" disabled={isSubmitting} type="submit">{isSubmitting ? "Creation..." : "Creer mon compte"}</button>
-        <div className="auth-links"><NavLink to="/login">J'ai deja un compte</NavLink><NavLink to="/volunteer-apply">Je veux candidater directement</NavLink></div>
-      </form>
-    </AuthLayout>
-  );
-}
-
 function U14AccessPage() {
   const { createU14PreProgramRegistration } = useAuth();
   const { t, language } = useLanguage();
@@ -319,4 +292,4 @@ function VipAccessPage() {
   return <AuthLayout title="Inscription VIP" subtitle="Cette page sera l'entree dediee aux invitations et inscriptions VIP du CMCM Luxembourg Indoor Meeting." sideCard={<><h3>Module VIP</h3><p>Le formulaire d'inscription VIP sera ajoute plus tard. On garde deja une entree separee pour structurer le parcours public.</p><div className="auth-links auth-links--stack"><NavLink to="/">Retour a l'accueil</NavLink></div></>}><div className="placeholder-card"><p className="eyebrow">A venir</p><h2>Page VIP en preparation</h2><p>Le parcours VIP sera branche ici avec le formulaire, la confirmation d'inscription et les informations pratiques.</p><div className="auth-links"><NavLink to="/">Retour accueil</NavLink></div></div></AuthLayout>;
 }
 
-export { LoginPage, RegisterPage, U14AccessPage, VipAccessPage, VolunteerAccessPage };
+export { LoginPage, U14AccessPage, VipAccessPage, VolunteerAccessPage };
