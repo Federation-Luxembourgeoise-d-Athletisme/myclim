@@ -99,15 +99,15 @@ const VIP_COPY = {
     publicIntroEyebrow: "CMCM Luxembourg Indoor Meeting",
     publicIntroTitle: "We would be delighted to welcome you as one of our VIP guests",
     publicIntroBody:
-      "The Luxembourg Athletics Federation is pleased to invite you to the next edition of the CMCM Luxembourg Indoor Meeting, taking place on January 18, 2026 at d'Coque.",
+      "The Luxembourg Athletics Federation is pleased to invite you to the next edition of the CMCM Luxembourg Indoor Meeting, taking place on January 18, 2026 at the Coque.",
     publicIntroBodyTwo:
-      "As part of the World Athletics Indoor Tour Silver, this invitation gives you access to dedicated hospitality, practical event information and, depending on your choice, an exclusive visit of d'Coque or a behind-the-scenes tour of the meeting.",
+      "As part of the World Athletics Indoor Tour Silver, this invitation gives you access to dedicated hospitality, practical event information and, depending on your choice, an exclusive visit of the Coque or a behind-the-scenes tour of the meeting.",
     publicIntroBodyThree:
       "Please complete one form per invited guest. If you wish to come with a companion, you can add that person within the same form.",
     highlightOneTitle: "VIP access to the meeting",
     highlightOneBody: "A dedicated welcome on arrival and a smooth experience for your guests.",
     highlightTwoTitle: "Exclusive tour at 2:15 PM",
-    highlightTwoBody: "Choose between discovering d'Coque or the behind-the-scenes areas of the meeting.",
+    highlightTwoBody: "Choose between discovering the Coque or the behind-the-scenes areas of the meeting.",
     highlightThreeTitle: "Hospitality and practical info",
     highlightThreeBody: "Everything you need to make the most of your visit.",
     detailsTitle: "Practical information",
