@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { NavLink } from "react-router-dom";
 import { deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
-import { getActiveRoles } from "./navigation";
+import { canAccessStatistics, getActiveRoles } from "./navigation";
 import { normalizeEditionId, useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import {
@@ -3801,7 +3801,7 @@ function AthletePortalSettingsPage({ Panel }) {
 function AthleteRegistryPage({ Panel }) {
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
-  const canAccess = roles.includes("admin") || roles.includes("meeting_director");
+  const canAccess = canAccessStatistics(roles);
 
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
   const { registry, loading } = useAthleteRegistry(canAccess);
@@ -4094,7 +4094,7 @@ function AthleteRegistryPage({ Panel }) {
         <section className="page-header"><div><h1>Athletes Database</h1></div></section>
         <div className="notice-card notice-card--warn">
           <strong>Access restricted</strong>
-          <p>Admin and Meeting Director only.</p>
+          <p>Admin, Meeting Director and managers only.</p>
         </div>
       </div>
     );

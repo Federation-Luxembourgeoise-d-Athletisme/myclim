@@ -60,6 +60,7 @@ import {
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
 import { RequireAuth, RequireRouteAccess } from "./app/route-guards";
+import { STATISTICS_ACCESS_ROLES } from "./app/navigation";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./app/seed-data";
 import { getU14CategoryFromBirthDate } from "./app/utils";
 import { db } from "./services/firebase";
@@ -555,7 +556,7 @@ export default function App() {
                 <Route path="records" element={<Navigate replace to="/app/statistics/records" />} />
                 <Route path="winners" element={<Navigate replace to="/app/statistics/winners" />} />
               </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
+              <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
                 <Route path="statistics">
                   <Route index element={<Navigate replace to="results" />} />
                   <Route path="registry" element={<AthleteRegistryPage />} />
