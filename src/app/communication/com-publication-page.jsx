@@ -14,7 +14,7 @@ import { Avatar, Dialog, Toast, Toggle, TypeTag, ValidationBadge } from "./com-u
 import { typeColor, useToast } from "./com-ui-helpers.js";
 
 // Hashtags insérés par le bouton « Hashtags du meeting » (à ajuster ici si besoin).
-const MEETING_HASHTAGS = "#CMCMIndoorMeeting #LuxembourgIndoorMeeting #WorldIndoorTour #athletics";
+const MEETING_HASHTAGS = "#CMCMLuxembourgIndoorMeeting #Letzmakeithappen #WorldIndoorTour #athletics";
 const ACCOUNT_NAME = "CMCM Luxembourg Indoor Meeting";
 const ACCOUNT_HANDLE = "cmcm_lux_indoor_meet";
 const CAL_PREF = "com-mini-calendar";
