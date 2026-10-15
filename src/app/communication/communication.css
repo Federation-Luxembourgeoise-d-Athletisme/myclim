@@ -1425,3 +1425,30 @@
   .com-picker { padding: 0; }
   .com-picker__box { border-radius: 0; }
 }
+
+/* ── Import du plan Excel ── */
+.com-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.com-import-table th,
+.com-import-table td {
+  border-bottom: 1px solid var(--com-line);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.com-import-table th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--com-muted);
+}
+
+.com-import-table td:first-child {
+  white-space: nowrap;
+}

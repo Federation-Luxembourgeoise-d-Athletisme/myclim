@@ -14,34 +14,36 @@ export const COM_COLLECTIONS = {
 // Accès au module : l'organisation du meeting (gestionnaires) et les admins.
 export const COMMUNICATION_ROLES = ["admin", "gestionnaire"];
 
+// Libellés : { fr, en }, choisis selon la langue de l'app (voir com-i18n.js).
+
 /* ---------- Publications ---------- */
 
 export const PUB_TYPES = ["post", "story", "video", "cp", "newsletter", "article"];
 export const PUB_TYPE_LABELS = {
-  post: "Post",
-  story: "Story",
-  video: "Vidéo / Reel",
-  cp: "Communiqué de presse",
-  newsletter: "Newsletter",
-  article: "Article site",
+  post: { fr: "Post", en: "Post" },
+  story: { fr: "Story", en: "Story" },
+  video: { fr: "Vidéo / Reel", en: "Video / Reel" },
+  cp: { fr: "Communiqué de presse", en: "Press release" },
+  newsletter: { fr: "Newsletter", en: "Newsletter" },
+  article: { fr: "Article site", en: "Website article" },
 };
 
 export const CANAUX = ["fb", "ig", "li", "web", "presse", "email"];
 export const CANAL_LABELS = {
-  fb: { label: "Facebook", short: "FB" },
-  ig: { label: "Instagram", short: "IG" },
-  li: { label: "LinkedIn", short: "IN" },
-  web: { label: "Site web", short: "WEB" },
-  presse: { label: "Presse", short: "PRESSE" },
-  email: { label: "E-mail", short: "MAIL" },
+  fb: { label: { fr: "Facebook", en: "Facebook" }, short: "FB" },
+  ig: { label: { fr: "Instagram", en: "Instagram" }, short: "IG" },
+  li: { label: { fr: "LinkedIn", en: "LinkedIn" }, short: "IN" },
+  web: { label: { fr: "Site web", en: "Website" }, short: "WEB" },
+  presse: { label: { fr: "Presse", en: "Press" }, short: { fr: "PRESSE", en: "PRESS" } },
+  email: { label: { fr: "E-mail", en: "Email" }, short: "MAIL" },
 };
 
 export const STATUTS = ["todo", "doing", "scheduled", "done"];
 export const STATUT_LABELS = {
-  todo: "À faire",
-  doing: "En cours",
-  scheduled: "Programmé",
-  done: "Publié",
+  todo: { fr: "À faire", en: "To do" },
+  doing: { fr: "En cours", en: "In progress" },
+  scheduled: { fr: "Programmé", en: "Scheduled" },
+  done: { fr: "Publié", en: "Published" },
 };
 
 export const normalizeStatut = (statut) => (STATUTS.includes(statut) ? statut : "doing");
@@ -49,18 +51,18 @@ export const normalizeStatut = (statut) => (STATUTS.includes(statut) ? statut : 
 // Validation d'une publication : écrite uniquement par la Cloud Function
 // comPublicationValidation (qui envoie aussi les e-mails).
 export const VALIDATION_ETAT_LABELS = {
-  demandee: "Validation demandée",
-  validee: "Validée",
-  a_revoir: "À revoir",
+  demandee: { fr: "Validation demandée", en: "Approval requested" },
+  validee: { fr: "Validée", en: "Approved" },
+  a_revoir: { fr: "À revoir", en: "Needs changes" },
 };
 
 /* ---------- Tâches ---------- */
 
 export const TASK_STATUTS = ["todo", "doing", "done"];
 export const TASK_STATUT_LABELS = {
-  todo: "À faire",
-  doing: "En cours",
-  done: "Fait",
+  todo: { fr: "À faire", en: "To do" },
+  doing: { fr: "En cours", en: "In progress" },
+  done: { fr: "Fait", en: "Done" },
 };
 
 // Limites de texte des réseaux (post Instagram, LinkedIn).

@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import { createRubrique, deleteRubrique, setRubriqueActive, updateRubrique } from "./com-actions.js";
 import { memberName, useCommunicationTeam, useRubriques } from "./com-data.js";
-import { JOURS, todayYmd } from "./com-dates.js";
+import { dayName, todayYmd } from "./com-dates.js";
 import { CANAUX, CANAL_LABELS, PUB_TYPES, PUB_TYPE_LABELS } from "./com-domain.js";
+import { pick, useComLang } from "./com-i18n.js";
 import { ruleLabel } from "./com-recurrence.js";
 import { Avatar, ComPageHeader, Dialog, Toast, Toggle, TypeTag } from "./com-ui.jsx";
 import { useToast } from "./com-ui-helpers.js";
@@ -15,6 +16,7 @@ export function ComRubriquesPage() {
   const teamById = useMemo(() => new Map(team.map((u) => [u.uid, u])), [team]);
   const [editing, setEditing] = useState(null);
   const [toast, setToast] = useToast();
+  const { lang, tr } = useComLang();
 
   async function run(action, success) {
     try {
@@ -22,36 +24,39 @@ export function ComRubriquesPage() {
       setToast(success);
     } catch (error) {
       console.error(error);
-      setToast("L'enregistrement a échoué. Réessaie.");
+      setToast(tr("L'enregistrement a échoué. Réessaie.", "Saving failed. Please try again."));
     }
   }
 
   return (
     <>
       <ComPageHeader
-        title="Rubriques récurrentes"
-        description="Elles remplissent le calendrier automatiquement (ex. compte à rebours chaque lundi). Un changement de rythme s'applique à partir d'aujourd'hui : les dates passées ne bougent pas."
+        title={tr("Rubriques récurrentes", "Recurring series")}
+        description={tr(
+          "Elles remplissent le calendrier automatiquement (ex. compte à rebours chaque lundi). Un changement de rythme s'applique à partir d'aujourd'hui : les dates passées ne bougent pas.",
+          "They fill the calendar automatically (e.g. a countdown every Monday). A schedule change applies from today: past dates stay as they are.",
+        )}
         actions={
           <button type="button" className="button button--primary button--small" onClick={() => setEditing("new")}>
-            + Rubrique
+            {tr("+ Rubrique", "+ Series")}
           </button>
         }
       />
 
-      {!loading && !rubriques.length ? <p className="com-empty">Aucune rubrique pour l'instant.</p> : null}
+      {!loading && !rubriques.length ? <p className="com-empty">{tr("Aucune rubrique pour l'instant.", "No recurring series yet.")}</p> : null}
 
       {rubriques.length ? (
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Rubrique</th>
-                <th>Rythme</th>
-                <th>Type</th>
-                <th>Canaux</th>
-                <th>Responsable</th>
-                <th>Active</th>
-                <th>Actions</th>
+                <th>{tr("Rubrique", "Series")}</th>
+                <th>{tr("Rythme", "Schedule")}</th>
+                <th>{tr("Type", "Type")}</th>
+                <th>{tr("Canaux", "Channels")}</th>
+                <th>{tr("Responsable", "Owner")}</th>
+                <th>{tr("Active", "Active")}</th>
+                <th>{tr("Actions", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -62,7 +67,7 @@ export function ComRubriquesPage() {
                     <td>
                       <strong>{r.titre}</strong>
                     </td>
-                    <td>{ruleLabel(r.rule)}</td>
+                    <td>{ruleLabel(r.rule, lang)}</td>
                     <td>
                       <TypeTag type={r.type} />
                     </td>
@@ -70,7 +75,7 @@ export function ComRubriquesPage() {
                       <span className="com-row" style={{ gap: 4 }}>
                         {r.canaux.map((c) => (
                           <span key={c} className="com-canal">
-                            {CANAL_LABELS[c]?.short || c}
+                            {pick(CANAL_LABELS[c]?.short, lang) || c}
                           </span>
                         ))}
                       </span>
@@ -82,7 +87,7 @@ export function ComRubriquesPage() {
                           {memberName(resp)}
                         </span>
                       ) : (
-                        <span className="com-muted">À définir</span>
+                        <span className="com-muted">{tr("À définir", "Not assigned")}</span>
                       )}
                     </td>
                     <td>
@@ -91,15 +96,20 @@ export function ComRubriquesPage() {
                           type="checkbox"
                           role="switch"
                           checked={r.active}
-                          aria-label={`Activer ${r.titre}`}
-                          onChange={() => run(() => setRubriqueActive(r.id, !r.active), r.active ? "Rubrique désactivée" : "Rubrique activée")}
+                          aria-label={tr(`Activer ${r.titre}`, `Activate ${r.titre}`)}
+                          onChange={() =>
+                            run(
+                              () => setRubriqueActive(r.id, !r.active),
+                              r.active ? tr("Rubrique désactivée", "Series deactivated") : tr("Rubrique activée", "Series activated"),
+                            )
+                          }
                         />
-                        {r.active ? "Oui" : "Non"}
+                        {r.active ? tr("Oui", "Yes") : tr("Non", "No")}
                       </label>
                     </td>
                     <td>
                       <button type="button" className="button button--secondary button--small" onClick={() => setEditing(r)}>
-                        Modifier
+                        {tr("Modifier", "Edit")}
                       </button>
                     </td>
                   </tr>
@@ -116,15 +126,15 @@ export function ComRubriquesPage() {
           team={team}
           onClose={() => setEditing(null)}
           onSave={async (data) => {
-            if (editing === "new") await run(() => createRubrique(data), "Rubrique créée");
-            else await run(() => updateRubrique(editing, data, todayYmd()), "Rubrique mise à jour");
+            if (editing === "new") await run(() => createRubrique(data), tr("Rubrique créée", "Series created"));
+            else await run(() => updateRubrique(editing, data, todayYmd()), tr("Rubrique mise à jour", "Series updated"));
             setEditing(null);
           }}
           onDelete={
             editing === "new"
               ? undefined
               : async () => {
-                  await run(() => deleteRubrique(editing.id), "Rubrique supprimée");
+                  await run(() => deleteRubrique(editing.id), tr("Rubrique supprimée", "Series deleted"));
                   setEditing(null);
                 }
           }
@@ -137,14 +147,15 @@ export function ComRubriquesPage() {
 }
 
 const ORDINALS = [
-  [1, "1re semaine"],
-  [2, "2e"],
-  [3, "3e"],
-  [4, "4e"],
-  [5, "5e"],
+  [1, { fr: "1re semaine", en: "1st week" }],
+  [2, { fr: "2e", en: "2nd" }],
+  [3, { fr: "3e", en: "3rd" }],
+  [4, { fr: "4e", en: "4th" }],
+  [5, { fr: "5e", en: "5th" }],
 ];
 
 function RubriqueForm({ rubrique, team, onClose, onSave, onDelete }) {
+  const { lang, tr } = useComLang();
   const [form, setForm] = useState(
     rubrique
       ? { titre: rubrique.titre, type: rubrique.type, canaux: rubrique.canaux, responsableUid: rubrique.responsableUid || null, rule: rubrique.rule, active: rubrique.active }
@@ -168,16 +179,24 @@ function RubriqueForm({ rubrique, team, onClose, onSave, onDelete }) {
   }
 
   return (
-    <Dialog title={rubrique ? "Modifier la rubrique" : "Nouvelle rubrique"} onClose={onClose} wide>
+    <Dialog title={rubrique ? tr("Modifier la rubrique", "Edit series") : tr("Nouvelle rubrique", "New recurring series")} onClose={onClose} wide>
       <form className="com-stack" onSubmit={handleSubmit}>
         <label className="com-field">
-          Titre
-          <input className="com-input" required autoFocus maxLength={200} placeholder="Ex. Compte à rebours" value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} />
+          {tr("Titre", "Title")}
+          <input
+            className="com-input"
+            required
+            autoFocus
+            maxLength={200}
+            placeholder={tr("Ex. Compte à rebours", "E.g. Countdown")}
+            value={form.titre}
+            onChange={(e) => setForm({ ...form, titre: e.target.value })}
+          />
         </label>
 
         <div className="com-grid-2">
           <label className="com-field">
-            Fréquence
+            {tr("Fréquence", "Frequency")}
             <select
               className="com-input"
               value={rule.kind}
@@ -186,27 +205,27 @@ function RubriqueForm({ rubrique, team, onClose, onSave, onDelete }) {
                 setRule(kind === "monthly" ? { kind, dow: rule.dow, nth: [1] } : { kind, dow: rule.dow });
               }}
             >
-              <option value="weekly">Chaque semaine</option>
-              <option value="monthly">Certaines semaines du mois</option>
-              <option value="last">Dernière semaine du mois</option>
+              <option value="weekly">{tr("Chaque semaine", "Every week")}</option>
+              <option value="monthly">{tr("Certaines semaines du mois", "Some weeks of the month")}</option>
+              <option value="last">{tr("Dernière semaine du mois", "Last week of the month")}</option>
             </select>
           </label>
           <label className="com-field">
-            Jour
+            {tr("Jour", "Day")}
             <select className="com-input" value={rule.dow} onChange={(e) => setRule({ ...rule, dow: Number(e.target.value) })}>
               {[1, 2, 3, 4, 5, 6, 0].map((d) => (
                 <option key={d} value={d}>
-                  {JOURS[d]}
+                  {dayName(d, lang)}
                 </option>
               ))}
             </select>
           </label>
           <label className="com-field">
-            Type
+            {tr("Type", "Type")}
             <select className="com-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               {PUB_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {PUB_TYPE_LABELS[t]}
+                  {pick(PUB_TYPE_LABELS[t], lang)}
                 </option>
               ))}
             </select>
@@ -215,24 +234,25 @@ function RubriqueForm({ rubrique, team, onClose, onSave, onDelete }) {
 
         {rule.kind === "monthly" ? (
           <div className="com-field">
-            Semaines du mois
+            {tr("Semaines du mois", "Weeks of the month")}
             <div className="com-row">
               {ORDINALS.map(([n, label]) => (
                 <Toggle key={n} on={nth.includes(n)} onClick={() => setRule({ ...rule, nth: nth.includes(n) ? nth.filter((x) => x !== n) : [...nth, n].sort() })}>
-                  {label}
+                  {pick(label, lang)}
                 </Toggle>
               ))}
             </div>
-            {!nth.length ? <span className="com-error">Choisis au moins une semaine.</span> : null}
+            {!nth.length ? <span className="com-error">{tr("Choisis au moins une semaine.", "Pick at least one week.")}</span> : null}
           </div>
         ) : null}
 
         <p className="com-empty" style={{ background: "#f4f8fb" }}>
-          Rythme : <strong>{ruleLabel(rule)}</strong>
+          {tr("Rythme : ", "Schedule: ")}
+          <strong>{ruleLabel(rule, lang)}</strong>
         </p>
 
         <div className="com-field">
-          Canaux
+          {tr("Canaux", "Channels")}
           <div className="com-row">
             {CANAUX.map((c) => (
               <Toggle
@@ -240,16 +260,16 @@ function RubriqueForm({ rubrique, team, onClose, onSave, onDelete }) {
                 on={form.canaux.includes(c)}
                 onClick={() => setForm((f) => ({ ...f, canaux: f.canaux.includes(c) ? f.canaux.filter((x) => x !== c) : [...f.canaux, c] }))}
               >
-                {CANAL_LABELS[c].label}
+                {pick(CANAL_LABELS[c].label, lang)}
               </Toggle>
             ))}
           </div>
         </div>
 
         <label className="com-field">
-          Responsable par défaut
+          {tr("Responsable par défaut", "Default owner")}
           <select className="com-input" value={form.responsableUid || ""} onChange={(e) => setForm({ ...form, responsableUid: e.target.value || null })}>
-            <option value="">À définir</option>
+            <option value="">{tr("À définir", "Not assigned")}</option>
             {team.map((u) => (
               <option key={u.uid} value={u.uid}>
                 {memberName(u)}
@@ -262,17 +282,20 @@ function RubriqueForm({ rubrique, team, onClose, onSave, onDelete }) {
           {onDelete ? (
             confirmDelete ? (
               <span className="com-row">
-                Supprimer la rubrique ? Les dates déjà personnalisées restent dans le calendrier.
+                {tr(
+                  "Supprimer la rubrique ? Les dates déjà personnalisées restent dans le calendrier.",
+                  "Delete this series? Dates you already customised stay in the calendar.",
+                )}
                 <button type="button" className="button button--danger-soft button--small" onClick={onDelete}>
-                  Confirmer
+                  {tr("Confirmer", "Confirm")}
                 </button>
                 <button type="button" className="com-btn-ghost" onClick={() => setConfirmDelete(false)}>
-                  Garder
+                  {tr("Garder", "Keep")}
                 </button>
               </span>
             ) : (
               <button type="button" className="button button--danger-soft button--small" onClick={() => setConfirmDelete(true)}>
-                Supprimer
+                {tr("Supprimer", "Delete")}
               </button>
             )
           ) : (
@@ -280,10 +303,10 @@ function RubriqueForm({ rubrique, team, onClose, onSave, onDelete }) {
           )}
           <div className="com-row">
             <button type="button" className="com-btn-ghost" onClick={onClose}>
-              Annuler
+              {tr("Annuler", "Cancel")}
             </button>
             <button type="submit" className="button button--primary button--small" disabled={saving}>
-              {saving ? "Enregistrement…" : "Enregistrer"}
+              {saving ? tr("Enregistrement…", "Saving…") : tr("Enregistrer", "Save")}
             </button>
           </div>
         </div>

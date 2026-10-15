@@ -2,7 +2,7 @@
 // rubriques récurrentes et éléments du calendrier.
 // Règle : { kind: "weekly", dow } | { kind: "monthly", dow, nth: [1..5] } | { kind: "last", dow }
 // (dow : 0 = dimanche, comme Date.getDay()).
-import { addDays, JOURS, parseYmd, ymd } from "./com-dates.js";
+import { addDays, dayName, JOURS, parseYmd, ymd } from "./com-dates.js";
 import { normalizePublication } from "./com-domain.js";
 
 const ORD = ["", "1er", "2e", "3e", "4e", "5e"];
@@ -30,7 +30,15 @@ export function movedRule(rule, from, to) {
   return { ...rule, dow: to.getDay() };
 }
 
-export function ruleLabel(rule) {
+const ORD_EN = ["", "1st", "2nd", "3rd", "4th", "5th"];
+
+export function ruleLabel(rule, lang = "fr") {
+  if (lang !== "fr") {
+    const day = dayName(rule.dow, "en");
+    if (rule.kind === "weekly") return `Every ${day}`;
+    if (rule.kind === "monthly") return `${rule.nth.map((n) => ORD_EN[n]).join(" and ")} ${day} of the month`;
+    return `Last ${day} of the month`;
+  }
   if (rule.kind === "weekly") return `Chaque ${JOURS[rule.dow]}`;
   if (rule.kind === "monthly") return `${rule.nth.map((n) => ORD[n]).join(" et ")} ${JOURS[rule.dow]} du mois`;
   return `Dernier ${JOURS[rule.dow]} du mois`;

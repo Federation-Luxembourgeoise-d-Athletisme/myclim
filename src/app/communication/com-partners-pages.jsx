@@ -7,6 +7,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { createObligation, deleteObligation, savePartnerDetails, updateObligation } from "./com-actions.js";
 import { useComPartners, useObligations, usePartnerPublications, useRubriquePublications, useRubriques } from "./com-data.js";
 import { addDays, daysBetween, fmtLong, fmtShort, parseYmd, todayYmd, ymd } from "./com-dates.js";
+import { pick, useComLang } from "./com-i18n.js";
 import {
   DEFAULT_MODE_BY_CATEGORY,
   LIVRABLE_ETAPES,
@@ -26,12 +27,18 @@ import { useToast } from "./com-ui-helpers.js";
 const STATUT_TONE = { late: "danger", risk: "warn", ontrack: "info", done: "ok" };
 
 export function ObligationStatusPill({ statut }) {
-  return <span className={`com-badge com-badge--${STATUT_TONE[statut]}`}>{OBLIGATION_STATUT_LABELS[statut]}</span>;
+  const { lang } = useComLang();
+  return <span className={`com-badge com-badge--${STATUT_TONE[statut]}`}>{pick(OBLIGATION_STATUT_LABELS[statut], lang)}</span>;
 }
 
-const fullDate = (value) => (value ? `${fmtShort(value)} ${value.slice(0, 4)}` : "");
-const contractText = (partner) =>
-  partner.contratDebut && partner.contratFin ? `contrat du ${fullDate(partner.contratDebut)} au ${fullDate(partner.contratFin)}` : "dates du contrat à saisir";
+const fullDate = (value, lang) => (value ? `${fmtShort(value, lang)} ${value.slice(0, 4)}` : "");
+const contractText = (partner, lang) => {
+  if (!partner.contratDebut || !partner.contratFin) return lang === "fr" ? "dates du contrat à saisir" : "contract dates not entered yet";
+  const from = fullDate(partner.contratDebut, lang);
+  const to = fullDate(partner.contratFin, lang);
+  return lang === "fr" ? `contrat du ${from} au ${to}` : `contract from ${from} to ${to}`;
+};
+const days = (n, lang) => (lang === "fr" ? `${n} jours` : `${n} day${n === 1 ? "" : "s"}`);
 
 // Données partagées par le tableau de bord et la fiche d'un partenaire.
 function usePartnerData() {
@@ -47,6 +54,7 @@ function usePartnerData() {
 
 export function ComPartnersPage() {
   const { today, partners, loading, obligations, ctx } = usePartnerData();
+  const { lang, tr } = useComLang();
 
   const rows = useMemo(
     () =>
@@ -72,43 +80,50 @@ export function ComPartnersPage() {
     ),
     ...rows
       .filter(({ o }) => o.mode === "livrable" && o.etape < LIVRABLE_ETAPES.length - 1 && o.echeance && o.echeance >= today && o.echeance <= limit)
-      .map(({ partner, o }) => ({ partner, date: o.echeance, text: `${o.libelle} (${LIVRABLE_ETAPES[o.etape]?.toLowerCase()})` })),
+      .map(({ partner, o }) => ({ partner, date: o.echeance, text: `${o.libelle} (${pick(LIVRABLE_ETAPES[o.etape], lang)?.toLowerCase()})` })),
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   // Partenaires regroupés par catégorie de sponsor du site.
-  const groups = [...new Set(partners.map((p) => p.niveau || "Autres partenaires"))].map((title) => ({
+  const otherPartners = tr("Autres partenaires", "Other partners");
+  const groups = [...new Set(partners.map((p) => p.niveau || otherPartners))].map((title) => ({
     title,
-    list: partners.filter((p) => (p.niveau || "Autres partenaires") === title),
+    list: partners.filter((p) => (p.niveau || otherPartners) === title),
   }));
 
   const tiles = [
-    { value: late.length, label: "contreparties en retard", tone: "is-late" },
-    { value: risk.length, label: "contreparties à risque", tone: "is-risk" },
-    { value: renew.length, label: "contrats à renouveler (moins de 60 jours)", tone: "" },
-    { value: partners.length, label: "partenaires", tone: "" },
+    { key: "late", value: late.length, label: tr("contreparties en retard", "late benefits"), tone: "is-late" },
+    { key: "risk", value: risk.length, label: tr("contreparties à risque", "benefits at risk"), tone: "is-risk" },
+    { key: "renew", value: renew.length, label: tr("contrats à renouveler (moins de 60 jours)", "contracts to renew (under 60 days)"), tone: "" },
+    { key: "partners", value: partners.length, label: tr("partenaires", partners.length === 1 ? "partner" : "partners"), tone: "" },
   ];
 
   return (
     <>
       <ComPageHeader
-        title="Partenaires"
-        description="Contreparties prévues aux contrats et leur avancement. Les publications du calendrier qui mentionnent un partenaire sont comptées automatiquement."
+        title={tr("Partenaires", "Partners")}
+        description={tr(
+          "Contreparties prévues aux contrats et leur avancement. Les publications du calendrier qui mentionnent un partenaire sont comptées automatiquement.",
+          "Benefits promised in the contracts and how they are progressing. Calendar publications that mention a partner are counted automatically.",
+        )}
         actions={
           <Link to="/app/website/sponsors" className="button button--secondary button--small">
-            Gérer la liste des partenaires (site web)
+            {tr("Gérer la liste des partenaires (site web)", "Manage the partner list (website)")}
           </Link>
         }
       />
 
       {!loading && !partners.length ? (
         <p className="com-empty" style={{ textAlign: "center" }}>
-          Aucun partenaire pour l'instant. Ajoute-les dans Site web → Partenaires : ils apparaîtront ici automatiquement.
+          {tr(
+            "Aucun partenaire pour l'instant. Ajoute-les dans Site web → Partenaires : ils apparaîtront ici automatiquement.",
+            "No partners yet. Add them in Website → Partners: they will show up here automatically.",
+          )}
         </p>
       ) : (
         <>
           <div className="com-tiles">
             {tiles.map((t) => (
-              <div key={t.label} className={`com-tile ${t.tone}`}>
+              <div key={t.key} className={`com-tile ${t.tone}`}>
                 <strong>{t.value}</strong>
                 <span>{t.label}</span>
               </div>
@@ -116,11 +131,11 @@ export function ComPartnersPage() {
           </div>
 
           <section className="com-stack" style={{ gap: 8 }}>
-            <h2 className="com-section-title">À traiter en priorité</h2>
+            <h2 className="com-section-title">{tr("À traiter en priorité", "Top priorities")}</h2>
             <div className="com-list">
               {![...late, ...risk].length ? (
                 <p className="com-muted" style={{ padding: 20, textAlign: "center" }}>
-                  Toutes les contreparties sont dans les temps.
+                  {tr("Toutes les contreparties sont dans les temps.", "All benefits are on track.")}
                 </p>
               ) : (
                 [...late, ...risk].map(({ partner, o, g }) => (
@@ -133,9 +148,9 @@ export function ComPartnersPage() {
                     <span className="com-stack" style={{ gap: 2 }}>
                       <b>{o.libelle}</b>
                       <span className="com-muted" style={{ fontSize: "0.78rem" }}>
-                        {partner.nom} · {progressText(o, g)}
-                        {g.attendu !== null && o.mode !== "livrable" ? ` · attendu à ce jour : ${g.attendu}` : ""}
-                        {g.prevus ? ` · ${g.prevus} prévu(s)` : ""}
+                        {partner.nom} · {progressText(o, g, lang)}
+                        {g.attendu !== null && o.mode !== "livrable" ? tr(` · attendu à ce jour : ${g.attendu}`, ` · expected by now: ${g.attendu}`) : ""}
+                        {g.prevus ? tr(` · ${g.prevus} prévu(s)`, ` · ${g.prevus} scheduled`) : ""}
                       </span>
                     </span>
                     <ObligationStatusPill statut={g.statut} />
@@ -147,7 +162,7 @@ export function ComPartnersPage() {
 
           {upcoming.length ? (
             <section className="com-stack" style={{ gap: 8 }}>
-              <h2 className="com-section-title">Prochaines échéances · 45 jours</h2>
+              <h2 className="com-section-title">{tr("Prochaines échéances · 45 jours", "Upcoming deadlines · 45 days")}</h2>
               <div className="com-list">
                 {upcoming.map((u, k) => (
                   <Link
@@ -162,7 +177,7 @@ export function ComPartnersPage() {
                         {u.partner.nom}
                       </span>
                     </span>
-                    <strong>{fmtShort(u.date)}</strong>
+                    <strong>{fmtShort(u.date, lang)}</strong>
                   </Link>
                 ))}
               </div>
@@ -186,14 +201,14 @@ export function ComPartnersPage() {
                         <span className="com-stack" style={{ gap: 2, minWidth: 0 }}>
                           <strong style={{ fontSize: "1.05rem" }}>{p.nom}</strong>
                           <span className="com-muted" style={{ fontSize: "0.75rem" }}>
-                            {contractText(p)}
-                            {p.active ? "" : " · masqué sur le site"}
+                            {contractText(p, lang)}
+                            {p.active ? "" : tr(" · masqué sur le site", " · hidden on the website")}
                           </span>
                         </span>
                       </span>
                       <span className="com-stack" style={{ gap: 4 }}>
                         <span className="com-muted" style={{ fontSize: "0.75rem" }}>
-                          {Math.round(pct * 100)} % des contreparties réalisées
+                          {tr(`${Math.round(pct * 100)} % des contreparties réalisées`, `${Math.round(pct * 100)}% of benefits delivered`)}
                         </span>
                         <span className="com-progress">
                           <span style={{ width: `${pct * 100}%` }} />
@@ -209,14 +224,14 @@ export function ComPartnersPage() {
                           ))}
                         {!statuts.length ? (
                           <span className="com-muted" style={{ fontSize: "0.75rem" }}>
-                            Aucune contrepartie saisie.
+                            {tr("Aucune contrepartie saisie.", "No benefits entered.")}
                           </span>
                         ) : null}
                       </span>
                       {left !== null && left >= 0 && left <= 60 ? (
-                        <span className="com-badge com-badge--warn">Contrat à renouveler : fin dans {left} jours</span>
+                        <span className="com-badge com-badge--warn">{tr(`Contrat à renouveler : fin dans ${days(left, lang)}`, `Contract to renew: ends in ${days(left, lang)}`)}</span>
                       ) : left !== null && left < 0 ? (
-                        <span className="com-badge com-badge--info">Contrat terminé</span>
+                        <span className="com-badge com-badge--info">{tr("Contrat terminé", "Contract ended")}</span>
                       ) : null}
                     </Link>
                   );
@@ -235,6 +250,7 @@ export function ComPartnerDetailPage() {
   const [searchParams] = useSearchParams();
   const focusOb = searchParams.get("ob");
   const { today, partners, loading, obligations, rubriques, ctx } = usePartnerData();
+  const { lang, tr } = useComLang();
   const partner = partners.find((p) => p.id === id);
   const [open, setOpen] = useState(() => new Set(focusOb ? [focusOb] : []));
   const [editingDetails, setEditingDetails] = useState(false);
@@ -248,17 +264,20 @@ export function ComPartnerDetailPage() {
       if (success) setToast(success);
     } catch (error) {
       console.error(error);
-      setToast("L'enregistrement a échoué. Réessaie.");
+      setToast(tr("L'enregistrement a échoué. Réessaie.", "Saving failed. Please try again."));
     }
   }
 
-  if (loading) return <p className="com-muted">Chargement…</p>;
+  if (loading) return <p className="com-muted">{tr("Chargement…", "Loading…")}</p>;
   if (!partner) {
     return (
       <>
-        <ComPageHeader title="Partenaire introuvable" description="Il a peut-être été supprimé de la liste des partenaires du site." />
+        <ComPageHeader
+          title={tr("Partenaire introuvable", "Partner not found")}
+          description={tr("Il a peut-être été supprimé de la liste des partenaires du site.", "It may have been removed from the website's partner list.")}
+        />
         <Link to="/app/communication/partenaires" className="com-link">
-          ← Tous les partenaires
+          {tr("← Tous les partenaires", "← All partners")}
         </Link>
       </>
     );
@@ -281,37 +300,51 @@ export function ComPartnerDetailPage() {
   return (
     <>
       <Link to="/app/communication/partenaires" className="com-link">
-        ← Tous les partenaires
+        {tr("← Tous les partenaires", "← All partners")}
       </Link>
       <ComPageHeader
         title={partner.nom}
-        description={`${partner.niveau ? `${partner.niveau} · ` : ""}${contractText(partner)}${elapsed !== null ? ` · ${Math.round(elapsed * 100)} % de la période écoulée` : ""}`}
+        description={`${partner.niveau ? `${partner.niveau} · ` : ""}${contractText(partner, lang)}${
+          elapsed !== null ? tr(` · ${Math.round(elapsed * 100)} % de la période écoulée`, ` · ${Math.round(elapsed * 100)}% of the period elapsed`) : ""
+        }`}
         actions={
           <>
             <button type="button" className="button button--secondary button--small" onClick={() => setEditingDetails(true)}>
-              Infos et contrat
+              {tr("Infos et contrat", "Details and contract")}
             </button>
             <button type="button" className="button button--secondary button--small" onClick={() => setBilan(true)}>
-              Bilan partenaire
+              {tr("Bilan partenaire", "Partner report")}
             </button>
             <button type="button" className="button button--primary button--small" onClick={() => setEditingOb("new")}>
-              + Contrepartie
+              {tr("+ Contrepartie", "+ Benefit")}
             </button>
           </>
         }
       />
 
       <div className="com-row com-muted">
-        {partner.handle ? <span>Compte à mentionner : {partner.handle}</span> : <span>Aucun compte à mentionner saisi.</span>}
-        {partner.contact ? <span>· Contact : {partner.contact}</span> : null}
+        {partner.handle ? (
+          <span>
+            {tr("Compte à mentionner : ", "Account to tag: ")}
+            {partner.handle}
+          </span>
+        ) : (
+          <span>{tr("Aucun compte à mentionner saisi.", "No account to tag entered.")}</span>
+        )}
+        {partner.contact ? (
+          <span>
+            {tr("· Contact : ", "· Contact: ")}
+            {partner.contact}
+          </span>
+        ) : null}
         {partner.contratLien ? (
           <a href={partner.contratLien} target="_blank" rel="noreferrer" className="com-link">
-            · Contrat signé ↗
+            {tr("· Contrat signé ↗", "· Signed contract ↗")}
           </a>
         ) : null}
         {partner.website ? (
           <a href={partner.website} target="_blank" rel="noreferrer" className="com-link">
-            · Site ↗
+            {tr("· Site ↗", "· Website ↗")}
           </a>
         ) : null}
       </div>
@@ -319,17 +352,25 @@ export function ComPartnerDetailPage() {
 
       {!hasContract ? (
         <p className="com-empty">
-          <strong>Dates du contrat manquantes :</strong> sans elles, le rythme attendu des contreparties n'est pas calculé. Renseigne-les dans « Infos et contrat ».
+          <strong>{tr("Dates du contrat manquantes :", "Contract dates missing:")}</strong>{" "}
+          {tr(
+            "sans elles, le rythme attendu des contreparties n'est pas calculé. Renseigne-les dans « Infos et contrat ».",
+            "without them, the expected pace of benefits can't be calculated. Add them in “Details and contract”.",
+          )}
         </p>
       ) : left >= 0 && left <= 60 ? (
         <p className="com-empty" style={{ background: "#fff8e6", borderColor: "#f4c35a" }}>
-          <strong>Contrat à renouveler :</strong> il se termine dans {left} jours. Le bilan partenaire aide à préparer le rendez-vous.
+          <strong>{tr("Contrat à renouveler :", "Contract to renew:")}</strong>{" "}
+          {tr(
+            `il se termine dans ${days(left, lang)}. Le bilan partenaire aide à préparer le rendez-vous.`,
+            `it ends in ${days(left, lang)}. The partner report helps you prepare the meeting.`,
+          )}
         </p>
       ) : null}
 
       {!own.length ? (
         <p className="com-empty" style={{ textAlign: "center" }}>
-          Aucune contrepartie saisie. Ajoute celles prévues au contrat avec « + Contrepartie ».
+          {tr("Aucune contrepartie saisie. Ajoute celles prévues au contrat avec « + Contrepartie ».", "No benefits entered. Add the ones in the contract with “+ Benefit”.")}
         </p>
       ) : (
         PARTNER_CATEGORIES.map((cat) => {
@@ -337,7 +378,7 @@ export function ComPartnerDetailPage() {
           if (!list.length) return null;
           return (
             <section key={cat} className="com-stack" style={{ gap: 8 }}>
-              <h2 className="com-section-title">{PARTNER_CATEGORY_LABELS[cat]}</h2>
+              <h2 className="com-section-title">{pick(PARTNER_CATEGORY_LABELS[cat], lang)}</h2>
               {list.map((o) => (
                 <ObligationCard
                   key={o.id}
@@ -361,7 +402,7 @@ export function ComPartnerDetailPage() {
           partner={partner}
           onClose={() => setEditingDetails(false)}
           onSave={async (data) => {
-            await run(() => savePartnerDetails(partner.id, data), "Infos du partenaire enregistrées");
+            await run(() => savePartnerDetails(partner.id, data), tr("Infos du partenaire enregistrées", "Partner details saved"));
             setEditingDetails(false);
           }}
         />
@@ -374,15 +415,15 @@ export function ComPartnerDetailPage() {
           rubriques={rubriques}
           onClose={() => setEditingOb(null)}
           onSave={async (data) => {
-            if (editingOb === "new") await run(() => createObligation(data), "Contrepartie ajoutée");
-            else await run(() => updateObligation(editingOb.id, data), "Contrepartie mise à jour");
+            if (editingOb === "new") await run(() => createObligation(data), tr("Contrepartie ajoutée", "Benefit added"));
+            else await run(() => updateObligation(editingOb.id, data), tr("Contrepartie mise à jour", "Benefit updated"));
             setEditingOb(null);
           }}
           onDelete={
             editingOb === "new"
               ? undefined
               : async () => {
-                  await run(() => deleteObligation(editingOb.id), "Contrepartie supprimée");
+                  await run(() => deleteObligation(editingOb.id), tr("Contrepartie supprimée", "Benefit deleted"));
                   setEditingOb(null);
                 }
           }
@@ -397,6 +438,7 @@ export function ComPartnerDetailPage() {
 
 // Infos réservées à l'organisation (com_partner_details), jamais publiées sur le site.
 function PartnerDetailsDialog({ partner, onClose, onSave }) {
+  const { tr } = useComLang();
   const [form, setForm] = useState({
     handle: partner.handle,
     contact: partner.contact,
@@ -420,45 +462,45 @@ function PartnerDetailsDialog({ partner, onClose, onSave }) {
   }
 
   return (
-    <Dialog title={`Infos et contrat · ${partner.nom}`} onClose={onClose} wide>
+    <Dialog title={tr(`Infos et contrat · ${partner.nom}`, `Details and contract · ${partner.nom}`)} onClose={onClose} wide>
       <form className="com-stack" onSubmit={handleSubmit}>
-        <p className="com-muted">Ces informations restent internes : elles ne sont jamais affichées sur le site.</p>
+        <p className="com-muted">{tr("Ces informations restent internes : elles ne sont jamais affichées sur le site.", "This information stays internal: it is never shown on the website.")}</p>
         <div className="com-grid-2">
           <label className="com-field">
-            Compte à mentionner (@…)
-            <input className="com-input" placeholder="@partenaire" value={form.handle} onChange={(e) => setForm({ ...form, handle: e.target.value })} />
+            {tr("Compte à mentionner (@…)", "Account to tag (@…)")}
+            <input className="com-input" placeholder={tr("@partenaire", "@partner")} value={form.handle} onChange={(e) => setForm({ ...form, handle: e.target.value })} />
           </label>
           <label className="com-field">
-            Contact
-            <input className="com-input" placeholder="Nom, e-mail, téléphone" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />
+            {tr("Contact", "Contact")}
+            <input className="com-input" placeholder={tr("Nom, e-mail, téléphone", "Name, email, phone")} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />
           </label>
           <label className="com-field">
-            Début du contrat
+            {tr("Début du contrat", "Contract start")}
             <input type="date" className="com-input" value={form.contratDebut} onChange={(e) => setForm({ ...form, contratDebut: e.target.value })} />
           </label>
           <label className="com-field">
-            Fin du contrat
+            {tr("Fin du contrat", "Contract end")}
             <input type="date" className="com-input" value={form.contratFin} onChange={(e) => setForm({ ...form, contratFin: e.target.value })} />
           </label>
         </div>
-        {endBeforeStart ? <p className="com-error">La fin du contrat doit être après son début.</p> : null}
+        {endBeforeStart ? <p className="com-error">{tr("La fin du contrat doit être après son début.", "The contract end must be after its start.")}</p> : null}
         <label className="com-field">
-          Lien vers le contrat signé
+          {tr("Lien vers le contrat signé", "Link to the signed contract")}
           <input type="url" className="com-input" placeholder="https://… (OneDrive, Drive)" value={form.contratLien} onChange={(e) => setForm({ ...form, contratLien: e.target.value })} />
         </label>
         <label className="com-field">
-          Notes
+          {tr("Notes", "Notes")}
           <textarea className="com-input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </label>
         <p className="com-muted" style={{ fontSize: "0.78rem" }}>
-          Le nom, le logo, le site et la catégorie se modifient dans Site web → Partenaires.
+          {tr("Le nom, le logo, le site et la catégorie se modifient dans Site web → Partenaires.", "Name, logo, website and category are edited in Website → Partners.")}
         </p>
         <div className="com-row" style={{ justifyContent: "flex-end" }}>
           <button type="button" className="com-btn-ghost" onClick={onClose}>
-            Annuler
+            {tr("Annuler", "Cancel")}
           </button>
           <button type="submit" className="button button--primary button--small" disabled={saving}>
-            {saving ? "Enregistrement…" : "Enregistrer"}
+            {saving ? tr("Enregistrement…", "Saving…") : tr("Enregistrer", "Save")}
           </button>
         </div>
       </form>
@@ -467,8 +509,10 @@ function PartnerDetailsDialog({ partner, onClose, onSave }) {
 }
 
 function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onUpdate, onEdit }) {
+  const { lang, tr } = useComLang();
   const pct = g.cible ? Math.min(1, g.fait / g.cible) : 0;
   const rubrique = ob.rubriqueId ? rubriques.find((r) => r.id === ob.rubriqueId) : undefined;
+  const rubriqueRule = rubrique ? (lang === "fr" ? ruleLabel(rubrique.rule, lang).toLowerCase() : ruleLabel(rubrique.rule, lang)) : "";
 
   return (
     <div className={`com-ob-card ${g.statut}`}>
@@ -476,13 +520,13 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
         <span className="com-stack" style={{ gap: 2 }}>
           <b>{ob.libelle}</b>
           <span className="com-muted" style={{ fontSize: "0.75rem" }}>
-            {OBLIGATION_MODE_LABELS[ob.mode].label}
+            {pick(OBLIGATION_MODE_LABELS[ob.mode].label, lang)}
           </span>
         </span>
         <span className="com-stack" style={{ gap: 4, fontSize: "0.75rem" }}>
           <span>
-            {progressText(ob, g)}
-            {g.attendu !== null && ob.mode !== "livrable" && g.cible ? ` · attendu ${g.attendu}` : ""}
+            {progressText(ob, g, lang)}
+            {g.attendu !== null && ob.mode !== "livrable" && g.cible ? tr(` · attendu ${g.attendu}`, ` · expected ${g.attendu}`) : ""}
           </span>
           <span className="com-progress">
             <span style={{ width: `${pct * 100}%` }} />
@@ -495,12 +539,19 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
         <div className="com-stack" style={{ gap: 10, fontSize: "0.9rem" }}>
           {ob.mode === "publications" ? (
             <>
-              {ob.dejaRealise > 0 ? <p className="com-muted">{ob.dejaRealise} publication(s) réalisée(s) avant l'outil.</p> : null}
+              {ob.dejaRealise > 0 ? (
+                <p className="com-muted">
+                  {tr(
+                    `${ob.dejaRealise} publication(s) réalisée(s) avant l'outil.`,
+                    `${ob.dejaRealise} publication${ob.dejaRealise > 1 ? "s" : ""} done before this tool.`,
+                  )}
+                </p>
+              ) : null}
               {g.publications.length ? (
                 <ul className="com-ob-items">
                   {g.publications.map((p) => (
                     <li key={p.id}>
-                      <span className="com-mini__date">{fmtShort(p.date)}</span>
+                      <span className="com-mini__date">{fmtShort(p.date, lang)}</span>
                       <Link to={`/app/communication/publication/${p.id}`} className="com-chip__title" style={{ color: "inherit" }}>
                         {p.titre}
                       </Link>
@@ -509,7 +560,12 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
                   ))}
                 </ul>
               ) : (
-                <p className="com-muted">Aucune publication ne mentionne encore ce partenaire. Coche-le dans une publication du calendrier.</p>
+                <p className="com-muted">
+                  {tr(
+                    "Aucune publication ne mentionne encore ce partenaire. Coche-le dans une publication du calendrier.",
+                    "No publication mentions this partner yet. Tick it in a calendar publication.",
+                  )}
+                </p>
               )}
             </>
           ) : null}
@@ -517,11 +573,20 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
           {ob.mode === "rubrique" ? (
             <p className="com-muted">
               {rubrique ? (
-                <>
-                  Compté automatiquement : chaque occurrence publiée de <strong>{rubrique.titre}</strong> ({ruleLabel(rubrique.rule).toLowerCase()}) pendant le contrat. {g.prevus} à venir.
-                </>
+                lang === "fr" ? (
+                  <>
+                    Compté automatiquement : chaque occurrence publiée de <strong>{rubrique.titre}</strong> ({rubriqueRule}) pendant le contrat. {g.prevus} à venir.
+                  </>
+                ) : (
+                  <>
+                    Counted automatically: each published occurrence of <strong>{rubrique.titre}</strong> ({rubriqueRule}) during the contract. {g.prevus} upcoming.
+                  </>
+                )
               ) : (
-                "La rubrique suivie n'existe plus : modifie la contrepartie pour en choisir une autre."
+                tr(
+                  "La rubrique suivie n'existe plus : modifie la contrepartie pour en choisir une autre.",
+                  "The tracked recurring series no longer exists: edit the benefit to pick another one.",
+                )
               )}
             </p>
           ) : null}
@@ -535,37 +600,44 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
                   <div key={item.id} className="com-row">
                     <input
                       type="checkbox"
-                      aria-label={`${item.label} réalisé`}
+                      aria-label={tr(`${item.label} réalisé`, `${item.label} done`)}
                       checked={item.fait}
                       onChange={(e) => onUpdate({ items: ob.items.map((x) => (x.id === item.id ? { ...x, fait: e.target.checked } : x)) })}
                     />
-                    <span className="com-mini__date">{item.date ? fmtShort(item.date) : "—"}</span>
+                    <span className="com-mini__date">{item.date ? fmtShort(item.date, lang) : "—"}</span>
                     <span>
                       {item.label}
-                      {!item.fait && item.date && item.date < today ? <strong style={{ color: "#9f2020", marginLeft: 8 }}>Manqué</strong> : null}
+                      {!item.fait && item.date && item.date < today ? <strong style={{ color: "#9f2020", marginLeft: 8 }}>{tr("Manqué", "Missed")}</strong> : null}
                     </span>
                     {item.fait ? (
                       <input
-                        aria-label="Preuve"
+                        aria-label={tr("Preuve", "Proof")}
                         className="com-input is-auto"
-                        placeholder="Preuve : lien photo, remarque…"
+                        placeholder={tr("Preuve : lien photo, remarque…", "Proof: photo link, note…")}
                         defaultValue={item.preuve}
                         onBlur={(e) => e.currentTarget.value !== item.preuve && onUpdate({ items: ob.items.map((x) => (x.id === item.id ? { ...x, preuve: e.currentTarget.value } : x)) })}
                       />
                     ) : null}
                   </div>
                 ))}
-              {g.cible > ob.items.length ? <p className="com-muted">{g.cible - ob.items.length} événement(s) encore à choisir avec le partenaire.</p> : null}
+              {g.cible > ob.items.length ? (
+                <p className="com-muted">
+                  {tr(
+                    `${g.cible - ob.items.length} événement(s) encore à choisir avec le partenaire.`,
+                    `${g.cible - ob.items.length} event${g.cible - ob.items.length > 1 ? "s" : ""} still to choose with the partner.`,
+                  )}
+                </p>
+              ) : null}
             </>
           ) : null}
 
           {ob.mode === "livrable" ? (
             <>
-              <p className="com-muted">{ob.echeance ? `Échéance : ${fmtLong(ob.echeance)}` : "Pas d'échéance définie."}</p>
+              <p className="com-muted">{ob.echeance ? tr(`Échéance : ${fmtLong(ob.echeance, lang)}`, `Deadline: ${fmtLong(ob.echeance, lang)}`) : tr("Pas d'échéance définie.", "No deadline set.")}</p>
               <div className="com-steps">
                 {LIVRABLE_ETAPES.map((etape, k) => (
-                  <button key={etape} type="button" className={`com-toggle ${k <= ob.etape ? "is-on" : ""}`} onClick={() => onUpdate({ etape: k })}>
-                    {etape}
+                  <button key={etape.fr} type="button" className={`com-toggle ${k <= ob.etape ? "is-on" : ""}`} onClick={() => onUpdate({ etape: k })}>
+                    {pick(etape, lang)}
                   </button>
                 ))}
               </div>
@@ -574,20 +646,20 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
 
           {ob.mode === "quantite" ? (
             <div className="com-row">
-              <button type="button" className="button button--secondary button--small" aria-label="Retirer" onClick={() => onUpdate({ fait: Math.max(0, ob.fait - 1) })}>
+              <button type="button" className="button button--secondary button--small" aria-label={tr("Retirer", "Remove")} onClick={() => onUpdate({ fait: Math.max(0, ob.fait - 1) })}>
                 −
               </button>
               <strong style={{ fontSize: "1.1rem" }}>
                 {ob.fait} / {ob.cible}
               </strong>
-              <button type="button" className="button button--secondary button--small" aria-label="Ajouter" onClick={() => onUpdate({ fait: ob.fait + 1 })}>
+              <button type="button" className="button button--secondary button--small" aria-label={tr("Ajouter", "Add")} onClick={() => onUpdate({ fait: ob.fait + 1 })}>
                 +
               </button>
             </div>
           ) : null}
 
           <button type="button" className="com-btn-ghost" style={{ alignSelf: "flex-start" }} onClick={onEdit}>
-            Modifier la contrepartie
+            {tr("Modifier la contrepartie", "Edit benefit")}
           </button>
         </div>
       ) : null}
@@ -598,6 +670,7 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
 const newItemId = () => Math.random().toString(36).slice(2, 10);
 
 function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, onDelete }) {
+  const { lang, tr } = useComLang();
   const [form, setForm] = useState(
     obligation
       ? {
@@ -638,15 +711,22 @@ function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, o
   }
 
   return (
-    <Dialog title={obligation ? "Modifier la contrepartie" : "Nouvelle contrepartie"} onClose={onClose} wide>
+    <Dialog title={obligation ? tr("Modifier la contrepartie", "Edit benefit") : tr("Nouvelle contrepartie", "New benefit")} onClose={onClose} wide>
       <form className="com-stack" onSubmit={handleSubmit}>
         <label className="com-field">
-          Contrepartie prévue au contrat
-          <input className="com-input" required autoFocus placeholder="Ex. 6 publications avec mention du partenaire" value={form.libelle} onChange={(e) => set("libelle", e.target.value)} />
+          {tr("Contrepartie prévue au contrat", "Benefit promised in the contract")}
+          <input
+            className="com-input"
+            required
+            autoFocus
+            placeholder={tr("Ex. 6 publications avec mention du partenaire", "E.g. 6 publications mentioning the partner")}
+            value={form.libelle}
+            onChange={(e) => set("libelle", e.target.value)}
+          />
         </label>
         <div className="com-grid-2">
           <label className="com-field">
-            Catégorie
+            {tr("Catégorie", "Category")}
             <select
               className="com-input"
               value={form.categorie}
@@ -657,41 +737,41 @@ function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, o
             >
               {PARTNER_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
-                  {PARTNER_CATEGORY_LABELS[c]}
+                  {pick(PARTNER_CATEGORY_LABELS[c], lang)}
                 </option>
               ))}
             </select>
           </label>
           <label className="com-field">
-            Suivi
+            {tr("Suivi", "Tracking")}
             <select className="com-input" value={form.mode} onChange={(e) => set("mode", e.target.value)}>
               {OBLIGATION_MODES.map((m) => (
                 <option key={m} value={m}>
-                  {OBLIGATION_MODE_LABELS[m].label}
+                  {pick(OBLIGATION_MODE_LABELS[m].label, lang)}
                 </option>
               ))}
             </select>
           </label>
         </div>
         <p className="com-empty" style={{ background: "#f4f8fb" }}>
-          {OBLIGATION_MODE_LABELS[form.mode].help}
+          {pick(OBLIGATION_MODE_LABELS[form.mode].help, lang)}
         </p>
 
         {["publications", "quantite", "evenements"].includes(form.mode) ? (
           <div className="com-grid-2">
             <label className="com-field">
-              Objectif sur la durée du contrat
+              {tr("Objectif sur la durée du contrat", "Target over the contract period")}
               <input type="number" min={0} className="com-input" value={form.cible} onChange={(e) => set("cible", Number(e.target.value))} />
             </label>
             {form.mode === "publications" ? (
               <label className="com-field">
-                Déjà réalisées avant l'outil
+                {tr("Déjà réalisées avant l'outil", "Already done before this tool")}
                 <input type="number" min={0} className="com-input" value={form.dejaRealise} onChange={(e) => set("dejaRealise", Math.max(0, Number(e.target.value)))} />
               </label>
             ) : null}
             {form.mode === "quantite" ? (
               <label className="com-field">
-                Déjà réalisé
+                {tr("Déjà réalisé", "Already done")}
                 <input type="number" min={0} className="com-input" value={form.fait} onChange={(e) => set("fait", Math.max(0, Number(e.target.value)))} />
               </label>
             ) : null}
@@ -700,34 +780,40 @@ function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, o
 
         {form.mode === "rubrique" ? (
           <label className="com-field">
-            Rubrique récurrente suivie
+            {tr("Rubrique récurrente suivie", "Tracked recurring series")}
             <select className="com-input" value={form.rubriqueId || ""} onChange={(e) => set("rubriqueId", e.target.value || null)}>
-              <option value="">Choisir une rubrique</option>
+              <option value="">{tr("Choisir une rubrique", "Choose a recurring series")}</option>
               {rubriques.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.titre}
                 </option>
               ))}
             </select>
-            {missingRubrique ? <span className="com-error">Choisis la rubrique à compter.</span> : null}
+            {missingRubrique ? <span className="com-error">{tr("Choisis la rubrique à compter.", "Choose the recurring series to count.")}</span> : null}
           </label>
         ) : null}
 
         {form.mode === "livrable" ? (
           <label className="com-field">
-            Échéance
+            {tr("Échéance", "Deadline")}
             <input type="date" className="com-input" value={form.echeance || ""} onChange={(e) => set("echeance", e.target.value || null)} />
           </label>
         ) : null}
 
         {form.mode === "evenements" ? (
           <div className="com-field">
-            Événements concernés
+            {tr("Événements concernés", "Events covered")}
             {form.items.map((item) => (
               <div key={item.id} className="com-row" style={{ flexWrap: "nowrap" }}>
-                <input aria-label="Événement" className="com-input" placeholder="Ex. Banderole jour J" value={item.label} onChange={(e) => setItem(item.id, { label: e.target.value })} />
-                <input aria-label="Date" type="date" className="com-input is-auto" value={item.date} onChange={(e) => setItem(item.id, { date: e.target.value })} />
-                <button type="button" className="com-btn-ghost" aria-label="Retirer" onClick={() => set("items", form.items.filter((i) => i.id !== item.id))}>
+                <input
+                  aria-label={tr("Événement", "Event")}
+                  className="com-input"
+                  placeholder={tr("Ex. Banderole jour J", "E.g. Banner on meet day")}
+                  value={item.label}
+                  onChange={(e) => setItem(item.id, { label: e.target.value })}
+                />
+                <input aria-label={tr("Date", "Date")} type="date" className="com-input is-auto" value={item.date} onChange={(e) => setItem(item.id, { date: e.target.value })} />
+                <button type="button" className="com-btn-ghost" aria-label={tr("Retirer", "Remove")} onClick={() => set("items", form.items.filter((i) => i.id !== item.id))}>
                   ✕
                 </button>
               </div>
@@ -738,7 +824,7 @@ function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, o
               style={{ alignSelf: "flex-start" }}
               onClick={() => set("items", [...form.items, { id: newItemId(), label: "", date: "", fait: false, preuve: "" }])}
             >
-              + Ajouter un événement
+              {tr("+ Ajouter un événement", "+ Add an event")}
             </button>
           </div>
         ) : null}
@@ -747,17 +833,17 @@ function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, o
           {onDelete ? (
             confirmDelete ? (
               <span className="com-row">
-                Supprimer cette contrepartie ?
+                {tr("Supprimer cette contrepartie ?", "Delete this benefit?")}
                 <button type="button" className="button button--danger-soft button--small" onClick={onDelete}>
-                  Confirmer
+                  {tr("Confirmer", "Confirm")}
                 </button>
                 <button type="button" className="com-btn-ghost" onClick={() => setConfirmDelete(false)}>
-                  Garder
+                  {tr("Garder", "Keep")}
                 </button>
               </span>
             ) : (
               <button type="button" className="button button--danger-soft button--small" onClick={() => setConfirmDelete(true)}>
-                Supprimer
+                {tr("Supprimer", "Delete")}
               </button>
             )
           ) : (
@@ -765,10 +851,10 @@ function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, o
           )}
           <div className="com-row">
             <button type="button" className="com-btn-ghost" onClick={onClose}>
-              Annuler
+              {tr("Annuler", "Cancel")}
             </button>
             <button type="submit" className="button button--primary button--small" disabled={saving}>
-              {saving ? "Enregistrement…" : "Enregistrer"}
+              {saving ? tr("Enregistrement…", "Saving…") : tr("Enregistrer", "Save")}
             </button>
           </div>
         </div>
@@ -779,18 +865,19 @@ function ObligationDialog({ partnerId, obligation, rubriques, onClose, onSave, o
 
 // Récapitulatif des réalisations, à présenter au partenaire.
 function BilanDialog({ partner, obligations, ctx, onClose }) {
+  const { lang, tr } = useComLang();
   return (
-    <Dialog title={`Bilan · ${partner.nom}`} onClose={onClose} wide>
+    <Dialog title={tr(`Bilan · ${partner.nom}`, `Report · ${partner.nom}`)} onClose={onClose} wide>
       <p className="com-muted">
-        {contractText(partner)} · état au {fmtLong(ctx.today)}
+        {contractText(partner, lang)} · {tr(`état au ${fmtLong(ctx.today, lang)}`, `status as of ${fmtLong(ctx.today, lang)}`)}
       </p>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Contrepartie</th>
-              <th>Réalisé</th>
-              <th>Statut</th>
+              <th>{tr("Contrepartie", "Benefit")}</th>
+              <th>{tr("Réalisé", "Done")}</th>
+              <th>{tr("Statut", "Status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -798,11 +885,12 @@ function BilanDialog({ partner, obligations, ctx, onClose }) {
               .sort((a, b) => PARTNER_CATEGORIES.indexOf(a.categorie) - PARTNER_CATEGORIES.indexOf(b.categorie))
               .map((o) => {
                 const g = obligationProgress(partner, o, ctx);
+                const sep = lang === "fr" ? " : " : ": ";
                 const details =
                   o.mode === "publications"
-                    ? g.publications.filter((p) => p.statut === "done").map((p) => `${fmtShort(p.date)} : ${p.titre}`)
+                    ? g.publications.filter((p) => p.statut === "done").map((p) => `${fmtShort(p.date, lang)}${sep}${p.titre}`)
                     : o.mode === "evenements"
-                      ? o.items.filter((i) => i.fait).map((i) => `${i.date ? fmtShort(i.date) : "—"} : ${i.label}${i.preuve ? ` (${i.preuve})` : ""}`)
+                      ? o.items.filter((i) => i.fait).map((i) => `${i.date ? fmtShort(i.date, lang) : "—"}${sep}${i.label}${i.preuve ? ` (${i.preuve})` : ""}`)
                       : [];
                 return (
                   <tr key={o.id}>
@@ -814,7 +902,7 @@ function BilanDialog({ partner, obligations, ctx, onClose }) {
                         </span>
                       ) : null}
                     </td>
-                    <td style={{ whiteSpace: "nowrap" }}>{progressText(o, g)}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{progressText(o, g, lang)}</td>
                     <td>
                       <ObligationStatusPill statut={g.statut} />
                     </td>
@@ -826,7 +914,7 @@ function BilanDialog({ partner, obligations, ctx, onClose }) {
       </div>
       <div className="com-row" style={{ justifyContent: "flex-end" }}>
         <button type="button" className="button button--secondary button--small" onClick={onClose}>
-          Fermer
+          {tr("Fermer", "Close")}
         </button>
       </div>
     </Dialog>

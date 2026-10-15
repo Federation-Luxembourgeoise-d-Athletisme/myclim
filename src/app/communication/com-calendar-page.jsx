@@ -5,8 +5,9 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/auth-context";
 import { cancelOccurrence, createPublication, deletePublication, moveSeries, updateItem } from "./com-actions.js";
 import { useComPartners, useCommunicationTeam, useEvenements, usePublications, useRubriques, memberName } from "./com-data.js";
-import { JOURS, JOURS_GRILLE, MOIS, addDays, fmtLong, monthGridDays, parseYmd, todayYmd, ymd } from "./com-dates.js";
+import { addDays, dayName, fmtLong, gridDayNames, monthGridDays, monthName, parseYmd, todayYmd, ymd } from "./com-dates.js";
 import { CANAUX, CANAL_LABELS, PUB_TYPES, PUB_TYPE_LABELS, STATUTS, STATUT_LABELS } from "./com-domain.js";
+import { pick, useComLang } from "./com-i18n.js";
 import { buildCalendarItems, movedRule, ruleAt, ruleLabel } from "./com-recurrence.js";
 import { Avatar, Dialog, StatusPill, Toast, Toggle, TypeTag, ValidationBadge } from "./com-ui.jsx";
 import { typeColor, useEscape, useToast } from "./com-ui-helpers.js";
@@ -16,6 +17,7 @@ import { useSocialPosts } from "./com-social.js";
 export function ComCalendarPage() {
   const { currentUser } = useAuth();
   const uid = currentUser?.uid || "";
+  const { lang, tr } = useComLang();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const today = todayYmd();
@@ -87,8 +89,8 @@ export function ComCalendarPage() {
   }, [items]);
   const openItem = openId ? items.find((i) => i.id === openId) : undefined;
   // Statistiques de l'aperçu : posts chargés seulement si la publication ouverte en a un de relié.
-  const facebook = useSocialPosts("facebook", Boolean(openItem?.facebookPostId));
-  const instagram = useSocialPosts("instagram", Boolean(openItem?.instagramMediaId));
+  const facebook = useSocialPosts("facebook", Boolean(openItem?.facebookPostId), lang);
+  const instagram = useSocialPosts("instagram", Boolean(openItem?.instagramMediaId), lang);
 
   async function run(action, success) {
     try {
@@ -96,7 +98,7 @@ export function ComCalendarPage() {
       if (success) setToast(success);
     } catch (error) {
       console.error(error);
-      setToast("L'enregistrement a échoué. Réessaie.");
+      setToast(tr("L'enregistrement a échoué. Réessaie.", "Saving failed. Please try again."));
     }
   }
 
@@ -114,7 +116,7 @@ export function ComCalendarPage() {
       setMoveReq({ item, to });
       return;
     }
-    run(() => updateItem(item, { date: to }, uid), `Déplacée au ${fmtLong(to)}`);
+    run(() => updateItem(item, { date: to }, uid), tr(`Déplacée au ${fmtLong(to)}`, `Moved to ${fmtLong(to, lang)}`));
   }
 
   const goMonth = (delta) =>
@@ -128,24 +130,24 @@ export function ComCalendarPage() {
     <>
       <div className="com-page-header">
         <div className="com-row">
-          <button type="button" className="button button--secondary button--small" onClick={() => goMonth(-1)} aria-label="Mois précédent">
+          <button type="button" className="button button--secondary button--small" onClick={() => goMonth(-1)} aria-label={tr("Mois précédent", "Previous month")}>
             ‹
           </button>
           <h1 className="com-month-title">
-            {MOIS[month.m]} {month.y}
+            {monthName(month.m, lang)} {month.y}
           </h1>
-          <button type="button" className="button button--secondary button--small" onClick={() => goMonth(1)} aria-label="Mois suivant">
+          <button type="button" className="button button--secondary button--small" onClick={() => goMonth(1)} aria-label={tr("Mois suivant", "Next month")}>
             ›
           </button>
           <button type="button" className="com-btn-ghost" onClick={() => setMonth({ y: now.getFullYear(), m: now.getMonth() })}>
-            Aujourd'hui
+            {tr("Aujourd'hui", "Today")}
           </button>
         </div>
         <div className="com-row">
           <div className="com-segmented">
             {["mois", "liste"].map((m) => (
               <button key={m} type="button" onClick={() => setMode(m)} className={mode === m ? "is-on" : ""}>
-                {m}
+                {m === "mois" ? tr("mois", "month") : tr("liste", "list")}
               </button>
             ))}
           </div>
@@ -157,33 +159,36 @@ export function ComCalendarPage() {
 
       {!loadingRubriques && rubriques.length === 0 ? (
         <p className="com-empty">
-          Aucune rubrique récurrente pour l'instant.{" "}
+          {tr("Aucune rubrique récurrente pour l'instant.", "No recurring series yet.")}{" "}
           <Link to="/app/communication/rubriques" className="com-link">
-            Créer une rubrique
+            {tr("Créer une rubrique", "Create a series")}
           </Link>{" "}
-          (ex. compte à rebours chaque lundi) pour remplir le calendrier automatiquement.
+          {tr(
+            "(ex. compte à rebours chaque lundi) pour remplir le calendrier automatiquement.",
+            "(e.g. a countdown every Monday) to fill the calendar automatically.",
+          )}
         </p>
       ) : null}
 
       <div className="com-row">
         <select aria-label="Type" className="com-input is-auto" value={filters.type} onChange={(e) => setFilter("type", e.target.value)}>
-          <option value="">Tous les types</option>
+          <option value="">{tr("Tous les types", "All types")}</option>
           {PUB_TYPES.map((t) => (
             <option key={t} value={t}>
-              {PUB_TYPE_LABELS[t]}
+              {pick(PUB_TYPE_LABELS[t], lang)}
             </option>
           ))}
         </select>
-        <select aria-label="Canal" className="com-input is-auto" value={filters.canal} onChange={(e) => setFilter("canal", e.target.value)}>
-          <option value="">Tous les canaux</option>
+        <select aria-label={tr("Canal", "Channel")} className="com-input is-auto" value={filters.canal} onChange={(e) => setFilter("canal", e.target.value)}>
+          <option value="">{tr("Tous les canaux", "All channels")}</option>
           {CANAUX.map((c) => (
             <option key={c} value={c}>
-              {CANAL_LABELS[c].label}
+              {pick(CANAL_LABELS[c].label, lang)}
             </option>
           ))}
         </select>
-        <select aria-label="Personne" className="com-input is-auto" value={filters.personne} onChange={(e) => setFilter("personne", e.target.value)}>
-          <option value="">Toute l'équipe</option>
+        <select aria-label={tr("Personne", "Person")} className="com-input is-auto" value={filters.personne} onChange={(e) => setFilter("personne", e.target.value)}>
+          <option value="">{tr("Toute l'équipe", "Whole team")}</option>
           {team.map((u) => (
             <option key={u.uid} value={u.uid}>
               {memberName(u)}
@@ -191,8 +196,8 @@ export function ComCalendarPage() {
           ))}
         </select>
         {partners.length ? (
-          <select aria-label="Partenaire" className="com-input is-auto" value={filters.partenaire} onChange={(e) => setFilter("partenaire", e.target.value)}>
-            <option value="">Tous les partenaires</option>
+          <select aria-label={tr("Partenaire", "Partner")} className="com-input is-auto" value={filters.partenaire} onChange={(e) => setFilter("partenaire", e.target.value)}>
+            <option value="">{tr("Tous les partenaires", "All partners")}</option>
             {partners.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nom}
@@ -202,7 +207,7 @@ export function ComCalendarPage() {
         ) : null}
         <label className="com-row com-muted">
           <input type="checkbox" checked={filters.recurrentes} onChange={(e) => setFilter("recurrentes", e.target.checked)} />
-          Afficher les rubriques récurrentes
+          {tr("Afficher les rubriques récurrentes", "Show recurring series")}
         </label>
       </div>
 
@@ -210,23 +215,23 @@ export function ComCalendarPage() {
         {PUB_TYPES.map((t) => (
           <span key={t} style={typeColor(t)}>
             <span className="com-swatch" aria-hidden="true" />
-            {PUB_TYPE_LABELS[t]}
+            {pick(PUB_TYPE_LABELS[t], lang)}
           </span>
         ))}
-        <span>↻ récurrent</span>
-        <span>★ partenaire</span>
+        <span>{tr("↻ récurrent", "↻ recurring")}</span>
+        <span>{tr("★ partenaire", "★ partner")}</span>
         {STATUTS.map((s) => (
           <span key={s}>
             <span className={`com-st ${s}`} aria-hidden="true" />
-            {STATUT_LABELS[s]}
+            {pick(STATUT_LABELS[s], lang)}
           </span>
         ))}
-        {mode === "mois" ? <span>Glisse une publication sur un autre jour pour la déplacer.</span> : null}
+        {mode === "mois" ? <span>{tr("Glisse une publication sur un autre jour pour la déplacer.", "Drag a publication onto another day to move it.")}</span> : null}
       </div>
 
       {mode === "mois" ? (
         <div className="com-calendar">
-          {JOURS_GRILLE.map((j) => (
+          {gridDayNames(lang).map((j) => (
             <div key={j} className="com-calendar__head">
               {j}
             </div>
@@ -278,15 +283,15 @@ export function ComCalendarPage() {
                       e.stopPropagation();
                       openPage(item);
                     }}
-                    title={`${item.titre} · ${STATUT_LABELS[item.statut]}`}
+                    title={`${item.titre} · ${pick(STATUT_LABELS[item.statut], lang)}`}
                     className={`com-chip ${item.date < today ? "is-past" : ""}`}
                     style={typeColor(item.type)}
                   >
                     <span className={`com-st ${item.statut}`} aria-hidden="true" />
                     <span className="com-chip__title">{item.titre}</span>
                     <ValidationBadge validation={item.validation} compact />
-                    {item.partnerIds.length ? <span className="com-star" aria-label="mentionne un partenaire">★</span> : null}
-                    {item.rubriqueId ? <span className="com-rec" aria-label="récurrent">↻</span> : null}
+                    {item.partnerIds.length ? <span className="com-star" aria-label={tr("mentionne un partenaire", "mentions a partner")}>★</span> : null}
+                    {item.rubriqueId ? <span className="com-rec" aria-label={tr("récurrent", "recurring")}>↻</span> : null}
                   </button>
                 ))}
               </div>
@@ -303,7 +308,10 @@ export function ComCalendarPage() {
                 <div key={ds} className={`com-list__day ${ds === today ? "is-today" : ""}`}>
                   <div className="com-list__date">
                     <strong>{d.getDate()}</strong>
-                    <span>{JOURS[d.getDay()].slice(0, 3)}.</span>
+                    <span>
+                      {dayName(d.getDay(), lang).slice(0, 3)}
+                      {lang === "fr" ? "." : ""}
+                    </span>
                   </div>
                   <div className="com-stack" style={{ gap: 6 }}>
                     {(eventsByDate.get(ds) || []).map((ev) => (
@@ -330,17 +338,17 @@ export function ComCalendarPage() {
                           <TypeTag type={item.type} />
                           {item.canaux.map((c) => (
                             <span key={c} className="com-canal">
-                              {CANAL_LABELS[c].short}
+                              {pick(CANAL_LABELS[c].short, lang)}
                             </span>
                           ))}
-                          {item.rubriqueId ? <span>↻ récurrent</span> : null}
-                          {item.partnerIds.length ? <span className="com-star">★ partenaire</span> : null}
+                          {item.rubriqueId ? <span>{tr("↻ récurrent", "↻ recurring")}</span> : null}
+                          {item.partnerIds.length ? <span className="com-star">{tr("★ partenaire", "★ partner")}</span> : null}
                           <ValidationBadge validation={item.validation} />
                         </span>
                         <StatusPill statut={item.statut} />
                       </button>
                     ))}
-                    {!byDate.has(ds) && !eventsByDate.has(ds) ? <span className="com-muted">Rien de prévu aujourd'hui.</span> : null}
+                    {!byDate.has(ds) && !eventsByDate.has(ds) ? <span className="com-muted">{tr("Rien de prévu aujourd'hui.", "Nothing planned today.")}</span> : null}
                   </div>
                 </div>
               );
@@ -359,11 +367,11 @@ export function ComCalendarPage() {
           partners={partners}
           onOpen={() => openPage(openItem)}
           onStatut={(statut) => run(() => updateItem(openItem, { statut }, uid))}
-          onRename={(titre) => run(() => updateItem(openItem, { titre }, uid), "Titre modifié")}
+          onRename={(titre) => run(() => updateItem(openItem, { titre }, uid), tr("Titre modifié", "Title updated"))}
           onRemove={() => {
             setOpenId(null);
-            if (openItem.rubriqueId) run(() => cancelOccurrence(openItem, uid), "Date retirée du calendrier");
-            else run(() => deletePublication(openItem.id), "Publication supprimée");
+            if (openItem.rubriqueId) run(() => cancelOccurrence(openItem, uid), tr("Date retirée du calendrier", "Date removed from the calendar"));
+            else run(() => deletePublication(openItem.id), tr("Publication supprimée", "Publication deleted"));
           }}
           onClose={() => setOpenId(null)}
         />
@@ -377,7 +385,7 @@ export function ComCalendarPage() {
           partners={partners}
           onClose={() => setNewDate(null)}
           onCreate={async (data) => {
-            await run(() => createPublication({ ...data, statut: "todo", notes: "" }, uid), "Publication ajoutée au calendrier");
+            await run(() => createPublication({ ...data, statut: "todo", notes: "" }, uid), tr("Publication ajoutée au calendrier", "Publication added to the calendar"));
             setNewDate(null);
           }}
         />
@@ -392,13 +400,13 @@ export function ComCalendarPage() {
           onOnly={() => {
             const { item, to } = moveReq;
             setMoveReq(null);
-            run(() => updateItem(item, { date: to }, uid), `Déplacée au ${fmtLong(to)}, cette date seulement`);
+            run(() => updateItem(item, { date: to }, uid), tr(`Déplacée au ${fmtLong(to)}, cette date seulement`, `Moved to ${fmtLong(to, lang)}, this date only`));
           }}
           onSeries={() => {
             const { item, to } = moveReq;
             setMoveReq(null);
             setOpenId(null);
-            run(() => moveSeries(item, rubriqueById.get(item.rubriqueId), to, uid), "Récurrence déplacée à partir de cette date");
+            run(() => moveSeries(item, rubriqueById.get(item.rubriqueId), to, uid), tr("Récurrence déplacée à partir de cette date", "Series moved from this date onwards"));
           }}
         />
       ) : null}
@@ -410,6 +418,7 @@ export function ComCalendarPage() {
 
 // Aperçu rapide d'une publication depuis le calendrier : statut, contenu en bref et ce qui manque.
 function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram, onOpen, onStatut, onRename, onRemove, onClose }) {
+  const { lang, tr } = useComLang();
   const [titre, setTitre] = useState(item.titre);
   const [confirming, setConfirming] = useState(false);
   useEscape(onClose);
@@ -421,12 +430,28 @@ function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram
   const excerpt = (item.texte || item.notes).trim();
   const images = [item.visuelUrl, ...item.photos.map((p) => p.thumbUrl)].filter(Boolean);
   const rows = [
-    ["Canaux", item.canaux.map((c) => CANAL_LABELS[c].label).join(", ") || "Aucun"],
-    ["Assigné à", assignees.map(memberName).join(", ") || "Personne"],
-    ["Visuel", item.visuelUrl ? "Ajouté" : item.photos.length ? "Photo de la galerie" : <span className="com-warn-text">Manquant</span>],
-    ["Photos", item.photos.length ? `${item.photos.length} de la galerie` : "Aucune"],
-    ["Validation", item.validation ? <ValidationBadge validation={item.validation} /> : "Pas encore demandée"],
-    ...(checks.length ? [["Partenaires", `${checksDone} vérification${checksDone > 1 ? "s" : ""} sur ${checks.length}`]] : []),
+    [tr("Canaux", "Channels"), item.canaux.map((c) => pick(CANAL_LABELS[c].label, lang)).join(", ") || tr("Aucun", "None")],
+    [tr("Assigné à", "Assigned to"), assignees.map(memberName).join(", ") || tr("Personne", "Nobody")],
+    [
+      tr("Visuel", "Visual"),
+      item.visuelUrl ? (
+        tr("Ajouté", "Added")
+      ) : item.photos.length ? (
+        tr("Photo de la galerie", "Gallery photo")
+      ) : (
+        <span className="com-warn-text">{tr("Manquant", "Missing")}</span>
+      ),
+    ],
+    ["Photos", item.photos.length ? tr(`${item.photos.length} de la galerie`, `${item.photos.length} from the gallery`) : tr("Aucune", "None")],
+    [tr("Validation", "Approval"), item.validation ? <ValidationBadge validation={item.validation} /> : tr("Pas encore demandée", "Not requested yet")],
+    ...(checks.length
+      ? [
+          [
+            tr("Partenaires", "Partners"),
+            tr(`${checksDone} vérification${checksDone > 1 ? "s" : ""} sur ${checks.length}`, `${checksDone} of ${checks.length} check${checks.length > 1 ? "s" : ""}`),
+          ],
+        ]
+      : []),
   ];
 
   return (
@@ -435,7 +460,7 @@ function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram
       <aside role="dialog" aria-label={item.titre} className="com-drawer">
         <div className="com-drawer__top">
           <TypeTag type={item.type} />
-          <button type="button" className="com-btn-ghost" onClick={onClose} aria-label="Fermer">
+          <button type="button" className="com-btn-ghost" onClick={onClose} aria-label={tr("Fermer", "Close")}>
             ✕
           </button>
         </div>
@@ -443,7 +468,7 @@ function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram
         <div className="com-drawer__body">
           <div className="com-stack" style={{ gap: 6 }}>
             <input
-              aria-label="Titre"
+              aria-label={tr("Titre", "Title")}
               className="com-title-input"
               value={titre}
               onChange={(e) => setTitre(e.target.value)}
@@ -455,19 +480,19 @@ function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram
               }}
             />
             <p className="com-muted">
-              {fmtLong(item.date)}
+              {fmtLong(item.date, lang)}
               {item.heure ? ` · ${item.heure}` : ""}
               {rubrique ? ` · ↻ ${rubrique.titre}` : ""}
             </p>
           </div>
 
           <div>
-            <p className="com-section-title">Statut</p>
+            <p className="com-section-title">{tr("Statut", "Status")}</p>
             <div className="com-row">
               {STATUTS.map((s) => (
                 <Toggle key={s} on={item.statut === s} onClick={() => item.statut !== s && onStatut(s)}>
                   <span className={`com-st ${s}`} aria-hidden="true" />
-                  {STATUT_LABELS[s]}
+                  {pick(STATUT_LABELS[s], lang)}
                 </Toggle>
               ))}
             </div>
@@ -499,25 +524,25 @@ function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram
 
         <div className="com-drawer__bottom">
           <button type="button" className="button button--primary" onClick={onOpen}>
-            Ouvrir la publication →
+            {tr("Ouvrir la publication →", "Open publication →")}
           </button>
           {confirming ? (
             <div className="com-row" style={{ justifyContent: "center" }}>
-              <span>{isOccurrence ? "Retirer cette date du calendrier ?" : "Supprimer définitivement ?"}</span>
+              <span>{isOccurrence ? tr("Retirer cette date du calendrier ?", "Remove this date from the calendar?") : tr("Supprimer définitivement ?", "Delete permanently?")}</span>
               <button type="button" className="button button--danger-soft button--small" onClick={onRemove}>
-                Confirmer
+                {tr("Confirmer", "Confirm")}
               </button>
               <button type="button" className="com-btn-ghost" onClick={() => setConfirming(false)}>
-                Garder
+                {tr("Garder", "Keep")}
               </button>
             </div>
           ) : (
             <div className="com-row" style={{ justifyContent: "space-between" }}>
               <span className="com-muted" style={{ fontSize: "0.75rem" }}>
-                Astuce : double-clic pour ouvrir directement.
+                {tr("Astuce : double-clic pour ouvrir directement.", "Tip: double-click to open it directly.")}
               </span>
               <button type="button" className="button button--danger-soft button--small" onClick={() => setConfirming(true)}>
-                {isOccurrence ? "Annuler cette date" : "Supprimer"}
+                {isOccurrence ? tr("Annuler cette date", "Cancel this date") : tr("Supprimer", "Delete")}
               </button>
             </div>
           )}
@@ -528,6 +553,7 @@ function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram
 }
 
 export function NewPublicationDialog({ date, team, events = [], eventId = null, partners = [], onClose, onCreate }) {
+  const { lang, tr } = useComLang();
   const [form, setForm] = useState({ titre: "", date, type: "post", canaux: ["fb", "ig"], assigneUids: [], eventId, partnerIds: [] });
   const [submitting, setSubmitting] = useState(false);
   const toggle = (key, value) =>
@@ -544,11 +570,19 @@ export function NewPublicationDialog({ date, team, events = [], eventId = null, 
   }
 
   return (
-    <Dialog title="Nouvelle publication" onClose={onClose}>
+    <Dialog title={tr("Nouvelle publication", "New publication")} onClose={onClose}>
       <form className="com-stack" onSubmit={handleSubmit}>
         <label className="com-field">
-          Titre
-          <input className="com-input" required autoFocus maxLength={200} placeholder="Ex. Annonce du plateau du 60 m" value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} />
+          {tr("Titre", "Title")}
+          <input
+            className="com-input"
+            required
+            autoFocus
+            maxLength={200}
+            placeholder={tr("Ex. Annonce du plateau du 60 m", "e.g. 60 m line-up announcement")}
+            value={form.titre}
+            onChange={(e) => setForm({ ...form, titre: e.target.value })}
+          />
         </label>
         <div className="com-grid-2">
           <label className="com-field">
@@ -560,24 +594,24 @@ export function NewPublicationDialog({ date, team, events = [], eventId = null, 
             <select className="com-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               {PUB_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {PUB_TYPE_LABELS[t]}
+                  {pick(PUB_TYPE_LABELS[t], lang)}
                 </option>
               ))}
             </select>
           </label>
         </div>
         <div className="com-field">
-          Canaux
+          {tr("Canaux", "Channels")}
           <div className="com-row">
             {CANAUX.map((c) => (
               <Toggle key={c} on={form.canaux.includes(c)} onClick={() => toggle("canaux", c)}>
-                {CANAL_LABELS[c].label}
+                {pick(CANAL_LABELS[c].label, lang)}
               </Toggle>
             ))}
           </div>
         </div>
         <div className="com-field">
-          Assigné à
+          {tr("Assigné à", "Assigned to")}
           <div className="com-row">
             {team.map((u) => (
               <Toggle key={u.uid} on={form.assigneUids.includes(u.uid)} onClick={() => toggle("assigneUids", u.uid)}>
@@ -589,7 +623,7 @@ export function NewPublicationDialog({ date, team, events = [], eventId = null, 
         </div>
         {partners.length ? (
           <div className="com-field">
-            Partenaires mentionnés
+            {tr("Partenaires mentionnés", "Partners mentioned")}
             <div className="com-row">
               {partners.map((p) => (
                 <Toggle key={p.id} on={form.partnerIds.includes(p.id)} onClick={() => toggle("partnerIds", p.id)}>
@@ -601,9 +635,9 @@ export function NewPublicationDialog({ date, team, events = [], eventId = null, 
         ) : null}
         {events.length ? (
           <label className="com-field">
-            Événement
+            {tr("Événement", "Event")}
             <select className="com-input" value={form.eventId || ""} onChange={(e) => setForm({ ...form, eventId: e.target.value || null })}>
-              <option value="">Aucun</option>
+              <option value="">{tr("Aucun", "None")}</option>
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>
                   {ev.titre}
@@ -614,10 +648,10 @@ export function NewPublicationDialog({ date, team, events = [], eventId = null, 
         ) : null}
         <div className="com-row" style={{ justifyContent: "flex-end" }}>
           <button type="button" className="com-btn-ghost" onClick={onClose}>
-            Annuler
+            {tr("Annuler", "Cancel")}
           </button>
           <button type="submit" className="button button--primary button--small" disabled={submitting}>
-            {submitting ? "Ajout…" : "Ajouter au calendrier"}
+            {submitting ? tr("Ajout…", "Adding…") : tr("Ajouter au calendrier", "Add to calendar")}
           </button>
         </div>
       </form>
@@ -630,25 +664,35 @@ function MoveDialog({ item, rubrique, to, onOnly, onSeries, onClose }) {
   const orig = item.occurrenceDate || item.date;
   const current = ruleAt(rubrique, orig);
   const next = movedRule(current, parseYmd(orig), parseYmd(to));
+  const { lang, tr } = useComLang();
+  // En français la règle se lit en minuscules au milieu de la phrase ; en anglais on garde les majuscules (« Every Monday »).
+  const rule = (r) => (lang === "fr" ? ruleLabel(r).toLowerCase() : ruleLabel(r, lang));
 
   return (
-    <Dialog title="Déplacer une rubrique récurrente" onClose={onClose}>
+    <Dialog title={tr("Déplacer une rubrique récurrente", "Move a recurring series")} onClose={onClose}>
       <p style={{ margin: 0 }}>
-        <strong>{item.titre}</strong> passe du <strong>{fmtLong(item.date)}</strong> au <strong>{fmtLong(to)}</strong>.
+        <strong>{item.titre}</strong> {tr("passe du", "moves from")} <strong>{fmtLong(item.date, lang)}</strong> {tr("au", "to")}{" "}
+        <strong>{fmtLong(to, lang)}</strong>.
       </p>
       <div className="com-stack" style={{ gap: 8 }}>
         <button type="button" className="com-choice" onClick={onOnly}>
-          <strong>Seulement cette date</strong>
-          <span>Les autres semaines restent : {ruleLabel(current).toLowerCase()}.</span>
+          <strong>{tr("Seulement cette date", "This date only")}</strong>
+          <span>
+            {tr("Les autres semaines restent : ", "The other weeks stay the same: ")}
+            {rule(current)}.
+          </span>
         </button>
         <button type="button" className="com-choice" onClick={onSeries}>
-          <strong>Toute la récurrence, à partir de cette date</strong>
-          <span>Nouveau rythme : {ruleLabel(next).toLowerCase()}. Les dates passées ne bougent pas.</span>
+          <strong>{tr("Toute la récurrence, à partir de cette date", "The whole series, from this date onwards")}</strong>
+          <span>
+            {tr("Nouveau rythme : ", "New schedule: ")}
+            {rule(next)}. {tr("Les dates passées ne bougent pas.", "Past dates stay where they are.")}
+          </span>
         </button>
       </div>
       <div className="com-row" style={{ justifyContent: "flex-end" }}>
         <button type="button" className="com-btn-ghost" onClick={onClose}>
-          Annuler
+          {tr("Annuler", "Cancel")}
         </button>
       </div>
     </Dialog>

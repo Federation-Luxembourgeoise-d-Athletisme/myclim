@@ -143,9 +143,10 @@ export const deleteObligation = (id) => deleteDoc(doc(db, COM_COLLECTIONS.obliga
 /* ---------- Validation (Cloud Function, qui prévient par e-mail) ---------- */
 
 // action : "demande" (avec demandeeA = uids), "validee" ou "a_revoir".
-export async function sendValidation(publicationId, action, message, demandeeA) {
+// lang : langue des messages d'erreur renvoyés par le serveur.
+export async function sendValidation(publicationId, action, message, demandeeA, lang = "fr") {
   const callable = httpsCallable(functions, "comPublicationValidation");
-  const response = await callable({ publicationId, action, message, demandeeA });
+  const response = await callable({ publicationId, action, message, demandeeA, lang });
   return response?.data?.validation || null;
 }
 
@@ -155,11 +156,13 @@ export const VISUEL_MAX_BYTES = 15 * 1024 * 1024;
 export const VISUEL_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "video/mp4", "video/quicktime"];
 
 // Dépose le visuel via la fonction d'envoi existante (com-visuels/{publication}/…) et renvoie son adresse.
-export async function uploadVisuel(publicationId, file) {
-  if (!VISUEL_TYPES.includes(file.type)) throw new Error("Format accepté : image (PNG, JPEG, GIF, WebP) ou vidéo (MP4, MOV).");
-  if (file.size > VISUEL_MAX_BYTES) throw new Error("Fichier trop lourd (15 Mo maximum).");
+export async function uploadVisuel(publicationId, file, lang = "fr") {
+  const fr = lang === "fr";
+  if (!VISUEL_TYPES.includes(file.type))
+    throw new Error(fr ? "Format accepté : image (PNG, JPEG, GIF, WebP) ou vidéo (MP4, MOV)." : "Accepted formats: image (PNG, JPEG, GIF, WebP) or video (MP4, MOV).");
+  if (file.size > VISUEL_MAX_BYTES) throw new Error(fr ? "Fichier trop lourd (15 Mo maximum)." : "File too large (15 MB maximum).");
   const user = auth.currentUser;
-  if (!user) throw new Error("Session expirée : reconnecte-toi.");
+  if (!user) throw new Error(fr ? "Session expirée : reconnecte-toi." : "Session expired: please sign in again.");
   const response = await fetch(STORAGE_UPLOAD_ENDPOINT, {
     method: "POST",
     headers: {
@@ -171,7 +174,7 @@ export async function uploadVisuel(publicationId, file) {
     body: file,
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload?.url) throw new Error(payload?.message || "L'envoi du visuel a échoué.");
+  if (!response.ok || !payload?.url) throw new Error(payload?.message || (fr ? "L'envoi du visuel a échoué." : "The visual upload failed."));
   return { url: payload.url, path: payload.filePath };
 }
 
@@ -181,15 +184,16 @@ export const deleteVisuel = (path) => deleteObject(storageRef(storage, path)).ca
 export const isVideo = (url) => /\.(mp4|mov)(\?|$)/i.test(decodeURIComponent(String(url || "")));
 
 // Actions communes sur une publication (aperçu du calendrier et page de la publication).
-// notify(message) affiche une confirmation ou une erreur.
-export function publicationHandlers(item, uid, notify) {
+// notify(message) affiche une confirmation ou une erreur, dans la langue lang.
+export function publicationHandlers(item, uid, notify, lang = "fr") {
+  const tr = (fr, en) => (lang === "fr" ? fr : en);
   async function run(action, success) {
     try {
       await action();
       if (success) notify(success);
     } catch (error) {
       console.error(error);
-      notify(error?.message && !String(error.message).startsWith("FirebaseError") ? error.message : "L'enregistrement a échoué. Réessaie.");
+      notify(error?.message && !String(error.message).startsWith("FirebaseError") ? error.message : tr("L'enregistrement a échoué. Réessaie.", "Saving failed. Please try again."));
     }
   }
 
@@ -200,17 +204,20 @@ export function publicationHandlers(item, uid, notify) {
     requestValidation: (demandeeA, message) =>
       run(async () => {
         if (!item.materialized) await updateItem(item, {}, uid);
-        await sendValidation(item.id, "demande", message, demandeeA);
-      }, "Demande de validation envoyée"),
+        await sendValidation(item.id, "demande", message, demandeeA, lang);
+      }, tr("Demande de validation envoyée", "Approval request sent")),
     answerValidation: (verdict, comment) =>
-      run(() => sendValidation(item.id, verdict, comment), verdict === "validee" ? "Publication validée 👍" : "Renvoyée pour corrections 👎"),
+      run(
+        () => sendValidation(item.id, verdict, comment, undefined, lang),
+        verdict === "validee" ? tr("Publication validée 👍", "Publication approved 👍") : tr("Renvoyée pour corrections 👎", "Sent back for changes 👎"),
+      ),
     uploadVisuel: (file) =>
       run(async () => {
         const previous = item.visuelPath;
-        const { url, path } = await uploadVisuel(item.id, file);
+        const { url, path } = await uploadVisuel(item.id, file, lang);
         await updateItem(item, { visuelUrl: url, visuelPath: path }, uid);
         if (previous) await deleteVisuel(previous);
-      }, "Visuel enregistré"),
+      }, tr("Visuel enregistré", "Visual saved")),
     removeVisuel: () =>
       run(async () => {
         const previous = item.visuelPath;
