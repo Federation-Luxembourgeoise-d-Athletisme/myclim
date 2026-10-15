@@ -213,6 +213,7 @@ const supportTaskDayOptions = ["Vendredi", "Samedi", "Dimanche", "Lundi"];
 
 const platformRoleOptions = [
   { value: "admin", label: "Administrateur" },
+  { value: "meeting_director", label: "Meeting director" },
   { value: "budget", label: "Module Budget" },
   { value: "gestionnaire", label: "Gestionnaire" },
   { value: "gestionnaire_site", label: "Gestionnaire site" },

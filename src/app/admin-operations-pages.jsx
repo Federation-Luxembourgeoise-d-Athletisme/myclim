@@ -70,13 +70,77 @@ const DEFAULT_LIST_PAGE_SIZE = 10;
 
 const ROLE_ACCESS_DESCRIPTIONS = {
   admin: "Accès complet à toute l'application, y compris cette page de gestion des rôles et les réglages sensibles. Seul un admin peut changer les rôles d'un autre compte.",
+  meeting_director: "Pilotage du portail athlètes : import, fiches complètes, transport et historique des meetings. N'a pas accès aux bénévoles ni aux réglages.",
   budget: "Accès au module Budget (page dédiée) : suivi et modification du budget de l'édition active. N'inclut pas le dépôt de facture — celui-ci se gère séparément ci-dessous.",
   gestionnaire: "Accès opérationnel au pilotage quotidien : bénévoles, équipes, présences, accréditations, presse, VIP et pré-programme. N'a pas accès à cette page de gestion des rôles ni aux réglages du site web (sauf rôle supplémentaire).",
   gestionnaire_site: "Accès à la gestion du contenu du site public : actualités, partenaires, e-magazine et communiqués de presse.",
   chef_equipe: "Accès à \"Mon équipe\" : consulter les membres de son équipe et ajouter des documents utiles pour elle. Voit aussi les présences limitées à ses équipes.",
   benevole: "Accès à l'espace bénévole standard : dossier bénévole, mes affectations et mes documents.",
   parent_u14: "Accès à \"Mes enfants\" : suivi des inscriptions au pré-programme U12/U14 et au porte-panier.",
+  kine: "Accès à la page « Réservations kiné » : voir et gérer les créneaux de soins réservés par les athlètes.",
 };
+
+// Ordre d'affichage : du moins au plus puissant, pour que les accès sensibles
+// soient toujours au même endroit (à droite) sur chaque ligne.
+const ROLE_DISPLAY_ORDER = [
+  "benevole",
+  "parent_u14",
+  "chef_equipe",
+  "kine",
+  "gestionnaire_site",
+  "budget",
+  "gestionnaire",
+  "meeting_director",
+  "admin",
+];
+
+// Rôles posés automatiquement par l'affectation à l'équipe Transport
+// (syncVolunteerAssignmentToUserProfile) : affichés mais pas éditables ici,
+// sinon la prochaine affectation écraserait la modification.
+const AUTOMATIC_ROLE_OPTIONS = [
+  { value: "chef_transport_athletes", label: "Chef transport athlètes" },
+  { value: "benevole_transport_athletes", label: "Bénévole transport athlètes" },
+];
+
+// Tout ce qui donne plus qu'un espace personnel : c'est la liste qu'un admin
+// veut voir d'emblée (« qui a la main sur quoi ? »).
+const ELEVATED_ROLE_VALUES = [
+  "admin",
+  "meeting_director",
+  "gestionnaire",
+  "budget",
+  "gestionnaire_site",
+  "chef_equipe",
+  "kine",
+  "chef_transport_athletes",
+];
+
+function getOrderedRoleOptions() {
+  return [...platformRoleOptions].sort(
+    (left, right) => ROLE_DISPLAY_ORDER.indexOf(left.value) - ROLE_DISPLAY_ORDER.indexOf(right.value),
+  );
+}
+
+function sameRoleSet(left, right) {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((role) => rightSet.has(role));
+}
+
+// Un profil users/{id} est un vrai compte de connexion quand son id est l'uid
+// Auth. accountStatus, lui, suit la candidature (bénévole / pré-programme) et
+// ne dit rien sur la possibilité de se connecter.
+function isLoginAccount(user) {
+  return !user.uid || user.uid === user.id;
+}
+
+function formatProfileStatus(accountStatus) {
+  const status = String(accountStatus || "active").trim().toLowerCase();
+  if (status === "active") return null;
+  if (status === "disabled") return { label: "Compte désactivé", tone: "danger" };
+  if (status === "pre_programme_recu") return { label: "Inscription pré-programme reçue", tone: "neutral" };
+  return { label: `Candidature bénévole : ${formatVolunteerApplicationStatus(status).toLowerCase()}`, tone: "neutral" };
+}
 
 function normalizeEmailKey(email) {
   return String(email || "").trim().toLowerCase();
@@ -91,13 +155,15 @@ function getTimestampMillis(value) {
 }
 
 function compareUsersForCleanup(left, right) {
-  const leftUpdatedAt = Math.max(getTimestampMillis(left.updatedAt), getTimestampMillis(left.createdAt));
-  const rightUpdatedAt = Math.max(getTimestampMillis(right.updatedAt), getTimestampMillis(right.createdAt));
-  if (leftUpdatedAt !== rightUpdatedAt) return rightUpdatedAt - leftUpdatedAt;
-
+  // Le profil lié au compte Auth passe avant la date : sinon une fiche
+  // orpheline touchée plus récemment ferait supprimer le vrai compte.
   const leftCompleted = Boolean(left.uid && left.id === left.uid);
   const rightCompleted = Boolean(right.uid && right.id === right.uid);
   if (leftCompleted !== rightCompleted) return rightCompleted ? 1 : -1;
+
+  const leftUpdatedAt = Math.max(getTimestampMillis(left.updatedAt), getTimestampMillis(left.createdAt));
+  const rightUpdatedAt = Math.max(getTimestampMillis(right.updatedAt), getTimestampMillis(right.createdAt));
+  if (leftUpdatedAt !== rightUpdatedAt) return rightUpdatedAt - leftUpdatedAt;
 
   return String(right.id || "").localeCompare(String(left.id || ""), "fr");
 }
@@ -132,12 +198,16 @@ function RoleManagementPage(props) {
   const { currentUser, deletePlatformUser, userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const hasAdminRole = roles.includes("admin");
+  const orderedRoleOptions = useMemo(() => getOrderedRoleOptions(), []);
   const [users, setUsers] = useState([]);
+  // Brouillons par compte, indépendants de la liste affichée : changer de
+  // filtre ou de recherche ne fait plus perdre des cases cochées non sauvées.
+  const [drafts, setDrafts] = useState({});
   const [search, setSearch] = useState("");
   const [selectedRoleGroup, setSelectedRoleGroup] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [savingUserId, setSavingUserId] = useState("");
+  const [savingUserIds, setSavingUserIds] = useState([]);
   const [deletingUserId, setDeletingUserId] = useState("");
   const [duplicateGroups, setDuplicateGroups] = useState([]);
   const [duplicatesLoading, setDuplicatesLoading] = useState(false);
@@ -157,9 +227,7 @@ function RoleManagementPage(props) {
   const normalizedSearch = search.trim().toLowerCase();
   const searchTokens = useMemo(() => buildSearchPrefixes(search).slice(0, 10), [search]);
   const shouldSearch = searchTokens.length > 0;
-  const shouldLoadUsers = hasAdminRole && (shouldSearch || Boolean(selectedRoleGroup));
-  const visibleUsers = useMemo(() => (shouldLoadUsers ? users : []), [shouldLoadUsers, users]);
-  const visibleLoading = shouldLoadUsers ? loading : false;
+  const queryLimit = shouldSearch ? 50 : selectedRoleGroup ? 100 : 200;
   const duplicateCount = useMemo(
     () => duplicateGroups.reduce((sum, group) => sum + group.removedUsers.length, 0),
     [duplicateGroups],
@@ -167,6 +235,10 @@ function RoleManagementPage(props) {
   const invoicePermissionUsersById = useMemo(
     () => new Map(invoicePermissionUsers.map((user) => [user.id, user])),
     [invoicePermissionUsers],
+  );
+  const dirtyDrafts = useMemo(
+    () => Object.values(drafts).filter((draft) => !sameRoleSet(draft.userTypes, draft.user.userTypes)),
+    [drafts],
   );
 
   useEffect(() => {
@@ -217,7 +289,7 @@ function RoleManagementPage(props) {
   }, [hasAdminRole]);
 
   useEffect(() => {
-    if (!shouldLoadUsers) return undefined;
+    if (!hasAdminRole) return undefined;
 
     let isCancelled = false;
     const loadingTimeoutId = window.setTimeout(() => {
@@ -227,9 +299,13 @@ function RoleManagementPage(props) {
     async function loadUsers() {
       try {
         const usersRef = collection(db, "users");
+        // Sans recherche ni filtre : l'équipe avec des accès au-delà de
+        // l'espace personnel, ce qu'un admin vient vérifier le plus souvent.
         const usersQuery = shouldSearch
-          ? query(usersRef, where("searchTokens", "array-contains-any", searchTokens), limit(50))
-          : query(usersRef, where("userTypes", "array-contains", selectedRoleGroup), limit(100));
+          ? query(usersRef, where("searchTokens", "array-contains-any", searchTokens), limit(queryLimit))
+          : selectedRoleGroup
+            ? query(usersRef, where("userTypes", "array-contains", selectedRoleGroup), limit(queryLimit))
+            : query(usersRef, where("userTypes", "array-contains-any", ELEVATED_ROLE_VALUES), limit(queryLimit));
         const snapshot = await getDocs(usersQuery);
         const docsToBackfill = snapshot.docs.filter((userSnapshot) => {
           const data = userSnapshot.data();
@@ -253,6 +329,7 @@ function RoleManagementPage(props) {
 
             return {
               id: userSnapshot.id,
+              uid: data.uid || "",
               email: data.email || "",
               firstName: data.firstName || "",
               lastName: data.lastName || "",
@@ -300,56 +377,95 @@ function RoleManagementPage(props) {
       window.clearTimeout(loadingTimeoutId);
       window.clearTimeout(timeoutId);
     };
-  }, [normalizedSearch, searchTokens, selectedRoleGroup, shouldLoadUsers, shouldSearch, hasAdminRole]);
+  }, [normalizedSearch, searchTokens, selectedRoleGroup, shouldSearch, hasAdminRole, queryLimit]);
 
-  const loadedUserSummary = useMemo(
-    () => ({
-      adminCount: visibleUsers.filter((user) => user.userTypes.includes("admin")).length,
-      managerCount: visibleUsers.filter((user) => user.userTypes.includes("gestionnaire")).length,
-      leadCount: visibleUsers.filter((user) => user.userTypes.includes("chef_equipe")).length,
-    }),
-    [visibleUsers],
-  );
-
-  function toggleUserRole(userId, roleValue) {
-    setUsers((current) =>
-      current.map((user) => {
-        if (user.id !== userId) return user;
-
-        const hasRole = user.userTypes.includes(roleValue);
-        const nextRoles = hasRole
-          ? user.userTypes.filter((role) => role !== roleValue)
-          : [...user.userTypes, roleValue];
-
-        return {
-          ...user,
-          userTypes: nextRoles.length ? nextRoles : ["benevole"],
-        };
-      }),
-    );
+  function getDraftRoles(user) {
+    return drafts[user.id]?.userTypes ?? user.userTypes;
   }
 
-  async function saveUserRoles(user) {
-    if (user.id === currentUser?.uid && !user.userTypes.includes("admin")) {
-      setStatusMessage("Tu ne peux pas retirer ton propre rôle admin depuis cet écran.");
+  function toggleUserRole(user, roleValue) {
+    const currentRoles = getDraftRoles(user);
+    const hasRole = currentRoles.includes(roleValue);
+
+    if (
+      !hasRole &&
+      roleValue === "admin" &&
+      !window.confirm(
+        `Donner le rôle Administrateur à ${getDisplayName(user, user.email)} ?\n\nIl ou elle aura accès à tout, y compris cette page et la suppression de comptes.`,
+      )
+    ) {
       return;
     }
 
-    setSavingUserId(user.id);
-    setStatusMessage("");
+    const nextRoles = hasRole
+      ? currentRoles.filter((role) => role !== roleValue)
+      : [...currentRoles, roleValue];
+    const hasEditableRole = nextRoles.some((role) => platformRoleOptions.some((option) => option.value === role));
+
+    setDrafts((current) => ({
+      ...current,
+      [user.id]: {
+        user,
+        userTypes: hasEditableRole ? nextRoles : [...nextRoles, "benevole"],
+      },
+    }));
+  }
+
+  function resetDraft(userId) {
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[userId];
+      return next;
+    });
+  }
+
+  async function saveUserRoles(user, userTypes) {
+    if (user.id === currentUser?.uid && !userTypes.includes("admin")) {
+      return "self-admin";
+    }
+
+    setSavingUserIds((current) => [...current, user.id]);
 
     try {
       await updateDoc(doc(db, "users", user.id), {
-        userTypes: user.userTypes,
+        userTypes,
         searchTokens: buildUserSearchTokens(user),
+        rolesUpdatedAt: serverTimestamp(),
+        rolesUpdatedBy: currentUser?.uid || "",
         updatedAt: serverTimestamp(),
       });
-      setStatusMessage(`Rôles mis à jour pour ${getDisplayName(user, user.email)}.`);
+      setUsers((current) => current.map((entry) => (entry.id === user.id ? { ...entry, userTypes } : entry)));
+      resetDraft(user.id);
+      return "saved";
     } catch {
-      setStatusMessage("La mise à jour des rôles a échoué.");
+      return "failed";
     } finally {
-      setSavingUserId("");
+      setSavingUserIds((current) => current.filter((id) => id !== user.id));
     }
+  }
+
+  async function saveDraft(draft) {
+    setStatusMessage("");
+    const result = await saveUserRoles(draft.user, draft.userTypes);
+    const displayName = getDisplayName(draft.user, draft.user.email);
+    setStatusMessage(
+      result === "saved"
+        ? `Rôles mis à jour pour ${displayName}.`
+        : result === "self-admin"
+          ? "Tu ne peux pas retirer ton propre rôle admin depuis cet écran."
+          : `La mise à jour des rôles a échoué pour ${displayName}.`,
+    );
+  }
+
+  async function saveAllDrafts() {
+    setStatusMessage("");
+    const results = await Promise.all(dirtyDrafts.map((draft) => saveUserRoles(draft.user, draft.userTypes)));
+    const failedCount = results.filter((result) => result !== "saved").length;
+    setStatusMessage(
+      failedCount
+        ? `${results.length - failedCount} compte(s) mis à jour, ${failedCount} en échec — ils restent marqués comme modifiés.`
+        : `${results.length} compte(s) mis à jour.`,
+    );
   }
 
   async function handleDeleteUser(user) {
@@ -366,6 +482,7 @@ function RoleManagementPage(props) {
     try {
       const result = await deletePlatformUser(user.id, user.email);
       setUsers((current) => current.filter((entry) => entry.id !== user.id));
+      resetDraft(user.id);
       setStatusMessage(
         `Utilisateur supprimé: ${displayName}. Auth supprimé: ${result?.authDeleted ? "oui" : result?.authMissing ? "déjà absent" : "non"}.`,
       );
@@ -406,6 +523,14 @@ function RoleManagementPage(props) {
   async function cleanupDuplicateUsers() {
     if (!duplicateGroups.length) {
       setStatusMessage("Aucun doublon à nettoyer.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Archiver puis supprimer ${duplicateCount} profil(s) en doublon ?\n\nVérifie la colonne « Profil conservé » avant de confirmer.`,
+      )
+    ) {
       return;
     }
 
@@ -505,7 +630,7 @@ function RoleManagementPage(props) {
         <section className="page-header">
           <div>
             <p className="eyebrow">Administration</p>
-            <h1>Rôles plateforme</h1>
+            <h1>Rôles & accès</h1>
             <p>Cette page est réservée aux administrateurs.</p>
           </div>
         </section>
@@ -513,191 +638,229 @@ function RoleManagementPage(props) {
     );
   }
 
+  const listTitle = shouldSearch
+    ? `Résultats pour « ${search.trim()} »`
+    : selectedRoleGroup
+      ? getRoleLabel(selectedRoleGroup)
+      : "Équipe avec des accès élevés";
+  const roleFilterOptions = [...orderedRoleOptions].reverse();
+
   return (
-    <div className="page">
+    <div className="page access-page">
       <section className="page-header">
         <div>
           <p className="eyebrow">Administration</p>
-          <h1>Rôles plateforme</h1>
-          <p>Assigne les accès admin, gestionnaire, chef d'équipe, bénévole et parent U14.</p>
+          <h1>Rôles & accès</h1>
+          <p>
+            Qui peut faire quoi dans MyCLIM. Un compte peut cumuler plusieurs rôles : chaque rôle ajoute des accès, il
+            n'en retire jamais.
+          </p>
         </div>
       </section>
 
-      <Panel
-        title="Rechercher une personne"
-        subtitle="Retrouve un compte par nom, prénom, mail, ou filtre par groupe de rôle. Coche/décoche ses rôles dans le tableau ci-dessous puis clique sur « Sauvegarder » sur sa ligne."
-      >
-        <div className="choice-grid choice-grid--2">
+      <Panel title={listTitle} subtitle={`${users.length} compte(s)${users.length >= queryLimit ? ` — liste limitée à ${queryLimit}, affine la recherche` : ""}`}>
+        <div className="access-toolbar">
           <AuthFormField label="Rechercher une personne">
             <input
               autoFocus
               placeholder="Nom, prénom ou mail"
+              type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </AuthFormField>
-          <AuthFormField label="Groupe de rôle">
-            <select value={selectedRoleGroup} onChange={(event) => setSelectedRoleGroup(event.target.value)}>
-              <option value="">Tous les groupes</option>
-              {platformRoleOptions.map((roleOption) => (
-                <option key={roleOption.value} value={roleOption.value}>
-                  {roleOption.label}
-                </option>
-              ))}
-            </select>
-          </AuthFormField>
+          <div className="access-filter" role="group" aria-label="Filtrer par rôle">
+            <button
+              className={`access-filter__chip${selectedRoleGroup ? "" : " is-active"}`}
+              type="button"
+              onClick={() => setSelectedRoleGroup("")}
+            >
+              {shouldSearch ? "Tous les rôles" : "Accès élevés"}
+            </button>
+            {roleFilterOptions.map((roleOption) => (
+              <button
+                key={`filter-${roleOption.value}`}
+                className={`access-filter__chip${selectedRoleGroup === roleOption.value ? " is-active" : ""}`}
+                type="button"
+                onClick={() => setSelectedRoleGroup(roleOption.value)}
+              >
+                {roleOption.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="compact-list" style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
-          <span>{visibleUsers.length} compte(s) trouvé(s)</span>
-          <span>{loadedUserSummary.adminCount} administrateur(s)</span>
-          <span>{loadedUserSummary.managerCount} gestionnaire(s)</span>
-          <span>{loadedUserSummary.leadCount} chef(s) d'équipe</span>
-        </div>
-        {!selectedRoleGroup && !normalizedSearch ? (
-          <p className="panel-note">
-            Sélectionne un groupe de rôle ou saisis au moins 2 caractères pour afficher des comptes.
-          </p>
-        ) : null}
-        {statusMessage ? <p className="panel-note">{statusMessage}</p> : null}
-      </Panel>
 
-      <Panel title="Gestion des accès" subtitle="Les changements prennent effet après sauvegarde de la ligne.">
-        {visibleLoading ? <p className="panel-note">Chargement des utilisateurs...</p> : null}
-        {!visibleLoading && !visibleUsers.length ? (
-          <p className="panel-note">Aucun utilisateur ne correspond aux filtres actuels.</p>
+        {statusMessage ? <p className="panel-note access-status">{statusMessage}</p> : null}
+        {loading ? <p className="panel-note">Chargement des comptes...</p> : null}
+        {!loading && !users.length ? (
+          <p className="panel-note">Aucun compte ne correspond à cette recherche.</p>
         ) : null}
-        <div className="table-wrap">
-          <table className="data-table data-table--admin">
-            <thead>
-              <tr>
-                <th>Personne</th>
-                <th>Email</th>
-                <th>Statut</th>
-                <th>Rôles</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleUsers.map((user) => {
-                const isActiveAccount = (user.accountStatus || "active") === "active";
-                return (
-                  <tr key={user.id}>
-                    <td>
+
+        {users.length ? (
+          <ul className="access-list">
+            {users.map((user) => {
+              const draftRoles = getDraftRoles(user);
+              const isDirty = !sameRoleSet(draftRoles, user.userTypes);
+              const isSelf = user.id === currentUser?.uid;
+              const isSaving = savingUserIds.includes(user.id);
+              const profileStatus = formatProfileStatus(user.accountStatus);
+              const automaticRoles = AUTOMATIC_ROLE_OPTIONS.filter((option) => draftRoles.includes(option.value));
+
+              return (
+                <li key={user.id} className={`access-row${isDirty ? " access-row--dirty" : ""}`}>
+                  <div className="access-row__person">
+                    <strong>
                       {getDisplayName(user, user.email)}
-                      {!isActiveAccount ? (
-                        <>
-                          <br />
-                          <span className="panel-note" style={{ color: "#b45309" }}>
-                            ⚠ pas encore un compte actif — sûrement une candidature bénévole, pas la même fiche que
-                            son compte connecté
-                          </span>
-                        </>
-                      ) : null}
-                    </td>
-                    <td>{user.email || "Non renseigné"}</td>
-                    <td>
-                      {isActiveAccount ? "Actif" : formatVolunteerApplicationStatus(user.accountStatus)}
-                    </td>
-                    <td>
-                      <div className="choice-grid choice-grid--2">
-                        {platformRoleOptions.map((roleOption) => (
-                          <label
-                            key={`${user.id}-${roleOption.value}`}
-                            className="selection-card selection-card--compact"
-                            title={ROLE_ACCESS_DESCRIPTIONS[roleOption.value]}
+                      {isSelf ? <span className="access-badge access-badge--self">toi</span> : null}
+                    </strong>
+                    <span className="access-row__email">{user.email || "E-mail non renseigné"}</span>
+                    {!isLoginAccount(user) || profileStatus ? (
+                      <div className="access-row__badges">
+                        {!isLoginAccount(user) ? (
+                          <span
+                            className="access-badge access-badge--warn"
+                            title="Ce profil n'est pas lié à un compte de connexion. Lance l'analyse des doublons en bas de page."
                           >
-                            <input
-                              checked={user.userTypes.includes(roleOption.value)}
-                              type="checkbox"
-                              onChange={() => toggleUserRole(user.id, roleOption.value)}
-                            />
-                            <div>
-                              <strong>{roleOption.label}</strong>
-                            </div>
-                          </label>
-                        ))}
+                            Fiche sans connexion
+                          </span>
+                        ) : null}
+                        {profileStatus ? (
+                          <span className={`access-badge access-badge--${profileStatus.tone}`}>{profileStatus.label}</span>
+                        ) : null}
                       </div>
-                    </td>
-                    <td>
-                      <div className="button-row">
+                    ) : null}
+                  </div>
+
+                  <div className="access-row__roles" role="group" aria-label={`Rôles de ${getDisplayName(user, user.email)}`}>
+                    {orderedRoleOptions.map((roleOption) => {
+                      const isOn = draftRoles.includes(roleOption.value);
+                      const isLocked = isSelf && roleOption.value === "admin" && isOn;
+                      return (
                         <button
-                          className="button button--primary"
+                          key={`${user.id}-${roleOption.value}`}
+                          aria-pressed={isOn}
+                          className={`access-chip${isOn ? " is-on" : ""}${roleOption.value === "admin" ? " access-chip--admin" : ""}`}
+                          disabled={isLocked || isSaving}
+                          title={isLocked ? "Tu ne peux pas retirer ton propre rôle administrateur." : ROLE_ACCESS_DESCRIPTIONS[roleOption.value]}
                           type="button"
-                          disabled={savingUserId === user.id || deletingUserId === user.id}
-                          onClick={() => saveUserRoles(user)}
+                          onClick={() => toggleUserRole(user, roleOption.value)}
                         >
-                          {savingUserId === user.id ? "Sauvegarde..." : "Sauvegarder"}
+                          {roleOption.label}
+                        </button>
+                      );
+                    })}
+                    {automaticRoles.map((roleOption) => (
+                      <span
+                        key={`${user.id}-${roleOption.value}`}
+                        className="access-chip is-on access-chip--auto"
+                        title="Posé automatiquement par l'affectation à l'équipe Transport (page Équipes)."
+                      >
+                        {roleOption.label}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="access-row__actions">
+                    {isDirty ? (
+                      <>
+                        <button className="button button--secondary button--small" type="button" disabled={isSaving} onClick={() => resetDraft(user.id)}>
+                          Annuler
                         </button>
                         <button
-                          className="button button--danger"
+                          className="button button--primary button--small"
                           type="button"
-                          disabled={deletingUserId === user.id || user.id === currentUser?.uid}
-                          onClick={() => handleDeleteUser(user)}
+                          disabled={isSaving}
+                          onClick={() => saveDraft(drafts[user.id])}
                         >
-                          {deletingUserId === user.id ? "Suppression..." : "Supprimer"}
+                          {isSaving ? "Enregistrement..." : "Enregistrer"}
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!visibleLoading && visibleUsers.length === 0 ? (
-                <tr>
-                  <td colSpan="5">Aucun utilisateur ne correspond aux filtres actuels.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-        <p className="panel-note">
-          Rôles actuels : {platformRoleOptions.map((role) => getRoleLabel(role.value)).join(", ")}.
-        </p>
+                      </>
+                    ) : (
+                      <button
+                        className="access-row__delete"
+                        type="button"
+                        disabled={deletingUserId === user.id || isSelf}
+                        title={isSelf ? "Tu ne peux pas supprimer ton propre compte." : "Supprime le compte de connexion et le profil"}
+                        onClick={() => handleDeleteUser(user)}
+                      >
+                        {deletingUserId === user.id ? "Suppression..." : "Supprimer le compte"}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        {dirtyDrafts.length ? (
+          <div className="access-savebar" role="status">
+            <span>
+              {dirtyDrafts.length} compte(s) modifié(s), pas encore enregistré(s)
+            </span>
+            <div className="button-row">
+              <button className="button button--secondary button--small" type="button" onClick={() => setDrafts({})}>
+                Tout annuler
+              </button>
+              <button
+                className="button button--primary button--small"
+                type="button"
+                disabled={savingUserIds.length > 0}
+                onClick={saveAllDrafts}
+              >
+                {savingUserIds.length ? "Enregistrement..." : "Tout enregistrer"}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </Panel>
 
-      <Panel
-        title="Comprendre les rôles"
-        subtitle="Un compte peut cumuler plusieurs rôles à la fois (ex : bénévole + chef d'équipe). Chaque rôle ajoute des accès, il n'en retire jamais."
-      >
+      <details className="panel access-details">
+        <summary>
+          <h3>Comprendre les rôles</h3>
+          <p>Ce que chaque rôle ouvre. Survoler un rôle dans la liste affiche aussi sa description.</p>
+        </summary>
         <dl className="detail-list">
-          {platformRoleOptions.map((roleOption) => (
+          {orderedRoleOptions.map((roleOption) => (
             <div key={roleOption.value}>
               <dt>{roleOption.label}</dt>
               <dd>{ROLE_ACCESS_DESCRIPTIONS[roleOption.value]}</dd>
             </div>
           ))}
+          <div>
+            <dt>Transport athlètes (auto)</dt>
+            <dd>
+              Chef et bénévoles transport sont posés automatiquement quand la personne est affectée à l'équipe Transport
+              dans la page Équipes. Ils s'affichent ici en lecture seule.
+            </dd>
+          </div>
         </dl>
         <p className="panel-note">
-          Un compte garde toujours au moins un rôle : si tu décoches tout, il redevient automatiquement "Bénévole".
-          Tu ne peux pas retirer ton propre rôle administrateur depuis cet écran.
+          Un compte garde toujours au moins un rôle : si tu retires tout, il redevient « Bénévole ». Le statut de
+          candidature affiché sous le nom ne change rien aux accès : la personne peut se connecter dans tous les cas.
         </p>
-        <p className="panel-note">
-          Le dépôt de facture est une autorisation à part, indépendante des rôles ci-dessus : elle se configure dans
-          le panneau "Dépôt de facture" plus bas, par rôle ou en ajoutant une personne précise.
-        </p>
-      </Panel>
+      </details>
 
       <Panel
         title="Dépôt de facture"
-        subtitle="Choisis quels rôles plateforme peuvent déposer des factures dans l'onglet Document, et ajoute si besoin des personnes précises."
+        subtitle="Autorisation à part, indépendante des rôles : choisis quels rôles peuvent déposer des factures dans l'onglet Documents, et ajoute si besoin des personnes précises."
       >
         <div className="section-stack">
-          <div className="choice-grid choice-grid--2">
-            {platformRoleOptions.map((roleOption) => (
-              <label
-                key={`invoice-${roleOption.value}`}
-                className="selection-card selection-card--compact"
-                title={ROLE_ACCESS_DESCRIPTIONS[roleOption.value]}
-              >
-                <input
-                  checked={invoicePermissionDraft.allowedUploaderRoles.includes(roleOption.value)}
-                  type="checkbox"
-                  onChange={() => toggleInvoicePermissionRole(roleOption.value)}
-                />
-                <div>
-                  <strong>{roleOption.label}</strong>
-                </div>
-              </label>
-            ))}
+          <div className="access-row__roles">
+            {orderedRoleOptions.map((roleOption) => {
+              const isOn = invoicePermissionDraft.allowedUploaderRoles.includes(roleOption.value);
+              return (
+                <button
+                  key={`invoice-${roleOption.value}`}
+                  aria-pressed={isOn}
+                  className={`access-chip${isOn ? " is-on" : ""}`}
+                  type="button"
+                  onClick={() => toggleInvoicePermissionRole(roleOption.value)}
+                >
+                  {roleOption.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="field">
@@ -767,10 +930,11 @@ function RoleManagementPage(props) {
         </div>
       </Panel>
 
-      <Panel
-        title="Nettoyage des doublons"
-        subtitle="Détecte les profils Firestore en doublon par e-mail, archive les plus anciens puis les supprime de users."
-      >
+      <details className="panel access-details">
+        <summary>
+          <h3>Maintenance : profils en doublon</h3>
+          <p>Détecte les profils en double pour une même adresse e-mail et archive ceux qui ne sont pas liés au compte de connexion.</p>
+        </summary>
         <div className="button-row">
           <button
             className="button button--secondary"
@@ -781,7 +945,7 @@ function RoleManagementPage(props) {
             {duplicatesLoading ? "Analyse..." : "Analyser les doublons"}
           </button>
           <button
-            className="button button--danger"
+            className="button button--danger-soft"
             type="button"
             disabled={!duplicateGroups.length || duplicatesLoading || isCleaningDuplicates}
             onClick={cleanupDuplicateUsers}
@@ -790,12 +954,9 @@ function RoleManagementPage(props) {
           </button>
         </div>
         <p className="panel-note">
-          Règle utilisée : on garde le profil le plus récent pour chaque e-mail et on archive les anciens dans
+          Règle : on garde le profil lié au compte de connexion (sinon le plus récent) et on archive les autres dans
           `usersCleanupArchive` avant suppression.
         </p>
-        {!duplicateGroups.length && !duplicatesLoading ? (
-          <p className="panel-note">Aucun doublon analysé pour le moment.</p>
-        ) : null}
         {duplicateGroups.length ? (
           <div className="table-wrap">
             <table className="data-table data-table--admin">
@@ -830,8 +991,7 @@ function RoleManagementPage(props) {
             </table>
           </div>
         ) : null}
-      </Panel>
-
+      </details>
     </div>
   );
 }

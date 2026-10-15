@@ -6375,3 +6375,253 @@ tr.row--warning > td {
   width: 100%;
   margin: 0;
 }
+
+/* ── Rôles & accès ─────────────────────────────────────────── */
+.access-toolbar {
+  display: grid;
+  gap: 12px;
+}
+
+.access-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.access-filter__chip {
+  border: 1px solid #d5e2ee;
+  background: #fff;
+  color: #3d5566;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.access-filter__chip:hover {
+  border-color: #9fbfdd;
+}
+
+.access-filter__chip.is-active {
+  background: #174b77;
+  border-color: #174b77;
+  color: #fff;
+}
+
+.access-status {
+  margin: 0;
+}
+
+.access-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.access-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr auto;
+  gap: 10px 20px;
+  align-items: center;
+  padding: 14px 12px;
+  border-top: 1px solid #e6edf3;
+  border-radius: 12px;
+}
+
+.access-row:first-child {
+  border-top: 0;
+}
+
+.access-row--dirty {
+  background: #fff8e8;
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.access-row__person {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.access-row__person strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.access-row__email {
+  color: #637780;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.access-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.access-badge {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #eef2f6;
+  color: #4b5f6d;
+}
+
+.access-badge--self {
+  background: #e6f0f8;
+  color: #174b77;
+}
+
+.access-badge--warn {
+  background: rgba(245, 158, 11, 0.16);
+  color: #92610a;
+}
+
+.access-badge--danger {
+  background: #fde9e9;
+  color: #9f2020;
+}
+
+.access-row__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.access-chip {
+  border: 1px dashed #c9d6e2;
+  background: transparent;
+  color: #7a8d99;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.access-chip:not(.is-on):hover:not(:disabled) {
+  border-color: #6f9cc4;
+  color: #174b77;
+}
+
+.access-chip.is-on {
+  border-style: solid;
+  border-color: #174b77;
+  background: #174b77;
+  color: #fff;
+  font-weight: 600;
+}
+
+.access-chip--admin.is-on {
+  border-color: #c8102e;
+  background: #c8102e;
+}
+
+.access-chip--auto {
+  cursor: help;
+  border-color: #7a8d99;
+  background: #7a8d99;
+}
+
+.access-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.access-row__actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  min-width: 170px;
+}
+
+.access-row__actions .button--small {
+  white-space: nowrap;
+}
+
+.access-row__delete {
+  border: 0;
+  background: none;
+  color: #9aa9b3;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.3rem 0;
+}
+
+.access-row__delete:hover:not(:disabled) {
+  color: #b12323;
+  text-decoration: underline;
+}
+
+.access-row__delete:disabled {
+  visibility: hidden;
+}
+
+.access-savebar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #102f4c;
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(16, 47, 76, 0.28);
+}
+
+.access-savebar .button--secondary {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.access-details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.access-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.access-details > summary h3::after {
+  content: " ▸";
+  color: #9aa9b3;
+}
+
+.access-details[open] > summary h3::after {
+  content: " ▾";
+}
+
+.access-details > summary p {
+  margin: 0;
+  color: #637780;
+}
+
+.access-details:not([open]) {
+  gap: 0;
+}
+
+@media (max-width: 900px) {
+  .access-row {
+    grid-template-columns: 1fr;
+  }
+
+  .access-row__actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+}
