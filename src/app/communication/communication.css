@@ -40,6 +40,14 @@
   min-width: 0;
 }
 
+/* Les cases à cocher ne prennent pas la largeur des champs (style global de l'app). */
+.com-module input[type="checkbox"],
+.com-module input[type="radio"] {
+  width: auto;
+  flex: none;
+  margin: 0;
+}
+
 /* ── Navigation interne ── */
 .com-nav {
   display: flex;
@@ -152,7 +160,7 @@
   color: var(--com-muted);
 }
 
-.com-input {
+.com-module .com-input {
   width: 100%;
   border: 1px solid var(--com-line);
   background: #fff;
@@ -163,11 +171,11 @@
   color: var(--com-ink);
 }
 
-.com-input.is-auto {
+.com-module .com-input.is-auto {
   width: auto;
 }
 
-textarea.com-input {
+.com-module textarea.com-input {
   min-height: 80px;
   resize: vertical;
 }
@@ -609,7 +617,7 @@ textarea.com-input {
   padding: 20px;
 }
 
-.com-title-input {
+.com-module .com-title-input {
   width: 100%;
   margin-left: -8px;
   border: 1px solid transparent;
@@ -622,8 +630,8 @@ textarea.com-input {
   color: var(--com-ink);
 }
 
-.com-title-input:hover,
-.com-title-input:focus {
+.com-module .com-title-input:hover,
+.com-module .com-title-input:focus {
   border-color: var(--com-line);
 }
 
@@ -748,6 +756,17 @@ textarea.com-input {
 @media (min-width: 1280px) {
   .com-pub-layout { grid-template-columns: 260px minmax(0, 1fr) 340px; }
   .com-pub-layout.no-mini { grid-template-columns: minmax(0, 1fr) 340px; }
+}
+
+/* Mini-calendrier : seulement sur grand écran (comme dans myFLA). */
+.com-mini,
+.com-mini-toggle {
+  display: none !important;
+}
+
+@media (min-width: 1280px) {
+  .com-mini { display: flex !important; }
+  .com-mini-toggle { display: inline-block !important; }
 }
 
 .com-mini {

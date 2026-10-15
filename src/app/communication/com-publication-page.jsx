@@ -160,7 +160,7 @@ function PublicationPage({ item }) {
 
         <div className="com-stack" style={{ gap: 20 }}>
           {!calOpen ? (
-            <button type="button" className="com-btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => showCalendar(true)}>
+            <button type="button" className="com-btn-ghost com-mini-toggle" style={{ alignSelf: "flex-start" }} onClick={() => showCalendar(true)}>
               « Afficher le mini-calendrier
             </button>
           ) : null}
