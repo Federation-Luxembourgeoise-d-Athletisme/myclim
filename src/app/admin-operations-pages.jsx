@@ -139,6 +139,7 @@ function formatProfileStatus(accountStatus) {
   if (status === "active") return null;
   if (status === "disabled") return { label: "Compte désactivé", tone: "danger" };
   if (status === "pre_programme_recu") return { label: "Inscription pré-programme reçue", tone: "neutral" };
+  if (status === "candidature_recue") return { label: "Candidature bénévole reçue", tone: "neutral" };
   return { label: `Candidature bénévole : ${formatVolunteerApplicationStatus(status).toLowerCase()}`, tone: "neutral" };
 }
 

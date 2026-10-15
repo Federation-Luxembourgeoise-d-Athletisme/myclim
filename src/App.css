@@ -6380,6 +6380,14 @@ tr.row--warning > td {
 .access-toolbar {
   display: grid;
   gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid #dfe8f0;
+  border-radius: 14px;
+  background: #f3f7fb;
+}
+
+.access-toolbar input {
+  background: #fff;
 }
 
 .access-filter {
@@ -6414,7 +6422,7 @@ tr.row--warning > td {
 
 .access-list {
   list-style: none;
-  margin: 0;
+  margin: 8px 0 0;
   padding: 0;
   display: grid;
 }
