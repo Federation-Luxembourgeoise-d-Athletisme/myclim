@@ -8,6 +8,8 @@ const LINKS_PAGE_DOC_ID = "linksPage";
 // Adresse imprimée dans le QR code : toujours le site en production, même
 // quand l'admin est ouvert en local.
 const PUBLIC_LINKS_URL = "https://cmcm-luxembourg-indoor-meeting.lu/links";
+// Ancienne adresse de la page Facebook, qui ne fonctionne plus.
+const OLD_FACEBOOK_URL = "https://www.facebook.com/LuxembourgIndoorMeeting";
 const MEETING_TIME_ZONE = "Europe/Luxembourg";
 
 function L(en, fr) {
@@ -53,8 +55,7 @@ const DEFAULT_LINKS_PAGE = {
   },
   social: {
     instagram: "https://www.instagram.com/cmcm_lux_indoor_meet/",
-    facebook: "https://www.facebook.com/LuxembourgIndoorMeeting",
-    youtube: "https://www.youtube.com/@LuxembourgIndoorMeeting",
+    facebook: "https://www.facebook.com/search/top?q=cmcm%20luxembourg%20indoor%20meeting",
   },
   contactEmail: "events@fla.lu",
 };
@@ -100,8 +101,8 @@ function normalizeLinksPage(stored = {}) {
     },
     social: {
       instagram: pick(source.social?.instagram, base.social.instagram),
-      facebook: pick(source.social?.facebook, base.social.facebook),
-      youtube: pick(source.social?.youtube, base.social.youtube),
+      // Remplace l'ancienne adresse Facebook si elle est restée enregistrée.
+      facebook: source.social?.facebook === OLD_FACEBOOK_URL ? base.social.facebook : pick(source.social?.facebook, base.social.facebook),
     },
     contactEmail: pick(source.contactEmail, base.contactEmail),
   };

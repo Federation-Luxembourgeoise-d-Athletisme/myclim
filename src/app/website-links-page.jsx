@@ -193,7 +193,6 @@ function WebsiteLinksPage({ Panel }) {
         <div className="auth-form auth-form--compact links-admin-form">
           <TextField {...fieldProps} label="Instagram" path={["social", "instagram"]} type="url" />
           <TextField {...fieldProps} label="Facebook" path={["social", "facebook"]} type="url" />
-          <TextField {...fieldProps} label="YouTube" path={["social", "youtube"]} type="url" />
           <TextField {...fieldProps} label="E-mail de contact" path={["contactEmail"]} type="email" />
         </div>
       </Panel>

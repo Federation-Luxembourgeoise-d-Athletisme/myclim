@@ -489,16 +489,6 @@ export function SiteHome() {
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
             />
           </div>
-          <div style={{ textAlign: "center", marginTop: 32 }}>
-            <a
-              href="https://www.youtube.com/@LuxembourgIndoorMeeting"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="site-btn site-btn--secondary site-btn--sm"
-            >
-              More videos on YouTube →
-            </a>
-          </div>
         </div>
       </section>
 
