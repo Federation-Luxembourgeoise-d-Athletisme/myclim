@@ -641,7 +641,9 @@ async function rebuildAthleteRegistryFromHistoricalResults(onProgress) {
   onProgress?.("Regroupement des athlètes à partir des résultats historiques…");
   const athletes = new Map();
   for (const row of rows) {
-    const key = athleteMergeKey(row.lastName, row.firstName, row.noc);
+    // The birth year (when a result row carries one) keeps homonyms apart —
+    // e.g. Bob Bertemes the shot putter (1993) vs. the LUX middle-distance runner.
+    const key = `${athleteMergeKey(row.lastName, row.firstName, row.noc)}|${row.yob ?? row.birthYear ?? ""}`;
     if (!key.replace(/\|/g, "")) continue;
 
     if (!athletes.has(key)) {

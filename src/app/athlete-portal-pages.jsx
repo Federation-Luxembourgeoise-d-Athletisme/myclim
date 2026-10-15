@@ -2000,6 +2000,9 @@ function getDuplicateMatchReason(a, b) {
   const closeLast = areVariantDuplicateTokens(lastA, lastB);
   const closeFirst = areVariantDuplicateTokens(firstA, firstB);
 
+  // Two known, different birth years = homonyms, not duplicates.
+  if (birthA && birthB && birthA !== birthB) return null;
+
   if (sameLast && sameFirst) {
     return a.nationality !== b.nationality ? "Même nom, nationalités différentes" : "Même nom";
   }
