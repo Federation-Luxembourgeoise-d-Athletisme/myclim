@@ -49,6 +49,10 @@ service cloud.firestore {
       return isSignedIn() && "chef_transport_athletes" in userTypes();
     }
 
+    function isPhysio() {
+      return isSignedIn() && "kine" in userTypes();
+    }
+
     function isAthleteTransportVolunteer() {
       return isSignedIn() && "benevole_transport_athletes" in userTypes();
     }
@@ -328,6 +332,35 @@ service cloud.firestore {
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
     }
 
+    // ── Kiné ────────────────────────────────────────────────────────────────
+    // Chaque kiné gère ses propres plages d'ouverture ; tous les kinés voient
+    // et gèrent toutes les réservations (planning commun). Les athlètes
+    // réservent via les Cloud Functions de l'espace athlète (athlete-hub.js).
+    match /physioSessions/{sessionId} {
+      allow read: if isAdminOrManager() || isPhysio();
+      allow create: if isAdminOrManager() ||
+        (isPhysio() && request.resource.data.physioUid == request.auth.uid);
+      allow update, delete: if isAdminOrManager() ||
+        (isPhysio() && resource.data.physioUid == request.auth.uid);
+    }
+
+    match /physioBookings/{bookingId} {
+      allow read, write: if isAdminOrManager() || isPhysio();
+    }
+
+    // Limite d'essais d'identification : Cloud Functions uniquement.
+    match /athleteHubAttempts/{attemptId} {
+      allow read, write: if false;
+    }
+
+    // ── Roadbook athlètes ───────────────────────────────────────────────────
+    // Page publique /athletes/roadbook : lisible par tous une fois publiée,
+    // le brouillon reste réservé aux admins/gestionnaires (aperçu ?preview=1).
+    match /athleteRoadbooks/{editionId} {
+      allow read: if resource.data.status == "published" || isAdminOrManager();
+      allow write: if isAdminOrManager();
+    }
+
     // ── Caisse jour J ────────────────────────────────────────────────────────
     // Chaque ordinateur de caisse ne lit que son propre poste.
     match /cashPosts/{postId} {
@@ -375,65 +408,7 @@ service cloud.firestore {
       return request.resource.data.titre is string &&
         request.resource.data.titre.size() <= 200 &&
         request.resource.data.date is string &&
-        request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}────────────────────────────────────────────────
-    // Lecture ouverte aux bénévoles et chefs d'équipe (actuellement bloqué par catch-all)
-    match /documents/{docId} {
-      allow read:   if isSignedIn();
-      allow write:  if isAdminOrManager();
-      // Un chef d'équipe peut publier des documents pour son équipe et retirer
-      // uniquement ceux qu'il a lui-même ajoutés (pas les documents admin/globaux).
-      allow create: if (
-        isTeamLead() &&
-        request.resource.data.documentType == "document" &&
-        request.resource.data.scope == "teams" &&
-        request.resource.data.uploadedByUid == request.auth.uid
-      ) || (
-        canManageInvoices() &&
-        request.resource.data.documentType == "invoice" &&
-        request.resource.data.uploadedByUid == request.auth.uid
-      );
-      // Le classement d'une facture (lier/délier une ligne de budget) doit rester
-      // possible pour les mêmes personnes autorisées à déposer des factures.
-      allow update: if canManageInvoices() && resource.data.documentType == "invoice";
-      // Toute personne autorisée à déposer une facture (pas seulement chef
-      // d'équipe) doit pouvoir retirer celle qu'elle a elle-même déposée.
-      allow delete: if (isTeamLead() && resource.data.uploadedByUid == request.auth.uid) ||
-        (canManageInvoices() && resource.data.documentType == "invoice" && resource.data.uploadedByUid == request.auth.uid);
-    }
-
-    // ── Budget ────────────────────────────────────────────────────────────────
-    // Le rôle "budget" pilote le module budget/factures sans être gestionnaire.
-    match /budgets/{document=**} {
-      allow read, write: if isAdminOrManager() || isBudgetManager();
-    }
-
-    // ── Site public (gestion contenu) ───────────────────────────────────────
-    match /siteSponsors/{docId} {
-      allow read: if true;
-      allow write: if isWebsiteManager();
-    }
-
-    match /siteNews/{docId} {
-      allow read: if true;
-      allow write: if isWebsiteManager();
-    }
-
-    match /sitePressReleases/{docId} {
-      allow read: if true;
-      allow write: if isWebsiteManager();
-    }
-
-    match /siteContent/{docId} {
-      allow read: if true;
-      allow write: if isWebsiteManager();
-    }
-
-    match /{document=**} {
-      allow read, write: if isAdminOrManager();
-    }
-  }
-}
-) &&
+        request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
         (!('texte' in request.resource.data) || request.resource.data.texte == null ||
           (request.resource.data.texte is string && request.resource.data.texte.size() <= 10000)) &&
         (!('notes' in request.resource.data) || request.resource.data.notes == null ||
