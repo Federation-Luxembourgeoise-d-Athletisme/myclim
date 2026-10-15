@@ -21,7 +21,6 @@ function SocialIcon({ type }) {
     instagram: "M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2Zm0 1.5A4.25 4.25 0 0 0 3.5 7.75v8.5A4.25 4.25 0 0 0 7.75 20.5h8.5A4.25 4.25 0 0 0 20.5 16.25v-8.5A4.25 4.25 0 0 0 16.25 3.5h-8.5ZM12 7a5 5 0 1 1 0 10A5 5 0 0 1 12 7Zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm5.25-2.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z",
     facebook: "M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z",
     twitter: "M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z",
-    youtube: "M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.41 19.1C5.12 19.56 12 19.56 12 19.56s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33zM9.75 15.02V8.49l5.75 3.26-5.75 3.27z",
   };
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -212,22 +211,13 @@ export function SiteLayout() {
                   <SocialIcon type="instagram" />
                 </a>
                 <a
-                  href="https://www.facebook.com/LuxembourgIndoorMeeting"
+                  href="https://www.facebook.com/search/top?q=cmcm%20luxembourg%20indoor%20meeting"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="site-footer__social-link"
                   aria-label="Facebook"
                 >
                   <SocialIcon type="facebook" />
-                </a>
-                <a
-                  href="https://www.youtube.com/@LuxembourgIndoorMeeting"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="site-footer__social-link"
-                  aria-label="YouTube"
-                >
-                  <SocialIcon type="youtube" />
                 </a>
               </div>
             </div>

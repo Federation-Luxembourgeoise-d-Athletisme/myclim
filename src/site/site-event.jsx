@@ -683,15 +683,7 @@ export function SiteEvent() {
                 lead="Watch the aftermovie of the last edition. Livestream of the next edition will be available on competition day."
               />
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <a
-                  href="https://www.youtube.com/@LuxembourgIndoorMeeting"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="site-btn site-btn--primary site-btn--sm"
-                >
-                  ▶ YouTube channel
-                </a>
-                <NavLink to="/statistics" className="site-btn site-btn--secondary site-btn--sm">
+                <NavLink to="/statistics" className="site-btn site-btn--primary site-btn--sm">
                   Results &amp; records
                 </NavLink>
               </div>

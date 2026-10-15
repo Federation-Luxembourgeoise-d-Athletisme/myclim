@@ -184,7 +184,6 @@ export function SiteLinks() {
   const socialLinks = [
     { key: "instagram", emoji: "📷", label: "Instagram", url: settings.social.instagram },
     { key: "facebook", emoji: "👍", label: "Facebook", url: settings.social.facebook },
-    { key: "youtube", emoji: "▶️", label: "YouTube", url: settings.social.youtube },
   ].filter((link) => link.url);
   const accessLines = [
     { emoji: "🚪", value: pick(settings.access.doors), strong: true },
