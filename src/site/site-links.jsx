@@ -5,7 +5,7 @@ import cmcmLogo from "../assets/cmcm-logo.png";
 import waSilverLogo from "../assets/wa-indoor-tour-silver.png";
 import { getNowOnTrack, isLiveDay, resolvePhotos } from "./links-page-config";
 import { useLinksPageSettings, useSponsors } from "./site-hooks";
-import { getSponsorMediaStyle } from "./sponsor-media-utils";
+import { SponsorLogo } from "./sponsor-logo";
 import "./site-links.css";
 
 // Page « liens » grand public, derrière le QR code affiché à la Coque.
@@ -340,7 +340,7 @@ export function SiteLinks() {
               <h2 className="lk-section-title">{copy.secPartners}</h2>
               <section className="lk-card lk-partners">
                 {partnerLogos.map((sponsor) => {
-                  const logo = <img src={sponsor.logoUrl} alt={sponsor.name || ""} style={getSponsorMediaStyle(sponsor)} />;
+                  const logo = <SponsorLogo sponsor={sponsor} />;
                   return sponsor.website ? (
                     <ExternalLink key={sponsor.id} className="lk-partners__logo" href={sponsor.website}>
                       {logo}

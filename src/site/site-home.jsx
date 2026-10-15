@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useSiteEditionYear } from "../app/edition";
 import { formatEditionLabel, getEditionDisplayNumber } from "../app/meeting-edition-utils";
 import { useMeetingEditions, useMeetingResultsForYear } from "../app/meeting-history-hooks";
-import { getSponsorMediaStyle } from "./sponsor-media-utils";
+import { SponsorLogo } from "./sponsor-logo";
 import { usePublishedNews, useSponsorCategories, useSponsors } from "./site-hooks";
 import { sponsorCategoryLabel } from "./sponsor-utils";
 import cmcmLogo from "../assets/cmcm-logo.png";
@@ -811,7 +811,7 @@ export function SiteHome() {
                         >
                           {s.logoUrl ? (
                             <div className="site-sponsor-logo__media">
-                              <img src={s.logoUrl} alt={s.name} style={getSponsorMediaStyle(s)} />
+                              <SponsorLogo sponsor={s} />
                             </div>
                           ) : (
                             <span className="site-sponsor-name">{s.name}</span>
@@ -825,7 +825,7 @@ export function SiteHome() {
                         >
                           {s.logoUrl ? (
                             <div className="site-sponsor-logo__media">
-                              <img src={s.logoUrl} alt={s.name} style={getSponsorMediaStyle(s)} />
+                              <SponsorLogo sponsor={s} />
                             </div>
                           ) : (
                             <span className="site-sponsor-name">{s.name}</span>

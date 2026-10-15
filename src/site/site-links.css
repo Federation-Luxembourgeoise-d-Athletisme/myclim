@@ -400,10 +400,11 @@
   margin-bottom: 4px;
 }
 
+/* Two columns: narrower cells cannot fit wide logos at a readable height. */
 .lk-partners {
   padding: 16px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
