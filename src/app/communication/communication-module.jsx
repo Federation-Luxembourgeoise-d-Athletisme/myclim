@@ -5,6 +5,7 @@ import { useAuth } from "../../context/auth-context";
 import { useTasks } from "./com-data.js";
 import { ComCalendarPage } from "./com-calendar-page.jsx";
 import { ComEventsPage } from "./com-events-page.jsx";
+import { ComGalleryPage } from "./com-gallery-page.jsx";
 import { ComPartnerDetailPage, ComPartnersPage } from "./com-partners-pages.jsx";
 import { ComPublicationPage } from "./com-publication-page.jsx";
 import { ComRubriquesPage } from "./com-rubriques-page.jsx";
@@ -31,6 +32,7 @@ export function CommunicationModule() {
           <Route path="taches" element={<ComTasksPage />} />
           <Route path="evenements" element={<ComEventsPage />} />
           <Route path="rubriques" element={<ComRubriquesPage />} />
+          <Route path="galerie" element={<ComGalleryPage />} />
           <Route path="partenaires" element={<ComPartnersPage />} />
           <Route path="partenaires/:id" element={<ComPartnerDetailPage />} />
           <Route path="*" element={<ComCalendarPage />} />

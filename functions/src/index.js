@@ -9,6 +9,7 @@ import { sendMail } from "./mailer.js";
 
 // Module Communication : validation des publications (voir communication.js).
 export * from "./communication.js";
+export * from "./communication-social.js";
 
 
 admin.initializeApp();

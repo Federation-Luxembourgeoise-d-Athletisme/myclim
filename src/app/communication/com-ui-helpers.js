@@ -6,6 +6,7 @@ export const COM_SECTIONS = [
   { to: "/app/communication/taches", label: "Tâches" },
   { to: "/app/communication/evenements", label: "Événements" },
   { to: "/app/communication/rubriques", label: "Rubriques récurrentes" },
+  { to: "/app/communication/galerie", label: "Galerie photos" },
   { to: "/app/communication/partenaires", label: "Partenaires" },
 ];
 
