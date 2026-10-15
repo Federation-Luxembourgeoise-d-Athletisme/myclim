@@ -7,7 +7,7 @@ import { SponsorLogo } from "./sponsor-logo";
 import { usePublishedNews, useSponsorCategories, useSponsors } from "./site-hooks";
 import { sponsorCategoryLabel } from "./sponsor-utils";
 import cmcmLogo from "../assets/cmcm-logo.png";
-import heroPhoto from "../assets/hero-photo.jpg";
+import heroPhoto from "../assets/hero-banner.jpg";
 import waLogo from "../assets/wa-indoor-tour-silver.png";
 import galleryDaemen from "../assets/site-gallery/gallery-daemen.jpg";
 import galleryWinner from "../assets/site-gallery/gallery-winner.jpg";

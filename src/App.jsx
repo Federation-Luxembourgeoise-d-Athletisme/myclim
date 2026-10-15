@@ -29,6 +29,7 @@ import { SitePartners } from "./site/site-partners";
 import { SiteSponsorship } from "./site/site-sponsorship";
 import { SiteNewsListPage, SiteNewsArticlePage } from "./site/site-news";
 import { SitePreProgramme } from "./site/site-preprogramme";
+import { SiteGallery } from "./site/site-gallery";
 import { VolunteersPage as VolunteersPageScreen } from "./app/volunteers-page";
 import { AccreditationsPage as AccreditationsPageScreen } from "./app/accreditations-page";
 import {
@@ -488,6 +489,7 @@ export default function App() {
             <Route path="/news" element={<SiteNewsListPage />} />
             <Route path="/news/:slug" element={<SiteNewsArticlePage />} />
             <Route path="/programme" element={<SitePreProgramme />} />
+            <Route path="/gallery" element={<SiteGallery />} />
           </Route>
 
           {/* ── Auth & standalone public pages ───────────── */}

@@ -12,6 +12,7 @@ const BASE_NAV_LINKS = [
   { to: "/event", label: "Event" },
   { to: "/programme", label: "Pre-Programme" },
   { to: "/statistics", label: "Results & Statistics" },
+  { to: "/gallery", label: "Gallery" },
   { to: "/press", label: "Press" },
   { to: "/partners", label: "Partners" },
 ];
@@ -244,6 +245,7 @@ export function SiteLayout() {
                 <li><NavLink to="/event#volunteer">Become a Volunteer</NavLink></li>
                 <li><NavLink to="/press">Press Accreditation</NavLink></li>
                 <li><NavLink to="/statistics">Meeting Records</NavLink></li>
+                <li><NavLink to="/gallery">Photo Gallery</NavLink></li>
               </ul>
             </div>
 
