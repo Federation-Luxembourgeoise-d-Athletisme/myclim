@@ -10,32 +10,47 @@ import { occurrenceId, occurs, ruleAt } from "./com-recurrence.js";
 
 export const PARTNER_CATEGORIES = ["social", "terrain", "newsletter", "print", "hospitalite"];
 export const PARTNER_CATEGORY_LABELS = {
-  social: "Réseaux sociaux",
-  terrain: "Terrain et événements",
-  newsletter: "Newsletter / e-mailing",
-  print: "Print (programme, affiches)",
-  hospitalite: "Invitations",
+  social: { fr: "Réseaux sociaux", en: "Social media" },
+  terrain: { fr: "Terrain et événements", en: "On site and events" },
+  newsletter: { fr: "Newsletter / e-mailing", en: "Newsletter / emailing" },
+  print: { fr: "Print (programme, affiches)", en: "Print (programme, posters)" },
+  hospitalite: { fr: "Invitations", en: "Invitations" },
 };
 
 export const OBLIGATION_MODES = ["publications", "rubrique", "evenements", "livrable", "quantite"];
 export const OBLIGATION_MODE_LABELS = {
   publications: {
-    label: "Automatique · publications",
-    help: "Compte les publications du calendrier qui mentionnent le partenaire et sont publiées pendant le contrat. En catégorie Newsletter : seules les newsletters comptent.",
+    label: { fr: "Automatique · publications", en: "Automatic · publications" },
+    help: {
+      fr: "Compte les publications du calendrier qui mentionnent le partenaire et sont publiées pendant le contrat. En catégorie Newsletter : seules les newsletters comptent.",
+      en: "Counts the calendar publications that mention the partner and are published during the contract. In the Newsletter category, only newsletters count.",
+    },
   },
   rubrique: {
-    label: "Automatique · rubrique",
-    help: "Compte chaque occurrence publiée d'une rubrique récurrente pendant le contrat.",
+    label: { fr: "Automatique · rubrique", en: "Automatic · recurring series" },
+    help: {
+      fr: "Compte chaque occurrence publiée d'une rubrique récurrente pendant le contrat.",
+      en: "Counts each published occurrence of a recurring series during the contract.",
+    },
   },
   evenements: {
-    label: "Par événement",
-    help: "Liste d'événements à cocher une fois la contrepartie réalisée (ex. banderole, beach flags).",
+    label: { fr: "Par événement", en: "Per event" },
+    help: {
+      fr: "Liste d'événements à cocher une fois la contrepartie réalisée (ex. banderole, beach flags).",
+      en: "List of events to tick once the benefit is delivered (e.g. banner, beach flags).",
+    },
   },
   livrable: {
-    label: "Livrable",
-    help: "Suivi par étapes avec une échéance (ex. logo dans le programme ou sur l'affiche).",
+    label: { fr: "Livrable", en: "Deliverable" },
+    help: {
+      fr: "Suivi par étapes avec une échéance (ex. logo dans le programme ou sur l'affiche).",
+      en: "Tracked step by step with a deadline (e.g. logo in the programme or on the poster).",
+    },
   },
-  quantite: { label: "Quantité", help: "Simple compteur (ex. invitations)." },
+  quantite: {
+    label: { fr: "Quantité", en: "Quantity" },
+    help: { fr: "Simple compteur (ex. invitations).", en: "Simple counter (e.g. invitations)." },
+  },
 };
 
 // Mode proposé par défaut selon la catégorie de contrepartie.
@@ -47,14 +62,19 @@ export const DEFAULT_MODE_BY_CATEGORY = {
   hospitalite: "quantite",
 };
 
-export const LIVRABLE_ETAPES = ["Fichier à recevoir", "Fichier reçu", "BAT validé", "Publié / imprimé"];
+export const LIVRABLE_ETAPES = [
+  { fr: "Fichier à recevoir", en: "File expected" },
+  { fr: "Fichier reçu", en: "File received" },
+  { fr: "BAT validé", en: "Proof approved" },
+  { fr: "Publié / imprimé", en: "Published / printed" },
+];
 
 export const OBLIGATION_STATUTS = ["late", "risk", "ontrack", "done"];
 export const OBLIGATION_STATUT_LABELS = {
-  late: "En retard",
-  risk: "À risque",
-  ontrack: "Dans les temps",
-  done: "Terminé",
+  late: { fr: "En retard", en: "Late" },
+  risk: { fr: "À risque", en: "At risk" },
+  ontrack: { fr: "Dans les temps", en: "On track" },
+  done: { fr: "Terminé", en: "Completed" },
 };
 
 export const EMPTY_PARTNER_DETAILS = {
@@ -173,5 +193,8 @@ export function partnerCompletion(partner, obligations, ctx) {
   return sum / own.length;
 }
 
-export const progressText = (ob, g) =>
-  ob.mode === "livrable" ? (g.fait ? "Livré" : LIVRABLE_ETAPES[ob.etape] ?? LIVRABLE_ETAPES[0]) : `${g.fait} / ${g.cible}`;
+export const progressText = (ob, g, lang = "fr") => {
+  if (ob.mode !== "livrable") return `${g.fait} / ${g.cible}`;
+  if (g.fait) return lang === "fr" ? "Livré" : "Delivered";
+  return (LIVRABLE_ETAPES[ob.etape] ?? LIVRABLE_ETAPES[0])[lang === "fr" ? "fr" : "en"];
+};

@@ -5,6 +5,7 @@ import { createEvenement, createPublication, createTask, deleteEvenement, update
 import { useCommunicationTeam, useEvenements, useEventPublications, useTasks } from "./com-data.js";
 import { fmtLong, fmtShort, todayYmd } from "./com-dates.js";
 import { TASK_STATUT_LABELS } from "./com-domain.js";
+import { pick, useComLang } from "./com-i18n.js";
 import { NewPublicationDialog } from "./com-calendar-page.jsx";
 import { TaskDialog } from "./com-tasks-page.jsx";
 import { Avatar, ComPageHeader, Dialog, StatusPill, Toast } from "./com-ui.jsx";
@@ -13,6 +14,7 @@ import { useToast } from "./com-ui-helpers.js";
 export function ComEventsPage() {
   const { currentUser } = useAuth();
   const uid = currentUser?.uid || "";
+  const { lang, tr } = useComLang();
   const today = todayYmd();
   const events = useEvenements();
   const publications = useEventPublications();
@@ -31,7 +33,7 @@ export function ComEventsPage() {
       if (success) setToast(success);
     } catch (error) {
       console.error(error);
-      setToast("L'enregistrement a échoué. Réessaie.");
+      setToast(tr("L'enregistrement a échoué. Réessaie.", "Saving failed. Please try again."));
     }
   }
 
@@ -43,18 +45,24 @@ export function ComEventsPage() {
   return (
     <>
       <ComPageHeader
-        title="Événements"
-        description="Un événement regroupe toutes les communications qui s'y rattachent (conférence de presse, annonce des athlètes, jour J…), avec les tâches de chacun."
+        title={tr("Événements", "Events")}
+        description={tr(
+          "Un événement regroupe toutes les communications qui s'y rattachent (conférence de presse, annonce des athlètes, jour J…), avec les tâches de chacun.",
+          "An event groups all the communications linked to it (press conference, athlete announcements, meet day…), along with everyone's tasks.",
+        )}
         actions={
           <button type="button" className="button button--primary button--small" onClick={() => setEditing("new")}>
-            + Événement
+            {tr("+ Événement", "+ Event")}
           </button>
         }
       />
 
       {!shown.length ? (
         <p className="com-empty" style={{ textAlign: "center" }}>
-          Aucun événement à venir. Crée-en un pour regrouper ses publications et ses tâches.
+          {tr(
+            "Aucun événement à venir. Crée-en un pour regrouper ses publications et ses tâches.",
+            "No upcoming events. Create one to group its publications and tasks.",
+          )}
         </p>
       ) : (
         <div className="com-partner-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 360px), 1fr))" }}>
@@ -68,20 +76,23 @@ export function ComEventsPage() {
                 <div className="com-row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <p className="com-section-title" style={{ margin: 0 }}>
-                      {fmtLong(ev.dateDebut)}
-                      {ev.dateFin && ev.dateFin !== ev.dateDebut ? ` → ${fmtShort(ev.dateFin)}` : ""}
+                      {fmtLong(ev.dateDebut, lang)}
+                      {ev.dateFin && ev.dateFin !== ev.dateDebut ? ` → ${fmtShort(ev.dateFin, lang)}` : ""}
                       {ev.lieu ? ` · ${ev.lieu}` : ""}
                     </p>
                     <h2 style={{ margin: "2px 0 0", fontSize: "1.1rem" }}>{ev.titre}</h2>
                   </div>
                   <button type="button" className="com-btn-ghost" onClick={() => setEditing(ev)}>
-                    Modifier
+                    {tr("Modifier", "Edit")}
                   </button>
                 </div>
 
                 <div className="com-stack" style={{ gap: 6 }}>
                   <span className="com-muted" style={{ fontSize: "0.78rem" }}>
-                    {ready} / {pubs.length} publications prêtes · {tasksDone} / {evTasks.length} tâches faites
+                    {tr(
+                      `${ready} / ${pubs.length} publications prêtes · ${tasksDone} / ${evTasks.length} tâches faites`,
+                      `${ready} / ${pubs.length} publication${pubs.length > 1 ? "s" : ""} ready · ${tasksDone} / ${evTasks.length} task${evTasks.length > 1 ? "s" : ""} done`,
+                    )}
                   </span>
                   <span className="com-progress">
                     <span style={{ width: pubs.length ? `${(ready / pubs.length) * 100}%` : "0%" }} />
@@ -91,28 +102,28 @@ export function ComEventsPage() {
                 <ul className="com-ob-items">
                   {pubs.map((p) => (
                     <li key={p.id}>
-                      <span className="com-mini__date">{fmtShort(p.date)}</span>
+                      <span className="com-mini__date">{fmtShort(p.date, lang)}</span>
                       <span className="com-chip__title">{p.titre}</span>
                       <StatusPill statut={p.statut} />
                     </li>
                   ))}
                   {evTasks.map((t) => (
                     <li key={t.id}>
-                      <span className="com-mini__date">{t.echeance ? fmtShort(t.echeance) : "—"}</span>
+                      <span className="com-mini__date">{t.echeance ? fmtShort(t.echeance, lang) : "—"}</span>
                       <Avatar user={t.assigneUid ? teamById.get(t.assigneUid) : undefined} />
                       <span className="com-chip__title">{t.titre}</span>
                       <button
                         type="button"
                         className="com-btn-ghost"
                         style={{ padding: "2px 6px", fontSize: "0.75rem" }}
-                        title="Changer le statut"
+                        title={tr("Changer le statut", "Change status")}
                         onClick={() => run(() => updateTask(t.id, { statut: t.statut === "done" ? "todo" : t.statut === "todo" ? "doing" : "done" }))}
                       >
-                        {TASK_STATUT_LABELS[t.statut]}
+                        {pick(TASK_STATUT_LABELS[t.statut], lang)}
                       </button>
                     </li>
                   ))}
-                  {!pubs.length && !evTasks.length ? <li className="com-muted">Rien de rattaché pour l'instant.</li> : null}
+                  {!pubs.length && !evTasks.length ? <li className="com-muted">{tr("Rien de rattaché pour l'instant.", "Nothing linked yet.")}</li> : null}
                 </ul>
 
                 <div className="com-row">
@@ -120,7 +131,7 @@ export function ComEventsPage() {
                     + Publication
                   </button>
                   <button type="button" className="button button--secondary button--small" onClick={() => setNewTaskFor(ev)}>
-                    + Tâche
+                    {tr("+ Tâche", "+ Task")}
                   </button>
                 </div>
               </article>
@@ -131,7 +142,9 @@ export function ComEventsPage() {
 
       {past.length ? (
         <button type="button" className="com-btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setShowPast((v) => !v)}>
-          {showPast ? "Masquer les événements passés" : `Afficher les événements passés (${past.length})`}
+          {showPast
+            ? tr("Masquer les événements passés", "Hide past events")
+            : tr(`Afficher les événements passés (${past.length})`, `Show past events (${past.length})`)}
         </button>
       ) : null}
 
@@ -141,15 +154,15 @@ export function ComEventsPage() {
           defaultDate={today}
           onClose={() => setEditing(null)}
           onSave={async (data) => {
-            if (editing === "new") await run(() => createEvenement(data, uid), "Événement créé");
-            else await run(() => updateEvenement(editing.id, data), "Événement mis à jour");
+            if (editing === "new") await run(() => createEvenement(data, uid), tr("Événement créé", "Event created"));
+            else await run(() => updateEvenement(editing.id, data), tr("Événement mis à jour", "Event updated"));
             setEditing(null);
           }}
           onDelete={
             editing === "new"
               ? undefined
               : async () => {
-                  await run(() => deleteEvenement(editing.id), "Événement supprimé");
+                  await run(() => deleteEvenement(editing.id), tr("Événement supprimé", "Event deleted"));
                   setEditing(null);
                 }
           }
@@ -163,7 +176,7 @@ export function ComEventsPage() {
           eventId={newPubFor.id}
           onClose={() => setNewPubFor(null)}
           onCreate={async (data) => {
-            await run(() => createPublication({ ...data, statut: "todo", notes: "", eventId: newPubFor.id }, uid), "Publication ajoutée");
+            await run(() => createPublication({ ...data, statut: "todo", notes: "", eventId: newPubFor.id }, uid), tr("Publication ajoutée", "Publication added"));
             setNewPubFor(null);
           }}
         />
@@ -177,7 +190,7 @@ export function ComEventsPage() {
           events={events}
           onClose={() => setNewTaskFor(null)}
           onSave={async (data) => {
-            await run(() => createTask(data, uid), "Tâche créée");
+            await run(() => createTask(data, uid), tr("Tâche créée", "Task created"));
             setNewTaskFor(null);
           }}
         />
@@ -189,6 +202,7 @@ export function ComEventsPage() {
 }
 
 function EventDialog({ event, defaultDate, onClose, onSave, onDelete }) {
+  const { tr } = useComLang();
   const [form, setForm] = useState(
     event
       ? { titre: event.titre, dateDebut: event.dateDebut, dateFin: event.dateFin || null, lieu: event.lieu || "", notes: event.notes || "" }
@@ -210,25 +224,32 @@ function EventDialog({ event, defaultDate, onClose, onSave, onDelete }) {
   }
 
   return (
-    <Dialog title={event ? "Modifier l'événement" : "Nouvel événement"} onClose={onClose}>
+    <Dialog title={event ? tr("Modifier l'événement", "Edit event") : tr("Nouvel événement", "New event")} onClose={onClose}>
       <form className="com-stack" onSubmit={handleSubmit}>
         <label className="com-field">
-          Nom
-          <input className="com-input" required autoFocus placeholder="Ex. Conférence de presse du meeting" value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} />
+          {tr("Nom", "Name")}
+          <input
+            className="com-input"
+            required
+            autoFocus
+            placeholder={tr("Ex. Conférence de presse du meeting", "e.g. Meet press conference")}
+            value={form.titre}
+            onChange={(e) => setForm({ ...form, titre: e.target.value })}
+          />
         </label>
         <div className="com-grid-2">
           <label className="com-field">
-            Date de début
+            {tr("Date de début", "Start date")}
             <input type="date" className="com-input" required value={form.dateDebut} onChange={(e) => setForm({ ...form, dateDebut: e.target.value })} />
           </label>
           <label className="com-field">
-            Date de fin (facultatif)
+            {tr("Date de fin (facultatif)", "End date (optional)")}
             <input type="date" className="com-input" value={form.dateFin || ""} onChange={(e) => setForm({ ...form, dateFin: e.target.value || null })} />
           </label>
         </div>
-        {endBeforeStart ? <p className="com-error">La date de fin doit être après la date de début.</p> : null}
+        {endBeforeStart ? <p className="com-error">{tr("La date de fin doit être après la date de début.", "The end date must be after the start date.")}</p> : null}
         <label className="com-field">
-          Lieu
+          {tr("Lieu", "Venue")}
           <input className="com-input" value={form.lieu} onChange={(e) => setForm({ ...form, lieu: e.target.value })} />
         </label>
         <label className="com-field">
@@ -239,17 +260,17 @@ function EventDialog({ event, defaultDate, onClose, onSave, onDelete }) {
           {onDelete ? (
             confirmDelete ? (
               <span className="com-row">
-                Supprimer l'événement ? Ses publications et tâches restent.
+                {tr("Supprimer l'événement ? Ses publications et tâches restent.", "Delete this event? Its publications and tasks will be kept.")}
                 <button type="button" className="button button--danger-soft button--small" onClick={onDelete}>
-                  Confirmer
+                  {tr("Confirmer", "Confirm")}
                 </button>
                 <button type="button" className="com-btn-ghost" onClick={() => setConfirmDelete(false)}>
-                  Garder
+                  {tr("Garder", "Keep")}
                 </button>
               </span>
             ) : (
               <button type="button" className="button button--danger-soft button--small" onClick={() => setConfirmDelete(true)}>
-                Supprimer
+                {tr("Supprimer", "Delete")}
               </button>
             )
           ) : (
@@ -257,10 +278,10 @@ function EventDialog({ event, defaultDate, onClose, onSave, onDelete }) {
           )}
           <div className="com-row">
             <button type="button" className="com-btn-ghost" onClick={onClose}>
-              Annuler
+              {tr("Annuler", "Cancel")}
             </button>
             <button type="submit" className="button button--primary button--small" disabled={saving}>
-              {saving ? "Enregistrement…" : "Enregistrer"}
+              {saving ? tr("Enregistrement…", "Saving…") : tr("Enregistrer", "Save")}
             </button>
           </div>
         </div>
