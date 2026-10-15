@@ -103,6 +103,7 @@ const WebsiteLinksPageScreen = lazyNamed(() => import("./app/website-links-page"
 const SiteLinks = lazyNamed(() => import("./site/site-links"), "SiteLinks");
 const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin-page"), "InvitationAdminPage");
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
+const CommunicationModule = lazyNamed(() => import("./app/communication/communication-module"), "CommunicationModule");
 const AthleteRoadbookPage = lazyNamed(() => import("./site/athlete-roadbook-page"), "AthleteRoadbookPage");
 const AthleteRoadbookAdminPageScreen = lazyNamed(() => import("./app/athlete-roadbook-admin-page"), "AthleteRoadbookAdminPage");
 const PhysioPageScreen = lazyNamed(() => import("./app/physio-page"), "PhysioPage");
@@ -514,6 +515,7 @@ export default function App() {
                 <Route path="presse" element={<PressAdminPage />} />
                 <Route path="athlete-roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
+                <Route path="communication/*" element={<CommunicationModule />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "kine"]} />}>
                 <Route path="kine" element={<PhysioPage />} />

@@ -397,6 +397,54 @@ service cloud.firestore {
       allow delete: if isAdminOrManager();
     }
 
+    // ── Module Communication (porté de myFLA) ────────────────────────────────
+    // Calendrier éditorial, publications, rubriques, événements, tâches,
+    // infos privées des partenaires et contreparties : réservé à
+    // l'organisation (admin, gestionnaire). Le champ `validation` d'une
+    // publication est écrit par la Cloud Function comPublicationValidation ;
+    // la règle générale en fin de fichier (admin/gestionnaire : tout) empêche
+    // d'en faire un verrou strict, le refus ci-dessous évite surtout les erreurs.
+    function comPublicationIsValid() {
+      return request.resource.data.titre is string &&
+        request.resource.data.titre.size() <= 200 &&
+        request.resource.data.date is string &&
+        request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        (!('texte' in request.resource.data) || request.resource.data.texte == null ||
+          (request.resource.data.texte is string && request.resource.data.texte.size() <= 10000)) &&
+        (!('notes' in request.resource.data) || request.resource.data.notes == null ||
+          (request.resource.data.notes is string && request.resource.data.notes.size() <= 5000));
+    }
+
+    match /com_publications/{publicationId} {
+      allow read, delete: if isAdminOrManager();
+      allow create: if isAdminOrManager() && comPublicationIsValid() &&
+        !('validation' in request.resource.data);
+      allow update: if isAdminOrManager() && comPublicationIsValid() &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["validation"]);
+    }
+
+    match /com_rubriques/{rubriqueId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    match /com_events/{eventId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    match /com_tasks/{taskId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    // Contact, contrat et notes des partenaires : jamais dans siteSponsors,
+    // qui est public (logos du site).
+    match /com_partner_details/{sponsorId} {
+      allow read, write: if isAdminOrManager();
+    }
+
+    match /com_obligations/{obligationId} {
+      allow read, write: if isAdminOrManager();
+    }
+
     // ── Documents partagés ──────────────────────────────────────────────────
     // Lecture ouverte aux bénévoles et chefs d'équipe (actuellement bloqué par catch-all)
     match /documents/{docId} {
