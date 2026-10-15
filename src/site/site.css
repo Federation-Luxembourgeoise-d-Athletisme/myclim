@@ -1071,6 +1071,85 @@
   50% { transform: translateX(-50%) translateY(6px); }
 }
 
+/* The hero banner is a finished artwork (athletes, lion, Coque): keep it
+   anchored to the top so faces and bibs stay clear, and set the text on a
+   dark band at the bottom instead of darkening the whole picture. */
+.site-hero {
+  background: #0b0f17;
+}
+
+.site-hero__bg {
+  background-position: center top;
+}
+
+.site-hero__bg::after {
+  background:
+    linear-gradient(to top, rgba(8, 10, 16, 0.94) 0%, rgba(8, 10, 16, 0.78) 24%, rgba(8, 10, 16, 0.3) 46%, transparent 62%),
+    linear-gradient(to right, rgba(8, 10, 16, 0.5) 0%, transparent 42%);
+}
+
+.site-hero__bg-grid {
+  display: none;
+}
+
+.site-hero__content {
+  padding-bottom: 72px;
+}
+
+.site-hero__title {
+  font-size: clamp(2.6rem, 5vw, 4.6rem);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+}
+
+.site-hero__title span {
+  color: #ff2a3f;
+}
+
+.site-hero__eyebrow {
+  color: #fff;
+}
+
+.site-hero__date {
+  margin: 20px 0;
+}
+
+.site-hero__date-item {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.site-hero__ctas {
+  margin-top: 24px;
+}
+
+/* Phones and portrait tablets: show the whole group of athletes as a band under the nav, then the
+   text on the dark background below it, rather than a narrow centre crop. */
+@media (max-width: 900px) and (orientation: portrait) {
+  .site-hero {
+    --site-hero-band: calc(100vw * 0.5627 * 1.25);
+    min-height: 0;
+    justify-content: flex-start;
+  }
+
+  .site-hero__bg {
+    inset: var(--site-nav-h) 0 auto;
+    height: var(--site-hero-band);
+    background-size: 125% auto;
+  }
+
+  .site-hero__bg::after {
+    background: linear-gradient(to top, #0b0f17 0%, rgba(11, 15, 23, 0.6) 16%, transparent 38%);
+  }
+
+  .site-hero__content {
+    padding-top: calc(var(--site-nav-h) + var(--site-hero-band) - 8px);
+    padding-bottom: 48px;
+  }
+
+  .site-hero__scroll {
+    display: none;
+  }
+}
+
 /* ── Stats ribbon ────────────────────────────────────────── */
 .site-stats-ribbon {
   background: var(--site-surface);
