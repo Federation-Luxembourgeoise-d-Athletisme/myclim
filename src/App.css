@@ -4609,6 +4609,40 @@ tr.row--warning > td {
   }
 }
 
+/* Public forms on phones: the page, the panel and the card each had 24px of
+   padding, leaving the form under 230px wide on a 375px screen. */
+@media (max-width: 520px) {
+  .auth-page {
+    padding: 12px;
+  }
+
+  .auth-panel {
+    padding: 14px;
+  }
+
+  .entry-card {
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .selection-card--compact {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  /* Choices flow as pills sized to their label, so long ones like
+     "Luxembourgeois" never spill out of a fixed half-width column. */
+  .choice-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .choice-grid > .selection-card {
+    flex: 1 1 auto;
+  }
+}
+
 /* ─── Athlete Portal ─────────────────────────────────────────────────── */
 
 .sidebar--portal .sidebar-brand-logo-shell--portal {

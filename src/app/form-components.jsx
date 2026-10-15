@@ -6,10 +6,10 @@ import { useLanguage } from "./language-context";
 import { PHONE_COUNTRY_OPTIONS, buildPhoneValue, parsePhoneValue } from "./utils";
 
 function AuthLayout({ title, subtitle, children, sideCard, headerContent, languages }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
-    <div className="auth-page">
+    <div className="auth-page" lang={language}>
       <section className="auth-page-header">
         <div className="auth-header-shell">
           <div className="auth-header-brand">
