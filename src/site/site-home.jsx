@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useSiteEditionYear } from "../app/edition";
 import { formatEditionLabel, getEditionDisplayNumber } from "../app/meeting-edition-utils";
 import { useMeetingEditions, useMeetingResultsForYear } from "../app/meeting-history-hooks";
-import { getSponsorMediaStyle } from "./sponsor-media-utils";
+import { SponsorLogo } from "./sponsor-logo";
 import { usePublishedNews, useSponsorCategories, useSponsors } from "./site-hooks";
 import { sponsorCategoryLabel } from "./sponsor-utils";
 import cmcmLogo from "../assets/cmcm-logo.png";
@@ -565,7 +565,7 @@ export function SiteHome() {
                   Event details
                 </NavLink>
                 <a
-                  href="/volunteer-apply"
+                  href="/benevoles"
                   className="site-btn site-btn--secondary site-btn--sm"
                 >
                   Become a volunteer
@@ -811,7 +811,7 @@ export function SiteHome() {
                         >
                           {s.logoUrl ? (
                             <div className="site-sponsor-logo__media">
-                              <img src={s.logoUrl} alt={s.name} style={getSponsorMediaStyle(s)} />
+                              <SponsorLogo sponsor={s} />
                             </div>
                           ) : (
                             <span className="site-sponsor-name">{s.name}</span>
@@ -825,7 +825,7 @@ export function SiteHome() {
                         >
                           {s.logoUrl ? (
                             <div className="site-sponsor-logo__media">
-                              <img src={s.logoUrl} alt={s.name} style={getSponsorMediaStyle(s)} />
+                              <SponsorLogo sponsor={s} />
                             </div>
                           ) : (
                             <span className="site-sponsor-name">{s.name}</span>
@@ -900,7 +900,7 @@ export function SiteHome() {
             <NavLink to="/become-a-partner" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
               Become a partner
             </NavLink>
-            <a href="/volunteer-apply" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
+            <a href="/benevoles" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
               Become a volunteer
             </a>
             <NavLink to="/pre-programme" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>

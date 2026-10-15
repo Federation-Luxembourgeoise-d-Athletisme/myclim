@@ -219,6 +219,7 @@ const platformRoleOptions = [
   { value: "chef_equipe", label: "Chef d'équipe" },
   { value: "benevole", label: "Bénévole" },
   { value: "parent_u14", label: "Parent U14" },
+  { value: "kine", label: "Kiné" },
 ];
 
 const TEAM_CONFIGURATION_DOC_PATH = ["appSettings", "teamsConfiguration"];

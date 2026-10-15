@@ -36,6 +36,7 @@ function getDefaultRouteByRoles(roles = []) {
   if (roles.includes("chef_equipe")) return "/app/equipe";
   if (roles.includes("chef_transport_athletes")) return "/app/athlete-portal/transport";
   if (roles.includes("benevole_transport_athletes")) return "/app/athlete-portal/mes-transport";
+  if (roles.includes("kine")) return "/app/kine";
   if (roles.includes("benevole")) return "/app/mes-affectations";
   if (roles.includes("parent_u14")) return "/app/mes-enfants";
   return "/app";
@@ -64,6 +65,8 @@ function buildNavigationFromRoles(roles) {
         makeLink("/app/accreditations", "navAccreditationBadges", "Badges & zones", "ticket"),
         makeLink("/app/presse", "navPress", "Presse", "badge"),
         makeLink("/app/vip", "navVip", "VIP", "ticket"),
+        makeLink("/app/athlete-roadbook", "navAthleteRoadbook", "Roadbook athlètes", "folder"),
+        makeLink("/app/kine", "navPhysio", "Kiné", "users"),
         makeLink("/app/caisse", "navCashDesk", "Caisse & entrées", "check"),
       ]),
       makeSection("navSectionCommunication", "Communication", [
@@ -122,6 +125,8 @@ function buildNavigationFromRoles(roles) {
         makeLink("/app/accreditations", "navAccreditationBadges", "Badges & zones", "ticket"),
         makeLink("/app/presse", "navPress", "Presse", "badge"),
         makeLink("/app/vip", "navVip", "VIP", "ticket"),
+        makeLink("/app/athlete-roadbook", "navAthleteRoadbook", "Roadbook athlètes", "folder"),
+        makeLink("/app/kine", "navPhysio", "Kiné", "users"),
         makeLink("/app/caisse", "navCashDesk", "Caisse & entrées", "check"),
       ]),
       makeSection("navSectionCommunication", "Communication", [
@@ -194,6 +199,10 @@ function buildNavigationFromRoles(roles) {
 
   if (roles.includes("chef_transport_athletes")) {
     links.push(makeLink("/app/athlete-portal/transport", "navAthleteTransport", "Transport athlètes", "users"));
+  }
+
+  if (roles.includes("kine")) {
+    links.push(makeLink("/app/kine", "navPhysio", "Kiné", "users"));
   }
 
   if (roles.includes("benevole_transport_athletes")) {

@@ -20,8 +20,9 @@ import {
 import {
   DEFAULT_SPONSOR_MEDIA_SETTINGS,
   getSponsorMediaSettings,
-  getSponsorMediaStyle,
 } from "../site/sponsor-media-utils";
+import { SponsorLogo } from "../site/sponsor-logo";
+import { trimLogoFile } from "./logo-trim";
 import {
   sponsorCategoryLabel,
   sponsorCategorySortIndex,
@@ -578,15 +579,20 @@ function SponsorForm({ initial, categories, onSave, onCancel }) {
         <FileUpload
           label="Logo (PNG, SVG, WEBP)"
           value={data.logoUrl}
-          onChange={(url) => set("logoUrl", url)}
+          onChange={(url) => {
+            set("logoUrl", url);
+            set("logoScale", DEFAULT_SPONSOR_MEDIA_SETTINGS.logoScale);
+          }}
+          prepareFile={trimLogoFile}
           accept="image/png,image/svg+xml,image/webp,image/jpeg"
           storagePath="sponsors"
+          helperText="PNG, WEBP, JPEG or SVG · empty margins are removed automatically"
         />
         <div style={{ padding: 16, borderRadius: 12, border: "1px solid rgba(15,23,42,0.08)", background: "#f8fafc", display: "grid", gap: 14 }}>
           <div>
-            <label style={labelStyle}>Logo framing inside cards</label>
+            <label style={labelStyle}>Logo size</label>
             <p style={{ fontSize: "0.8rem", color: "#546770", lineHeight: 1.5 }}>
-              Useful when a sponsor sends a very wide logo or a photo-like visual. You can fill the rectangle more, move it and zoom it.
+              Logos are sized automatically so they all look the same size, whatever their shape. Use the zoom only to fine-tune a logo that still looks too light or too heavy next to the others.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 16, alignItems: "start" }}>
@@ -614,6 +620,7 @@ function SponsorForm({ initial, categories, onSave, onCancel }) {
                   style={{ width: "100%" }}
                 />
               </div>
+              {previewSponsor.logoFit === "cover" ? (<>
               <div>
                 <label style={labelStyle}>Horizontal position: {previewSponsor.logoPositionX}%</label>
                 <input
@@ -638,6 +645,7 @@ function SponsorForm({ initial, categories, onSave, onCancel }) {
                   style={{ width: "100%" }}
                 />
               </div>
+              </>) : null}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <button
                   type="button"
@@ -649,7 +657,7 @@ function SponsorForm({ initial, categories, onSave, onCancel }) {
                     set("logoPositionY", DEFAULT_SPONSOR_MEDIA_SETTINGS.logoPositionY);
                   }}
                 >
-                  Reset framing
+                  Reset size
                 </button>
               </div>
             </div>
@@ -657,25 +665,25 @@ function SponsorForm({ initial, categories, onSave, onCancel }) {
               <div style={{ fontSize: "0.72rem", color: "#6b7280", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 Preview
               </div>
-              <div style={{ minWidth: 160, minHeight: 96, borderRadius: 12, border: "1px solid rgba(0,0,0,0.08)", background: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {data.logoUrl ? (
-                  <div style={{ width: 128, height: 60, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <img
-                      src={data.logoUrl}
-                      alt={data.name || "Sponsor logo preview"}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "block",
-                        transition: "transform 0.2s ease",
-                        ...getSponsorMediaStyle(previewSponsor),
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <span style={{ fontSize: "0.78rem", color: "#94a3b8", textAlign: "center" }}>Upload a logo to preview the framing</span>
-                )}
-              </div>
+              {data.logoUrl ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {[
+                    { label: "Website", width: 180, height: 58 },
+                    { label: "Links page", width: 77, height: 63 },
+                  ].map((frame) => (
+                    <div key={frame.label}>
+                      <div style={{ fontSize: "0.7rem", color: "#6b7280", marginBottom: 4 }}>{frame.label}</div>
+                      <div style={{ width: frame.width, height: frame.height, padding: 8, boxSizing: "border-box", borderRadius: 10, border: "1px solid rgba(0,0,0,0.08)", background: "#fff", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <SponsorLogo sponsor={previewSponsor} alt={data.name || "Sponsor logo preview"} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ minWidth: 160, minHeight: 96, borderRadius: 12, border: "1px solid rgba(0,0,0,0.08)", background: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: "0.78rem", color: "#94a3b8", textAlign: "center" }}>Upload a logo to preview its size</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -805,16 +813,7 @@ export function WebsiteSponsorsPage({ Panel }) {
                       {s.logoUrl
                         ? (
                           <div style={{ width: 80, height: 28, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <img
-                              src={s.logoUrl}
-                              alt={s.name}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                display: "block",
-                                ...getSponsorMediaStyle(s),
-                              }}
-                            />
+                            <SponsorLogo sponsor={s} />
                           </div>
                         )
                         : <span style={{ color: "#ccc", fontSize: "0.8rem" }}>—</span>}

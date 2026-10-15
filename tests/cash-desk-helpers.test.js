@@ -71,7 +71,7 @@ test("parseGuestImportRows maps French headers and defaults places to 1", () => 
     ["Prénom", "Nom", "Société", "E-mail", "Places"],
     ["Ada", "Lovelace", "CMCM", "ADA@X.LU", "3"],
     ["", "", "", "", ""],
-    ["", "Turing", "", "", ""],
+    ["Alan", "Turing", "", "", ""],
   ]);
   assert.equal(skipped, 1);
   assert.deepEqual(guests[0], {
@@ -87,6 +87,11 @@ test("parseGuestImportRows maps French headers and defaults places to 1", () => 
 
 test("parseGuestImportRows reports a file without any name column", () => {
   assert.equal(parseGuestImportRows([["Foo"], ["bar"]]).error, "missing_name_column");
+  assert.equal(parseGuestImportRows([["Prénom"], ["Ada"]]).error, "missing_name_column");
+});
+
+test("parseGuestImportRows refuses a single full-name column", () => {
+  assert.equal(parseGuestImportRows([["Nom complet"], ["Ada Lovelace"]]).error, "full_name_only");
 });
 
 test("normalizeCashPostCode ignores separators and case", () => {

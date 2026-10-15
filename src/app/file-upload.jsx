@@ -10,11 +10,13 @@ import { auth, STORAGE_UPLOAD_ENDPOINT } from "../services/firebase";
  *   accept       string   MIME type filter, e.g. "application/pdf"
  *   storagePath  string   Firebase Storage folder, e.g. "press-releases"
  *   label        string   field label
+ *   prepareFile  fn(file) optional async transform applied before upload (e.g. trim a logo)
  */
 export function FileUpload({
   value,
   onChange,
   onUploadComplete,
+  prepareFile,
   accept = "application/pdf",
   storagePath = "uploads",
   label = "File",
@@ -83,16 +85,23 @@ export function FileUpload({
     setIsUploading(false);
   }
 
-  async function uploadFile(file) {
-    if (!file) return;
+  async function uploadFile(selectedFile) {
+    if (!selectedFile) return;
 
     const attemptId = activeAttemptIdRef.current + 1;
     activeAttemptIdRef.current = attemptId;
     setError("");
     setIsUploading(true);
-    setStatusMessage("Vérification de la session…");
 
     try {
+      let file = selectedFile;
+      if (prepareFile) {
+        setStatusMessage("Préparation du fichier…");
+        file = await prepareFile(selectedFile);
+        if (!isAttemptActive(attemptId)) return;
+      }
+
+      setStatusMessage("Vérification de la session…");
       const user = auth.currentUser;
       if (!user) {
         throw Object.assign(new Error("User is not authenticated."), { code: "storage/unauthenticated" });

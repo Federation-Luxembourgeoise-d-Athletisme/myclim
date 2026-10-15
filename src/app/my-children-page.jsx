@@ -4,6 +4,9 @@ import { AuthFormField } from "./form-components";
 import {
   U14_RESERVED_SLOTS_COLLECTION,
   createEmptyParentU14ChildForm,
+  formatParentRequestSchedule,
+  formatParentRequestStatus,
+  formatParentRequestType,
   getPreProgramSubmissionErrorMessage,
   getU14AllowedEvents,
   getU14ParentStatusPillClass,
@@ -11,6 +14,7 @@ import {
   getValidRequestedEventForCategory,
 } from "./u14-helpers";
 import { useParentU14Children } from "./u14-hooks";
+import { useLanguage } from "./language-context";
 import { useAuth } from "../context/auth-context";
 import { db } from "../services/firebase";
 
@@ -24,6 +28,7 @@ function MyChildrenPage(props) {
     normalizeComparableValue,
   } = props;
   const { addU14ChildRegistration, currentUser, userProfile } = useAuth();
+  const { t } = useLanguage();
   const { rows: parentRows, loading, error } = useParentU14Children(currentUser?.uid);
   const [childForm, setChildForm] = useState(createEmptyParentU14ChildForm);
   const [isAddChildOpen, setIsAddChildOpen] = useState(false);
@@ -72,22 +77,22 @@ function MyChildrenPage(props) {
     setErrorMessage("");
 
     if (!childForm.category) {
-      setErrorMessage("Seuls les enfants U12 et U14 peuvent être ajoutés dans cet espace.");
+      setErrorMessage(t("mcErrorNotEligible"));
       return;
     }
 
     if (!luxCompetitionClubs.includes(childForm.club) || !childForm.bibNumber.trim()) {
-      setErrorMessage("Merci d'indiquer un club luxembourgeois autorisé et un numéro de licence.");
+      setErrorMessage(t("mcErrorClubLicence"));
       return;
     }
 
     if (!getU14AllowedEvents(childForm.category).includes(childForm.requestedEvent) && childForm.requestType !== "porte_panier") {
-      setErrorMessage("Pour la catégorie U12, seule l'épreuve du 60 m peut être demandée.");
+      setErrorMessage(t("u14ErrorU12Event"));
       return;
     }
 
     if (!childForm.imageConsent) {
-      setErrorMessage("L'autorisation image est obligatoire pour enregistrer un enfant.");
+      setErrorMessage(t("mcErrorImageConsent"));
       return;
     }
 
@@ -108,9 +113,9 @@ function MyChildrenPage(props) {
 
       setChildForm(createEmptyParentU14ChildForm());
       setIsAddChildOpen(false);
-      setStatusMessage("Enfant ajouté. La demande est maintenant visible dans le suivi.");
+      setStatusMessage(t("mcChildAdded"));
     } catch (submissionError) {
-      setErrorMessage(getPreProgramSubmissionErrorMessage(submissionError));
+      setErrorMessage(getPreProgramSubmissionErrorMessage(submissionError, t));
     } finally {
       setIsSubmittingChild(false);
     }
@@ -128,9 +133,9 @@ function MyChildrenPage(props) {
         parentDecisionStatus: "confirmed",
         parentDecisionAt: serverTimestamp(),
       });
-      setStatusMessage(`${row.name} est maintenant confirmé.`);
+      setStatusMessage(t("mcConfirmed").replace("{name}", row.name));
     } catch {
-      setErrorMessage("Impossible d'enregistrer votre confirmation pour le moment.");
+      setErrorMessage(t("mcConfirmError"));
     } finally {
       setBusyRequestId("");
     }
@@ -138,9 +143,9 @@ function MyChildrenPage(props) {
 
   async function handleDeclineAttendance(row) {
     if (!row.requestId) return;
-    if (!window.confirm(`Cette action est définitive. Êtes-vous sûr de vouloir vous désister pour ${row.name} ?`)) return;
+    if (!window.confirm(t("mcWithdrawConfirm").replace("{name}", row.name))) return;
 
-    const withdrawalReason = window.prompt("Motif du désistement (facultatif)", "") || "";
+    const withdrawalReason = window.prompt(t("mcWithdrawReasonPrompt"), "") || "";
 
     setBusyRequestId(row.requestId);
     setStatusMessage("");
@@ -187,9 +192,9 @@ function MyChildrenPage(props) {
         });
       }
 
-      setStatusMessage(`Le désistement de ${row.name} a été enregistré.`);
+      setStatusMessage(t("mcWithdrawn").replace("{name}", row.name));
     } catch {
-      setErrorMessage("Impossible d'enregistrer ce désistement pour le moment.");
+      setErrorMessage(t("mcWithdrawError"));
     } finally {
       setBusyRequestId("");
     }
@@ -199,9 +204,9 @@ function MyChildrenPage(props) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Parent U14</p>
-          <h1>Mes enfants</h1>
-          <p>Demandes, decisions, convocations et informations pratiques centralisees.</p>
+          <p className="eyebrow">{t("mcEyebrow")}</p>
+          <h1>{t("mcTitle")}</h1>
+          <p>{t("mcIntro")}</p>
         </div>
       </section>
       {error ? <p className="status-note">{error}</p> : null}
@@ -209,32 +214,32 @@ function MyChildrenPage(props) {
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
       <section className="metric-grid metric-grid--3">
         <article className="metric-card">
-          <span>Demandes suivies</span>
+          <span>{t("mcMetricTotal")}</span>
           <strong>{parentRequestSummary.total}</strong>
         </article>
         <article className="metric-card metric-card--warn">
-          <span>En attente</span>
+          <span>{t("mcMetricPending")}</span>
           <strong>{parentRequestSummary.pending}</strong>
         </article>
         <article className="metric-card metric-card--accent">
-          <span>Retenues / validées</span>
+          <span>{t("mcMetricSelected")}</span>
           <strong>{parentRequestSummary.retained + parentRequestSummary.validated}</strong>
         </article>
       </section>
-      <Panel title="Suivi des demandes">
+      <Panel title={t("mcPanelTitle")}>
         <DataTable
           columns={[
-            { key: "name", label: "Enfant" },
-            { key: "type", label: "Type" },
-            { key: "status", label: "Statut" },
-            { key: "submittedAt", label: "Demande faite le" },
-            { key: "position", label: "Position" },
-            { key: "schedule", label: "Info pratique" },
-            { key: "actions", label: "Actions" },
+            { key: "name", label: t("mcColChild") },
+            { key: "type", label: t("mcColType") },
+            { key: "status", label: t("mcColStatus") },
+            { key: "submittedAt", label: t("mcColSubmittedAt") },
+            { key: "position", label: t("mcColPosition") },
+            { key: "schedule", label: t("mcColSchedule") },
+            { key: "actions", label: t("mcColActions") },
           ]}
           rows={
             loading
-              ? [{ name: "Chargement...", type: "-", status: "-", submittedAt: "-", position: "-", schedule: "-", actions: "-" }]
+              ? [{ name: t("mcLoading"), type: "-", status: "-", submittedAt: "-", position: "-", schedule: "-", actions: "-" }]
               : parentRows.length
                 ? parentRows.map((row) => ({
                     ...row,
@@ -243,8 +248,8 @@ function MyChildrenPage(props) {
                         <strong>{row.name}</strong>
                       </div>
                     ),
-                    type: <span className="parent-request-type">{row.type}</span>,
-                    status: <span className={getU14ParentStatusPillClass(row.status)}>{row.status}</span>,
+                    type: <span className="parent-request-type">{formatParentRequestType(row.requestType, t)}</span>,
+                    status: <span className={getU14ParentStatusPillClass(row.status)}>{formatParentRequestStatus(row.status, t)}</span>,
                     submittedAt: (
                       <div className="table-stack">
                         <strong>{row.submittedAt}</strong>
@@ -255,26 +260,26 @@ function MyChildrenPage(props) {
                       (normalizeComparableValue(row.status) === "retenu" || normalizeComparableValue(row.status) === "valide")
                         ? (
                             <span className="status-pill status-pill--accent">
-                              {row.acceptedPosition ? `Accepté - place ${row.acceptedPosition}` : "Accepté"}
+                              {row.acceptedPosition ? t("mcAcceptedPosition").replace("{position}", row.acceptedPosition) : t("mcAccepted")}
                             </span>
                           )
                         : row.status === "Liste d'attente"
                           ? (
                               <span className="status-pill status-pill--warn">
-                                {`Liste d'attente - place ${row.waitlistPosition || row.queuePosition || "?"}`}
+                                {t("mcWaitlistPosition").replace("{position}", row.waitlistPosition || row.queuePosition || "?")}
                               </span>
                             )
                           : "-",
                     schedule: (
                       <div className="table-stack">
-                        <strong>{row.schedule}</strong>
+                        <strong>{formatParentRequestSchedule(row, t)}</strong>
                         {row.practicalInfoText ? (
                           <span className="parent-request-practical">{row.practicalInfoText}</span>
                         ) : null}
                         {normalizeComparableValue(row.status) === "demande enregistree" &&
                         normalizeComparableValue(row.adminApprovalStatus) !== "approved" &&
                         normalizeComparableValue(row.requestType) !== "porte_panier" ? (
-                          <span className="parent-request-note">Validation admin en cours</span>
+                          <span className="parent-request-note">{t("mcAdminValidationPending")}</span>
                         ) : null}
                       </div>
                     ),
@@ -292,7 +297,7 @@ function MyChildrenPage(props) {
                               disabled={busyRequestId === row.requestId}
                               onClick={() => handleConfirmAttendance(row)}
                             >
-                              Je confirme
+                              {t("mcConfirmButton")}
                             </button>
                           ) : null}
                           {normalizeComparableValue(row.status) !== "desiste" ? (
@@ -302,37 +307,37 @@ function MyChildrenPage(props) {
                               disabled={busyRequestId === row.requestId}
                               onClick={() => handleDeclineAttendance(row)}
                             >
-                              Se désister
+                              {t("mcWithdrawButton")}
                             </button>
                           ) : null}
                         </div>
                       ),
                   }))
-                : [{ name: "Aucune demande liée à ce compte", type: "-", status: "-", submittedAt: "-", position: "-", schedule: "-", actions: "-" }]
+                : [{ name: t("mcEmpty"), type: "-", status: "-", submittedAt: "-", position: "-", schedule: "-", actions: "-" }]
           }
         />
       </Panel>
       <div className="panel-actions">
         <button className="button" type="button" onClick={() => setIsAddChildOpen((current) => !current)}>
-          {isAddChildOpen ? "Replier l'ajout d'enfant" : "Ajouter un enfant"}
+          {isAddChildOpen ? t("mcCollapseAddChild") : t("mcAddChild")}
         </button>
       </div>
       {isAddChildOpen ? (
         <Panel
-          title="Ajouter un enfant"
-          subtitle="Permet de compléter votre dossier si le compte parent existe déjà ou si vous souhaitez ajouter un nouvel enfant après coup."
+          title={t("mcAddChild")}
+          subtitle={t("mcAddChildSubtitle")}
         >
           <form className="profile-form" onSubmit={handleAddChild}>
             <div className="panel-grid panel-grid--2">
-              <AuthFormField label="Prénom">
+              <AuthFormField label={t("fieldFirstName")}>
                 <input name="firstName" required value={childForm.firstName} onChange={handleChildFormChange} />
               </AuthFormField>
-              <AuthFormField label="Nom">
+              <AuthFormField label={t("fieldLastName")}>
                 <input name="lastName" required value={childForm.lastName} onChange={handleChildFormChange} />
               </AuthFormField>
             </div>
             <div className="panel-grid panel-grid--2">
-              <AuthFormField label="Date de naissance" hint="U12 = 2017/2016, U14 = 2015/2014 pour l'édition 2027.">
+              <AuthFormField label={t("fieldBirthDate")} hint={t("mcBirthDateHint")}>
                 <input
                   name="birthDate"
                   required
@@ -341,27 +346,27 @@ function MyChildrenPage(props) {
                   onChange={handleChildFormChange}
                 />
               </AuthFormField>
-              <AuthFormField label="Catégorie attribuée">
+              <AuthFormField label={t("u14CategoryLabel")}>
                 <input readOnly name="category" value={childForm.category} />
               </AuthFormField>
             </div>
             {childForm.birthDate && !childForm.category ? (
               <div className="notice-card notice-card--danger">
-                <strong>Catégorie non éligible</strong>
-                <p>Seuls les enfants U12 et U14 peuvent être ajoutés dans cet espace parent.</p>
+                <strong>{t("u14NotEligibleTitle")}</strong>
+                <p>{t("mcNotEligibleBody")}</p>
               </div>
             ) : null}
             <div className="panel-grid panel-grid--2">
-              <AuthFormField label="Genre">
+              <AuthFormField label={t("fieldGender")}>
                 <select name="gender" required value={childForm.gender} onChange={handleChildFormChange}>
-                  <option value="">Sélectionner</option>
-                  <option value="fille">Fille</option>
-                  <option value="garcon">Garcon</option>
+                  <option value="">{t("fieldSelectPlaceholder")}</option>
+                  <option value="fille">{t("u14GenderGirl")}</option>
+                  <option value="garcon">{t("u14GenderBoy")}</option>
                 </select>
               </AuthFormField>
-              <AuthFormField label="Club">
+              <AuthFormField label={t("u14ClubLabel")}>
                 <select name="club" required value={childForm.club} onChange={handleChildFormChange}>
-                  <option value="">Sélectionner un club</option>
+                  <option value="">{t("u14SelectClub")}</option>
                   {luxCompetitionClubs.map((club) => (
                     <option key={club} value={club}>
                       {club}
@@ -371,20 +376,20 @@ function MyChildrenPage(props) {
               </AuthFormField>
             </div>
             <div className="panel-grid panel-grid--2">
-              <AuthFormField label="Numéro de licence">
+              <AuthFormField label={t("u14LicenceLabel")}>
                 <input name="bibNumber" required value={childForm.bibNumber} onChange={handleChildFormChange} />
               </AuthFormField>
-              <AuthFormField label="Type d'inscription souhaité">
+              <AuthFormField label={t("u14RequestTypeLabel")}>
                 <select name="requestType" value={childForm.requestType} onChange={handleChildFormChange}>
-                  <option value="preprogram">Pré-programme U12/U14</option>
-                  <option value="porte_panier">Porte-panier</option>
-                  <option value="preprogram_ou_porte_panier">Pré-programme ou porte-panier</option>
+                  <option value="preprogram">{t("u14TypePreprogram")}</option>
+                  <option value="porte_panier">{t("u14TypeBasket")}</option>
+                  <option value="preprogram_ou_porte_panier">{t("u14TypeEither")}</option>
                 </select>
               </AuthFormField>
             </div>
             {childForm.requestType !== "porte_panier" ? (
               <div className="panel-grid panel-grid--2">
-                <AuthFormField label="Épreuve demandée">
+                <AuthFormField label={t("u14EventLabel")}>
                   <select name="requestedEvent" value={childForm.requestedEvent} onChange={handleChildFormChange}>
                     {getU14AllowedEvents(childForm.category).map((eventOption) => (
                       <option key={eventOption} value={eventOption}>
@@ -393,12 +398,12 @@ function MyChildrenPage(props) {
                     ))}
                   </select>
                 </AuthFormField>
-                <AuthFormField label="Informations utiles">
+                <AuthFormField label={t("u14NotesLabel")}>
                   <input name="notes" value={childForm.notes} onChange={handleChildFormChange} />
                 </AuthFormField>
               </div>
             ) : (
-              <AuthFormField label="Informations utiles">
+              <AuthFormField label={t("u14NotesLabel")}>
                 <input name="notes" value={childForm.notes} onChange={handleChildFormChange} />
               </AuthFormField>
             )}
@@ -410,13 +415,13 @@ function MyChildrenPage(props) {
                 onChange={handleChildFormChange}
               />
               <div>
-                <strong>Autorisation image</strong>
-                <p>Cette autorisation est requise pour enregistrer l'enfant dans le pré-programme.</p>
+                <strong>{t("u14ImageConsentTitle")}</strong>
+                <p>{t("mcImageConsentBody")}</p>
               </div>
             </label>
             <div className="panel-actions">
               <button className="button" type="submit" disabled={isSubmittingChild}>
-                {isSubmittingChild ? "Enregistrement..." : "Ajouter cet enfant"}
+                {isSubmittingChild ? t("mcSaving") : t("mcAddChildButton")}
               </button>
             </div>
           </form>
