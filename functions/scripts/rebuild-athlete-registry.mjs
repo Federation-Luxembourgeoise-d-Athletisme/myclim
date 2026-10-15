@@ -50,6 +50,8 @@ function athleteKey(row) {
     normalizeKeyPart(row.lastName),
     normalizeKeyPart(row.firstName),
     normalizeKeyPart(row.noc),
+    // Birth year (when a result row carries one) keeps homonyms apart.
+    String(row.yob ?? row.birthYear ?? ""),
   ].join("|");
 }
 
