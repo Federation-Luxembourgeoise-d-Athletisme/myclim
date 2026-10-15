@@ -10,6 +10,8 @@ import { CANAUX, CANAL_LABELS, PUB_TYPES, PUB_TYPE_LABELS, STATUTS, STATUT_LABEL
 import { buildCalendarItems, movedRule, ruleAt, ruleLabel } from "./com-recurrence.js";
 import { Avatar, Dialog, StatusPill, Toast, Toggle, TypeTag, ValidationBadge } from "./com-ui.jsx";
 import { typeColor, useEscape, useToast } from "./com-ui-helpers.js";
+import { PostStats } from "./com-social-panel.jsx";
+import { useSocialPosts } from "./com-social.js";
 
 export function ComCalendarPage() {
   const { currentUser } = useAuth();
@@ -84,6 +86,9 @@ export function ComCalendarPage() {
     return map;
   }, [items]);
   const openItem = openId ? items.find((i) => i.id === openId) : undefined;
+  // Statistiques de l'aperçu : posts chargés seulement si la publication ouverte en a un de relié.
+  const facebook = useSocialPosts("facebook", Boolean(openItem?.facebookPostId));
+  const instagram = useSocialPosts("instagram", Boolean(openItem?.instagramMediaId));
 
   async function run(action, success) {
     try {
@@ -347,6 +352,8 @@ export function ComCalendarPage() {
         <PublicationDrawer
           key={openItem.id}
           item={openItem}
+          facebook={facebook}
+          instagram={instagram}
           rubrique={openItem.rubriqueId ? rubriqueById.get(openItem.rubriqueId) : undefined}
           team={team}
           partners={partners}
@@ -402,7 +409,7 @@ export function ComCalendarPage() {
 }
 
 // Aperçu rapide d'une publication depuis le calendrier : statut, contenu en bref et ce qui manque.
-function PublicationDrawer({ item, rubrique, team, partners, onOpen, onStatut, onRename, onRemove, onClose }) {
+function PublicationDrawer({ item, rubrique, team, partners, facebook, instagram, onOpen, onStatut, onRename, onRemove, onClose }) {
   const [titre, setTitre] = useState(item.titre);
   const [confirming, setConfirming] = useState(false);
   useEscape(onClose);
@@ -416,7 +423,8 @@ function PublicationDrawer({ item, rubrique, team, partners, onOpen, onStatut, o
   const rows = [
     ["Canaux", item.canaux.map((c) => CANAL_LABELS[c].label).join(", ") || "Aucun"],
     ["Assigné à", assignees.map(memberName).join(", ") || "Personne"],
-    ["Visuel", item.visuelUrl ? "Ajouté" : <span className="com-warn-text">Manquant</span>],
+    ["Visuel", item.visuelUrl ? "Ajouté" : item.photos.length ? "Photo de la galerie" : <span className="com-warn-text">Manquant</span>],
+    ["Photos", item.photos.length ? `${item.photos.length} de la galerie` : "Aucune"],
     ["Validation", item.validation ? <ValidationBadge validation={item.validation} /> : "Pas encore demandée"],
     ...(checks.length ? [["Partenaires", `${checksDone} vérification${checksDone > 1 ? "s" : ""} sur ${checks.length}`]] : []),
   ];
@@ -464,6 +472,8 @@ function PublicationDrawer({ item, rubrique, team, partners, onOpen, onStatut, o
               ))}
             </div>
           </div>
+
+          <PostStats item={item} facebook={facebook} instagram={instagram} />
 
           {images.length ? (
             <div className="com-thumbs">

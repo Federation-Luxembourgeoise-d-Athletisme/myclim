@@ -12,6 +12,9 @@ import { CANAUX, CANAL_LABELS, STATUTS, STATUT_LABELS, TEXT_LIMITS, VALIDATION_E
 import { buildCalendarItems, movedRule, occurrenceId, ruleAt, ruleLabel } from "./com-recurrence.js";
 import { Avatar, Dialog, Toast, Toggle, TypeTag, ValidationBadge } from "./com-ui.jsx";
 import { typeColor, useToast } from "./com-ui-helpers.js";
+import { PhotosPanel } from "./com-gallery.jsx";
+import { SocialPanel } from "./com-social-panel.jsx";
+import { creditLine, facebookStats, formatCount, instagramStats, useSocialPosts } from "./com-social.js";
 
 // Hashtags insérés par le bouton « Hashtags du meeting » (à ajuster ici si besoin).
 const MEETING_HASHTAGS = "#CMCMLuxembourgIndoorMeeting #Letzmakeithappen #WorldIndoorTour #athletics";
@@ -77,7 +80,9 @@ function PublicationPage({ item }) {
   const teamById = useMemo(() => new Map(team.map((u) => [u.uid, u])), [team]);
   const selectedPartners = partners.filter((p) => item.partnerIds.includes(p.id));
   const mentions = selectedPartners.map((p) => (p.handle ? (p.handle.startsWith("@") ? p.handle : `@${p.handle}`) : p.nom));
-  const previewImages = [item.visuelUrl].filter(Boolean);
+  const previewImages = [item.visuelUrl, ...item.photos.map((p) => p.largeUrl)].filter(Boolean);
+  const facebook = useSocialPosts("facebook", item.canaux.includes("fb") || Boolean(item.facebookPostId));
+  const instagram = useSocialPosts("instagram", item.canaux.includes("ig") || Boolean(item.instagramMediaId));
 
   const toggle = (key, value) => {
     const list = item[key];
@@ -164,7 +169,8 @@ function PublicationPage({ item }) {
               « Afficher le mini-calendrier
             </button>
           ) : null}
-          <PostTextEditor value={item.texte} canaux={item.canaux} mentions={mentions} onSave={(texte) => h.update({ texte })} onToast={setToast} />
+          <PostTextEditor value={item.texte} canaux={item.canaux} credit={creditLine(item.photos)} mentions={mentions} onSave={(texte) => h.update({ texte })} onToast={setToast} />
+          <PhotosPanel photos={item.photos} hasVisuel={Boolean(item.visuelUrl)} onChange={(photos) => h.update({ photos })} />
           <section className="com-card">
             <VisuelPanel
               canvaUrl={item.canvaUrl}
@@ -278,10 +284,32 @@ function PublicationPage({ item }) {
 
           <section className="com-card com-stack">
             <h2 className="com-section-title">Après publication</h2>
+            {item.canaux.includes("fb") || item.facebookPostId ? (
+              <SocialPanel
+                label="Facebook"
+                account="la page Facebook du meeting"
+                state={facebook}
+                date={item.date}
+                postId={item.facebookPostId}
+                stats={facebookStats}
+                extra={(p) => (p.linkClicks ? `dont ${formatCount(p.linkClicks)} clics sur le lien` : null)}
+                // Un post lié est déjà en ligne : la publication passe en « Publié ».
+                onLink={(id) => h.update(id ? { facebookPostId: id, statut: "done" } : { facebookPostId: null })}
+              />
+            ) : null}
+            {item.canaux.includes("ig") || item.instagramMediaId ? (
+              <SocialPanel
+                label="Instagram"
+                account="@cmcm_lux_indoor_meet"
+                state={instagram}
+                date={item.date}
+                postId={item.instagramMediaId}
+                stats={instagramStats}
+                extra={(p) => (p.kind === "REELS" ? "Reel" : p.kind === "CAROUSEL_ALBUM" ? "Carrousel" : null)}
+                onLink={(id) => h.update(id ? { instagramMediaId: id, statut: "done" } : { instagramMediaId: null })}
+              />
+            ) : null}
             <SiteLinkPanel siteUrl={item.siteUrl} onChange={(url) => h.update(url ? { siteUrl: url, statut: "done" } : { siteUrl: null })} />
-            <p className="com-muted" style={{ fontSize: "0.8rem" }}>
-              Les statistiques Facebook et Instagram arrivent avec l'étape 2 du module.
-            </p>
           </section>
 
           {confirming ? (
@@ -475,7 +503,7 @@ function MiniCalendar({ current, uid, onHide }) {
 /* ---------- Texte du post ---------- */
 
 // Enregistré automatiquement pendant la frappe (après une courte pause) et à la sortie du champ.
-function PostTextEditor({ value, canaux, mentions, onSave, onToast }) {
+function PostTextEditor({ value, canaux, credit, mentions, onSave, onToast }) {
   const [text, setText] = useState(value);
   // Dernière version reçue : si le texte n'a pas été modifié ici depuis, une version enregistrée
   // ailleurs (autre personne, autre onglet) la remplace.
@@ -585,6 +613,9 @@ function PostTextEditor({ value, canaux, mentions, onSave, onToast }) {
       />
       <div className="com-row">
         <span className="com-muted">Insérer :</span>
+        <button type="button" className="com-toggle" disabled={!credit} onClick={() => credit && insert(credit)} title={credit || "Choisis d'abord des photos de la galerie"}>
+          Crédit photo
+        </button>
         <button
           type="button"
           className="com-toggle"

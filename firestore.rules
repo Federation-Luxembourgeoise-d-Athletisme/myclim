@@ -498,8 +498,18 @@ service cloud.firestore {
       allow write: if isWebsiteManager();
     }
 
-    match /{document=**} {
-      allow read, write: if isAdminOrManager();
+    // Requêtes « collection group » sur les inscrits des portails VIP (admin VIP,
+    // espace bénévole) : avant, couvertes par l'ancienne règle générale /{document=**}.
+    match /{path=**}/entries/{entryId} {
+      allow read: if isAdminOrManager();
+    }
+
+    // Règle générale admin/gestionnaire, sauf les collections réservées aux
+    // Cloud Functions : jetons (server_secrets) et codes des postes de caisse.
+    // ({rest=**} couvre aussi les sous-collections.)
+    match /{collection}/{rest=**} {
+      allow read, write: if isAdminOrManager() &&
+        !(collection in ["server_secrets", "cashPostSecrets", "cashAccessAttempts"]);
     }
   }
 }
