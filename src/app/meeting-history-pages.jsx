@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../context/auth-context";
 import { formatEditionLabel } from "./meeting-edition-utils";
-import { getActiveRoles } from "./navigation";
+import { canAccessStatistics, getActiveRoles } from "./navigation";
 import {
   MEETING_EDITIONS_COL,
   closeEdition,
@@ -370,7 +370,7 @@ function ResultForm({ year, initial, onSave, onCancel }) {
 function useRegistryIndex() {
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
-  const canAccess = roles.includes("admin") || roles.includes("meeting_director");
+  const canAccess = canAccessStatistics(roles);
   const { registry } = useAthleteRegistry(canAccess);
   return useMemo(() => {
     const idx = new Map();

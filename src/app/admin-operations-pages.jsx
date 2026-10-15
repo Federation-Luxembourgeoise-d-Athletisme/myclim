@@ -71,7 +71,7 @@ const DEFAULT_LIST_PAGE_SIZE = 10;
 const ROLE_ACCESS_DESCRIPTIONS = {
   admin: "Accès complet à toute l'application, y compris cette page de gestion des rôles et les réglages sensibles. Seul un admin peut changer les rôles d'un autre compte.",
   budget: "Accès au module Budget (page dédiée) : suivi et modification du budget de l'édition active. N'inclut pas le dépôt de facture — celui-ci se gère séparément ci-dessous.",
-  gestionnaire: "Accès opérationnel au pilotage quotidien : bénévoles, équipes, présences, accréditations, presse, VIP et pré-programme. N'a pas accès à cette page de gestion des rôles ni aux réglages du site web (sauf rôle supplémentaire).",
+  gestionnaire: "Accès opérationnel au pilotage quotidien : bénévoles, équipes, présences, accréditations, presse, VIP, pré-programme et Statistiques (base athlètes, résultats, records et Hall of Winners). N'a pas accès à cette page de gestion des rôles ni aux réglages du site web (sauf rôle supplémentaire).",
   gestionnaire_site: "Accès à la gestion du contenu du site public : actualités, partenaires, e-magazine et communiqués de presse.",
   chef_equipe: "Accès à \"Mon équipe\" : consulter les membres de son équipe et ajouter des documents utiles pour elle. Voit aussi les présences limitées à ses équipes.",
   benevole: "Accès à l'espace bénévole standard : dossier bénévole, mes affectations et mes documents.",
