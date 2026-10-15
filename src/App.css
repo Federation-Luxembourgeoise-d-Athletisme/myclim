@@ -6532,11 +6532,6 @@ tr.row--warning > td {
   background: #c8102e;
 }
 
-.access-chip--auto {
-  cursor: help;
-  border-color: #7a8d99;
-  background: #7a8d99;
-}
 
 .access-chip:disabled {
   cursor: not-allowed;

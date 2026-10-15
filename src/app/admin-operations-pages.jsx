@@ -77,6 +77,8 @@ const ROLE_ACCESS_DESCRIPTIONS = {
   chef_equipe: "Accès à \"Mon équipe\" : consulter les membres de son équipe et ajouter des documents utiles pour elle. Voit aussi les présences limitées à ses équipes.",
   benevole: "Accès à l'espace bénévole standard : dossier bénévole, mes affectations et mes documents.",
   parent_u14: "Accès à \"Mes enfants\" : suivi des inscriptions au pré-programme U12/U14 et au porte-panier.",
+  chef_transport_athletes: "Responsable du transport : voit arrivées et départs des athlètes avec leur manager, et répartit les bénévoles transport. Inclut tout ce que voit un bénévole transport.",
+  benevole_transport_athletes: "Bénévole transport : voit uniquement les arrivées des athlètes qu'il ou elle va chercher (nom, jour, heure, vol, provenance).",
   kine: "Accès à la page « Réservations kiné » : voir et gérer les créneaux de soins réservés par les athlètes.",
 };
 
@@ -85,21 +87,15 @@ const ROLE_ACCESS_DESCRIPTIONS = {
 const ROLE_DISPLAY_ORDER = [
   "benevole",
   "parent_u14",
+  "benevole_transport_athletes",
   "chef_equipe",
+  "chef_transport_athletes",
   "kine",
   "gestionnaire_site",
   "budget",
   "gestionnaire",
   "meeting_director",
   "admin",
-];
-
-// Rôles posés automatiquement par l'affectation à l'équipe Transport
-// (syncVolunteerAssignmentToUserProfile) : affichés mais pas éditables ici,
-// sinon la prochaine affectation écraserait la modification.
-const AUTOMATIC_ROLE_OPTIONS = [
-  { value: "chef_transport_athletes", label: "Chef transport athlètes" },
-  { value: "benevole_transport_athletes", label: "Bénévole transport athlètes" },
 ];
 
 // Tout ce qui donne plus qu'un espace personnel : c'est la liste qu'un admin
@@ -705,7 +701,6 @@ function RoleManagementPage(props) {
               const isSelf = user.id === currentUser?.uid;
               const isSaving = savingUserIds.includes(user.id);
               const profileStatus = formatProfileStatus(user.accountStatus);
-              const automaticRoles = AUTOMATIC_ROLE_OPTIONS.filter((option) => draftRoles.includes(option.value));
 
               return (
                 <li key={user.id} className={`access-row${isDirty ? " access-row--dirty" : ""}`}>
@@ -750,15 +745,6 @@ function RoleManagementPage(props) {
                         </button>
                       );
                     })}
-                    {automaticRoles.map((roleOption) => (
-                      <span
-                        key={`${user.id}-${roleOption.value}`}
-                        className="access-chip is-on access-chip--auto"
-                        title="Posé automatiquement par l'affectation à l'équipe Transport (page Équipes)."
-                      >
-                        {roleOption.label}
-                      </span>
-                    ))}
                   </div>
 
                   <div className="access-row__actions">
@@ -828,16 +814,11 @@ function RoleManagementPage(props) {
               <dd>{ROLE_ACCESS_DESCRIPTIONS[roleOption.value]}</dd>
             </div>
           ))}
-          <div>
-            <dt>Transport athlètes (auto)</dt>
-            <dd>
-              Chef et bénévoles transport sont posés automatiquement quand la personne est affectée à l'équipe Transport
-              dans la page Équipes. Ils s'affichent ici en lecture seule.
-            </dd>
-          </div>
         </dl>
         <p className="panel-note">
-          Un compte garde toujours au moins un rôle : si tu retires tout, il redevient « Bénévole ». Le statut de
+          Un compte garde toujours au moins un rôle : si tu retires tout, il redevient « Bénévole ». Les rôles transport
+          peuvent être donnés ici ou par invitation ; l'affectation d'un bénévole à l'équipe Transport (page Équipes) les
+          ajoute aussi, et ne retire que ceux qu'elle a elle-même ajoutés. Le statut de
           candidature affiché sous le nom ne change rien aux accès : la personne peut se connecter dans tous les cas.
         </p>
       </details>
