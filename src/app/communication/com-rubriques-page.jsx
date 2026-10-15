@@ -6,7 +6,8 @@ import { memberName, useCommunicationTeam, useRubriques } from "./com-data.js";
 import { JOURS, todayYmd } from "./com-dates.js";
 import { CANAUX, CANAL_LABELS, PUB_TYPES, PUB_TYPE_LABELS } from "./com-domain.js";
 import { ruleLabel } from "./com-recurrence.js";
-import { Avatar, ComPageHeader, Dialog, Toast, Toggle, TypeTag, useToast } from "./com-ui.jsx";
+import { Avatar, ComPageHeader, Dialog, Toast, Toggle, TypeTag } from "./com-ui.jsx";
+import { useToast } from "./com-ui-helpers.js";
 
 export function ComRubriquesPage() {
   const { rubriques, loading } = useRubriques();

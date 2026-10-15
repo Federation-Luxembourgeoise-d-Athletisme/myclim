@@ -10,10 +10,11 @@ import { memberName, useComPartners, useCommunicationTeam, useEvenements, usePub
 import { MOIS, addDays, fmtLong, fmtShort, monthGridDays, parseYmd, todayYmd, ymd } from "./com-dates.js";
 import { CANAUX, CANAL_LABELS, STATUTS, STATUT_LABELS, TEXT_LIMITS, VALIDATION_ETAT_LABELS } from "./com-domain.js";
 import { buildCalendarItems, movedRule, occurrenceId, ruleAt, ruleLabel } from "./com-recurrence.js";
-import { Avatar, Dialog, Toast, Toggle, TypeTag, ValidationBadge, typeColor, useToast } from "./com-ui.jsx";
+import { Avatar, Dialog, Toast, Toggle, TypeTag, ValidationBadge } from "./com-ui.jsx";
+import { typeColor, useToast } from "./com-ui-helpers.js";
 
 // Hashtags insérés par le bouton « Hashtags du meeting » (à ajuster ici si besoin).
-export const MEETING_HASHTAGS = "#CMCMIndoorMeeting #LuxembourgIndoorMeeting #WorldIndoorTour #athletics";
+const MEETING_HASHTAGS = "#CMCMIndoorMeeting #LuxembourgIndoorMeeting #WorldIndoorTour #athletics";
 const ACCOUNT_NAME = "CMCM Luxembourg Indoor Meeting";
 const ACCOUNT_HANDLE = "cmcm_lux_indoor_meet";
 const CAL_PREF = "com-mini-calendar";
@@ -519,8 +520,6 @@ function PostTextEditor({ value, canaux, mentions, onSave, onToast }) {
       window.removeEventListener("beforeunload", flush);
       flush();
     };
-    // save ne dépend que de références stables.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Insère sur sa propre ligne, au curseur si on était dans le texte, sinon à la fin.

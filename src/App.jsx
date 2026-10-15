@@ -104,6 +104,7 @@ const WebsiteLinksPageScreen = lazyNamed(() => import("./app/website-links-page"
 const SiteLinks = lazyNamed(() => import("./site/site-links"), "SiteLinks");
 const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin-page"), "InvitationAdminPage");
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
+const CommunicationModule = lazyNamed(() => import("./app/communication/communication-module"), "CommunicationModule");
 const CashDeskPage = lazyNamed(() => import("./app/cash-desk-page"), "CashDeskPage");
 const CashDeskAdminPageScreen = lazyNamed(() => import("./app/cash-desk-admin-page"), "CashDeskAdminPage");
 
@@ -502,6 +503,7 @@ export default function App() {
                 <Route path="vip" element={<VipPage />} />
                 <Route path="presse" element={<PressAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
+                <Route path="communication/*" element={<CommunicationModule />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "chef_equipe"]} />}>
                 <Route path="equipe" element={<TeamPage />} />

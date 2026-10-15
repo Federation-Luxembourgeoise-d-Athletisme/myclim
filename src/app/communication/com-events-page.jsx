@@ -7,7 +7,8 @@ import { fmtLong, fmtShort, todayYmd } from "./com-dates.js";
 import { TASK_STATUT_LABELS } from "./com-domain.js";
 import { NewPublicationDialog } from "./com-calendar-page.jsx";
 import { TaskDialog } from "./com-tasks-page.jsx";
-import { Avatar, ComPageHeader, Dialog, StatusPill, Toast, useToast } from "./com-ui.jsx";
+import { Avatar, ComPageHeader, Dialog, StatusPill, Toast } from "./com-ui.jsx";
+import { useToast } from "./com-ui-helpers.js";
 
 export function ComEventsPage() {
   const { currentUser } = useAuth();

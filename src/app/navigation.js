@@ -66,6 +66,9 @@ function buildNavigationFromRoles(roles) {
         makeLink("/app/vip", "navVip", "VIP", "ticket"),
         makeLink("/app/caisse", "navCashDesk", "Caisse & entrées", "check"),
       ]),
+      makeSection("navSectionCommunication", "Communication", [
+        makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
+      ]),
       makeSection("navSectionPreprogram", "Pré-programme", preProgrammeLinks),
       makeSection("navSectionWebsite", "Site web", [
         makeLink("/app/website", "navWebsiteOverviewAdmin", "Vue d’ensemble", "grid"),
@@ -120,6 +123,9 @@ function buildNavigationFromRoles(roles) {
         makeLink("/app/presse", "navPress", "Presse", "badge"),
         makeLink("/app/vip", "navVip", "VIP", "ticket"),
         makeLink("/app/caisse", "navCashDesk", "Caisse & entrées", "check"),
+      ]),
+      makeSection("navSectionCommunication", "Communication", [
+        makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
       ]),
       makeSection("navSectionPreprogram", "Pré-programme", preProgrammeLinks),
     ];

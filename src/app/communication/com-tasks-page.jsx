@@ -7,7 +7,8 @@ import { memberName, useCommunicationTeam, useEvenements, usePendingValidations,
 import { addDays, fmtShort, todayYmd, ymd } from "./com-dates.js";
 import { TASK_STATUTS, TASK_STATUT_LABELS } from "./com-domain.js";
 import { buildCalendarItems } from "./com-recurrence.js";
-import { Avatar, Dialog, StatusPill, Toast, TypeTag, ValidationBadge, useToast } from "./com-ui.jsx";
+import { Avatar, Dialog, StatusPill, Toast, TypeTag, ValidationBadge } from "./com-ui.jsx";
+import { useToast } from "./com-ui-helpers.js";
 
 const calendarLink = (item) => `/app/communication?pub=${encodeURIComponent(item.id)}&date=${item.date}`;
 

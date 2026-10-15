@@ -1,17 +1,9 @@
 // Module Communication : petits composants partagés (porté de myFLA,
 // components/communication/ui.tsx, use-escape.ts et validation-panel.tsx — badge).
-import { useEffect, useRef, useState } from "react";
+import { COM_SECTIONS, typeColor, useEscape } from "./com-ui-helpers.js";
 import { NavLink } from "react-router-dom";
 import { PUB_TYPE_LABELS, STATUT_LABELS } from "./com-domain.js";
 import { memberName } from "./com-data.js";
-
-export const COM_SECTIONS = [
-  { to: "/app/communication", label: "Calendrier éditorial", end: true },
-  { to: "/app/communication/taches", label: "Tâches" },
-  { to: "/app/communication/evenements", label: "Événements" },
-  { to: "/app/communication/rubriques", label: "Rubriques récurrentes" },
-  { to: "/app/communication/partenaires", label: "Partenaires" },
-];
 
 export function ComNav({ openTasks = 0 }) {
   return (
@@ -47,9 +39,6 @@ export function ComPageHeader({ title, description, actions }) {
     </div>
   );
 }
-
-// Variable CSS --tc portée par un élément coloré selon son type de publication.
-export const typeColor = (type) => ({ "--tc": `var(--com-t-${type})` });
 
 export function TypeTag({ type }) {
   return (
@@ -89,29 +78,6 @@ export function Toggle({ on, onClick, disabled, children }) {
   );
 }
 
-// Fenêtres superposées : Échap ne ferme que la dernière ouverte.
-const escapeStack = [];
-export function useEscape(onEscape) {
-  const handler = useRef(onEscape);
-  useEffect(() => {
-    handler.current = onEscape;
-  }, [onEscape]);
-  useEffect(() => {
-    const id = Symbol("escape");
-    escapeStack.push(id);
-    const onKey = (event) => {
-      if (event.key !== "Escape" || escapeStack[escapeStack.length - 1] !== id) return;
-      event.stopPropagation();
-      handler.current();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      escapeStack.splice(escapeStack.indexOf(id), 1);
-    };
-  }, []);
-}
-
 export function Dialog({ title, onClose, children, wide = false }) {
   useEscape(onClose);
   return (
@@ -132,17 +98,6 @@ export function Toast({ message }) {
       {message}
     </div>
   );
-}
-
-// Message éphémère (2,5 s).
-export function useToast() {
-  const [toast, setToast] = useState(null);
-  useEffect(() => {
-    if (!toast) return undefined;
-    const timer = window.setTimeout(() => setToast(null), 2500);
-    return () => window.clearTimeout(timer);
-  }, [toast, setToast]);
-  return [toast, setToast];
 }
 
 const BADGES = {

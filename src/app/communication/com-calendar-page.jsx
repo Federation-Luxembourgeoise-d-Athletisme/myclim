@@ -8,7 +8,8 @@ import { useComPartners, useCommunicationTeam, useEvenements, usePublications, u
 import { JOURS, JOURS_GRILLE, MOIS, addDays, fmtLong, monthGridDays, parseYmd, todayYmd, ymd } from "./com-dates.js";
 import { CANAUX, CANAL_LABELS, PUB_TYPES, PUB_TYPE_LABELS, STATUTS, STATUT_LABELS } from "./com-domain.js";
 import { buildCalendarItems, movedRule, ruleAt, ruleLabel } from "./com-recurrence.js";
-import { Avatar, Dialog, StatusPill, Toast, Toggle, TypeTag, ValidationBadge, typeColor, useEscape, useToast } from "./com-ui.jsx";
+import { Avatar, Dialog, StatusPill, Toast, Toggle, TypeTag, ValidationBadge } from "./com-ui.jsx";
+import { typeColor, useEscape, useToast } from "./com-ui-helpers.js";
 
 export function ComCalendarPage() {
   const { currentUser } = useAuth();
