@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { getSponsorMediaStyle } from "./sponsor-media-utils";
+import { SponsorLogo } from "./sponsor-logo";
 import { useSponsors } from "./site-hooks";
 import heroPhoto from "../assets/hero-photo.jpg";
 import galleryWinner from "../assets/site-gallery/gallery-winner.jpg";
@@ -142,7 +142,7 @@ function TrustedPartnerCard({ sponsor, fallbackName }) {
     <div className="site-sponsorship-trusted__card">
       {sponsor?.logoUrl ? (
         <div className="site-sponsorship-trusted__card-media">
-          <img src={sponsor.logoUrl} alt={fallbackName} style={getSponsorMediaStyle(sponsor)} />
+          <SponsorLogo sponsor={sponsor} alt={fallbackName} />
         </div>
       ) : (
         <span>{fallbackName}</span>

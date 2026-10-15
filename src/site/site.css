@@ -1528,6 +1528,92 @@
    EVENT PAGE
 ═══════════════════════════════════════════════════════════ */
 
+/* Event page layouts: several columns on desktop, stacked on phones. */
+.site-event-photo-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  height: 280px;
+  overflow: hidden;
+}
+
+/* Two columns side by side on desktop, stacked on phones. */
+.site-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 64px;
+}
+
+.site-split--tight {
+  gap: 24px;
+}
+
+.site-programme-highlights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px 10px 0;
+  background: #fff;
+}
+
+.site-event-fact-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+}
+
+.site-event-prize-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.site-event-prize-layout--with-aside {
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.9fr);
+}
+
+.site-event-atmosphere-strip {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 6px;
+  height: 220px;
+}
+
+.site-event-tickets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 900px) {
+  .site-split,
+  .site-event-prize-layout--with-aside,
+  .site-event-tickets {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+
+  .site-split--tight {
+    gap: 24px;
+  }
+
+  .site-event-tickets {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .site-event-photo-strip,
+  .site-event-atmosphere-strip,
+  .site-programme-highlights {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-event-fact-row {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+}
+
 .site-event-hero {
   padding: calc(var(--site-nav-h) + 64px) 0 64px;
   background: linear-gradient(180deg, #e8f0fb, var(--site-bg));

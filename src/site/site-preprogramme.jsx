@@ -110,7 +110,7 @@ export function SitePreProgramme() {
       </section>
 
       {/* ── Photo strip ─────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, padding: "10px 10px 0", background: "#fff" }}>
+      <div className="site-programme-highlights">
         {programmeHighlights.map(({ id, label, image }) => (
           <div key={id} style={{ display: "grid", gap: 10 }}>
             <div style={{ height: 250, overflow: "hidden", borderRadius: "var(--site-radius-sm)" }}>
@@ -136,7 +136,7 @@ export function SitePreProgramme() {
       {/* ── Influencer Race ────────────────────────────── */}
       <section className="site-section" id="influencer-race">
         <div className="site-container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <div className="site-split" style={{ alignItems: "center" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[influencer, influencerGodart].map((src, i) => (
                 <div key={i} style={{ overflow: "hidden", borderRadius: "var(--site-radius-sm)", aspectRatio: "4/3" }}>
@@ -202,7 +202,7 @@ export function SitePreProgramme() {
           />
 
           {/* Format */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "start", marginBottom: 64 }}>
+          <div className="site-split" style={{ alignItems: "start", marginBottom: 64 }}>
             <div>
               <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: 20, color: "var(--site-text)" }}>
                 🏃 Race Format — Mixed 4 × 200m Relay
@@ -239,7 +239,7 @@ export function SitePreProgramme() {
           <h3 style={{ fontSize: "1rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--site-text-muted)", marginBottom: 28 }}>
             Company Packages
           </h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <div className="site-split site-split--tight">
             {/* Pack 1 */}
             <div className="site-card" style={{ padding: 36 }}>
               <div style={{ width: 48, height: 4, background: "var(--site-red)", borderRadius: 2, marginBottom: 24 }} />
@@ -334,7 +334,7 @@ export function SitePreProgramme() {
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "start" }}>
+          <div className="site-split" style={{ alignItems: "start" }}>
             <div>
               <div style={{ marginBottom: 32 }}>
                 {[

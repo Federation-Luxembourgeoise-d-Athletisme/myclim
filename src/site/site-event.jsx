@@ -118,7 +118,7 @@ export function SiteEvent() {
       </section>
 
       {/* ── Venue photo strip ─────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", height: 280, overflow: "hidden" }}>
+      <div className="site-event-photo-strip">
         {[coque1, coque2, coque3, coque4].map((src, i) => (
           <div key={i} style={{ overflow: "hidden" }}>
             <img
@@ -135,7 +135,7 @@ export function SiteEvent() {
       {/* ── About ────────────────────────────────────────── */}
       <section className="site-section">
         <div className="site-container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "start" }}>
+          <div className="site-split" style={{ alignItems: "start" }}>
             <div>
               <SectionTitle
                 eyebrow="About the event"
@@ -172,13 +172,12 @@ export function SiteEvent() {
               ].map(([label, value]) => (
                 <div
                   key={label}
+                  className="site-event-fact-row"
                   style={{
                     padding: "20px 24px",
                     background: "var(--site-card)",
                     border: "1px solid var(--site-border)",
                     borderRadius: "var(--site-radius-sm)",
-                    display: "grid",
-                    gridTemplateColumns: "140px 1fr",
                     gap: 16,
                     alignItems: "center",
                   }}
@@ -204,7 +203,7 @@ export function SiteEvent() {
               eyebrow="Programme"
               title="Events & prize money for this edition"
             />
-            <div style={{ display: "grid", gridTemplateColumns: usedPrizeSystemKeys.length > 0 ? "minmax(0, 1.5fr) minmax(300px, 0.9fr)" : "minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
+            <div className={`site-event-prize-layout${usedPrizeSystemKeys.length > 0 ? " site-event-prize-layout--with-aside" : ""}`}>
               <div className="site-card" style={{ overflow: "hidden", maxWidth: 760 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
                   <thead>
@@ -390,11 +389,7 @@ export function SiteEvent() {
           />
 
           {/* Atmosphere photo strip */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr 1fr",
-            gap: 6,
-            height: 220,
+          <div className="site-event-atmosphere-strip" style={{
             overflow: "hidden",
             borderRadius: "var(--site-radius)",
             marginBottom: 48,
@@ -413,7 +408,7 @@ export function SiteEvent() {
           </div>
 
           {/* Ticket cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 32 }}>
+          <div className="site-event-tickets">
 
             {/* Under 18 */}
             <div className="site-card" style={{ padding: "36px 32px", display: "flex", flexDirection: "column" }}>
@@ -578,7 +573,7 @@ export function SiteEvent() {
       {/* ── VIP Experience ────────────────────────────────── */}
       <section className="site-section site-section--alt" id="vip">
         <div className="site-container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "start" }}>
+          <div className="site-split" style={{ alignItems: "start" }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
                 <span className="site-eyebrow" style={{ color: "#b08c1e", margin: 0 }}>VIP visits available!</span>
@@ -680,7 +675,7 @@ export function SiteEvent() {
       {/* ── Livestream ────────────────────────────────────── */}
       <section className="site-section" id="livestream">
         <div className="site-container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <div className="site-split" style={{ alignItems: "center" }}>
             <div>
               <SectionTitle
                 eyebrow="Aftermovie · 2025 Edition"
@@ -728,7 +723,7 @@ export function SiteEvent() {
       {/* ── Volunteer ─────────────────────────────────────── */}
       <section className="site-section site-section--alt" id="volunteer">
         <div className="site-container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <div className="site-split" style={{ alignItems: "center" }}>
             <div style={{
               borderRadius: "var(--site-radius-lg)",
               overflow: "hidden",

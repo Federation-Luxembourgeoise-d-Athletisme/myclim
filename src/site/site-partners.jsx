@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { getSponsorMediaStyle } from "./sponsor-media-utils";
+import { SponsorLogo } from "./sponsor-logo";
 import { useSponsorCategories, useSponsors } from "./site-hooks";
 import { sponsorCategoryLabel } from "./sponsor-utils";
 import cmcmPressConference from "../assets/partner-stories/cmcm-press-conference.jpg";
@@ -125,7 +125,7 @@ function PartnerLogo({ sponsor, fallbackName, compact = false }) {
     <div className={`site-main-partner-logo${compact ? " site-main-partner-logo--compact" : ""}`}>
       {sponsor?.logoUrl ? (
         <div className="site-main-partner-logo__media">
-          <img src={sponsor.logoUrl} alt={fallbackName} style={getSponsorMediaStyle(sponsor)} />
+          <SponsorLogo sponsor={sponsor} alt={fallbackName} />
         </div>
       ) : (
         <span>{fallbackName}</span>
@@ -155,7 +155,7 @@ function SponsorLogoCard({ sponsor }) {
     <div className="site-main-partners-sponsor-card" title={sponsor.name}>
       {sponsor.logoUrl ? (
         <div className="site-main-partners-sponsor-card__media">
-          <img src={sponsor.logoUrl} alt={sponsor.name} style={getSponsorMediaStyle(sponsor)} />
+          <SponsorLogo sponsor={sponsor} />
         </div>
       ) : (
         <span className="site-main-partners-sponsor-card__name">{sponsor.name}</span>
