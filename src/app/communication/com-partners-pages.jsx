@@ -21,6 +21,8 @@ import {
   progressText,
 } from "./com-partners.js";
 import { ruleLabel } from "./com-recurrence.js";
+import { CANAL_LABELS, PUB_TYPE_LABELS } from "./com-domain.js";
+import { facebookStats, formatCount, instagramStats, useSocialPosts } from "./com-social.js";
 import { ComPageHeader, Dialog, StatusPill, Toast } from "./com-ui.jsx";
 import { useToast } from "./com-ui-helpers.js";
 
@@ -912,11 +914,136 @@ function BilanDialog({ partner, obligations, ctx, onClose }) {
           </tbody>
         </table>
       </div>
+      <BilanVisibility partner={partner} obligations={obligations} ctx={ctx} />
       <div className="com-row" style={{ justifyContent: "flex-end" }}>
         <button type="button" className="button button--secondary button--small" onClick={onClose}>
           {tr("Fermer", "Close")}
         </button>
       </div>
     </Dialog>
+  );
+}
+
+const statValue = (stats, name) => Number(stats.find(([n]) => n === name)?.[1]) || 0;
+const sumStats = (stats, names) => names.reduce((acc, name) => acc + statValue(stats, name), 0);
+const sumOf = (rows, key) => rows.reduce((acc, r) => acc + (r[key] || 0), 0);
+
+// Toutes les publications publiées qui mentionnent le partenaire, avec leurs
+// statistiques Facebook / Instagram, qu'elles comptent ou non pour une contrepartie.
+function BilanVisibility({ partner, obligations, ctx }) {
+  const pubs = ctx.partnerPublications
+    .filter((p) => !p.annulee && p.statut === "done" && p.partnerIds.includes(partner.id))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const { lang } = useComLang();
+  const facebookIds = pubs.map((p) => p.facebookPostId).filter(Boolean);
+  const instagramIds = pubs.map((p) => p.instagramMediaId).filter(Boolean);
+  const facebook = useSocialPosts("facebook", facebookIds.length > 0, lang, facebookIds);
+  const instagram = useSocialPosts("instagram", instagramIds.length > 0, lang, instagramIds);
+  const loading = facebook.status === "loading" || instagram.status === "loading";
+
+  // Même règle que le mode « Automatique · publications » de obligationProgress.
+  const inContract = (p) => (!partner.contratDebut || p.date >= partner.contratDebut) && (!partner.contratFin || p.date <= partner.contratFin);
+  const counted = (p) => inContract(p) && obligations.some((o) => o.mode === "publications" && (o.categorie !== "newsletter" || p.type === "newsletter"));
+
+  const rows = pubs.map((p) => {
+    const fb = p.facebookPostId ? facebook.posts.find((x) => x.id === p.facebookPostId) : undefined;
+    const ig = p.instagramMediaId ? instagram.posts.find((x) => x.id === p.instagramMediaId) : undefined;
+    const fbStats = fb ? facebookStats(fb) : [];
+    const igStats = ig ? instagramStats(ig) : [];
+    const hasStats = Boolean(fb || ig);
+    return {
+      p,
+      fb,
+      ig,
+      counted: counted(p),
+      missingStats: Boolean((p.facebookPostId && !fb) || (p.instagramMediaId && !ig)),
+      vues: hasStats ? statValue(fbStats, "vues") + statValue(igStats, "vues") : null,
+      touches: hasStats ? statValue(fbStats, "personnes touchées") + statValue(igStats, "comptes touchés") : null,
+      interactions: hasStats
+        ? sumStats(fbStats, ["réactions", "commentaires", "partages", "clics"]) + sumStats(igStats, ["j'aime", "commentaires", "partages", "enregistrements"])
+        : null,
+    };
+  });
+
+  return (
+    <section className="com-stack" style={{ gap: 8 }}>
+      <h2 className="com-section-title" style={{ margin: 0 }}>
+        Visibilité : toutes les publications qui mentionnent {partner.nom}
+      </h2>
+      {!rows.length ? (
+        <p className="com-muted">Aucune publication publiée ne mentionne ce partenaire.</p>
+      ) : (
+        <>
+          <div className="com-stat-grid">
+            {[
+              ["publications", rows.length],
+              ["hors contreparties", rows.filter((r) => !r.counted).length],
+              ["vues", sumOf(rows, "vues")],
+              ["personnes touchées", sumOf(rows, "touches")],
+              ["interactions", sumOf(rows, "interactions")],
+            ].map(([name, value]) => (
+              <span key={name}>
+                <b>{formatCount(value)}</b>
+                <small>{name}</small>
+              </span>
+            ))}
+          </div>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Publication</th>
+                  <th>Vues</th>
+                  <th>Touchés</th>
+                  <th>Interactions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.p.id}>
+                    <td>
+                      <strong>{r.p.titre || "Sans titre"}</strong>
+                      {!r.counted ? (
+                        <span className="com-badge com-badge--info" style={{ marginLeft: 6 }}>
+                          {inContract(r.p) ? "Hors contreparties" : "Hors contrat"}
+                        </span>
+                      ) : null}
+                      <span className="com-muted" style={{ display: "block", fontSize: "0.75rem" }}>
+                        {fullDate(r.p.date)} · {PUB_TYPE_LABELS[r.p.type]}
+                        {r.p.canaux.length ? ` · ${r.p.canaux.map((c) => CANAL_LABELS[c].label).join(", ")}` : ""}
+                        {r.fb?.permalinkUrl ? (
+                          <>
+                            {" · "}
+                            <a href={r.fb.permalinkUrl} target="_blank" rel="noreferrer" className="com-link">
+                              Facebook ↗
+                            </a>
+                          </>
+                        ) : null}
+                        {r.ig?.permalinkUrl ? (
+                          <>
+                            {" · "}
+                            <a href={r.ig.permalinkUrl} target="_blank" rel="noreferrer" className="com-link">
+                              Instagram ↗
+                            </a>
+                          </>
+                        ) : null}
+                        {r.missingStats && !loading ? " · statistiques indisponibles" : ""}
+                      </span>
+                    </td>
+                    <td>{formatCount(r.vues)}</td>
+                    <td>{formatCount(r.touches)}</td>
+                    <td>{formatCount(r.interactions)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="com-muted" style={{ fontSize: "0.75rem", margin: 0 }}>
+            {loading ? "Chargement des statistiques… " : ""}
+            Statistiques des posts Facebook et Instagram reliés aux publications, additionnées : une même personne touchée sur les deux réseaux compte deux fois.
+          </p>
+        </>
+      )}
+    </section>
   );
 }

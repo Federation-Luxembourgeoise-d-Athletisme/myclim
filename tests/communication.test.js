@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { fmtLong, monthGridDays, parseYmd } from "../src/app/communication/com-dates.js";
 import { buildCalendarItems, movedRule, occurs, ruleAt, ruleLabel } from "../src/app/communication/com-recurrence.js";
 import { buildComPartner, normalizeObligation, obligationProgress } from "../src/app/communication/com-partners.js";
+import { linkLabel, normalizePublication } from "../src/app/communication/com-domain.js";
 
 test("monthGridDays covers full Monday-to-Sunday weeks", () => {
   const days = monthGridDays(2027, 0); // janvier 2027 commence un vendredi
@@ -86,4 +87,11 @@ test("obligationProgress counts published mentions and flags late counterparts",
 
   const livrable = normalizeObligation({ partnerId: "cmcm", categorie: "print", mode: "livrable", etape: 3 });
   assert.equal(obligationProgress(partner, livrable, ctx).statut, "done");
+});
+
+test("linkLabel names known services and falls back to the domain", () => {
+  assert.equal(linkLabel("https://flaluxembourg.sharepoint.com/:f:/s/meeting/abc"), "SharePoint");
+  assert.equal(linkLabel("https://drive.google.com/drive/folders/xyz"), "Google Drive");
+  assert.equal(linkLabel("https://www.example.lu/visuel.png"), "example.lu");
+  assert.deepEqual(normalizePublication({ liens: [{ label: "A", url: "https://a.lu" }, null, { label: "x" }] }).liens, [{ label: "A", url: "https://a.lu" }]);
 });

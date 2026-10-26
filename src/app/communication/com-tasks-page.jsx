@@ -19,7 +19,7 @@ export function ComTasksPage() {
   const { lang, tr } = useComLang();
   const today = todayYmd();
   const horizon = ymd(addDays(new Date(), 21));
-  const [scope, setScope] = useState("moi");
+  const [scope, setScope] = useState("equipe");
   const [editing, setEditing] = useState(null);
   const [toast, setToast] = useToast();
 
@@ -63,11 +63,11 @@ export function ComTasksPage() {
         <h1>{mine ? tr("Mes tâches", "My tasks") : tr("Tâches de l'équipe", "Team tasks")}</h1>
         <div className="com-row">
           <div className="com-segmented">
-            <button type="button" className={mine ? "is-on" : ""} onClick={() => setScope("moi")}>
-              {tr("Mes tâches", "My tasks")}
-            </button>
             <button type="button" className={!mine ? "is-on" : ""} onClick={() => setScope("equipe")}>
               {tr("Toute l'équipe", "Whole team")}
+            </button>
+            <button type="button" className={mine ? "is-on" : ""} onClick={() => setScope("moi")}>
+              {tr("Mes tâches", "My tasks")}
             </button>
           </div>
           <button type="button" className="button button--primary button--small" onClick={() => setEditing("new")}>

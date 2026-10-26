@@ -30,6 +30,7 @@ const PUBLICATION_FIELDS = [
   "visuelUrl",
   "visuelPath",
   "photos",
+  "liens",
 ];
 
 const toData = (item) => ({

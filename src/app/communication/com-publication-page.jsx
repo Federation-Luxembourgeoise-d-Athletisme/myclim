@@ -8,7 +8,7 @@ import cmcmLogo from "../../assets/cmcm-logo.png";
 import { VISUEL_TYPES, cancelOccurrence, deletePublication, isVideo, moveSeries, publicationHandlers, updateItem } from "./com-actions.js";
 import { memberName, useComPartners, useCommunicationTeam, useEvenements, usePublicationItem, usePublications, useRubriques } from "./com-data.js";
 import { addDays, dayName, fmtLong, fmtShort, gridDayNames, monthGridDays, monthName, parseYmd, todayYmd, ymd } from "./com-dates.js";
-import { CANAUX, CANAL_LABELS, STATUTS, STATUT_LABELS, TEXT_LIMITS, VALIDATION_ETAT_LABELS } from "./com-domain.js";
+import { CANAUX, CANAL_LABELS, MAX_LIENS, STATUTS, STATUT_LABELS, TEXT_LIMITS, VALIDATION_ETAT_LABELS, linkLabel } from "./com-domain.js";
 import { buildCalendarItems, movedRule, occurrenceId, ruleAt, ruleLabel } from "./com-recurrence.js";
 import { Avatar, Dialog, Toast, Toggle, TypeTag, ValidationBadge } from "./com-ui.jsx";
 import { typeColor, useToast } from "./com-ui-helpers.js";
@@ -89,8 +89,8 @@ function PublicationPage({ item }) {
   const selectedPartners = partners.filter((p) => item.partnerIds.includes(p.id));
   const mentions = selectedPartners.map((p) => (p.handle ? (p.handle.startsWith("@") ? p.handle : `@${p.handle}`) : p.nom));
   const previewImages = [item.visuelUrl, ...item.photos.map((p) => p.largeUrl)].filter(Boolean);
-  const facebook = useSocialPosts("facebook", item.canaux.includes("fb") || Boolean(item.facebookPostId), lang);
-  const instagram = useSocialPosts("instagram", item.canaux.includes("ig") || Boolean(item.instagramMediaId), lang);
+  const facebook = useSocialPosts("facebook", item.canaux.includes("fb") || Boolean(item.facebookPostId), lang, [item.facebookPostId]);
+  const instagram = useSocialPosts("instagram", item.canaux.includes("ig") || Boolean(item.instagramMediaId), lang, [item.instagramMediaId]);
   // Règle de récurrence en minuscule dans une phrase (en anglais, les jours gardent leur majuscule).
   const ruleText = (rule) => {
     const label = ruleLabel(rule, lang);
@@ -287,6 +287,7 @@ function PublicationPage({ item }) {
                 ))}
               </select>
             </label>
+            <LinksPanel liens={item.liens} onChange={(liens) => h.update({ liens })} />
             <label className="com-field">
               {tr("Notes internes", "Internal notes")}
               <textarea
@@ -933,6 +934,58 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
             : tr("Demander la validation", "Request approval")}
         </button>
       )}
+    </div>
+  );
+}
+
+/* ---------- Liens de travail (visuels, SharePoint…) ---------- */
+
+function LinksPanel({ liens, onChange }) {
+  const { tr } = useComLang();
+  const [url, setUrl] = useState("");
+  const [label, setLabel] = useState("");
+  const [error, setError] = useState(null);
+
+  function add(e) {
+    e.preventDefault();
+    const clean = url.trim();
+    if (!/^https?:\/\/\S+$/i.test(clean)) return setError(tr("Colle l'adresse complète (https://…).", "Paste the full address (https://…)."));
+    if (liens.some((l) => l.url === clean)) return setError(tr("Ce lien est déjà dans la liste.", "This link is already in the list."));
+    setError(null);
+    onChange([...liens, { label: label.trim().slice(0, 100) || linkLabel(clean), url: clean }]);
+    setUrl("");
+    setLabel("");
+  }
+
+  return (
+    <div className="com-stack" style={{ gap: 8 }}>
+      <span className="com-field">{tr("Liens (visuels, SharePoint, Drive…)", "Links (visuals, SharePoint, Drive…)")}</span>
+      {liens.length ? (
+        <ul className="com-links">
+          {liens.map((l) => (
+            <li key={l.url}>
+              <a href={l.url} target="_blank" rel="noreferrer" className="com-link" title={l.url}>
+                {l.label || linkLabel(l.url)} ↗
+              </a>
+              <button type="button" className="com-btn-ghost is-danger" aria-label={`${tr("Retirer le lien", "Remove link")} ${l.label}`} onClick={() => onChange(liens.filter((x) => x.url !== l.url))}>
+                {tr("Retirer", "Remove")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {liens.length < MAX_LIENS ? (
+        <form className="com-stack" style={{ gap: 6 }} onSubmit={add}>
+          <input className="com-input" type="url" placeholder="https://…" aria-label={tr("Adresse du lien", "Link address")} value={url} onChange={(e) => setUrl(e.target.value)} />
+          <span className="com-row" style={{ flexWrap: "nowrap" }}>
+            <input className="com-input" placeholder={tr("Libellé (facultatif)", "Label (optional)")} aria-label={tr("Libellé du lien", "Link label")} maxLength={100} value={label} onChange={(e) => setLabel(e.target.value)} />
+            <button type="submit" className="button button--secondary button--small" disabled={!url.trim()}>
+              {tr("Ajouter", "Add")}
+            </button>
+          </span>
+        </form>
+      ) : null}
+      {error ? <p className="com-error">{error}</p> : null}
     </div>
   );
 }
