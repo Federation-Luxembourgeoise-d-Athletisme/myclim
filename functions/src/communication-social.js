@@ -137,16 +137,12 @@ async function graphGet(url, token, service, tr) {
   return payload;
 }
 
-const socialCache = new Map();
-
 // Les 40 publications les plus récentes de la page Facebook ou du compte Instagram, avec leurs statistiques.
+// Pas de cache : les statistiques sont relues chez Meta à chaque appel.
 export const comSocialPosts = onCall({ region: REGION, secrets: [metaPageToken, metaPageId, instagramToken] }, async (request) => {
   await assertCommunicationMember(request);
   const tr = translator(request);
   const network = request.data?.network === "instagram" ? "instagram" : "facebook";
-
-  const cached = socialCache.get(network);
-  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return { posts: cached.posts };
 
   let posts;
   if (network === "facebook") {
@@ -168,7 +164,6 @@ export const comSocialPosts = onCall({ region: REGION, secrets: [metaPageToken, 
     posts = (payload.data || []).map(toInstagramPost);
   }
 
-  socialCache.set(network, { at: Date.now(), posts });
   return { posts };
 });
 
