@@ -5,6 +5,7 @@ import {
   arrayUnion,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   serverTimestamp,
   setDoc,
@@ -61,6 +62,7 @@ import {
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
 import { RequireAuth, RequireRouteAccess } from "./app/route-guards";
+import { STATISTICS_ACCESS_ROLES } from "./app/navigation";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./app/seed-data";
 import { getU14CategoryFromBirthDate } from "./app/utils";
 import { db } from "./services/firebase";
@@ -149,14 +151,23 @@ async function syncVolunteerAssignmentToUserProfile(volunteer) {
     { merge: true },
   );
 
-  // Sync transport platform roles based on team assignment
-  const rolesToAdd = [
+  // Sync transport platform roles based on team assignment. The roles can
+  // also be given by hand (roles page, invitation — a transport chief rarely
+  // fills the volunteer form), so the sync only removes what it added itself,
+  // tracked in teamGrantedRoles.
+  const dueRoles = [
     ...(isTransport ? ["benevole_transport_athletes"] : []),
     ...(isTransportChief ? ["chef_transport_athletes"] : []),
   ];
-  const rolesToRemove = [
-    ...(!isTransport ? ["benevole_transport_athletes"] : []),
-    ...(!isTransportChief ? ["chef_transport_athletes"] : []),
+  const userSnapshot = await getDoc(doc(db, "users", userId));
+  const userData = userSnapshot.exists() ? userSnapshot.data() : {};
+  const currentRoles = Array.isArray(userData.userTypes) ? userData.userTypes : [];
+  const previouslyGranted = Array.isArray(userData.teamGrantedRoles) ? userData.teamGrantedRoles : [];
+  const rolesToAdd = dueRoles.filter((role) => !currentRoles.includes(role));
+  const rolesToRemove = previouslyGranted.filter((role) => !dueRoles.includes(role));
+  const nextTeamGrantedRoles = [
+    ...previouslyGranted.filter((role) => dueRoles.includes(role)),
+    ...rolesToAdd,
   ];
 
   if (rolesToAdd.length) {
@@ -164,6 +175,9 @@ async function syncVolunteerAssignmentToUserProfile(volunteer) {
   }
   if (rolesToRemove.length) {
     await updateDoc(doc(db, "users", userId), { userTypes: arrayRemove(...rolesToRemove) });
+  }
+  if (rolesToAdd.length || rolesToRemove.length) {
+    await updateDoc(doc(db, "users", userId), { teamGrantedRoles: nextTeamGrantedRoles });
   }
 }
 
@@ -557,7 +571,7 @@ export default function App() {
                 <Route path="records" element={<Navigate replace to="/app/statistics/records" />} />
                 <Route path="winners" element={<Navigate replace to="/app/statistics/winners" />} />
               </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
+              <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
                 <Route path="statistics">
                   <Route index element={<Navigate replace to="results" />} />
                   <Route path="registry" element={<AthleteRegistryPage />} />

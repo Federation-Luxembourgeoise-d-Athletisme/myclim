@@ -21,11 +21,18 @@ const ROLE_LABEL = Object.fromEntries(platformRoleOptions.map((r) => [r.value, r
 const STATUS_LABEL = { pending: "En attente", accepted: "Acceptée", cancelled: "Annulée" };
 const STATUS_COLOR = { pending: "#f59e0b", accepted: "#16a34a", cancelled: "#6b7280" };
 
-/** Cherche un compte déjà activé (users/{uid}) pour cette adresse — pour éviter de réinviter quelqu'un qui a déjà un compte. */
+/**
+ * Cherche un compte déjà activé (users/{uid}) pour cette adresse — pour éviter de réinviter quelqu'un qui a déjà un compte.
+ * accountStatus suit la candidature bénévole (« candidature_recue »…) et pas la connexion : c'est le lien id = uid
+ * qui prouve qu'un compte existe.
+ */
 async function findActiveUserByEmail(email) {
   const q = query(collection(db, "users"), where("email", "==", email), limit(5));
   const snap = await getDocs(q);
-  const activeDoc = snap.docs.find((d) => (d.data().accountStatus || "active") === "active");
+  const activeDoc = snap.docs.find((d) => {
+    const data = d.data();
+    return data.accountStatus !== "disabled" && (!data.uid || data.uid === d.id);
+  });
   return activeDoc ? { id: activeDoc.id, ...activeDoc.data() } : null;
 }
 

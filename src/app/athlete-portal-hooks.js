@@ -641,7 +641,9 @@ async function rebuildAthleteRegistryFromHistoricalResults(onProgress) {
   onProgress?.("Regroupement des athlètes à partir des résultats historiques…");
   const athletes = new Map();
   for (const row of rows) {
-    const key = athleteMergeKey(row.lastName, row.firstName, row.noc);
+    // The birth year (when a result row carries one) keeps homonyms apart —
+    // e.g. Bob Bertemes the shot putter (1993) vs. the LUX middle-distance runner.
+    const key = `${athleteMergeKey(row.lastName, row.firstName, row.noc)}|${row.yob ?? row.birthYear ?? ""}`;
     if (!key.replace(/\|/g, "")) continue;
 
     if (!athletes.has(key)) {
@@ -724,6 +726,108 @@ async function rebuildAthleteRegistryFromHistoricalResults(onProgress) {
 
   onProgress?.(`${written} fiches athlètes écrites.`);
   return { deleted, written, sourceRows: rows.length };
+}
+
+/**
+ * Non-destructive counterpart of the rebuild: only touches registry entries
+ * that mix homonyms, i.e. athletes whose name + NOC appear in
+ * meetingResults.json under more than one birth year. Each such entry (with
+ * no birth year of its own) is split into one entry per birth year; every
+ * other registry entry — including manual merges — is left alone. Entries
+ * carrying a WAID are skipped: which homonym it belongs to is a human call.
+ */
+async function splitHistoricalHomonyms(onProgress) {
+  const resultsJson = await import("../data/meetingResults.json").then((m) => m.default);
+  const rows = Object.values(resultsJson)
+    .flatMap((items) => items || [])
+    .filter((row) => row && (row.lastName || row.firstName));
+
+  // name|noc → Set of birth years; name|noc|year|discipline → birth year
+  const yearsByName = new Map();
+  const yobByParticipation = new Map();
+  const sampleRowByYob = new Map();
+  for (const row of rows) {
+    const yob = row.yob ?? row.birthYear;
+    if (yob == null || yob === "") continue;
+    const nameKey = athleteMergeKey(row.lastName, row.firstName, row.noc);
+    if (!yearsByName.has(nameKey)) yearsByName.set(nameKey, new Set());
+    yearsByName.get(nameKey).add(Number(yob));
+    yobByParticipation.set(`${nameKey}|${registryParticipationKey(row)}`, Number(yob));
+    sampleRowByYob.set(`${nameKey}|${yob}`, row);
+  }
+  const homonymNames = new Set([...yearsByName].filter(([, years]) => years.size > 1).map(([key]) => key));
+  if (homonymNames.size === 0) {
+    onProgress?.("Aucun homonyme à séparer.");
+    return { split: 0, skipped: 0 };
+  }
+
+  const registrySnap = await getDocs(collection(db, ATHLETE_REGISTRY_COLLECTION));
+  const registryById = new Map(registrySnap.docs.map((d) => [d.id, d.data()]));
+  const batch = writeBatch(db);
+  let split = 0;
+  let skipped = 0;
+
+  for (const [docId, entry] of registryById) {
+    const nameKey = athleteMergeKey(entry.lastName, entry.firstName, entry.nationality);
+    if (!homonymNames.has(nameKey) || resolveAthleteBirthYear(entry)) continue;
+    const label = `${entry.firstName || ""} ${entry.lastName || ""}`.trim();
+    if (entry.waid) {
+      onProgress?.(`⚠️ ${label} : fiche liée à un WAID, à séparer à la main.`);
+      skipped++;
+      continue;
+    }
+
+    const editionsByYob = new Map();
+    const leftover = [];
+    for (const edition of Array.isArray(entry.editions) ? entry.editions : []) {
+      const yob = yobByParticipation.get(`${nameKey}|${registryParticipationKey(edition)}`);
+      if (yob == null) { leftover.push(edition); continue; }
+      if (!editionsByYob.has(yob)) editionsByYob.set(yob, []);
+      editionsByYob.get(yob).push(edition);
+    }
+    if (editionsByYob.size === 0) continue;
+
+    for (const [yob, editions] of editionsByYob) {
+      const sample = sampleRowByYob.get(`${nameKey}|${yob}`);
+      const targetId = buildHistoricalRegistryDocId({ ...sample, yob });
+      const target = targetId === docId ? null : registryById.get(targetId);
+      const mergedEditions = [...(target?.editions || [])];
+      for (const edition of editions) {
+        if (!mergedEditions.some((e) => registryParticipationKey(e) === registryParticipationKey(edition))) {
+          mergedEditions.push(edition);
+        }
+      }
+      mergedEditions.sort((a, b) => a.year - b.year || String(a.discipline || "").localeCompare(String(b.discipline || "")));
+      const identity = { lastName: entry.lastName, firstName: entry.firstName, nationality: entry.nationality, birthYear: yob };
+      batch.set(
+        doc(db, ATHLETE_REGISTRY_COLLECTION, targetId),
+        {
+          ...identity,
+          yob,
+          ...(entry.gender ? { gender: entry.gender } : {}),
+          identityKeys: buildAthleteIdentityKeys(identity),
+          editions: mergedEditions,
+          rebuiltFromHistoricalResults: true,
+          updatedAt: serverTimestamp(),
+          ...(target ? {} : { createdAt: serverTimestamp() }),
+        },
+        { merge: true },
+      );
+      onProgress?.(`${label} (${yob}) : ${editions.length} participation${editions.length > 1 ? "s" : ""}.`);
+    }
+
+    if (leftover.length > 0) {
+      batch.set(doc(db, ATHLETE_REGISTRY_COLLECTION, docId), { editions: leftover, updatedAt: serverTimestamp() }, { merge: true });
+      onProgress?.(`${label} : ${leftover.length} participation(s) sans année de naissance laissée(s) sur la fiche d'origine.`);
+    } else {
+      batch.delete(doc(db, ATHLETE_REGISTRY_COLLECTION, docId));
+    }
+    split++;
+  }
+
+  await batch.commit();
+  onProgress?.(`${split} fiche${split > 1 ? "s" : ""} séparée${split > 1 ? "s" : ""}.`);
+  return { split, skipped };
 }
 
 /**
@@ -907,6 +1011,7 @@ export {
   useAthletes,
   useAthleteRegistry,
   rebuildAthleteRegistryFromHistoricalResults,
+  splitHistoricalHomonyms,
   fetchAthleteFromWaService,
   upsertAthleteRegistry,
   canAccessAthletePortal,

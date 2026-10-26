@@ -18,13 +18,24 @@ export const MOIS_COURTS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "j
 export const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 export const JOURS_GRILLE = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
+// Anglais (lang = "en"), mêmes index.
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const GRID_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+export const monthName = (m, lang = "fr") => (lang === "fr" ? MOIS : MONTHS_EN)[m];
+export const dayName = (dow, lang = "fr") => (lang === "fr" ? JOURS : DAYS_EN)[dow];
+export const gridDayNames = (lang = "fr") => (lang === "fr" ? JOURS_GRILLE : GRID_EN);
+
 const jourNum = (d) => (d.getDate() === 1 ? "1er" : String(d.getDate()));
-export const fmtLong = (s) => {
+export const fmtLong = (s, lang = "fr") => {
   const d = parseYmd(s);
+  if (lang !== "fr") return `${DAYS_EN[d.getDay()]} ${d.getDate()} ${MONTHS_EN[d.getMonth()]}`;
   return `${JOURS[d.getDay()]} ${jourNum(d)} ${MOIS[d.getMonth()]}`;
 };
-export const fmtShort = (s) => {
+export const fmtShort = (s, lang = "fr") => {
   const d = parseYmd(s);
+  if (lang !== "fr") return `${d.getDate()} ${MONTHS_EN[d.getMonth()].slice(0, 3)}`;
   return `${jourNum(d)} ${MOIS_COURTS[d.getMonth()]}`;
 };
 

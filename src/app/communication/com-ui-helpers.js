@@ -1,13 +1,15 @@
 // Module Communication : hooks et constantes partagés par les composants (com-ui.jsx).
 import { useEffect, useRef, useState } from "react";
 
+// Libellés { fr, en } : voir pick() dans com-i18n.js.
 export const COM_SECTIONS = [
-  { to: "/app/communication", label: "Calendrier éditorial", end: true },
-  { to: "/app/communication/taches", label: "Tâches" },
-  { to: "/app/communication/evenements", label: "Événements" },
-  { to: "/app/communication/rubriques", label: "Rubriques récurrentes" },
-  { to: "/app/communication/galerie", label: "Galerie photos" },
-  { to: "/app/communication/partenaires", label: "Partenaires" },
+  { to: "/app/communication", label: { fr: "Calendrier éditorial", en: "Editorial calendar" }, end: true },
+  { to: "/app/communication/taches", label: { fr: "Tâches", en: "Tasks" } },
+  { to: "/app/communication/evenements", label: { fr: "Événements", en: "Events" } },
+  { to: "/app/communication/rubriques", label: { fr: "Rubriques récurrentes", en: "Recurring series" } },
+  { to: "/app/communication/galerie", label: { fr: "Galerie photos", en: "Photo gallery" } },
+  { to: "/app/communication/partenaires", label: { fr: "Partenaires", en: "Partners" } },
+  { to: "/app/communication/import", label: { fr: "Importer (Excel)", en: "Import (Excel)" } },
 ];
 
 // Variable CSS --tc portée par un élément coloré selon son type de publication.

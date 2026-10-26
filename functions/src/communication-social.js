@@ -35,13 +35,17 @@ const instagramToken = defineSecret("INSTAGRAM_TOKEN");
 const firestore = () => admin.firestore();
 const INSTAGRAM_SECRET_REF = () => firestore().collection("server_secrets").doc("instagram");
 
+// Messages dans la langue de l'app de la personne (français ou anglais).
+const translator = (request) => (fr, en) => (request.data?.lang === "fr" ? fr : en);
+
 async function assertCommunicationMember(request) {
+  const tr = translator(request);
   const uid = String(request.auth?.uid || "");
-  if (!uid) throw new HttpsError("unauthenticated", "Authentification requise.");
+  if (!uid) throw new HttpsError("unauthenticated", tr("Authentification requise.", "Sign-in required."));
   const snapshot = await firestore().collection("users").doc(uid).get();
   const roles = Array.isArray(snapshot.data()?.userTypes) ? snapshot.data().userTypes : [];
   if (!roles.some((role) => COMMUNICATION_ROLES.includes(role))) {
-    throw new HttpsError("permission-denied", "Réservé à l'équipe d'organisation (admin, gestionnaire).");
+    throw new HttpsError("permission-denied", tr("Réservé à l'équipe d'organisation (admin, gestionnaire).", "Reserved for the organising team (admin, manager)."));
   }
 }
 
@@ -122,12 +126,13 @@ async function currentInstagramToken() {
   return String((stored.exists && stored.data()?.token) || "").trim() || secretValue(instagramToken);
 }
 
-async function graphGet(url, token, service) {
+async function graphGet(url, token, service, tr) {
   const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     logger.error(`${service} Graph error`, { status: response.status, code: payload?.error?.code, message: payload?.error?.message });
-    throw new HttpsError("unavailable", `${service} ne répond pas pour le moment (${payload?.error?.message || response.status}).`);
+    const detail = payload?.error?.message || response.status;
+    throw new HttpsError("unavailable", tr(`${service} ne répond pas pour le moment (${detail}).`, `${service} is not responding right now (${detail}).`));
   }
   return payload;
 }
@@ -137,6 +142,7 @@ const socialCache = new Map();
 // Les 40 publications les plus récentes de la page Facebook ou du compte Instagram, avec leurs statistiques.
 export const comSocialPosts = onCall({ region: REGION, secrets: [metaPageToken, metaPageId, instagramToken] }, async (request) => {
   await assertCommunicationMember(request);
+  const tr = translator(request);
   const network = request.data?.network === "instagram" ? "instagram" : "facebook";
 
   const cached = socialCache.get(network);
@@ -146,13 +152,19 @@ export const comSocialPosts = onCall({ region: REGION, secrets: [metaPageToken, 
   if (network === "facebook") {
     const token = secretValue(metaPageToken);
     const pageId = secretValue(metaPageId);
-    if (!token || !pageId) return { notConfigured: true, message: "Facebook n'est pas encore relié : il manque le jeton de la page du meeting." };
-    const payload = await graphGet(`${FACEBOOK_BASE()}/${encodeURIComponent(pageId)}/posts?limit=40&fields=${encodeURIComponent(FB_FIELDS)}`, token, "Facebook");
+    if (!token || !pageId) return {
+        notConfigured: true,
+        message: tr("Facebook n'est pas encore relié : il manque le jeton de la page du meeting.", "Facebook is not connected yet: the meeting page token is missing."),
+      };
+    const payload = await graphGet(`${FACEBOOK_BASE()}/${encodeURIComponent(pageId)}/posts?limit=40&fields=${encodeURIComponent(FB_FIELDS)}`, token, "Facebook", tr);
     posts = (payload.data || []).map(toFacebookPost);
   } else {
     const token = await currentInstagramToken();
-    if (!token) return { notConfigured: true, message: "Instagram n'est pas encore relié : il manque le jeton du compte @cmcm_lux_indoor_meet." };
-    const payload = await graphGet(`${INSTAGRAM_BASE()}/me/media?limit=40&fields=${encodeURIComponent(IG_FIELDS)}`, token, "Instagram");
+    if (!token) return {
+        notConfigured: true,
+        message: tr("Instagram n'est pas encore relié : il manque le jeton du compte @cmcm_lux_indoor_meet.", "Instagram is not connected yet: the @cmcm_lux_indoor_meet account token is missing."),
+      };
+    const payload = await graphGet(`${INSTAGRAM_BASE()}/me/media?limit=40&fields=${encodeURIComponent(IG_FIELDS)}`, token, "Instagram", tr);
     posts = (payload.data || []).map(toInstagramPost);
   }
 
@@ -204,7 +216,7 @@ async function piwigo(method, params = {}) {
   }
   if (!response.ok || data?.stat !== "ok" || !data?.result) {
     logger.error("Piwigo error", { method, status: response.status, message: data?.message || text.slice(0, 200) });
-    throw new HttpsError("unavailable", "La galerie flaphoto.net est injoignable pour le moment.");
+    throw new HttpsError("unavailable", "flaphoto.net gallery unreachable / galerie flaphoto.net injoignable.");
   }
   return data.result;
 }
@@ -254,7 +266,7 @@ export const comGalleryPhotos = onCall({ region: REGION }, async (request) => {
   await assertCommunicationMember(request);
   const albumId = String(request.data?.albumId || "").replace(/\D/g, "");
   const page = Math.max(0, Math.floor(Number(request.data?.page) || 0));
-  if (!albumId) throw new HttpsError("invalid-argument", "Album manquant.");
+  if (!albumId) throw new HttpsError("invalid-argument", "Missing album / album manquant.");
 
   const [albums, result] = await Promise.all([
     listAlbums(),

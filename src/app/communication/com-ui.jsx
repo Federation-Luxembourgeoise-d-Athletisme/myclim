@@ -4,10 +4,12 @@ import { COM_SECTIONS, typeColor, useEscape } from "./com-ui-helpers.js";
 import { NavLink } from "react-router-dom";
 import { PUB_TYPE_LABELS, STATUT_LABELS } from "./com-domain.js";
 import { memberName } from "./com-data.js";
+import { pick, useComLang } from "./com-i18n.js";
 
 export function ComNav({ openTasks = 0 }) {
+  const { lang, tr } = useComLang();
   return (
-    <nav className="com-nav" aria-label="Module Communication">
+    <nav className="com-nav" aria-label={tr("Module Communication", "Communication module")}>
       {COM_SECTIONS.map((section) => (
         <NavLink
           key={section.to}
@@ -15,9 +17,9 @@ export function ComNav({ openTasks = 0 }) {
           end={section.end}
           className={({ isActive }) => `com-nav__link ${isActive ? "is-active" : ""}`}
         >
-          {section.label}
+          {pick(section.label, lang)}
           {section.to.endsWith("/taches") && openTasks > 0 ? (
-            <span className="com-nav__badge" aria-label={`${openTasks} tâches à faire`}>
+            <span className="com-nav__badge" aria-label={tr(`${openTasks} tâches à faire`, `${openTasks} task${openTasks > 1 ? "s" : ""} to do`)}>
               {openTasks}
             </span>
           ) : null}
@@ -41,19 +43,21 @@ export function ComPageHeader({ title, description, actions }) {
 }
 
 export function TypeTag({ type }) {
+  const { lang } = useComLang();
   return (
     <span className="com-type-tag" style={typeColor(type)}>
       <span className="com-swatch" aria-hidden="true" />
-      {PUB_TYPE_LABELS[type]}
+      {pick(PUB_TYPE_LABELS[type], lang)}
     </span>
   );
 }
 
 export function StatusPill({ statut }) {
+  const { lang } = useComLang();
   return (
     <span className="com-status">
       <span className={`com-st ${statut}`} aria-hidden="true" />
-      {STATUT_LABELS[statut]}
+      {pick(STATUT_LABELS[statut], lang)}
     </span>
   );
 }
@@ -101,17 +105,19 @@ export function Toast({ message }) {
 }
 
 const BADGES = {
-  demandee: { label: "À valider", short: "?", tone: "warn" },
-  validee: { label: "Validé", short: "✓", tone: "ok" },
-  a_revoir: { label: "À revoir", short: "↺", tone: "danger" },
+  demandee: { label: { fr: "À valider", en: "To approve" }, short: "?", tone: "warn" },
+  validee: { label: { fr: "Validé", en: "Approved" }, short: "✓", tone: "ok" },
+  a_revoir: { label: { fr: "À revoir", en: "Needs changes" }, short: "↺", tone: "danger" },
 };
 
 export function ValidationBadge({ validation, compact = false }) {
+  const { lang } = useComLang();
   if (!validation || !BADGES[validation.etat]) return null;
   const badge = BADGES[validation.etat];
+  const label = pick(badge.label, lang);
   return (
-    <span className={`com-badge com-badge--${badge.tone} ${compact ? "is-compact" : ""}`} title={badge.label} aria-label={badge.label}>
-      {compact ? badge.short : badge.label}
+    <span className={`com-badge com-badge--${badge.tone} ${compact ? "is-compact" : ""}`} title={label} aria-label={label}>
+      {compact ? badge.short : label}
     </span>
   );
 }

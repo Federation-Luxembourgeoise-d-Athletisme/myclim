@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { NavLink } from "react-router-dom";
 import { deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
-import { getActiveRoles } from "./navigation";
+import { canAccessStatistics, getActiveRoles } from "./navigation";
 import { normalizeEditionId, useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import {
@@ -13,6 +13,7 @@ import {
   FIELD_GROUPS,
   athleteMergeKey,
   rebuildAthleteRegistryFromHistoricalResults,
+  splitHistoricalHomonyms,
   canImportAthletes,
   extractWaid,
   fetchAthleteFromWaService,
@@ -2000,6 +2001,9 @@ function getDuplicateMatchReason(a, b) {
   const closeLast = areVariantDuplicateTokens(lastA, lastB);
   const closeFirst = areVariantDuplicateTokens(firstA, firstB);
 
+  // Two known, different birth years = homonyms, not duplicates.
+  if (birthA && birthB && birthA !== birthB) return null;
+
   if (sameLast && sameFirst) {
     return a.nationality !== b.nationality ? "Même nom, nationalités différentes" : "Même nom";
   }
@@ -3798,7 +3802,7 @@ function AthletePortalSettingsPage({ Panel }) {
 function AthleteRegistryPage({ Panel }) {
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
-  const canAccess = roles.includes("admin") || roles.includes("meeting_director");
+  const canAccess = canAccessStatistics(roles);
 
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
   const { registry, loading } = useAthleteRegistry(canAccess);
@@ -4091,7 +4095,7 @@ function AthleteRegistryPage({ Panel }) {
         <section className="page-header"><div><h1>Athletes Database</h1></div></section>
         <div className="notice-card notice-card--warn">
           <strong>Access restricted</strong>
-          <p>Admin and Meeting Director only.</p>
+          <p>Admin, Meeting Director and managers only.</p>
         </div>
       </div>
     );
@@ -4115,7 +4119,8 @@ function AthleteRegistryPage({ Panel }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             <p className="panel-note" style={{ margin: 0 }}>
               Cette action vide complètement <code>athleteRegistry</code>, puis le reconstruit à partir de
-              <code> meetingResults.json</code>.
+              <code> meetingResults.json</code>. « Séparer les homonymes » ne touche qu'aux fiches qui mélangent
+              deux athlètes du même nom et garde toutes les fusions déjà faites.
             </p>
             <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
               <button
@@ -4141,6 +4146,27 @@ function AthleteRegistryPage({ Panel }) {
                 }}
               >
                 {rebuilding ? "Reconstruction…" : "Vider et reconstruire la base athlètes"}
+              </button>
+              <button
+                className="button button--secondary"
+                disabled={rebuilding}
+                onClick={async () => {
+                  if (!window.confirm("Séparer les homonymes (même nom, années de naissance différentes dans meetingResults.json) ?\n\nLes autres fiches et les fusions déjà faites ne sont pas touchées.")) return;
+                  setRebuildLog([]);
+                  setRebuilding(true);
+                  try {
+                    await splitHistoricalHomonyms((msg) => {
+                      setRebuildLog((prev) => [...prev, msg]);
+                    });
+                    setRebuildLog((prev) => [...prev, "✅ Séparation terminée."]);
+                  } catch (error) {
+                    setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
+                  } finally {
+                    setRebuilding(false);
+                  }
+                }}
+              >
+                Séparer les homonymes
               </button>
             </div>
             {rebuildLog.length > 0 ? (
@@ -4173,7 +4199,7 @@ function AthleteRegistryPage({ Panel }) {
               </p>
               <button
                 type="button"
-                className="button button--ghost"
+                className="button button--neutral"
                 disabled={dismissingGroupId === "restore-all"}
                 onClick={handleRestoreDismissedDuplicates}
               >
@@ -4217,7 +4243,7 @@ function AthleteRegistryPage({ Panel }) {
                     <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
                       <button
                         type="button"
-                        className="button button--ghost"
+                        className="button button--neutral"
                         disabled={dismissingGroupId === group.id}
                         onClick={() => handleDismissDuplicateGroup(group)}
                       >
@@ -4371,7 +4397,7 @@ function AthleteRegistryPage({ Panel }) {
                     <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
                       <button
                         type="button"
-                        className="button button--ghost"
+                        className="button button--neutral"
                         onClick={() => setSelectedRegistryIds([])}
                       >
                         Tout vider
@@ -4495,7 +4521,7 @@ function AthleteRegistryPage({ Panel }) {
                 </p>
                 <button
                   type="button"
-                  className="button button--ghost"
+                  className="button button--neutral"
                   onClick={() => setSelectedRegistryIds([])}
                 >
                   Tout vider
@@ -4521,7 +4547,7 @@ function AthleteRegistryPage({ Panel }) {
               {selectedRegistryIds.length > 0 ? (
                 <button
                   type="button"
-                  className="button button--ghost"
+                  className="button button--neutral"
                   onClick={() => setSelectedRegistryIds([])}
                 >
                   Vider la sélection

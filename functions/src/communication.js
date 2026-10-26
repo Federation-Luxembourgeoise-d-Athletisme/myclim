@@ -28,13 +28,17 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+// Messages d'erreur dans la langue de l'app de la personne (français ou anglais).
+const translator = (request) => (fr, en) => (request.data?.lang === "fr" ? fr : en);
+
 function appBaseUrl() {
   return String(process.env.APP_BASE_URL || DEFAULT_APP_BASE_URL).replace(/\/$/, "");
 }
 
 export const comPublicationValidation = onCall({ region: REGION }, async (request) => {
+  const tr = translator(request);
   const uid = String(request.auth?.uid || "");
-  if (!uid) throw new HttpsError("unauthenticated", "Authentification requise.");
+  if (!uid) throw new HttpsError("unauthenticated", tr("Authentification requise.", "Sign-in required."));
 
   const teamSnapshot = await firestore().collection("users").where("userTypes", "array-contains-any", COMMUNICATION_ROLES).get();
   const team = teamSnapshot.docs
@@ -42,19 +46,19 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
     .filter((user) => user.accountStatus !== "disabled");
   const teamById = new Map(team.map((user) => [user.uid, user]));
   const requester = teamById.get(uid);
-  if (!requester) throw new HttpsError("permission-denied", "Réservé à l'équipe d'organisation (admin, gestionnaire).");
+  if (!requester) throw new HttpsError("permission-denied", tr("Réservé à l'équipe d'organisation (admin, gestionnaire).", "Reserved for the organising team (admin, manager)."));
 
   const publicationId = String(request.data?.publicationId || "").trim();
   const action = request.data?.action;
   const message = String(request.data?.message || "").trim().slice(0, 1000);
   if (!publicationId || !["demande", "validee", "a_revoir"].includes(action)) {
-    throw new HttpsError("invalid-argument", "Requête invalide.");
+    throw new HttpsError("invalid-argument", tr("Requête invalide.", "Invalid request."));
   }
 
   const ref = firestore().collection("com_publications").doc(publicationId);
   const { publication, validation } = await firestore().runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
-    if (!snapshot.exists) throw new HttpsError("not-found", "Publication introuvable.");
+    if (!snapshot.exists) throw new HttpsError("not-found", tr("Publication introuvable.", "Publication not found."));
     const current = snapshot.data().validation || null;
     const entry = { action, uid, nom: memberName(requester), at: Date.now(), message };
     let next;
@@ -65,11 +69,11 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
       // Sans choix : les administrateurs.
       const admins = team.filter((user) => (user.userTypes || []).includes("admin") && user.uid !== uid).map((user) => user.uid);
       const demandeeA = chosen.length ? chosen : admins;
-      if (!demandeeA.length) throw new HttpsError("failed-precondition", "Choisis au moins une personne à qui demander la validation.");
+      if (!demandeeA.length) throw new HttpsError("failed-precondition", tr("Choisis au moins une personne à qui demander la validation.", "Choose at least one person to ask for approval."));
       next = { etat: "demandee", demandeePar: uid, demandeeA, history: [...(current?.history || []), entry] };
     } else {
-      if (!current || current.etat !== "demandee") throw new HttpsError("failed-precondition", "Aucune demande de validation en attente pour cette publication.");
-      if (!current.demandeeA.includes(uid)) throw new HttpsError("permission-denied", "La validation de cette publication a été demandée à quelqu'un d'autre.");
+      if (!current || current.etat !== "demandee") throw new HttpsError("failed-precondition", tr("Aucune demande de validation en attente pour cette publication.", "No pending approval request for this publication."));
+      if (!current.demandeeA.includes(uid)) throw new HttpsError("permission-denied", tr("La validation de cette publication a été demandée à quelqu'un d'autre.", "Approval for this publication was requested from someone else."));
       next = { ...current, etat: action, history: [...current.history, entry] };
     }
 
@@ -85,20 +89,36 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
 
   const author = memberName(requester);
   const url = `${appBaseUrl()}/app/communication/publication/${encodeURIComponent(publication.id)}`;
+  // E-mail bilingue (anglais puis français) : l'équipe ne parle pas toujours français.
+  const title = publication.titre;
   const subject =
     action === "demande"
-      ? `${author} demande ta validation : « ${publication.titre} »`
+      ? `${author} asks for your approval / demande ta validation: “${title}”`
       : action === "validee"
-        ? `👍 ${author} a validé « ${publication.titre} »`
-        : `👎 ${author} demande de revoir « ${publication.titre} »`;
-  const intro =
+        ? `👍 ${author} approved / a validé “${title}”`
+        : `👎 ${author} requests changes / demande de revoir “${title}”`;
+  const introEn =
     action === "demande"
-      ? `${author} te demande de valider la publication « ${publication.titre} » prévue le ${publication.date}.`
+      ? `${author} asks you to approve the publication “${title}” planned for ${publication.date}.`
       : action === "validee"
-        ? `${author} a validé la publication « ${publication.titre} » prévue le ${publication.date}.`
-        : `${author} demande des corrections sur la publication « ${publication.titre} » prévue le ${publication.date}.`;
-  const body = [intro, message ? `Message : ${message}` : "", `Ouvrir la publication : ${url}`].filter(Boolean).join("\n\n");
-  const html = `<p>${escapeHtml(intro)}</p>${message ? `<p><strong>Message :</strong> ${escapeHtml(message)}</p>` : ""}<p><a href="${escapeHtml(url)}">Ouvrir la publication dans MyCLIM</a></p>`;
+        ? `${author} approved the publication “${title}” planned for ${publication.date}.`
+        : `${author} requests changes to the publication “${title}” planned for ${publication.date}.`;
+  const introFr =
+    action === "demande"
+      ? `${author} te demande de valider la publication « ${title} » prévue le ${publication.date}.`
+      : action === "validee"
+        ? `${author} a validé la publication « ${title} » prévue le ${publication.date}.`
+        : `${author} demande des corrections sur la publication « ${title} » prévue le ${publication.date}.`;
+  const body = [introEn, message ? `Message: ${message}` : "", `Open the publication: ${url}`, "—", introFr, `Ouvrir la publication : ${url}`]
+    .filter(Boolean)
+    .join("\n\n");
+  const html = [
+    `<p>${escapeHtml(introEn)}</p>`,
+    message ? `<p><strong>Message:</strong> ${escapeHtml(message)}</p>` : "",
+    `<p><a href="${escapeHtml(url)}">Open the publication in MyCLIM</a></p>`,
+    `<hr><p lang="fr">${escapeHtml(introFr)}</p>`,
+    `<p lang="fr"><a href="${escapeHtml(url)}">Ouvrir la publication dans MyCLIM</a></p>`,
+  ].join("");
 
   await Promise.all(
     recipients

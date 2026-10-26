@@ -1,17 +1,19 @@
 // Galerie flaphoto.net (porté de myFLA : gallery-browser.tsx, photos-panel.tsx,
 // photo-lightbox.tsx en version simplifiée).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useComLang } from "./com-i18n.js";
 import { MAX_PUBLICATION_PHOTOS, creditLine, loadGalleryAlbums, loadGalleryPhotos, toPublicationPhoto } from "./com-social.js";
 import { useEscape } from "./com-ui-helpers.js";
 
-const fmtCount = (n) => `${Number(n).toLocaleString("fr-FR")} photo${n > 1 ? "s" : ""}`;
-const fmtDate = (value) =>
-  value ? new Date(String(value).replace(" ", "T")).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "";
+const fmtCount = (n, locale) => `${Number(n).toLocaleString(locale)} photo${n > 1 ? "s" : ""}`;
+const fmtDate = (value, locale) =>
+  value ? new Date(String(value).replace(" ", "T")).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" }) : "";
 const normalize = (value) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 // Navigation dans les albums : page « Galerie photos » et fenêtre de choix d'une publication.
 // selection : { selectedIds: Set, onToggle(photo) } pour cocher des photos.
 export function GalleryBrowser({ albumId, onOpenAlbum, heading, selection }) {
+  const { tr, locale } = useComLang();
   const [albums, setAlbums] = useState(null);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
@@ -23,7 +25,8 @@ export function GalleryBrowser({ albumId, onOpenAlbum, heading, selection }) {
       .catch((e) => {
         if (cancelled) return;
         setAlbums([]);
-        setError(e?.message || "La galerie flaphoto.net est injoignable pour le moment.");
+        // true : message par défaut, traduit à l'affichage.
+        setError(e?.message || true);
       });
     return () => {
       cancelled = true;
@@ -74,25 +77,33 @@ export function GalleryBrowser({ albumId, onOpenAlbum, heading, selection }) {
     <>
       <header className="com-row" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
         {heading}
-        <input type="search" className="com-input" style={{ maxWidth: 300 }} placeholder="Rechercher un album (ex. CMCM)…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Rechercher un album" />
+        <input type="search" className="com-input" style={{ maxWidth: 300 }} placeholder={tr("Rechercher un album (ex. CMCM)…", "Search albums (e.g. CMCM)…")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label={tr("Rechercher un album", "Search albums")}
+        />
       </header>
 
-      {error ? <p className="com-empty com-warn-box">{error}</p> : null}
+      {error ? (
+        <p className="com-empty com-warn-box">
+          {error === true ? tr("La galerie flaphoto.net est injoignable pour le moment.", "The flaphoto.net gallery can't be reached right now.") : error}
+        </p>
+      ) : null}
 
       {albums === null ? (
-        <p className="com-muted">Chargement des albums…</p>
+        <p className="com-muted">{tr("Chargement des albums…", "Loading albums…")}</p>
       ) : results ? (
         <section className="com-stack">
           <h2 className="com-section-title">
-            {results.length ? `${results.length}${results.length === 60 ? "+" : ""} album${results.length > 1 ? "s" : ""}` : "Aucun album trouvé"}
+            {results.length ? `${results.length}${results.length === 60 ? "+" : ""} album${results.length > 1 ? "s" : ""}` : tr("Aucun album trouvé", "No albums found")}
           </h2>
           <AlbumGrid albums={results} onOpen={open} subtitle={pathLabel} />
         </section>
       ) : (
         <>
-          <nav aria-label="Fil d'Ariane" className="com-row" style={{ gap: 4 }}>
+          <nav aria-label={tr("Fil d'Ariane", "Breadcrumb")} className="com-row" style={{ gap: 4 }}>
             <button type="button" className="com-btn-ghost" onClick={() => open(null)}>
-              Tous les albums
+              {tr("Tous les albums", "All albums")}
             </button>
             {path.map((a, i) => (
               <span key={a.id} className="com-row" style={{ gap: 4 }}>
@@ -108,15 +119,15 @@ export function GalleryBrowser({ albumId, onOpenAlbum, heading, selection }) {
             ))}
           </nav>
 
-          {albumId && !album ? <p className="com-muted">Cet album n'existe plus.</p> : null}
+          {albumId && !album ? <p className="com-muted">{tr("Cet album n'existe plus.", "This album no longer exists.")}</p> : null}
 
           {album ? (
             <div className="com-row com-muted" style={{ fontSize: "0.85rem" }}>
-              <span>{fmtCount(album.totalImages)}</span>
-              {album.lastDate ? <span>· mis à jour le {fmtDate(album.lastDate)}</span> : null}
+              <span>{fmtCount(album.totalImages, locale)}</span>
+              {album.lastDate ? <span>· {tr("mis à jour le", "updated")} {fmtDate(album.lastDate, locale)}</span> : null}
               {album.piwigoUrl ? (
                 <a href={album.piwigoUrl} target="_blank" rel="noreferrer" className="com-link">
-                  · Ouvrir sur flaphoto.net ↗
+                  · {tr("Ouvrir sur flaphoto.net ↗", "Open on flaphoto.net ↗")}
                 </a>
               ) : null}
             </div>
@@ -134,6 +145,7 @@ export function GalleryBrowser({ albumId, onOpenAlbum, heading, selection }) {
 }
 
 function AlbumGrid({ albums, onOpen, subtitle }) {
+  const { locale } = useComLang();
   if (!albums.length) return null;
   return (
     <div className="com-album-grid">
@@ -144,8 +156,8 @@ function AlbumGrid({ albums, onOpen, subtitle }) {
             {subtitle ? <small className="com-muted">{subtitle(a)}</small> : null}
             <b>{a.name}</b>
             <small className="com-muted">
-              {fmtCount(a.totalImages)}
-              {a.lastDate ? ` · ${fmtDate(a.lastDate)}` : ""}
+              {fmtCount(a.totalImages, locale)}
+              {a.lastDate ? ` · ${fmtDate(a.lastDate, locale)}` : ""}
             </small>
           </span>
         </button>
@@ -156,6 +168,7 @@ function AlbumGrid({ albums, onOpen, subtitle }) {
 
 // Photos d'un album (sous-albums compris), chargées par pages au fil du défilement.
 function AlbumPhotos({ album, folders, selection }) {
+  const { tr, locale } = useComLang();
   const [source, setSource] = useState(album.id);
   const [photos, setPhotos] = useState([]);
   const [total, setTotal] = useState(null);
@@ -184,7 +197,7 @@ function AlbumPhotos({ album, folders, selection }) {
       // Page vide : Piwigo n'a plus rien, même si son total annonçait davantage.
       setTotal(result.photos.length ? result.total : loaded.current);
     } catch (e) {
-      if (gen === generation.current) setError(e?.message || "Chargement impossible.");
+      if (gen === generation.current) setError(e?.message || true);
     } finally {
       if (gen === generation.current) {
         loadingRef.current = false;
@@ -217,8 +230,8 @@ function AlbumPhotos({ album, folders, selection }) {
   return (
     <section className="com-stack">
       {folders.length ? (
-        <div className="com-row" role="group" aria-label="Photographe">
-          {[{ id: album.id, name: "Toutes les photos", totalImages: album.totalImages }, ...folders].map((f) => (
+        <div className="com-row" role="group" aria-label={tr("Photographe", "Photographer")}>
+          {[{ id: album.id, name: tr("Toutes les photos", "All photos"), totalImages: album.totalImages }, ...folders].map((f) => (
             <button key={f.id} type="button" className={`com-toggle ${source === f.id ? "is-on" : ""}`} aria-pressed={source === f.id} onClick={() => setSource(f.id)}>
               {f.name} <span className="com-muted">{f.totalImages}</span>
             </button>
@@ -226,8 +239,8 @@ function AlbumPhotos({ album, folders, selection }) {
         </div>
       ) : null}
 
-      {error ? <p className="com-empty com-warn-box">{error}</p> : null}
-      {total === 0 ? <p className="com-muted">Aucune photo dans cet album.</p> : null}
+      {error ? <p className="com-empty com-warn-box">{error === true ? tr("Chargement impossible.", "Couldn't load the photos.") : error}</p> : null}
+      {total === 0 ? <p className="com-muted">{tr("Aucune photo dans cet album.", "No photos in this album.")}</p> : null}
 
       <div className="com-photo-grid">
         {photos.map((p, i) => {
@@ -238,7 +251,7 @@ function AlbumPhotos({ album, folders, selection }) {
                 type="button"
                 className="com-photo__main"
                 onClick={() => (selection ? selection.onToggle(p) : setOpenIndex(i))}
-                aria-label={selection ? `${selected ? "Retirer" : "Choisir"} ${p.file}` : `Agrandir ${p.file}`}
+                aria-label={selection ? `${selected ? tr("Retirer", "Remove") : tr("Choisir", "Select")} ${p.file}` : `${tr("Agrandir", "Enlarge")} ${p.file}`}
                 aria-pressed={selection ? selected : undefined}
               >
                 <img src={p.thumbUrl} alt="" loading="lazy" />
@@ -248,7 +261,7 @@ function AlbumPhotos({ album, folders, selection }) {
                   <span className="com-photo__check" aria-hidden="true">
                     ✓
                   </span>
-                  <button type="button" className="com-photo__zoom" aria-label={`Agrandir ${p.file}`} onClick={() => setOpenIndex(i)}>
+                  <button type="button" className="com-photo__zoom" aria-label={`${tr("Agrandir", "Enlarge")} ${p.file}`} onClick={() => setOpenIndex(i)}>
                     ⤢
                   </button>
                 </>
@@ -259,7 +272,7 @@ function AlbumPhotos({ album, folders, selection }) {
       </div>
 
       <div ref={sentinel} className="com-row" style={{ justifyContent: "center", padding: 8 }}>
-        {loading ? <span className="com-muted">Chargement des photos…</span> : null}
+        {loading ? <span className="com-muted">{tr("Chargement des photos…", "Loading photos…")}</span> : null}
         {!loading && !done && error ? (
           <button
             type="button"
@@ -269,10 +282,10 @@ function AlbumPhotos({ album, folders, selection }) {
               loadMore();
             }}
           >
-            Réessayer
+            {tr("Réessayer", "Try again")}
           </button>
         ) : null}
-        {done && photos.length ? <span className="com-muted" style={{ fontSize: "0.75rem" }}>{fmtCount(photos.length)}</span> : null}
+        {done && photos.length ? <span className="com-muted" style={{ fontSize: "0.75rem" }}>{fmtCount(photos.length, locale)}</span> : null}
       </div>
 
       {openIndex !== null && photos[openIndex] ? (
@@ -293,6 +306,7 @@ function AlbumPhotos({ album, folders, selection }) {
 }
 
 function PhotoLightbox({ photos, index, total, selection, onIndex, onClose }) {
+  const { tr } = useComLang();
   const photo = photos[index];
   useEscape(onClose);
   useEffect(() => {
@@ -314,24 +328,24 @@ function PhotoLightbox({ photos, index, total, selection, onIndex, onClose }) {
           {photo.albumName ? ` · ${photo.albumName}` : ""}
         </span>
         <span className="com-row">
-          <button type="button" className="com-btn-ghost" disabled={index === 0} onClick={() => onIndex(index - 1)} aria-label="Photo précédente">
+          <button type="button" className="com-btn-ghost" disabled={index === 0} onClick={() => onIndex(index - 1)} aria-label={tr("Photo précédente", "Previous photo")}>
             ‹
           </button>
-          <button type="button" className="com-btn-ghost" disabled={index >= photos.length - 1} onClick={() => onIndex(index + 1)} aria-label="Photo suivante">
+          <button type="button" className="com-btn-ghost" disabled={index >= photos.length - 1} onClick={() => onIndex(index + 1)} aria-label={tr("Photo suivante", "Next photo")}>
             ›
           </button>
           {selection ? (
             <button type="button" className={`com-toggle ${selected ? "is-on" : ""}`} onClick={() => selection.onToggle(photo)}>
-              {selected ? "✓ Choisie" : "Choisir"}
+              {selected ? tr("✓ Choisie", "✓ Selected") : tr("Choisir", "Select")}
             </button>
           ) : null}
           {photo.downloadUrl ? (
             <a href={photo.downloadUrl} rel="noreferrer" className="com-btn-ghost">
-              Télécharger en HD
+              {tr("Télécharger en HD", "Download HD")}
             </a>
           ) : null}
           <button type="button" className="com-btn-ghost" onClick={onClose}>
-            Fermer
+            {tr("Fermer", "Close")}
           </button>
         </span>
       </div>
@@ -345,10 +359,11 @@ let lastPickerAlbum = null;
 // Photos de la galerie jointes à une publication. L'ordre compte : la première
 // sert de visuel quand aucun visuel Canva n'est ajouté.
 export function PhotosPanel({ photos, hasVisuel, onChange }) {
+  const { lang, tr } = useComLang();
   const [picking, setPicking] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dragged, setDragged] = useState(null);
-  const credit = creditLine(photos);
+  const credit = creditLine(photos, lang);
 
   async function copyCredit() {
     if (!credit) return;
@@ -374,10 +389,10 @@ export function PhotosPanel({ photos, hasVisuel, onChange }) {
     <section className="com-card com-stack">
       <div className="com-row" style={{ justifyContent: "space-between" }}>
         <strong style={{ fontSize: "1.1rem" }}>
-          Photos de la galerie {photos.length ? <span className="com-muted">· {photos.length}</span> : null}
+          {tr("Photos de la galerie", "Gallery photos")} {photos.length ? <span className="com-muted">· {photos.length}</span> : null}
         </strong>
         <button type="button" className="button button--secondary button--small" onClick={() => setPicking(true)}>
-          {photos.length ? "Modifier la sélection" : "Choisir dans la galerie"}
+          {photos.length ? tr("Modifier la sélection", "Edit selection") : tr("Choisir dans la galerie", "Pick from the gallery")}
         </button>
       </div>
 
@@ -403,27 +418,27 @@ export function PhotosPanel({ photos, hasVisuel, onChange }) {
               >
                 <div className="com-picked__img">
                   <img src={p.thumbUrl} alt="" loading="lazy" draggable={false} />
-                  {i === 0 && !hasVisuel ? <span className="com-picked__badge">Visuel du post</span> : null}
+                  {i === 0 && !hasVisuel ? <span className="com-picked__badge">{tr("Visuel du post", "Post visual")}</span> : null}
                   <div className="com-picked__actions">
                     {i > 0 ? (
-                      <button type="button" onClick={() => move(p.id, i - 1)} aria-label="Avancer la photo">
+                      <button type="button" onClick={() => move(p.id, i - 1)} aria-label={tr("Avancer la photo", "Move photo earlier")}>
                         ←
                       </button>
                     ) : null}
                     {i < photos.length - 1 ? (
-                      <button type="button" onClick={() => move(p.id, i + 1)} aria-label="Reculer la photo">
+                      <button type="button" onClick={() => move(p.id, i + 1)} aria-label={tr("Reculer la photo", "Move photo later")}>
                         →
                       </button>
                     ) : null}
-                    <a href={p.largeUrl} target="_blank" rel="noreferrer" aria-label="Voir en grand">
+                    <a href={p.largeUrl} target="_blank" rel="noreferrer" aria-label={tr("Voir en grand", "View full size")}>
                       ⤢
                     </a>
                     {p.downloadUrl ? (
-                      <a href={p.downloadUrl} rel="noreferrer" aria-label="Télécharger en HD">
+                      <a href={p.downloadUrl} rel="noreferrer" aria-label={tr("Télécharger en HD", "Download HD")}>
                         ⬇
                       </a>
                     ) : null}
-                    <button type="button" onClick={() => onChange(photos.filter((x) => x.id !== p.id))} aria-label="Retirer la photo">
+                    <button type="button" onClick={() => onChange(photos.filter((x) => x.id !== p.id))} aria-label={tr("Retirer la photo", "Remove photo")}>
                       ✕
                     </button>
                   </div>
@@ -435,22 +450,28 @@ export function PhotosPanel({ photos, hasVisuel, onChange }) {
           {credit ? (
             <div className="com-row com-empty" style={{ justifyContent: "space-between", background: "#f4f8fb" }}>
               <span>
-                <span className="com-muted">Crédit à mentionner · </span>
+                <span className="com-muted">{tr("Crédit à mentionner · ", "Credit to include · ")}</span>
                 {credit}
               </span>
               <button type="button" className="com-btn-ghost" onClick={copyCredit}>
-                {copied ? "Copié ✓" : "Copier"}
+                {copied ? tr("Copié ✓", "Copied ✓") : tr("Copier", "Copy")}
               </button>
             </div>
           ) : null}
           {photos.length > 1 ? (
             <p className="com-muted" style={{ fontSize: "0.75rem" }}>
-              Glisser pour réordonner.{hasVisuel ? "" : " La première photo sert de visuel tant qu'aucun visuel Canva n'est ajouté."}
+              {tr("Glisser pour réordonner.", "Drag to reorder.")}
+              {hasVisuel ? "" : tr(" La première photo sert de visuel tant qu'aucun visuel Canva n'est ajouté.", " The first photo is used as the visual until a Canva visual is added.")}
             </p>
           ) : null}
         </>
       ) : (
-        <p className="com-muted">Aucune photo choisie. Choisis-les dans la galerie flaphoto.net : le nom du photographe est repris pour le crédit.</p>
+        <p className="com-muted">
+          {tr(
+            "Aucune photo choisie. Choisis-les dans la galerie flaphoto.net : le nom du photographe est repris pour le crédit.",
+            "No photos selected. Pick them from the flaphoto.net gallery: the photographer's name is used for the credit.",
+          )}
+        </p>
       )}
 
       {picking ? (
@@ -468,6 +489,7 @@ export function PhotosPanel({ photos, hasVisuel, onChange }) {
 }
 
 function PhotoPicker({ initial, onClose, onConfirm }) {
+  const { tr } = useComLang();
   const [albumId, setAlbumId] = useState(lastPickerAlbum);
   // Map ordonnée : les photos gardent l'ordre dans lequel on les a choisies.
   const [selected, setSelected] = useState(() => new Map(initial.map((p) => [p.id, p])));
@@ -495,26 +517,31 @@ function PhotoPicker({ initial, onClose, onConfirm }) {
 
   return (
     <div className="com-picker" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Choisir des photos dans la galerie" className="com-picker__box" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={tr("Choisir des photos dans la galerie", "Pick photos from the gallery")} className="com-picker__box" onClick={(e) => e.stopPropagation()}>
         <div id="photo-picker-scroll" className="com-picker__scroll com-stack">
           <GalleryBrowser
             albumId={albumId}
             onOpenAlbum={openAlbum}
             selection={{ selectedIds: new Set(selected.keys()), onToggle: toggle }}
-            heading={<h2 style={{ margin: 0 }}>Choisir des photos</h2>}
+            heading={<h2 style={{ margin: 0 }}>{tr("Choisir des photos", "Pick photos")}</h2>}
           />
         </div>
         <div className="com-picker__bottom">
           <span className="com-muted">
-            {selected.size ? `${selected.size} photo${selected.size > 1 ? "s" : ""} choisie${selected.size > 1 ? "s" : ""}` : "Clique sur les photos pour les choisir."}
+            {selected.size
+              ? tr(
+                  `${selected.size} photo${selected.size > 1 ? "s" : ""} choisie${selected.size > 1 ? "s" : ""}`,
+                  `${selected.size} photo${selected.size > 1 ? "s" : ""} selected`,
+                )
+              : tr("Clique sur les photos pour les choisir.", "Click photos to select them.")}
             {limitReached ? <strong style={{ color: "#8a5a00", marginLeft: 8 }}>Maximum {MAX_PUBLICATION_PHOTOS} photos.</strong> : null}
           </span>
           <div className="com-row">
             <button type="button" className="com-btn-ghost" onClick={onClose}>
-              Annuler
+              {tr("Annuler", "Cancel")}
             </button>
             <button type="button" className="button button--primary button--small" onClick={() => onConfirm([...selected.values()])}>
-              Valider
+              {tr("Valider", "Confirm")}
             </button>
           </div>
         </div>

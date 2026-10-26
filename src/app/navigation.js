@@ -240,9 +240,16 @@ function buildAthletePortalNavigation(roles, portalSettings, { canImport }) {
   return links;
 }
 
+// Module Statistiques (base athlètes, résultats, records, Hall of Winners) :
+// ouvert à tous les gestionnaires, en plus des admins et du meeting director.
+const STATISTICS_ACCESS_ROLES = ["admin", "meeting_director", "gestionnaire"];
+
+function canAccessStatistics(roles = []) {
+  return STATISTICS_ACCESS_ROLES.some((role) => roles.includes(role));
+}
+
 function buildStatisticsNavigation(roles) {
-  const isAdmin = roles.includes("admin") || roles.includes("meeting_director");
-  if (!isAdmin) return [];
+  if (!canAccessStatistics(roles)) return [];
 
   return [
     makeLink("/app/statistics/registry", "navAthleteRegistry", "Base athlètes", "users"),
@@ -253,10 +260,12 @@ function buildStatisticsNavigation(roles) {
 }
 
 export {
+  STATISTICS_ACCESS_ROLES,
   buildNavigation,
   buildNavigationFromRoles,
   buildAthletePortalNavigation,
   buildStatisticsNavigation,
+  canAccessStatistics,
   getActiveRoles,
   getDefaultRouteByRoles,
   getPrimaryRole,
