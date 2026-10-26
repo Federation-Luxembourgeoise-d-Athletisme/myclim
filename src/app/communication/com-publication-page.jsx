@@ -89,8 +89,8 @@ function PublicationPage({ item }) {
   const selectedPartners = partners.filter((p) => item.partnerIds.includes(p.id));
   const mentions = selectedPartners.map((p) => (p.handle ? (p.handle.startsWith("@") ? p.handle : `@${p.handle}`) : p.nom));
   const previewImages = [item.visuelUrl, ...item.photos.map((p) => p.largeUrl)].filter(Boolean);
-  const facebook = useSocialPosts("facebook", item.canaux.includes("fb") || Boolean(item.facebookPostId), lang);
-  const instagram = useSocialPosts("instagram", item.canaux.includes("ig") || Boolean(item.instagramMediaId), lang);
+  const facebook = useSocialPosts("facebook", item.canaux.includes("fb") || Boolean(item.facebookPostId), lang, [item.facebookPostId]);
+  const instagram = useSocialPosts("instagram", item.canaux.includes("ig") || Boolean(item.instagramMediaId), lang, [item.instagramMediaId]);
   // Règle de récurrence en minuscule dans une phrase (en anglais, les jours gardent leur majuscule).
   const ruleText = (rule) => {
     const label = ruleLabel(rule, lang);

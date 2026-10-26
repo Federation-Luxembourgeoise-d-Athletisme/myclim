@@ -61,7 +61,7 @@ export function SocialPanel({ label, account, state, date, postId, stats, extra,
         <>
           <select aria-label={`Post ${label}`} className="com-input" value={postId || ""} onChange={(e) => onLink(e.target.value || null)}>
             <option value="">{tr("Aucun post lié", "No linked post")}</option>
-            {postId && !post ? <option value={postId}>{tr("Post lié (plus dans les 40 derniers)", "Linked post (no longer among the latest 40)")}</option> : null}
+            {postId && !post ? <option value={postId}>{tr("Post lié (introuvable sur le réseau)", "Linked post (not found on the network)")}</option> : null}
             {sameDay.length ? <optgroup label={tr("Publiés le jour prévu", "Published on the planned day")}>{sameDay.map(option)}</optgroup> : null}
             <optgroup label={tr("Publications récentes", "Recent posts")}>{others.map(option)}</optgroup>
           </select>

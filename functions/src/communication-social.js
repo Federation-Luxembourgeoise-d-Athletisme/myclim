@@ -137,12 +137,33 @@ async function graphGet(url, token, service, tr) {
   return payload;
 }
 
-// Les 40 publications les plus récentes de la page Facebook ou du compte Instagram, avec leurs statistiques.
+// Identifiants de posts Meta acceptés (chiffres et « _ » pour Facebook : « pageId_postId »).
+const MAX_LINKED_IDS = 100;
+const linkedIds = (raw) =>
+  [...new Set((Array.isArray(raw) ? raw : []).map(String).filter((id) => /^[0-9_]{1,64}$/.test(id)))].slice(0, MAX_LINKED_IDS);
+
+// Posts liés à des publications mais sortis des 40 derniers : lus un par un.
+// Un post supprimé ou inaccessible est simplement ignoré (la page affiche « stats indisponibles »).
+async function fetchPostsById(ids, base, fields, token, service, tr) {
+  const results = await Promise.all(
+    ids.map((id) =>
+      graphGet(`${base}/${encodeURIComponent(id)}?fields=${encodeURIComponent(fields)}`, token, service, tr).catch((error) => {
+        logger.warn(`${service} linked post unavailable`, { id, message: error?.message });
+        return null;
+      }),
+    ),
+  );
+  return results.filter((raw) => raw?.id);
+}
+
+// Les 40 publications les plus récentes de la page Facebook ou du compte Instagram, avec leurs statistiques,
+// plus les posts liés demandés (data.ids) qui n'en font pas partie, quel que soit leur âge.
 // Pas de cache : les statistiques sont relues chez Meta à chaque appel.
 export const comSocialPosts = onCall({ region: REGION, secrets: [metaPageToken, metaPageId, instagramToken] }, async (request) => {
   await assertCommunicationMember(request);
   const tr = translator(request);
   const network = request.data?.network === "instagram" ? "instagram" : "facebook";
+  const ids = linkedIds(request.data?.ids);
 
   let posts;
   if (network === "facebook") {
@@ -153,7 +174,10 @@ export const comSocialPosts = onCall({ region: REGION, secrets: [metaPageToken, 
         message: tr("Facebook n'est pas encore relié : il manque le jeton de la page du meeting.", "Facebook is not connected yet: the meeting page token is missing."),
       };
     const payload = await graphGet(`${FACEBOOK_BASE()}/${encodeURIComponent(pageId)}/posts?limit=40&fields=${encodeURIComponent(FB_FIELDS)}`, token, "Facebook", tr);
-    posts = (payload.data || []).map(toFacebookPost);
+    const recent = payload.data || [];
+    const missing = ids.filter((id) => !recent.some((raw) => raw.id === id));
+    const older = await fetchPostsById(missing, FACEBOOK_BASE(), FB_FIELDS, token, "Facebook", tr);
+    posts = [...recent, ...older].map(toFacebookPost);
   } else {
     const token = await currentInstagramToken();
     if (!token) return {
@@ -161,7 +185,10 @@ export const comSocialPosts = onCall({ region: REGION, secrets: [metaPageToken, 
         message: tr("Instagram n'est pas encore relié : il manque le jeton du compte @cmcm_lux_indoor_meet.", "Instagram is not connected yet: the @cmcm_lux_indoor_meet account token is missing."),
       };
     const payload = await graphGet(`${INSTAGRAM_BASE()}/me/media?limit=40&fields=${encodeURIComponent(IG_FIELDS)}`, token, "Instagram", tr);
-    posts = (payload.data || []).map(toInstagramPost);
+    const recent = payload.data || [];
+    const missing = ids.filter((id) => !recent.some((raw) => raw.id === id));
+    const older = await fetchPostsById(missing, INSTAGRAM_BASE(), IG_FIELDS, token, "Instagram", tr);
+    posts = [...recent, ...older].map(toInstagramPost);
   }
 
   return { posts };

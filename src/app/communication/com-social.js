@@ -9,14 +9,16 @@ export const MAX_PUBLICATION_PHOTOS = 30;
 
 // state : { status: "idle" | "loading" | "ready" | "not-configured" | "error", posts, message? }
 // lang : langue des messages renvoyés par le serveur (« pas encore relié »…).
-export function useSocialPosts(network, enabled, lang = "fr") {
+// linkedIds : posts liés aux publications affichées, renvoyés avec leurs stats même s'ils sont anciens.
+export function useSocialPosts(network, enabled, lang = "fr", linkedIds = []) {
   const [state, setState] = useState({ status: "idle", posts: [] });
   const service = network === "instagram" ? "Instagram" : "Facebook";
+  const idsKey = [...new Set(linkedIds.filter(Boolean))].sort().join(",");
 
   useEffect(() => {
     if (!enabled) return undefined;
     let cancelled = false;
-    httpsCallable(functions, "comSocialPosts")({ network, lang })
+    httpsCallable(functions, "comSocialPosts")({ network, lang, ids: idsKey ? idsKey.split(",") : [] })
       .then(({ data }) => {
         if (cancelled) return;
         if (data?.notConfigured) setState({ status: "not-configured", posts: [], message: data.message });
@@ -29,7 +31,7 @@ export function useSocialPosts(network, enabled, lang = "fr") {
     return () => {
       cancelled = true;
     };
-  }, [network, service, enabled, lang]);
+  }, [network, service, enabled, lang, idsKey]);
 
   return enabled && state.status === "idle" ? { ...state, status: "loading" } : state;
 }

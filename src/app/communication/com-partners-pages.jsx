@@ -934,8 +934,11 @@ function BilanVisibility({ partner, obligations, ctx }) {
   const pubs = ctx.partnerPublications
     .filter((p) => !p.annulee && p.statut === "done" && p.partnerIds.includes(partner.id))
     .sort((a, b) => a.date.localeCompare(b.date));
-  const facebook = useSocialPosts("facebook", pubs.some((p) => p.facebookPostId));
-  const instagram = useSocialPosts("instagram", pubs.some((p) => p.instagramMediaId));
+  const { lang } = useComLang();
+  const facebookIds = pubs.map((p) => p.facebookPostId).filter(Boolean);
+  const instagramIds = pubs.map((p) => p.instagramMediaId).filter(Boolean);
+  const facebook = useSocialPosts("facebook", facebookIds.length > 0, lang, facebookIds);
+  const instagram = useSocialPosts("instagram", instagramIds.length > 0, lang, instagramIds);
   const loading = facebook.status === "loading" || instagram.status === "loading";
 
   // Même règle que le mode « Automatique · publications » de obligationProgress.

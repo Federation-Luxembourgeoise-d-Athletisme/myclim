@@ -89,8 +89,8 @@ export function ComCalendarPage() {
   }, [items]);
   const openItem = openId ? items.find((i) => i.id === openId) : undefined;
   // Statistiques de l'aperçu : posts chargés seulement si la publication ouverte en a un de relié.
-  const facebook = useSocialPosts("facebook", Boolean(openItem?.facebookPostId), lang);
-  const instagram = useSocialPosts("instagram", Boolean(openItem?.instagramMediaId), lang);
+  const facebook = useSocialPosts("facebook", Boolean(openItem?.facebookPostId), lang, [openItem?.facebookPostId]);
+  const instagram = useSocialPosts("instagram", Boolean(openItem?.instagramMediaId), lang, [openItem?.instagramMediaId]);
 
   async function run(action, success) {
     try {
