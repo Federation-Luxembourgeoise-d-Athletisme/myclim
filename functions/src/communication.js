@@ -41,11 +41,15 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
   if (!uid) throw new HttpsError("unauthenticated", tr("Authentification requise.", "Sign-in required."));
 
   const teamSnapshot = await firestore().collection("users").where("userTypes", "array-contains-any", COMMUNICATION_ROLES).get();
+  // Seuls les vrais comptes de connexion (id du document = uid Auth) : une fiche de
+  // candidature en double (champ uid différent de l'id) n'est pas un membre de l'équipe.
   const team = teamSnapshot.docs
+    .filter((entry) => !entry.data().uid || entry.data().uid === entry.id)
     .map((entry) => ({ ...entry.data(), uid: entry.id }))
     .filter((user) => user.accountStatus !== "disabled");
   const teamById = new Map(team.map((user) => [user.uid, user]));
   const requester = teamById.get(uid);
+  if (!requester) logger.warn("Validation requester not in team", { uid });
   if (!requester) throw new HttpsError("permission-denied", tr("Réservé à l'équipe d'organisation (admin, gestionnaire).", "Reserved for the organising team (admin, manager)."));
 
   const publicationId = String(request.data?.publicationId || "").trim();
@@ -66,6 +70,11 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
     if (action === "demande") {
       const asked = Array.isArray(request.data?.demandeeA) ? request.data.demandeeA.filter((value) => typeof value === "string") : [];
       const chosen = asked.filter((memberUid) => teamById.has(memberUid) && memberUid !== uid);
+      // Une personne choisie mais introuvable : on le dit plutôt que d'envoyer aux admins à sa place.
+      if (asked.length && !chosen.length) {
+        logger.warn("Validation target not in team", { publicationId, asked, uid });
+        throw new HttpsError("failed-precondition", tr("La personne choisie n'a pas de compte actif dans l'équipe communication.", "The chosen person has no active account in the communication team."));
+      }
       // Sans choix : les administrateurs.
       const admins = team.filter((user) => (user.userTypes || []).includes("admin") && user.uid !== uid).map((user) => user.uid);
       const demandeeA = chosen.length ? chosen : admins;
@@ -80,6 +89,8 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
     transaction.update(ref, { validation: next, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     return { publication: { ...snapshot.data(), id: snapshot.id }, validation: next };
   });
+
+  logger.info("Validation updated", { publicationId, action, by: uid, demandeeA: validation.demandeeA });
 
   // Demande : aux personnes sollicitées. Réponse : au demandeur et aux autres personnes sollicitées.
   const recipients =

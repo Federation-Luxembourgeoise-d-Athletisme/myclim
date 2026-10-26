@@ -21,9 +21,11 @@ export function useCommunicationTeam() {
       onSnapshot(
         query(collection(db, "users"), where("userTypes", "array-contains-any", COMMUNICATION_ROLES)),
         (snapshot) => {
+          // Seuls les vrais comptes de connexion (id du document = uid Auth), comme dans
+          // comPublicationValidation : une fiche de candidature en double n'est pas un membre.
           const list = mapDocs(snapshot)
-            .map((user) => ({ ...user, uid: user.uid || user.id }))
-            .filter((user) => user.accountStatus !== "disabled");
+            .filter((user) => user.accountStatus !== "disabled" && (!user.uid || user.uid === user.id))
+            .map((user) => ({ ...user, uid: user.id }));
           setTeam(list.sort((a, b) => memberName(a).localeCompare(memberName(b), "fr")));
         },
         (error) => console.error("Communication team load failed", error),

@@ -186,15 +186,20 @@ export const isVideo = (url) => /\.(mp4|mov)(\?|$)/i.test(decodeURIComponent(Str
 
 // Actions communes sur une publication (aperçu du calendrier et page de la publication).
 // notify(message) affiche une confirmation ou une erreur, dans la langue lang.
+// Chaque action renvoie { ok, message } pour que l'écran puisse garder la saisie en cas d'échec.
 export function publicationHandlers(item, uid, notify, lang = "fr") {
   const tr = (fr, en) => (lang === "fr" ? fr : en);
   async function run(action, success) {
     try {
       await action();
       if (success) notify(success);
+      return { ok: true };
     } catch (error) {
       console.error(error);
-      notify(error?.message && !String(error.message).startsWith("FirebaseError") ? error.message : tr("L'enregistrement a échoué. Réessaie.", "Saving failed. Please try again."));
+      const message =
+        error?.message && !String(error.message).startsWith("FirebaseError") ? error.message : tr("L'enregistrement a échoué. Réessaie.", "Saving failed. Please try again.");
+      notify(message);
+      return { ok: false, message };
     }
   }
 
