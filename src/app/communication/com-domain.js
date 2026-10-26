@@ -70,6 +70,29 @@ export const MAX_TITLE_LENGTH = 200;
 export const MAX_TEXT_LENGTH = 10000;
 export const MAX_NOTES_LENGTH = 5000;
 
+// Liens de travail d'une publication (visuels, SharePoint, Drive…) : { label, url }.
+export const MAX_LIENS = 20;
+const LINK_SOURCES = [
+  [/sharepoint\.com|onedrive\.live\.com|1drv\.ms/i, "SharePoint"],
+  [/drive\.google\.com|docs\.google\.com/i, "Google Drive"],
+  [/canva\.com/i, "Canva"],
+  [/dropbox\.com/i, "Dropbox"],
+  [/wetransfer\.com|we\.tl/i, "WeTransfer"],
+  [/flaphoto\.net/i, "Photos FLA"],
+  [/figma\.com/i, "Figma"],
+];
+
+// Libellé par défaut d'un lien : le service reconnu, sinon le nom de domaine.
+export function linkLabel(url) {
+  const known = LINK_SOURCES.find(([re]) => re.test(url));
+  if (known) return known[1];
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 // Valeurs par défaut d'une publication enregistrée (champs optionnels compris).
 export function normalizePublication(raw = {}) {
   return {
@@ -97,6 +120,7 @@ export function normalizePublication(raw = {}) {
     visuelPath: raw.visuelPath || null,
     validation: raw.validation || null,
     photos: Array.isArray(raw.photos) ? raw.photos : [],
+    liens: Array.isArray(raw.liens) ? raw.liens.filter((l) => l && typeof l.url === "string") : [],
     createdBy: raw.createdBy || "",
   };
 }

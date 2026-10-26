@@ -8,7 +8,7 @@ import cmcmLogo from "../../assets/cmcm-logo.png";
 import { VISUEL_TYPES, cancelOccurrence, deletePublication, isVideo, moveSeries, publicationHandlers, updateItem } from "./com-actions.js";
 import { memberName, useComPartners, useCommunicationTeam, useEvenements, usePublicationItem, usePublications, useRubriques } from "./com-data.js";
 import { MOIS, addDays, fmtLong, fmtShort, monthGridDays, parseYmd, todayYmd, ymd } from "./com-dates.js";
-import { CANAUX, CANAL_LABELS, STATUTS, STATUT_LABELS, TEXT_LIMITS, VALIDATION_ETAT_LABELS } from "./com-domain.js";
+import { CANAUX, CANAL_LABELS, MAX_LIENS, STATUTS, STATUT_LABELS, TEXT_LIMITS, VALIDATION_ETAT_LABELS, linkLabel } from "./com-domain.js";
 import { buildCalendarItems, movedRule, occurrenceId, ruleAt, ruleLabel } from "./com-recurrence.js";
 import { Avatar, Dialog, Toast, Toggle, TypeTag, ValidationBadge } from "./com-ui.jsx";
 import { typeColor, useToast } from "./com-ui-helpers.js";
@@ -269,6 +269,7 @@ function PublicationPage({ item }) {
                 ))}
               </select>
             </label>
+            <LinksPanel liens={item.liens} onChange={(liens) => h.update({ liens })} />
             <label className="com-field">
               Notes internes
               <textarea
@@ -890,6 +891,57 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
           {validation ? (pending ? "Relancer la demande" : "Redemander la validation") : "Demander la validation"}
         </button>
       )}
+    </div>
+  );
+}
+
+/* ---------- Liens de travail (visuels, SharePoint…) ---------- */
+
+function LinksPanel({ liens, onChange }) {
+  const [url, setUrl] = useState("");
+  const [label, setLabel] = useState("");
+  const [error, setError] = useState(null);
+
+  function add(e) {
+    e.preventDefault();
+    const clean = url.trim();
+    if (!/^https?:\/\/\S+$/i.test(clean)) return setError("Colle l'adresse complète (https://…).");
+    if (liens.some((l) => l.url === clean)) return setError("Ce lien est déjà dans la liste.");
+    setError(null);
+    onChange([...liens, { label: label.trim().slice(0, 100) || linkLabel(clean), url: clean }]);
+    setUrl("");
+    setLabel("");
+  }
+
+  return (
+    <div className="com-stack" style={{ gap: 8 }}>
+      <span className="com-field">Liens (visuels, SharePoint, Drive…)</span>
+      {liens.length ? (
+        <ul className="com-links">
+          {liens.map((l) => (
+            <li key={l.url}>
+              <a href={l.url} target="_blank" rel="noreferrer" className="com-link" title={l.url}>
+                {l.label || linkLabel(l.url)} ↗
+              </a>
+              <button type="button" className="com-btn-ghost is-danger" aria-label={`Retirer le lien ${l.label}`} onClick={() => onChange(liens.filter((x) => x.url !== l.url))}>
+                Retirer
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {liens.length < MAX_LIENS ? (
+        <form className="com-stack" style={{ gap: 6 }} onSubmit={add}>
+          <input className="com-input" type="url" placeholder="https://…" aria-label="Adresse du lien" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <span className="com-row" style={{ flexWrap: "nowrap" }}>
+            <input className="com-input" placeholder="Libellé (facultatif)" aria-label="Libellé du lien" maxLength={100} value={label} onChange={(e) => setLabel(e.target.value)} />
+            <button type="submit" className="button button--secondary button--small" disabled={!url.trim()}>
+              Ajouter
+            </button>
+          </span>
+        </form>
+      ) : null}
+      {error ? <p className="com-error">{error}</p> : null}
     </div>
   );
 }
