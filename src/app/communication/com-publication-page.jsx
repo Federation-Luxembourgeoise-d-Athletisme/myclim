@@ -842,15 +842,22 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
   const [target, setTarget] = useState(admins.length ? "" : others[0]?.uid || "");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const teamById = new Map(team.map((u) => [u.uid, u]));
   const names = (uids) => uids.map((id) => (teamById.get(id) ? memberName(teamById.get(id)) : "?")).join(", ");
   const pending = validation?.etat === "demandee";
   const canAnswer = pending && validation.demandeeA.includes(uid);
 
+  // En cas d'échec, la saisie reste ouverte avec l'erreur : la demande n'est pas partie.
   async function submit(action) {
     setBusy(true);
+    setError(null);
     try {
-      await action();
+      const result = await action();
+      if (result && !result.ok) {
+        setError(result.message);
+        return;
+      }
       setText("");
       setAsking(false);
     } finally {
@@ -893,6 +900,7 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
               👎 {tr("À revoir", "Needs changes")}
             </button>
           </div>
+          {error ? <p className="com-error">{error}</p> : null}
         </div>
       ) : asking ? (
         <div className="com-validation-box">
@@ -917,10 +925,18 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
             >
               {busy ? tr("Envoi…", "Sending…") : tr("Envoyer la demande", "Send request")}
             </button>
-            <button type="button" className="com-btn-ghost" onClick={() => setAsking(false)}>
+            <button
+              type="button"
+              className="com-btn-ghost"
+              onClick={() => {
+                setAsking(false);
+                setError(null);
+              }}
+            >
               {tr("Annuler", "Cancel")}
             </button>
           </div>
+          {error ? <p className="com-error">{tr("La demande n'est pas partie :", "The request was not sent:")} {error}</p> : null}
           <span className="com-muted" style={{ fontSize: "0.75rem" }}>
             {tr("La personne reçoit un e-mail avec le lien de la publication.", "They'll get an email with a link to the publication.")}
           </span>
