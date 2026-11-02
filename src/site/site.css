@@ -4393,7 +4393,9 @@
   height: 100%;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  background: linear-gradient(180deg, #ffffff 0%, #eceef1 100%);
+  /* Plain white like the key visual's own background, so the logo area and
+     the footer read as one surface. */
+  background: #ffffff;
   color: #10253d;
   overflow: hidden;
 }
