@@ -13,7 +13,6 @@ import { useComLang } from "./communication/com-i18n";
 import {
   BudgetLinePicker,
   buildBudgetExpenseTargetOptions,
-  formatInvoiceStatusLabel,
   INVOICE_CONTACT,
   InvoiceInlineList,
   InvoiceMailDialog,
@@ -1033,301 +1032,6 @@ function BudgetAmountField({ row, fieldName, onValueChange, collectionKey, isEdi
   );
 }
 
-function BudgetLineTable({
-  side,
-  collectionKey,
-  sections,
-  referenceEditionId,
-  currentEditionId,
-  hasComparison,
-  isEditable,
-  newSectionName,
-  onValueChange,
-  onAddRow,
-  onDeleteRow,
-  onNewSectionNameChange,
-  onAddSection,
-  dragState,
-  dragOverRowId,
-  onRowDragStart,
-  onRowDragOver,
-  onRowDrop,
-  onRowDragEnd,
-  totals,
-  invoicesByRowId,
-  canManageInvoices,
-  onUnlinkInvoice,
-}) {
-  function renderTextCell(row, fieldName, placeholder) {
-    if (!isEditable) {
-      return <span className="budget-cell-text">{row[fieldName] || "—"}</span>;
-    }
-
-    return (
-      <input
-        className="budget-text-input"
-        type="text"
-        value={row[fieldName]}
-        onChange={(event) => onValueChange(collectionKey, row.id, fieldName, event.target.value)}
-        placeholder={placeholder}
-      />
-    );
-  }
-
-  function renderReferenceCell(row) {
-    const linkedInvoices = invoicesByRowId[row.id] || [];
-
-    if (!isEditable) {
-      return (
-        <div className="budget-reference-cell">
-          <span className="budget-cell-text">{row.actualReference || "—"}</span>
-          <InvoiceInlineList invoices={linkedInvoices} />
-        </div>
-      );
-    }
-
-    return (
-      <div className="budget-reference-cell">
-        <input
-          className="budget-text-input"
-          type="text"
-          value={row.actualReference}
-          onChange={(event) => onValueChange(collectionKey, row.id, "actualReference", event.target.value)}
-          placeholder="Facture / note"
-        />
-        <InvoiceInlineList invoices={linkedInvoices} canManage={canManageInvoices} onDetach={onUnlinkInvoice} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="budget-table-stack">
-      {isEditable ? (
-        <Fragment>
-          <div className="budget-table-toolbar">
-            <div className="budget-table-toolbar__legend">
-              {hasComparison ? <span className="budget-legend budget-legend--reference">Réalisé {referenceEditionId}</span> : null}
-              <span className="budget-legend budget-legend--forecast">Prévisionnel {currentEditionId}</span>
-              <span className="budget-legend budget-legend--actual">Réalisé {currentEditionId}</span>
-            </div>
-            <div className="budget-table-toolbar__actions">
-              <input
-                className="budget-text-input budget-table-toolbar__input"
-                type="text"
-                value={newSectionName}
-                onChange={(event) => onNewSectionNameChange(collectionKey, event.target.value)}
-                placeholder="Nouvelle section"
-              />
-              <button
-                className="button button--secondary budget-add-row-button"
-                type="button"
-                onClick={() => onAddSection(collectionKey)}
-              >
-                Ajouter une section
-              </button>
-            </div>
-          </div>
-          <p className="budget-formula-note">
-            Formules disponibles dans les montants: <code>=SOMME(P1:P3)</code> pour le prévisionnel et <code>=SOMME(R4:R8)</code> pour le réalisé.
-          </p>
-        </Fragment>
-      ) : null}
-      {sections.map(({ sectionName, rows }) => {
-        const sectionReferenceActual = sumBudgetRowsField(rows, "referenceActual");
-        const sectionCurrentForecast = sumBudgetRowsField(rows, "currentForecast");
-        const sectionCurrentActual = sumBudgetRowsField(rows, "currentActual", { emptyAsNull: true });
-        const sectionVariance = computeVariance(sectionCurrentForecast, sectionCurrentActual);
-
-        return (
-        <section className="budget-section-card" key={sectionName}>
-          <div className="budget-section-card__header">
-            <div className="budget-section-card__heading">
-              <h3>{sectionName}</h3>
-              <p>{rows.length} poste(s) dans cette section.</p>
-            </div>
-            {isEditable ? (
-              <button
-                className="button button--secondary budget-add-row-button"
-                type="button"
-                onClick={() => onAddRow(collectionKey, sectionName)}
-              >
-                Ajouter une ligne
-              </button>
-            ) : null}
-          </div>
-          <div className="table-wrap table-wrap--compact">
-            <div className="budget-section-summary">
-              <div className="budget-section-summary__eyebrow">Synthèse de section</div>
-              <div className="budget-section-summary__metrics">
-                {hasComparison ? (
-                  <span className="budget-metric-chip budget-metric-chip--reference">
-                    <small>Réalisé {referenceEditionId}</small>
-                    <strong>{formatCurrency(sectionReferenceActual)}</strong>
-                  </span>
-                ) : null}
-                <span className="budget-metric-chip budget-metric-chip--forecast">
-                  <small>Prévu {currentEditionId}</small>
-                  <strong>{formatCurrency(sectionCurrentForecast)}</strong>
-                </span>
-                <span className="budget-metric-chip budget-metric-chip--actual">
-                  <small>Réalisé {currentEditionId}</small>
-                  <strong>{formatCurrency(sectionCurrentActual)}</strong>
-                </span>
-                <span className={`${getVarianceToneClass(sectionVariance, side)} budget-metric-chip budget-metric-chip--variance`}>
-                  <small>Écart {currentEditionId}</small>
-                  <strong>{formatVariance(sectionVariance)}</strong>
-                </span>
-              </div>
-            </div>
-            <table className="data-table data-table--admin data-table--compact budget-table budget-table--sheet">
-              <colgroup>
-                <col className="budget-col budget-col--label" />
-                <col className="budget-col budget-col--details" />
-                {hasComparison ? <col className="budget-col budget-col--comparison" /> : null}
-                <col className="budget-col budget-col--amount" />
-                <col className="budget-col budget-col--amount" />
-                <col className="budget-col budget-col--variance" />
-                <col className="budget-col budget-col--reference" />
-                <col className="budget-col budget-col--comment" />
-                {isEditable ? <col className="budget-col budget-col--actions" /> : null}
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Poste</th>
-                  <th>Détail</th>
-                  {hasComparison ? <th className="budget-table__col budget-table__col--reference">Réalisé {referenceEditionId}</th> : null}
-                  <th className="budget-table__col budget-table__col--forecast">Prév. {currentEditionId}</th>
-                  <th className="budget-table__col budget-table__col--actual">Réalisé {currentEditionId}</th>
-                  <th>Écart {currentEditionId}</th>
-                  <th>Facture / repère</th>
-                  <th>Commentaire</th>
-                  {isEditable ? <th>Action</th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    className={[
-                      "budget-table__row",
-                      row.isCustom ? "budget-table__row--custom" : "",
-                      dragOverRowId === row.id ? "budget-table__row--drag-over" : "",
-                    ].filter(Boolean).join(" ")}
-                    key={row.id}
-                    onDragOver={isEditable ? (event) => onRowDragOver(event, collectionKey, row.id) : undefined}
-                    onDrop={isEditable ? (event) => onRowDrop(event, collectionKey, sectionName, row.id) : undefined}
-                  >
-                    <td className="budget-table__label">
-                      {isEditable ? (
-                        <div className="budget-table__label-editable">
-                          <button
-                            className={`budget-drag-handle ${dragState?.rowId === row.id ? "budget-drag-handle--active" : ""}`}
-                            type="button"
-                            draggable
-                            onDragStart={(event) => onRowDragStart(event, collectionKey, sectionName, row.id)}
-                            onDragEnd={onRowDragEnd}
-                            aria-label={`Déplacer ${row.label}`}
-                            title="Glisser pour déplacer la ligne"
-                          >
-                            <span className="budget-drag-handle__icon" aria-hidden="true" />
-                          </button>
-                          <div className="budget-table__label-content">
-                            <div className="budget-table__label-inline">
-                              <span className="budget-row-ref">#{row.rowNumber}</span>
-                              <input
-                                className="budget-text-input"
-                                type="text"
-                                value={row.label}
-                                onChange={(event) => onValueChange(collectionKey, row.id, "label", event.target.value)}
-                                placeholder="Libellé"
-                              />
-                              {row.isCustom ? <span className="budget-custom-badge">Ajoutée</span> : null}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="budget-cell-text">{row.label}</span>
-                      )}
-                    </td>
-                    <td className="budget-table__details">
-                      {isEditable
-                        ? renderTextCell(row, "details", "Détail")
-                        : <span className="budget-cell-text">{row.details || "—"}</span>}
-                    </td>
-                    {hasComparison ? (
-                      <td className="budget-table__cell budget-table__cell--reference"><span className="budget-cell-value">{formatCurrency(row.referenceActual)}</span></td>
-                    ) : null}
-                    <td className="budget-table__cell budget-table__cell--forecast">
-                      <BudgetAmountField
-                        row={row}
-                        fieldName="currentForecast"
-                        onValueChange={onValueChange}
-                        collectionKey={collectionKey}
-                        isEditable={isEditable}
-                      />
-                    </td>
-                    <td className="budget-table__cell budget-table__cell--actual">
-                      <BudgetAmountField
-                        row={row}
-                        fieldName="currentActual"
-                        onValueChange={onValueChange}
-                        collectionKey={collectionKey}
-                        isEditable={isEditable}
-                      />
-                    </td>
-                    <td className="budget-table__variance">
-                      <span className={getVarianceToneClass(computeVariance(row.currentForecast, row.currentActual), side)}>
-                        {formatVariance(computeVariance(row.currentForecast, row.currentActual))}
-                      </span>
-                    </td>
-                    <td>{renderReferenceCell(row)}</td>
-                    <td>{renderTextCell(row, "comment", "Commentaire")}</td>
-                    {isEditable ? (
-                      <td className="budget-table__actions">
-                        <button
-                          className="budget-delete-button"
-                          type="button"
-                          onClick={() => onDeleteRow(collectionKey, row.id)}
-                          aria-label={`Supprimer ${row.label}`}
-                          title="Supprimer la ligne"
-                        >
-                          <span aria-hidden="true">×</span>
-                        </button>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      );
-      })}
-      <PanelTotals
-        totals={totals}
-        title={collectionKey === "expenses" ? "Total dépenses" : "Total recettes"}
-        side={side}
-        hasComparison={hasComparison}
-      />
-    </div>
-  );
-}
-
-function PanelTotals({ title, totals, side, hasComparison }) {
-  if (!totals) return null;
-
-  return (
-    <div className="budget-inline-summary">
-      <strong>{title}</strong>
-      {hasComparison ? <span>{formatCurrency(totals.referenceActual)} réalisé réf.</span> : null}
-      <span>{formatCurrency(totals.currentForecast)} prév. courante</span>
-      <span>{formatCurrency(totals.currentActual)} réalisé courant</span>
-      <span className={getVarianceToneClass(computeVariance(totals.currentForecast, totals.currentActual), side)}>
-        {formatVariance(computeVariance(totals.currentForecast, totals.currentActual))} courant
-      </span>
-    </div>
-  );
-}
-
 function BudgetSeedLog({ lines = [] }) {
   if (!lines.length) return null;
 
@@ -1687,6 +1391,559 @@ function BudgetOverview({
   );
 }
 
+const LINE_FILTERS = [
+  { id: "gap", label: "Écart > 10 %" },
+  { id: "comment", label: "Avec commentaire" },
+  { id: "noInvoice", label: "Sans facture", side: "expense" },
+];
+
+function getRowGapPercent(row, hasComparison) {
+  const forecast = toBudgetNumber(row.currentForecast);
+  const actual = toBudgetNumber(row.currentActual);
+  if (actual != null && forecast) return ((actual - forecast) / Math.abs(forecast)) * 100;
+  if (!hasComparison) return null;
+  return computeEvolutionPercent(toBudgetNumber(row.referenceActual), forecast);
+}
+
+function matchesLineSearch(row, sectionName, words) {
+  if (!words.length) return true;
+  const haystack = normalizeLineSearchText([row.label, row.details, row.comment, row.actualReference, sectionName].join(" "));
+  return words.every((word) => haystack.includes(word));
+}
+
+function normalizeLineSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+function PaperclipIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M21 12.5l-8.5 8.5a5 5 0 01-7-7L14 5.5a3.5 3.5 0 015 5L10.5 19a2 2 0 01-3-3l8-8" />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 5h16v11H8l-4 4V5z" />
+    </svg>
+  );
+}
+
+function BudgetLineDrawer({
+  row,
+  side,
+  collectionKey,
+  sectionNames,
+  referenceEditionId,
+  currentEditionId,
+  hasComparison,
+  actualLabel,
+  isEditable,
+  canStartEditing,
+  onStartEditing,
+  onValueChange,
+  onDeleteRow,
+  invoices,
+  canManageInvoices,
+  onUnlinkInvoice,
+  rowHistory,
+  onClose,
+}) {
+  const evolution = hasComparison
+    ? computeEvolutionPercent(toBudgetNumber(row.referenceActual), toBudgetNumber(row.currentForecast))
+    : null;
+  const variance = computeVariance(toBudgetNumber(row.currentForecast), toBudgetNumber(row.currentActual));
+
+  function renderTextField(fieldName, label, { multiline = false, placeholder = "" } = {}) {
+    if (!isEditable) {
+      return (
+        <div className="budget-drawer__field">
+          <span>{label}</span>
+          <p className="budget-drawer__value">{row[fieldName] || "—"}</p>
+        </div>
+      );
+    }
+
+    const commonProps = {
+      value: row[fieldName] || "",
+      placeholder,
+      onChange: (event) => onValueChange(collectionKey, row.id, fieldName, event.target.value),
+    };
+
+    return (
+      <label className="field budget-drawer__field">
+        <span>{label}</span>
+        {multiline ? <textarea rows={3} {...commonProps} /> : <input type="text" {...commonProps} />}
+      </label>
+    );
+  }
+
+  return (
+    <aside className="budget-drawer" aria-label={`Détail de la ligne ${row.label || ""}`}>
+      <header className="budget-drawer__header">
+        <div>
+          <p className="budget-drawer__eyebrow">
+            {side === "expense" ? "Dépenses" : "Recettes"} · {row.section} · ligne {row.rowNumber}
+          </p>
+          <h2>{row.label || "Sans libellé"}</h2>
+        </div>
+        <button type="button" className="budget-drawer__close" onClick={onClose} aria-label="Fermer le détail">
+          ×
+        </button>
+      </header>
+
+      <div className="budget-drawer__amounts">
+        <div className="budget-drawer__field">
+          <span>Prévu {currentEditionId}</span>
+          <BudgetAmountField row={row} fieldName="currentForecast" onValueChange={onValueChange} collectionKey={collectionKey} isEditable={isEditable} />
+        </div>
+        <div className="budget-drawer__field">
+          <span>{actualLabel} {currentEditionId}</span>
+          <BudgetAmountField row={row} fieldName="currentActual" onValueChange={onValueChange} collectionKey={collectionKey} isEditable={isEditable} />
+        </div>
+      </div>
+
+      <p className="budget-drawer__summary">
+        {hasComparison ? (
+          <>
+            Réalisé {referenceEditionId} : <strong>{formatCurrency(toBudgetNumber(row.referenceActual))}</strong>
+            {evolution != null ? (
+              <> · évolution <strong className={getEvolutionToneClass(evolution, side)}>{formatPercent(evolution)}</strong></>
+            ) : null}
+          </>
+        ) : null}
+        {variance != null ? (
+          <>
+            {hasComparison ? <br /> : null}
+            Écart réalisé / prévu : <strong className={getVarianceToneClass(variance, side)}>{formatVariance(variance)}</strong>
+          </>
+        ) : null}
+        {!hasComparison && variance == null ? "Aucun réalisé saisi pour cette ligne." : null}
+      </p>
+
+      {isEditable ? renderTextField("label", "Libellé") : null}
+      {renderTextField("details", "Détail", { multiline: true, placeholder: "Fournisseur, devis, quantités…" })}
+      {renderTextField("actualReference", "Facture / repère", { placeholder: "N° de facture, note…" })}
+      {renderTextField("comment", "Commentaire", { multiline: true })}
+
+      {isEditable && sectionNames.length > 1 ? (
+        <label className="field budget-drawer__field">
+          <span>Bloc</span>
+          <select value={row.section} onChange={(event) => onValueChange(collectionKey, row.id, "section", event.target.value)}>
+            {sectionNames.map((sectionName) => (
+              <option key={sectionName} value={sectionName}>{sectionName}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
+      {side === "expense" ? (
+        <div className="budget-drawer__field">
+          <span>Factures liées</span>
+          {invoices.length ? (
+            <InvoiceInlineList invoices={invoices} canManage={canManageInvoices} onDetach={onUnlinkInvoice} />
+          ) : (
+            <p className="budget-drawer__value budget-drawer__value--muted">Aucune facture liée. Elles se rangent depuis l&apos;onglet Factures.</p>
+          )}
+        </div>
+      ) : null}
+
+      {rowHistory.length ? (
+        <div className="budget-drawer__field">
+          <span>Dernières modifications</span>
+          <ul className="budget-drawer__history">
+            {rowHistory.map((change) => (
+              <li key={change.key}>
+                <strong>{change.fieldLabel}</strong> : {formatHistoryValue(change.before)} → {formatHistoryValue(change.after)}
+                <small>{change.actorName} · {formatDateTime(change.createdAt)}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <footer className="budget-drawer__footer">
+        {isEditable ? (
+          <button
+            type="button"
+            className="button button--ghost-danger"
+            onClick={() => {
+              if (window.confirm(`Supprimer la ligne « ${row.label || "Sans libellé"} » ? Elle disparaîtra à l'enregistrement.`)) {
+                onDeleteRow(collectionKey, row.id);
+                onClose();
+              }
+            }}
+          >
+            Supprimer la ligne
+          </button>
+        ) : canStartEditing ? (
+          <button type="button" className="button button--secondary" onClick={onStartEditing}>
+            Modifier cette ligne
+          </button>
+        ) : null}
+      </footer>
+    </aside>
+  );
+}
+
+function BudgetLinesWorkspace({
+  side,
+  collectionKey,
+  sections,
+  referenceEditionId,
+  currentEditionId,
+  hasComparison,
+  isBudgetLocked,
+  showActualColumn,
+  isEditable,
+  canStartEditing,
+  onStartEditing,
+  newSectionName,
+  onValueChange,
+  onAddRow,
+  onDeleteRow,
+  onNewSectionNameChange,
+  onAddSection,
+  dragState,
+  dragOverRowId,
+  onRowDragStart,
+  onRowDragOver,
+  onRowDrop,
+  onRowDragEnd,
+  totals,
+  invoicesByRowId,
+  canManageInvoices,
+  onUnlinkInvoice,
+  historyEntries,
+}) {
+  const [search, setSearch] = useState("");
+  const [activeFilters, setActiveFilters] = useState({});
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const [selectedRowId, setSelectedRowId] = useState("");
+  const actualLabel = isBudgetLocked ? "Définitif" : "Réalisé";
+  const showActual = showActualColumn || isEditable;
+  const availableFilters = LINE_FILTERS.filter((filter) => !filter.side || filter.side === side);
+  const searchWords = normalizeLineSearchText(search).split(/\s+/).filter(Boolean);
+  const isFiltering = searchWords.length > 0 || Object.values(activeFilters).some(Boolean);
+  const allRows = sections.flatMap((section) => section.rows);
+  const selectedRow = allRows.find((row) => row.id === selectedRowId) ?? null;
+  const columnCount = 4 + (hasComparison ? 2 : 0) + (showActual ? 2 : 0) + (isEditable ? 1 : 0);
+
+  useEffect(() => {
+    if (!selectedRowId) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setSelectedRowId("");
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedRowId]);
+
+  const visibleSections = sections
+    .map((section) => ({
+      ...section,
+      visibleRows: section.rows.filter((row) => {
+        if (!matchesLineSearch(row, section.sectionName, searchWords)) return false;
+        if (activeFilters.gap) {
+          const gap = getRowGapPercent(row, hasComparison);
+          if (gap == null || Math.abs(gap) < 10) return false;
+        }
+        if (activeFilters.comment && !String(row.comment || "").trim()) return false;
+        if (activeFilters.noInvoice) {
+          const hasAmount = Boolean(toBudgetNumber(row.currentForecast) || toBudgetNumber(row.currentActual));
+          if (!hasAmount || (invoicesByRowId[row.id] || []).length) return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((section) => !isFiltering || section.visibleRows.length);
+  const visibleRowCount = visibleSections.reduce((sum, section) => sum + section.visibleRows.length, 0);
+
+  const rowHistory = useMemo(() => {
+    if (!selectedRowId) return [];
+    return historyEntries
+      .flatMap((entry) =>
+        entry.changes
+          .filter((change) => change.rowId === selectedRowId)
+          .map((change, index) => ({
+            key: `${entry.id}-${change.field}-${index}`,
+            fieldLabel: historyFieldLabels[change.field] || change.field,
+            before: change.before,
+            after: change.after,
+            actorName: entry.actorName || "Admin",
+            createdAt: entry.createdAt,
+          })),
+      )
+      .slice(0, 3);
+  }, [historyEntries, selectedRowId]);
+
+  function toggleFilter(filterId) {
+    setActiveFilters((current) => ({ ...current, [filterId]: !current[filterId] }));
+  }
+
+  function toggleSection(sectionName) {
+    setCollapsedSections((current) => ({ ...current, [sectionName]: !current[sectionName] }));
+  }
+
+  function renderTrend(row) {
+    if (!hasComparison) return null;
+    if (!toBudgetNumber(row.referenceActual) && toBudgetNumber(row.currentForecast)) {
+      return <span className="budget-overview-board__trend--new">nouveau</span>;
+    }
+    const evolution = computeEvolutionPercent(toBudgetNumber(row.referenceActual), toBudgetNumber(row.currentForecast));
+    return <span className={getEvolutionToneClass(evolution, side)}>{formatPercent(evolution)}</span>;
+  }
+
+  function renderVariance(forecastValue, actualValue) {
+    const variance = computeVariance(toBudgetNumber(forecastValue), toBudgetNumber(actualValue));
+    if (variance == null) return <span className="budget-lines-table__muted">—</span>;
+    return <span className={getVarianceToneClass(variance, side)}>{formatVariance(variance)}</span>;
+  }
+
+  return (
+    <div className="budget-lines-workspace">
+      <div className="budget-lines-toolbar">
+        <div className="budget-lines-toolbar__filters">
+          <label className="budget-lines-search">
+            <span className="budget-visually-hidden">Rechercher une ligne</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher un poste, un fournisseur…"
+            />
+          </label>
+          {availableFilters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              className={`budget-chip${activeFilters[filter.id] ? " budget-chip--active" : ""}`}
+              aria-pressed={Boolean(activeFilters[filter.id])}
+              onClick={() => toggleFilter(filter.id)}
+            >
+              {filter.label}
+            </button>
+          ))}
+          {isFiltering ? <span className="budget-lines-toolbar__count">{visibleRowCount} ligne(s)</span> : null}
+        </div>
+        {isEditable ? (
+          <div className="budget-lines-toolbar__new-section">
+            <input
+              type="text"
+              value={newSectionName}
+              onChange={(event) => onNewSectionNameChange(collectionKey, event.target.value)}
+              placeholder="Nouveau bloc"
+              aria-label="Nom du nouveau bloc"
+            />
+            <button type="button" className="button button--secondary" onClick={() => onAddSection(collectionKey)}>
+              Ajouter le bloc
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {isEditable ? (
+        <p className="panel-note budget-lines-hint">
+          Les montants se modifient directement dans le tableau ; clique sur une ligne pour son libellé, son détail et son commentaire.
+          Formules possibles : <code>=SOMME(P1:P3)</code> (prévu) ou <code>=SOMME(R4:R8)</code> (réalisé).
+        </p>
+      ) : null}
+
+      <div className={`budget-lines-layout${selectedRow ? " budget-lines-layout--with-drawer" : ""}`}>
+        <div className="budget-lines-table-wrap">
+          <table className="budget-lines-table">
+            <thead>
+              <tr>
+                {isEditable ? <th scope="col" className="budget-lines-table__handle"><span className="budget-visually-hidden">Déplacer</span></th> : null}
+                <th scope="col">Poste</th>
+                {hasComparison ? <th scope="col" className="budget-lines-table__num">Réal. {referenceEditionId}</th> : null}
+                <th scope="col" className="budget-lines-table__num">Prévu {currentEditionId}</th>
+                {hasComparison ? <th scope="col" className="budget-lines-table__num">vs {referenceEditionId}</th> : null}
+                {showActual ? <th scope="col" className="budget-lines-table__num">{actualLabel} {currentEditionId}</th> : null}
+                {showActual ? <th scope="col" className="budget-lines-table__num">Écart</th> : null}
+                <th scope="col" className="budget-lines-table__pieces">Pièces</th>
+              </tr>
+            </thead>
+            {visibleSections.map((section) => {
+              const isCollapsed = !isFiltering && Boolean(collapsedSections[section.sectionName]);
+              const sectionForecast = sumBudgetRowsField(section.rows, "currentForecast");
+              const sectionActual = sumBudgetRowsField(section.rows, "currentActual", { emptyAsNull: true });
+              const sectionReference = sumBudgetRowsField(section.rows, "referenceActual");
+              const sectionEvolution = computeEvolutionPercent(sectionReference, sectionForecast);
+
+              return (
+                <tbody key={section.sectionName}>
+                  <tr className="budget-lines-table__section">
+                    {isEditable ? <td /> : null}
+                    <th scope="rowgroup">
+                      <button
+                        type="button"
+                        className="budget-lines-table__section-toggle"
+                        aria-expanded={!isCollapsed}
+                        onClick={() => toggleSection(section.sectionName)}
+                      >
+                        <span className={`budget-overview-board__chevron${isCollapsed ? "" : " budget-lines-table__chevron--open"}`} aria-hidden="true" />
+                        {section.sectionName}
+                        <small>{isFiltering ? `${section.visibleRows.length} sur ${section.rows.length}` : `${section.rows.length} ligne(s)`}</small>
+                      </button>
+                    </th>
+                    {hasComparison ? <td className="budget-lines-table__num budget-lines-table__muted">{formatCurrency(sectionReference)}</td> : null}
+                    <td className="budget-lines-table__num"><strong>{formatCurrency(sectionForecast)}</strong></td>
+                    {hasComparison ? (
+                      <td className="budget-lines-table__num">
+                        <span className={getEvolutionToneClass(sectionEvolution, side)}>{formatPercent(sectionEvolution)}</span>
+                      </td>
+                    ) : null}
+                    {showActual ? <td className="budget-lines-table__num"><strong>{formatCurrency(sectionActual)}</strong></td> : null}
+                    {showActual ? <td className="budget-lines-table__num">{renderVariance(sectionForecast, sectionActual)}</td> : null}
+                    <td className="budget-lines-table__pieces">
+                      {isEditable ? (
+                        <button type="button" className="budget-lines-table__add" onClick={() => {
+                            const newRowId = onAddRow(collectionKey, section.sectionName);
+                            if (newRowId) setSelectedRowId(newRowId);
+                          }}>
+                          + Ligne
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                  {isCollapsed ? null : section.visibleRows.map((row) => {
+                    const rowInvoices = invoicesByRowId[row.id] || [];
+                    const isSelected = row.id === selectedRowId;
+
+                    return (
+                      <tr
+                        key={row.id}
+                        className={[
+                          "budget-lines-table__row",
+                          isSelected ? "budget-lines-table__row--selected" : "",
+                          dragOverRowId === row.id ? "budget-lines-table__row--drag-over" : "",
+                        ].filter(Boolean).join(" ")}
+                        onClick={(event) => {
+                          if (event.target.closest("input, button, a, textarea, select")) return;
+                          setSelectedRowId(isSelected ? "" : row.id);
+                        }}
+                        onDragOver={isEditable ? (event) => onRowDragOver(event, collectionKey, row.id) : undefined}
+                        onDrop={isEditable ? (event) => onRowDrop(event, collectionKey, section.sectionName, row.id) : undefined}
+                      >
+                        {isEditable ? (
+                          <td className="budget-lines-table__handle">
+                            <button
+                              className={`budget-drag-handle ${dragState?.rowId === row.id ? "budget-drag-handle--active" : ""}`}
+                              type="button"
+                              draggable
+                              onDragStart={(event) => onRowDragStart(event, collectionKey, section.sectionName, row.id)}
+                              onDragEnd={onRowDragEnd}
+                              aria-label={`Déplacer ${row.label}`}
+                              title="Glisser pour déplacer la ligne"
+                            >
+                              <span className="budget-drag-handle__icon" aria-hidden="true" />
+                            </button>
+                          </td>
+                        ) : null}
+                        <td className="budget-lines-table__label">
+                          <button
+                            type="button"
+                            className="budget-lines-table__open"
+                            onClick={() => setSelectedRowId(isSelected ? "" : row.id)}
+                            aria-expanded={isSelected}
+                          >
+                            {row.label || "Sans libellé"}
+                            {row.isCustom ? <span className="budget-custom-badge">Ajoutée</span> : null}
+                          </button>
+                          {row.details ? <small>{row.details}</small> : null}
+                        </td>
+                        {hasComparison ? (
+                          <td className="budget-lines-table__num budget-lines-table__muted">{formatCurrency(toBudgetNumber(row.referenceActual))}</td>
+                        ) : null}
+                        <td className="budget-lines-table__num">
+                          <BudgetAmountField row={row} fieldName="currentForecast" onValueChange={onValueChange} collectionKey={collectionKey} isEditable={isEditable} />
+                        </td>
+                        {hasComparison ? <td className="budget-lines-table__num">{renderTrend(row)}</td> : null}
+                        {showActual ? (
+                          <td className="budget-lines-table__num">
+                            <BudgetAmountField row={row} fieldName="currentActual" onValueChange={onValueChange} collectionKey={collectionKey} isEditable={isEditable} />
+                          </td>
+                        ) : null}
+                        {showActual ? <td className="budget-lines-table__num">{renderVariance(row.currentForecast, row.currentActual)}</td> : null}
+                        <td className="budget-lines-table__pieces">
+                          {rowInvoices.length ? (
+                            <span className="budget-lines-table__piece" title={`${rowInvoices.length} facture(s) liée(s)`}>
+                              <PaperclipIcon />{rowInvoices.length}
+                            </span>
+                          ) : null}
+                          {String(row.comment || "").trim() ? (
+                            <span className="budget-lines-table__piece" title={row.comment}>
+                              <CommentIcon />
+                            </span>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              );
+            })}
+            {!visibleSections.length ? (
+              <tbody>
+                <tr>
+                  <td colSpan={columnCount} className="budget-lines-table__empty">Aucune ligne ne correspond à la recherche.</td>
+                </tr>
+              </tbody>
+            ) : null}
+            <tfoot>
+              <tr>
+                {isEditable ? <td /> : null}
+                <th scope="row">Total {side === "expense" ? "dépenses" : "recettes"}</th>
+                {hasComparison ? <td className="budget-lines-table__num">{formatCurrency(totals.referenceActual)}</td> : null}
+                <td className="budget-lines-table__num">{formatCurrency(totals.currentForecast)}</td>
+                {hasComparison ? (
+                  <td className="budget-lines-table__num">
+                    {formatPercent(computeEvolutionPercent(totals.referenceActual, totals.currentForecast))}
+                  </td>
+                ) : null}
+                {showActual ? <td className="budget-lines-table__num">{formatCurrency(totals.currentActual)}</td> : null}
+                {showActual ? <td className="budget-lines-table__num">{formatVariance(computeVariance(totals.currentForecast, totals.currentActual))}</td> : null}
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {selectedRow ? (
+          <BudgetLineDrawer
+            key={selectedRow.id}
+            row={selectedRow}
+            side={side}
+            collectionKey={collectionKey}
+            sectionNames={sections.map((section) => section.sectionName)}
+            referenceEditionId={referenceEditionId}
+            currentEditionId={currentEditionId}
+            hasComparison={hasComparison}
+            actualLabel={actualLabel}
+            isEditable={isEditable}
+            canStartEditing={canStartEditing}
+            onStartEditing={onStartEditing}
+            onValueChange={onValueChange}
+            onDeleteRow={onDeleteRow}
+            invoices={invoicesByRowId[selectedRow.id] || []}
+            canManageInvoices={canManageInvoices}
+            onUnlinkInvoice={onUnlinkInvoice}
+            rowHistory={rowHistory}
+            onClose={() => setSelectedRowId("")}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function BudgetTrackingPage({ Panel }) {
   const { currentUser, userProfile } = useAuth();
   const { tr } = useComLang();
@@ -1726,6 +1983,7 @@ function BudgetTrackingPage({ Panel }) {
   const [selectedInvoiceTargetRowId, setSelectedInvoiceTargetRowId] = useState("");
   const [isInvoiceMailOpen, setIsInvoiceMailOpen] = useState(false);
   const [invoiceFilingStatus, setInvoiceFilingStatus] = useState("");
+  const [invoiceListFilter, setInvoiceListFilter] = useState("all");
 
   const fallbackBudgets = useMemo(() => buildAllBudgetSeeds(), []);
   const fallbackBudgetMap = useMemo(
@@ -2021,21 +2279,21 @@ function BudgetTrackingPage({ Panel }) {
   }
 
   function handleAddRow(type, sectionName) {
-    if (!canEditBudget) return;
+    if (!canEditBudget || !draftBudget) return "";
+
+    const collectionKey = type === "expenses" ? "expenses" : "revenues";
+    const sideName = collectionKey === "expenses" ? "expense" : "revenue";
+    const nextRowNumber = draftBudget[collectionKey].reduce((maxValue, row) => Math.max(maxValue, Number(row.rowNumber || 0)), 0) + 1;
+    const newRow = createBudgetRow({
+      side: sideName,
+      section: sectionName,
+      rowNumber: nextRowNumber,
+    });
 
     setDraftBudget((currentBudget) => {
       if (!currentBudget) return currentBudget;
 
-      const collectionKey = type === "expenses" ? "expenses" : "revenues";
-      const sideName = collectionKey === "expenses" ? "expense" : "revenue";
       const existingRows = currentBudget[collectionKey];
-      const nextRowNumber = existingRows.reduce((maxValue, row) => Math.max(maxValue, Number(row.rowNumber || 0)), 0) + 1;
-      const newRow = createBudgetRow({
-        side: sideName,
-        section: sectionName,
-        rowNumber: nextRowNumber,
-      });
-
       const insertIndex = existingRows.reduce(
         (lastMatchIndex, row, index) => (row.section === sectionName ? index + 1 : lastMatchIndex),
         existingRows.length,
@@ -2050,6 +2308,7 @@ function BudgetTrackingPage({ Panel }) {
     });
 
     setSaveStatus("Nouvelle ligne ajoutée au budget en cours.");
+    return newRow.id;
   }
 
   function handleNewSectionNameChange(type, value) {
@@ -2792,7 +3051,7 @@ function BudgetTrackingPage({ Panel }) {
               </button>
             ))}
           </div>
-          <BudgetLineTable
+          <BudgetLinesWorkspace
             key={lineSideConfig.collectionKey}
             side={lineSideConfig.side}
             collectionKey={lineSideConfig.collectionKey}
@@ -2800,7 +3059,11 @@ function BudgetTrackingPage({ Panel }) {
             referenceEditionId={draftBudget.referenceEditionId}
             currentEditionId={draftBudget.currentEditionId}
             hasComparison={hasComparison}
+            isBudgetLocked={isBudgetLocked}
+            showActualColumn={isBudgetLocked || hasCurrentActualValues}
             isEditable={canEditBudget}
+            canStartEditing={isBudgetEditable && !isEditMode}
+            onStartEditing={() => setIsEditMode(true)}
             newSectionName={sectionDrafts[lineSideConfig.collectionKey]}
             onValueChange={handleRowChange}
             onAddRow={handleAddRow}
@@ -2817,193 +3080,240 @@ function BudgetTrackingPage({ Panel }) {
             invoicesByRowId={invoicesByBudgetRowId}
             canManageInvoices={canManageInvoicePanel}
             onUnlinkInvoice={handleUnlinkInvoice}
+            historyEntries={historyEntries}
           />
         </div>
       ) : null}
 
       {activeTab === "invoices" ? (
-        <section className="panel-grid panel-grid--2 budget-invoice-panels">
+        <div className="budget-invoices">
           {canManageInvoicePanel ? (
-            <Panel
-              title="Déposer une facture"
-              subtitle="Dépose une facture dans ce module dédié. Le classement se fait ensuite séparément."
-            >
-              <InvoiceUploadForm
-                editionId={draftBudget.currentEditionId}
-                currentUser={currentUser}
-                userProfile={userProfile}
-                assignedTeams={Array.isArray(userProfile?.assignedTeams) ? userProfile.assignedTeams : []}
-              />
-            </Panel>
-          ) : null}
-
-          {canManageInvoicePanel ? (
-          <Panel
-            title="Classer une facture"
-            subtitle="Choisis d'abord la facture par son titre, puis la ligne budgétaire de dépense à laquelle la rattacher."
-          >
-            <p
-              className={`budget-invoice-counter ${unclassifiedInvoices.length ? "" : "budget-invoice-counter--done"}`}
-              role="status"
-            >
-              <strong>{unclassifiedInvoices.length}</strong>
-              <span>
-                {unclassifiedInvoices.length
-                  ? tr(
-                      unclassifiedInvoices.length > 1 ? "factures restent à ranger" : "facture reste à ranger",
-                      unclassifiedInvoices.length > 1 ? "invoices left to file" : "invoice left to file",
-                    )
-                  : tr("facture à ranger : tout est classé", "invoices left to file: all done")}
-              </span>
-            </p>
-            {invoiceFilingStatus ? <p className="panel-note">{invoiceFilingStatus}</p> : null}
-            {!unclassifiedInvoices.length ? (
-              <p className="panel-note">Aucune facture en attente de classement pour cette édition.</p>
-            ) : (
-              <div className="section-stack">
-                <div className="field">
-                  <span>Facture</span>
-                  <select value={selectedInvoiceId} onChange={(event) => setSelectedInvoiceId(event.target.value)}>
-                    {unclassifiedInvoices.map((invoice) => (
-                      <option key={invoice.id} value={invoice.id}>
-                        {invoice.title || invoice.fileName || "Facture"}{invoice.uploadedByName ? ` · ${invoice.uploadedByName}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <BudgetLinePicker
-                  key={selectedInvoiceId}
-                  targets={expenseTargetOptions}
-                  value={selectedInvoiceTargetRowId}
-                  onChange={setSelectedInvoiceTargetRowId}
-                />
-
-                {selectedInvoiceForClassification ? (
-                  <div className="budget-invoice-admin-cell">
-                    <strong>{selectedInvoiceForClassification.title || selectedInvoiceForClassification.fileName || "Facture"}</strong>
-                    <span>{selectedInvoiceForClassification.invoiceNote || "Aucune note renseignée."}</span>
-                    {selectedInvoiceForClassification.resolvedUrl ? (
-                      <button
-                        className="button button--secondary"
-                        type="button"
-                        onClick={() => window.open(selectedInvoiceForClassification.resolvedUrl, "_blank", "noopener,noreferrer")}
-                      >
-                        Ouvrir la facture
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="table-actions table-actions--inline">
-                  <button
-                    className="button button--primary"
-                    type="button"
-                    disabled={!selectedInvoiceId || !selectedInvoiceTargetRowId}
-                    onClick={() => handleLinkInvoice(selectedInvoiceId, selectedInvoiceTargetRowId)}
-                  >
-                    Classer la facture
-                  </button>
-                  <button
-                    className="button button--secondary"
-                    type="button"
-                    disabled={!selectedInvoiceForClassification}
-                    onClick={() => setIsInvoiceMailOpen(true)}
-                  >
-                    {tr(`Envoyer un mail à ${INVOICE_CONTACT.firstName}`, `Email ${INVOICE_CONTACT.firstName}`)}
-                  </button>
-                  {canDeleteInvoices ? (
-                    <button
-                      className="button button--ghost-danger"
-                      type="button"
-                      disabled={!selectedInvoiceForClassification}
-                      onClick={() => handleDeleteInvoice(selectedInvoiceForClassification)}
-                    >
-                      {tr("Supprimer la facture", "Delete invoice")}
-                    </button>
+            <div className="budget-invoices__top">
+              <section className="budget-card budget-invoice-inbox" aria-label="Factures à classer">
+                <header className="budget-card__header">
+                  <h2>
+                    À classer <span>· {unclassifiedInvoices.length} facture{unclassifiedInvoices.length > 1 ? "s" : ""}</span>
+                  </h2>
+                  {unclassifiedInvoices.length > 1 ? (
+                    <span className="budget-card__meta">
+                      {unclassifiedInvoices.findIndex((invoice) => invoice.id === selectedInvoiceId) + 1} sur {unclassifiedInvoices.length}
+                    </span>
                   ) : null}
-                </div>
+                </header>
+                {invoiceFilingStatus ? <p className="panel-note" role="status">{invoiceFilingStatus}</p> : null}
 
-                {isInvoiceMailOpen && selectedInvoiceForClassification ? (
-                  <InvoiceMailDialog
-                    invoice={selectedInvoiceForClassification}
-                    target={expenseTargetOptions.find((option) => option.value === selectedInvoiceTargetRowId) ?? null}
-                    senderName={getDisplayName(userProfile, currentUser?.email)}
-                    senderEmail={currentUser?.email || userProfile?.email || ""}
-                    onClose={() => setIsInvoiceMailOpen(false)}
-                    onSent={(recipient) => {
-                      setIsInvoiceMailOpen(false);
-                      setInvoiceFilingStatus(tr(`Mail envoyé à ${recipient}.`, `Email sent to ${recipient}.`));
-                    }}
-                  />
-                ) : null}
-              </div>
-            )}
-          </Panel>
-          ) : null}
+                {!unclassifiedInvoices.length ? (
+                  <p className="budget-invoice-inbox__done">Tout est classé pour cette édition.</p>
+                ) : (
+                  <div className="budget-invoice-inbox__body">
+                    {unclassifiedInvoices.length > 1 ? (
+                      <ul className="budget-invoice-inbox__queue" aria-label="File des factures à classer">
+                        {unclassifiedInvoices.map((invoice) => (
+                          <li key={invoice.id}>
+                            <button
+                              type="button"
+                              className={`budget-invoice-inbox__queue-item${invoice.id === selectedInvoiceId ? " budget-invoice-inbox__queue-item--active" : ""}`}
+                              aria-pressed={invoice.id === selectedInvoiceId}
+                              onClick={() => setSelectedInvoiceId(invoice.id)}
+                            >
+                              <strong>{invoice.title || invoice.fileName || "Facture"}</strong>
+                              <small>{invoice.uploadedByName || "Utilisateur"}</small>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
 
-          {selectedEditionInvoices.length ? (
-            <Panel
-              title="Factures de l'édition"
-              subtitle="Vue d'ensemble des factures déposées pour cette édition, classées ou encore en attente."
-            >
-              <div className="table-wrap">
-                <table className="data-table data-table--admin">
-                  <thead>
-                    <tr>
-                      <th>Facture</th>
-                      <th>Déposée par</th>
-                      <th>Statut</th>
-                      <th>Ligne liée</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedEditionInvoices.map((invoice) => (
-                      <tr key={invoice.id}>
-                        <td>{invoice.title || invoice.fileName || "Facture"}</td>
-                        <td>{invoice.uploadedByName || "Utilisateur"}</td>
-                        <td>{formatInvoiceStatusLabel(invoice)}</td>
-                        <td>{invoice.linkedBudgetRowLabel || "—"}</td>
-                        <td>
-                          <div className="table-actions table-actions--inline">
-                            {invoice.resolvedUrl ? (
+                    {selectedInvoiceForClassification ? (
+                      <div className="budget-invoice-inbox__current">
+                        <div className="budget-invoice-inbox__preview">
+                          {String(selectedInvoiceForClassification.mimeType || "").startsWith("image/") && selectedInvoiceForClassification.resolvedUrl ? (
+                            <img src={selectedInvoiceForClassification.resolvedUrl} alt={`Aperçu de ${selectedInvoiceForClassification.title || "la facture"}`} />
+                          ) : (
+                            <span aria-hidden="true">PDF</span>
+                          )}
+                        </div>
+                        <div className="budget-invoice-inbox__form">
+                          <div>
+                            <strong className="budget-invoice-inbox__title">
+                              {selectedInvoiceForClassification.title || selectedInvoiceForClassification.fileName || "Facture"}
+                            </strong>
+                            <p className="budget-invoice-inbox__meta">
+                              Déposée par {selectedInvoiceForClassification.uploadedByName || "un utilisateur"}
+                              {" · "}
+                              {selectedInvoiceForClassification.invoiceNote || "aucune note"}
+                            </p>
+                          </div>
+
+                          <BudgetLinePicker
+                            key={selectedInvoiceId}
+                            targets={expenseTargetOptions}
+                            value={selectedInvoiceTargetRowId}
+                            onChange={setSelectedInvoiceTargetRowId}
+                          />
+
+                          <div className="budget-invoice-inbox__actions">
+                            <button
+                              className="button button--primary"
+                              type="button"
+                              disabled={!selectedInvoiceId || !selectedInvoiceTargetRowId}
+                              onClick={() => handleLinkInvoice(selectedInvoiceId, selectedInvoiceTargetRowId)}
+                            >
+                              {unclassifiedInvoices.length > 1 ? "Classer et passer à la suivante" : "Classer la facture"}
+                            </button>
+                            {selectedInvoiceForClassification.resolvedUrl ? (
                               <button
                                 className="button button--secondary"
                                 type="button"
-                                onClick={() => window.open(invoice.resolvedUrl, "_blank", "noopener,noreferrer")}
+                                onClick={() => window.open(selectedInvoiceForClassification.resolvedUrl, "_blank", "noopener,noreferrer")}
                               >
-                                Ouvrir
+                                Ouvrir le fichier
                               </button>
                             ) : null}
-                            {invoice.linkedBudgetRowId && canManageInvoicePanel ? (
-                              <button
-                                className="button button--ghost-danger"
-                                type="button"
-                                onClick={() => handleUnlinkInvoice(invoice)}
-                              >
-                                Délier
-                              </button>
-                            ) : null}
+                            <button className="button button--secondary" type="button" onClick={() => setIsInvoiceMailOpen(true)}>
+                              {tr(`Envoyer un mail à ${INVOICE_CONTACT.firstName}`, `Email ${INVOICE_CONTACT.firstName}`)}
+                            </button>
                             {canDeleteInvoices ? (
                               <button
                                 className="button button--ghost-danger"
                                 type="button"
-                                onClick={() => handleDeleteInvoice(invoice)}
+                                onClick={() => handleDeleteInvoice(selectedInvoiceForClassification)}
                               >
-                                {tr("Supprimer", "Delete")}
+                                {tr("Supprimer la facture", "Delete invoice")}
                               </button>
                             ) : null}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isInvoiceMailOpen && selectedInvoiceForClassification ? (
+                      <InvoiceMailDialog
+                        invoice={selectedInvoiceForClassification}
+                        target={expenseTargetOptions.find((option) => option.value === selectedInvoiceTargetRowId) ?? null}
+                        senderName={getDisplayName(userProfile, currentUser?.email)}
+                        senderEmail={currentUser?.email || userProfile?.email || ""}
+                        onClose={() => setIsInvoiceMailOpen(false)}
+                        onSent={(recipient) => {
+                          setIsInvoiceMailOpen(false);
+                          setInvoiceFilingStatus(tr(`Mail envoyé à ${recipient}.`, `Email sent to ${recipient}.`));
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                )}
+              </section>
+
+              <section className="budget-card budget-invoice-upload" aria-label="Déposer une facture">
+                <header className="budget-card__header">
+                  <h2>Déposer une facture</h2>
+                </header>
+                <p className="budget-card__intro">Elle arrive dans « À classer » ; le rangement se fait ensuite.</p>
+                <InvoiceUploadForm
+                  editionId={draftBudget.currentEditionId}
+                  currentUser={currentUser}
+                  userProfile={userProfile}
+                  assignedTeams={Array.isArray(userProfile?.assignedTeams) ? userProfile.assignedTeams : []}
+                />
+              </section>
+            </div>
+          ) : null}
+
+          {selectedEditionInvoices.length ? (
+            <section className="budget-card budget-invoice-list-card" aria-label="Toutes les factures">
+              <header className="budget-card__header">
+                <h2>Toutes les factures {draftBudget.currentEditionId}</h2>
+                <div className="budget-invoice-list-card__filters" role="group" aria-label="Filtrer les factures">
+                  {[
+                    ["all", "Toutes", selectedEditionInvoices.length],
+                    ["pending", "À classer", unclassifiedInvoices.length],
+                    ["linked", "Classées", selectedEditionInvoices.length - unclassifiedInvoices.length],
+                  ].map(([filterId, label, count]) => (
+                    <button
+                      key={filterId}
+                      type="button"
+                      className={`budget-chip${invoiceListFilter === filterId ? " budget-chip--active" : ""}`}
+                      aria-pressed={invoiceListFilter === filterId}
+                      onClick={() => setInvoiceListFilter(filterId)}
+                    >
+                      {label} · {count}
+                    </button>
+                  ))}
+                </div>
+              </header>
+              <div className="budget-invoice-list-card__table">
+                <table className="budget-lines-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Facture</th>
+                      <th scope="col">Ligne budgétaire</th>
+                      <th scope="col">Statut</th>
+                      <th scope="col"><span className="budget-visually-hidden">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedEditionInvoices
+                      .filter((invoice) => {
+                        const isPending = unclassifiedInvoices.includes(invoice);
+                        if (invoiceListFilter === "pending") return isPending;
+                        if (invoiceListFilter === "linked") return !isPending;
+                        return true;
+                      })
+                      .map((invoice) => {
+                        const isPending = unclassifiedInvoices.includes(invoice);
+
+                        return (
+                          <tr key={invoice.id}>
+                            <td>
+                              <strong>{invoice.title || invoice.fileName || "Facture"}</strong>
+                              <small className="budget-invoice-list-card__sub">{invoice.uploadedByName || "Utilisateur"}</small>
+                            </td>
+                            <td>
+                              {invoice.linkedBudgetRowLabel || "—"}
+                              {invoice.linkedBudgetSectionName ? (
+                                <small className="budget-invoice-list-card__sub">{invoice.linkedBudgetSectionName}</small>
+                              ) : null}
+                            </td>
+                            <td>
+                              <span className={`budget-status-badge ${isPending ? "budget-status-badge--editing" : "budget-status-badge--locked"}`}>
+                                {isPending ? "À classer" : "Classée"}
+                              </span>
+                            </td>
+                            <td className="budget-invoice-list-card__actions">
+                              {isPending && canManageInvoicePanel ? (
+                                <button className="button button--secondary button--small" type="button" onClick={() => setSelectedInvoiceId(invoice.id)}>
+                                  Classer
+                                </button>
+                              ) : null}
+                              {invoice.resolvedUrl ? (
+                                <button
+                                  className="button button--secondary button--small"
+                                  type="button"
+                                  onClick={() => window.open(invoice.resolvedUrl, "_blank", "noopener,noreferrer")}
+                                >
+                                  Ouvrir
+                                </button>
+                              ) : null}
+                              {invoice.linkedBudgetRowId && canManageInvoicePanel ? (
+                                <button className="button button--ghost-danger button--small" type="button" onClick={() => handleUnlinkInvoice(invoice)}>
+                                  Délier
+                                </button>
+                              ) : null}
+                              {canDeleteInvoices ? (
+                                <button className="button button--ghost-danger button--small" type="button" onClick={() => handleDeleteInvoice(invoice)}>
+                                  {tr("Supprimer", "Delete")}
+                                </button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
-            </Panel>
+            </section>
           ) : null}
-        </section>
+        </div>
       ) : null}
 
       {activeTab === "history" ? (
