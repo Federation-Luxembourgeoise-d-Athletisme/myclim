@@ -696,9 +696,17 @@ export function WebsiteEmagazinePage({ Panel }) {
           <div>
             <h3 style={{ margin: 0, color: "#10253d" }}>Cover</h3>
             <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-              A4 page designed by the graphic designer, exported as an image. Leave empty to keep the built-in cover.
+              Built-in A4 cover: title, edition, date and venue are filled in automatically around your key visual.
+              Or upload a complete A4 page from the graphic designer below — it then replaces the built-in cover.
             </p>
           </div>
+          <FileUpload
+            value={draft.cover.visualUrl}
+            onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, visualUrl: url } }))}
+            accept="image/*"
+            storagePath="emagazine-imported-pages"
+            label="Key visual (landscape, e.g. 16:9 — cropped at the sides to fill the cover)"
+          />
           <FileUpload
             value={draft.cover.imageUrl}
             onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, imageUrl: url } }))}

@@ -4114,7 +4114,9 @@
 .site-emag-page__eyebrow,
 .site-emag-page__header h2,
 .site-emag-cover__kicker,
-.site-emag-cover__copy h1,
+.site-emag-cover__head h1,
+.site-emag-cover__year,
+.site-emag-cover__meta,
 .site-emag-record-banner strong {
   font-family: 'Oswald', var(--font-sans, sans-serif);
   text-transform: uppercase;
@@ -4369,9 +4371,22 @@
 }
 
 .site-emag-page__frame {
-  min-height: 100%;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   padding: 48px;
   overflow: hidden;
+}
+
+.site-emag-page__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Full-bleed pages: the visual fills the whole A4 sheet. */
+.site-emag-page--cover .site-emag-page__frame {
+  padding: 0;
 }
 
 .site-emag-page__header {
@@ -4402,100 +4417,150 @@
   line-height: 1.65;
 }
 
+/* Cover: title block, landscape key visual (cropped to fill), black footer.
+   The red / blue side stripes echo the meeting key visual. */
 .site-emag-cover {
+  position: relative;
+  height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) 260px;
-  gap: 28px;
-  min-height: 100%;
-  padding: 56px;
-  background-size: cover;
-  background-position: center;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: linear-gradient(180deg, #ffffff 0%, #eef0f3 100%);
+  color: #0b0b0b;
+  overflow: hidden;
+}
+
+.site-emag-cover::before,
+.site-emag-cover::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  z-index: 2;
+}
+
+.site-emag-cover::before {
+  left: 0;
+  background: var(--emag-red);
+}
+
+.site-emag-cover::after {
+  right: 0;
+  background: var(--emag-blue);
+}
+
+.site-emag-cover__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 24px;
+  align-items: end;
+  padding: 48px 60px 28px;
+}
+
+.site-emag-cover .site-emag-cover__kicker {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--emag-red);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+.site-emag-cover__head h1 {
+  margin: 0;
+  color: #0b0b0b;
+  font-size: 5.1rem;
+  font-weight: 700;
+  line-height: 0.95;
+}
+
+.site-emag-cover__head h1 span {
+  display: block;
+}
+
+.site-emag-cover__head h1 span + span {
+  color: var(--emag-red);
+}
+
+.site-emag-cover__year {
+  color: var(--emag-blue);
+  font-size: 4.6rem;
+  font-weight: 700;
+  line-height: 0.95;
+}
+
+.site-emag-cover__visual {
+  position: relative;
+  min-height: 0;
+}
+
+.site-emag-cover__visual img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+.site-emag-cover__foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px 28px;
+  align-items: end;
+  padding: 30px 60px 40px;
+  background: #0b0b0b;
   color: #ffffff;
 }
 
-.site-emag-cover__copy {
-  display: grid;
-  align-content: end;
-  gap: 20px;
-}
-
-.site-emag-cover__kicker {
+.site-emag-cover .site-emag-cover__meta {
   margin: 0;
-  font-size: 0.85rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  opacity: 0.92;
-}
-
-.site-emag-cover__copy h1 {
-  margin: 0;
-  max-width: 720px;
-  font-size: 5rem;
-  line-height: 0.92;
-}
-
-.site-emag-cover__meta,
-.site-emag-cover__lead {
-  margin: 0;
-  max-width: 640px;
-  line-height: 1.7;
-}
-
-.site-emag-cover__meta {
-  font-size: 1rem;
+  color: #ffffff;
+  font-size: 2rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  line-height: 1.1;
 }
 
-.site-emag-cover__lead {
-  font-size: 1.08rem;
+.site-emag-cover .site-emag-cover__lead {
+  margin: 10px 0 0;
+  max-width: 460px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.98rem;
+  line-height: 1.55;
 }
 
-.site-emag-cover__chips {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.site-emag-cover__chips span,
-.site-emag-cover__card {
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(14px);
-}
-
-.site-emag-cover__chips span {
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-size: 0.84rem;
-  font-weight: 700;
-}
-
-.site-emag-cover__aside {
+.site-emag-cover__label {
   display: grid;
-  align-content: start;
-  gap: 14px;
+  gap: 4px;
+  padding: 14px 18px;
+  border-left: 4px solid var(--emag-blue);
+  background: rgba(255, 255, 255, 0.08);
+  text-align: left;
 }
 
-.site-emag-cover__card {
-  border-radius: 20px;
-  padding: 18px;
-}
-
-.site-emag-cover__card span {
-  display: block;
-  font-size: 0.8rem;
+.site-emag-cover__label span {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
   opacity: 0.8;
 }
 
-.site-emag-cover__card strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 1.5rem;
+.site-emag-cover__label strong {
+  font-size: 1.35rem;
+}
+
+.site-emag-cover__chips {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.site-emag-cover__chips span {
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .site-emag-welcome {

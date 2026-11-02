@@ -138,39 +138,43 @@ function ImportedPage({ imageUrl, title }) {
   );
 }
 
-function CoverPage({ edition, officialGroupsCount, imageUrl }) {
+function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl }) {
   if (imageUrl) {
     return <ImportedPage imageUrl={imageUrl} title="Cover" />;
   }
 
   return (
     <MagazinePage theme="cover" className="site-emag-page--cover">
-      <div className="site-emag-cover" style={{ backgroundImage: `linear-gradient(135deg, rgba(7, 24, 54, 0.76), rgba(193, 26, 52, 0.58)), url(${heroImage})` }}>
-        <div className="site-emag-cover__copy">
+      <div className="site-emag-cover">
+        <header className="site-emag-cover__head">
           <p className="site-emag-cover__kicker">Official e-magazine</p>
-          <h1>CMCM Luxembourg Indoor Meeting</h1>
-          <p className="site-emag-cover__meta">
-            {formatEditionDate(edition?.date)} • {edition?.venue || "Coque, Luxembourg"}
-          </p>
-          <p className="site-emag-cover__lead">
-            Start lists, highlights, partner stories and the full editorial build-up to this year’s meeting.
-          </p>
-          <div className="site-emag-cover__chips">
-            <span>{officialGroupsCount} official start lists</span>
-            <span>Live sync from MyCLIM</span>
-            <span>English edition</span>
-          </div>
+          <h1>
+            <span>CMCM Luxembourg</span>
+            <span>Indoor Meeting</span>
+          </h1>
+          <span className="site-emag-cover__year">{edition?.year || ""}</span>
+        </header>
+        <div className="site-emag-cover__visual">
+          <img src={visualUrl || heroImage} alt="CMCM Luxembourg Indoor Meeting" />
         </div>
-        <div className="site-emag-cover__aside">
-          <div className="site-emag-cover__card">
+        <footer className="site-emag-cover__foot">
+          <div>
+            <p className="site-emag-cover__meta">
+              {formatEditionDate(edition?.date)} • {edition?.venue || "Coque, Luxembourg"}
+            </p>
+            <p className="site-emag-cover__lead">
+              Start lists, highlights, partner stories and the full build-up to this year’s meeting.
+            </p>
+          </div>
+          <div className="site-emag-cover__label">
             <span>World Athletics Indoor Tour</span>
             <strong>Silver Label</strong>
           </div>
-          <div className="site-emag-cover__card">
-            <span>Edition</span>
-            <strong>{edition?.year || "Current"}</strong>
+          <div className="site-emag-cover__chips">
+            <span>{officialGroupsCount} official start lists</span>
+            <span>English edition</span>
           </div>
-        </div>
+        </footer>
       </div>
     </MagazinePage>
   );
@@ -585,7 +589,7 @@ export function SiteEmagazine() {
         return [{
           key: "cover",
           title: "Cover",
-          element: <CoverPage edition={currentEdition} officialGroupsCount={officialStartlists.length} imageUrl={emagazine.cover.imageUrl} />,
+          element: <CoverPage edition={currentEdition} officialGroupsCount={officialStartlists.length} imageUrl={emagazine.cover.imageUrl} visualUrl={emagazine.cover.visualUrl} />,
         }];
       }
       if (pageId === "welcome") {

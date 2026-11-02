@@ -13,7 +13,10 @@ function makeStableId(prefix, index) {
 
 export const DEFAULT_EMAGAZINE_CONFIG = {
   cover: {
+    // Full A4 page designed elsewhere; replaces the built-in cover.
     imageUrl: "",
+    // Landscape key visual shown in the built-in cover.
+    visualUrl: "",
   },
   welcome: {
     title: "Welcome",
@@ -203,6 +206,7 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
   const normalized = {
     cover: {
       imageUrl: normalizeText(rawConfig?.cover?.imageUrl),
+      visualUrl: normalizeText(rawConfig?.cover?.visualUrl),
     },
     welcome: {
       ...welcomeDefaults,
