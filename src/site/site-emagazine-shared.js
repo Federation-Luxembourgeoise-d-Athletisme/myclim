@@ -13,7 +13,10 @@ function makeStableId(prefix, index) {
 
 export const DEFAULT_EMAGAZINE_CONFIG = {
   cover: {
+    // Full A4 page designed elsewhere; replaces the built-in cover.
     imageUrl: "",
+    // Landscape key visual shown in the built-in cover.
+    visualUrl: "",
   },
   welcome: {
     title: "Welcome",
@@ -42,6 +45,8 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
   },
   highlightPages: [],
   partnerPages: [],
+  // Header photo of each official start list page, by group id ("60m-W").
+  startlistPhotos: {},
   pageOrder: [],
 };
 
@@ -128,7 +133,7 @@ export function buildEmagazinePageRegistry(config, edition) {
       id: `official-startlist:${group.id}`,
       kind: "auto",
       title: group.title,
-      editorAnchor: null,
+      editorAnchor: "emag-startlist-photos",
       sourcePath: "/app/athlete-portal/athletes",
     })),
   ];
@@ -203,6 +208,7 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
   const normalized = {
     cover: {
       imageUrl: normalizeText(rawConfig?.cover?.imageUrl),
+      visualUrl: normalizeText(rawConfig?.cover?.visualUrl),
     },
     welcome: {
       ...welcomeDefaults,
@@ -229,6 +235,11 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
     highlightPages: (rawConfig?.highlightPages || []).map(normalizeHighlightPage),
     partnerPages: (rawConfig?.partnerPages || []).map(normalizePartnerPage),
     sponsorPages: (rawConfig?.sponsorPages || []).map((page, index) => normalizeImportedPage(page, index, "sponsor-page")),
+    startlistPhotos: Object.entries(rawConfig?.startlistPhotos || {}).reduce((accumulator, [groupId, url]) => {
+      const normalizedUrl = normalizeText(url);
+      if (normalizedUrl) accumulator[groupId] = normalizedUrl;
+      return accumulator;
+    }, {}),
     pageOrder: [],
   };
 

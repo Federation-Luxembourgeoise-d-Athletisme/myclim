@@ -4,9 +4,12 @@ import { useMeetingEditions, updateEdition } from "./meeting-history-hooks";
 import { useAthleteRegistry, useAthletes } from "./athlete-portal-hooks";
 import { useSponsors } from "../site/site-hooks";
 import { FileUpload } from "./file-upload";
+import { EmagazineStatsPanel } from "./website-emagazine-stats";
+import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emagazine-stats";
 import {
   buildAthleteOptions,
   buildEmagazinePageRegistry,
+  buildOfficialStartlistGroups,
   normalizeEmagazineConfig,
 } from "../site/site-emagazine-shared";
 
@@ -60,6 +63,38 @@ function jumpToAnchor(anchor) {
   const element = document.getElementById(anchor);
   if (!element) return;
   element.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+const A4_RATIO = 297 / 210;
+
+// Imported pages are always shown on an A4 sheet: warn when the uploaded
+// image is another format (it would show with white margins).
+function A4FormatHint({ imageUrl }) {
+  const [loaded, setLoaded] = useState(null);
+
+  useEffect(() => {
+    if (!imageUrl) return undefined;
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (!cancelled) setLoaded({ url: imageUrl, width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.src = imageUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
+
+  const size = loaded?.url === imageUrl ? loaded : null;
+  if (!size || !size.width) return null;
+  const isA4 = Math.abs(size.height / size.width - A4_RATIO) / A4_RATIO <= 0.02;
+  return (
+    <p style={{ margin: 0, fontSize: "0.78rem", color: isA4 ? "#166534" : "#92400e" }}>
+      {isA4
+        ? `✅ A4 portrait format (${size.width} × ${size.height} px).`
+        : `⚠️ Not A4 portrait (${size.width} × ${size.height} px): the page will show with white margins. Export it as A4 portrait (e.g. 2480 × 3508 px).`}
+    </p>
+  );
 }
 
 function SpecialRaceEditor({ title, race, onChange }) {
@@ -190,7 +225,7 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
         <div>
           <h4 style={{ margin: 0, fontSize: "1rem", color: "#10253d" }}>{page.title || "Highlight page"}</h4>
           <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "0.82rem" }}>
-            Auto-filled from the athlete database.
+            One full-height photo per athlete (upload it under each athlete), with name, flag and PB from the athlete database.
           </p>
         </div>
         <EmptyButton onClick={onRemove} style={{ color: "#c62828" }}>Remove</EmptyButton>
@@ -209,7 +244,7 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
         </div>
         <div>
           <label style={labelStyle}>Title</label>
-          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Page title" />
+          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Empty = the athletes' event, e.g. Long Jump Men" />
         </div>
         <div>
           <label style={labelStyle}>Image URL</label>
@@ -356,6 +391,17 @@ export function WebsiteEmagazinePage({ Panel }) {
   const visiblePages = useMemo(
     () => (draft?.pageOrder || []).map((pageId) => pageRegistryMap.get(pageId)).filter(Boolean),
     [draft?.pageOrder, pageRegistryMap],
+  );
+
+  const statsPageOrder = useMemo(
+    () => (draft ? visiblePages.flatMap((page) => emagazineStatsPagesForEntry(page, draft)) : [])
+      .map((page) => ({ statsId: emagazineStatsPageId(page.key), title: page.title })),
+    [visiblePages, draft],
+  );
+
+  const startlistGroups = useMemo(
+    () => buildOfficialStartlistGroups(selectedEdition?.disciplines || [], []),
+    [selectedEdition?.disciplines],
   );
 
   const hiddenPages = useMemo(
@@ -556,6 +602,8 @@ export function WebsiteEmagazinePage({ Panel }) {
           )}
         </div>
 
+        <EmagazineStatsPanel year={effectiveYear} pageOrder={statsPageOrder} />
+
         <div style={{ display: "grid", gap: 18, padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start", flexWrap: "wrap" }}>
             <div>
@@ -654,9 +702,17 @@ export function WebsiteEmagazinePage({ Panel }) {
           <div>
             <h3 style={{ margin: 0, color: "#10253d" }}>Cover</h3>
             <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-              A4 page designed by the graphic designer, exported as an image. Leave empty to keep the built-in cover.
+              Built-in A4 cover: title, edition, date and venue are filled in automatically around your key visual.
+              Or upload a complete A4 page from the graphic designer below — it then replaces the built-in cover.
             </p>
           </div>
+          <FileUpload
+            value={draft.cover.visualUrl}
+            onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, visualUrl: url } }))}
+            accept="image/*"
+            storagePath="emagazine-imported-pages"
+            label="Key visual (landscape, cropped at the sides) — empty = the website home hero banner"
+          />
           <FileUpload
             value={draft.cover.imageUrl}
             onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, imageUrl: url } }))}
@@ -664,6 +720,7 @@ export function WebsiteEmagazinePage({ Panel }) {
             storagePath="emagazine-imported-pages"
             label="Cover page (A4 image)"
           />
+          <A4FormatHint imageUrl={draft.cover.imageUrl} />
         </div>
 
         <div id="emag-sponsor-pages" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
@@ -686,14 +743,48 @@ export function WebsiteEmagazinePage({ Panel }) {
                     <label style={labelStyle}>Label (internal)</label>
                     <input style={inputStyle} value={page.title} onChange={(event) => updateSponsorPage(page.id, "title", event.target.value)} placeholder="e.g. Gold partners" />
                   </div>
-                  <FileUpload
-                    value={page.imageUrl}
-                    onChange={(url) => updateSponsorPage(page.id, "imageUrl", url)}
-                    accept="image/*"
-                    storagePath="emagazine-imported-pages"
-                    label="Page image (A4)"
-                  />
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <FileUpload
+                      value={page.imageUrl}
+                      onChange={(url) => updateSponsorPage(page.id, "imageUrl", url)}
+                      accept="image/*"
+                      storagePath="emagazine-imported-pages"
+                      label="Page image (A4)"
+                    />
+                    <A4FormatHint imageUrl={page.imageUrl} />
+                  </div>
                   <EmptyButton onClick={() => removeSponsorPage(page.id)} style={{ color: "#c62828" }}>Remove</EmptyButton>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div id="emag-startlist-photos" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
+          <div>
+            <h3 style={{ margin: 0, color: "#10253d" }}>Start list photos</h3>
+            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem", maxWidth: 720 }}>
+              One photo per event, shown as a banner behind the title and records at the top of its start list page.
+              Landscape photos work best; the bottom of the photo is darkened so the title stays readable.
+            </p>
+          </div>
+          {startlistGroups.length === 0 ? (
+            <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No official discipline configured for this edition yet.</p>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+              {startlistGroups.map((group) => (
+                <div key={group.id} style={{ display: "grid", gap: 8, padding: 14, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
+                  <strong style={{ color: "#10253d", fontSize: "0.9rem" }}>{group.title}</strong>
+                  <FileUpload
+                    value={draft.startlistPhotos[group.id] || ""}
+                    onChange={(url) => setDraft((current) => ({
+                      ...current,
+                      startlistPhotos: { ...current.startlistPhotos, [group.id]: url },
+                    }))}
+                    accept="image/*"
+                    storagePath="emagazine-startlist-photos"
+                    label="Event photo"
+                  />
                 </div>
               ))}
             </div>
@@ -704,7 +795,7 @@ export function WebsiteEmagazinePage({ Panel }) {
           <div>
             <h3 style={{ margin: 0, color: "#10253d" }}>Welcome page</h3>
             <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-              Editable English welcome text, portrait, name and title.
+              The president's message (in English): text, portrait, name and function. Update it each edition.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -717,17 +808,40 @@ export function WebsiteEmagazinePage({ Panel }) {
               <input style={inputStyle} value={draft.welcome.intro} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, intro: event.target.value } }))} placeholder="Short subtitle" />
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            <input style={inputStyle} value={draft.welcome.photoUrl} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, photoUrl: event.target.value } }))} placeholder="Portrait image URL" />
-            <input style={inputStyle} value={draft.welcome.personName} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personName: event.target.value } }))} placeholder="Name" />
-            <input style={inputStyle} value={draft.welcome.personTitle} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personTitle: event.target.value } }))} placeholder="Title" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Signed by (name)</label>
+              <input style={inputStyle} value={draft.welcome.personName} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personName: event.target.value } }))} placeholder="e.g. first and last name of the president" />
+            </div>
+            <div>
+              <label style={labelStyle}>Function</label>
+              <input style={inputStyle} value={draft.welcome.personTitle} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personTitle: event.target.value } }))} placeholder="e.g. President, FLA" />
+            </div>
           </div>
-          <textarea
-            style={{ ...inputStyle, minHeight: 180, resize: "vertical" }}
-            value={draft.welcome.body}
-            onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, body: event.target.value } }))}
-            placeholder="Main English welcome message"
+          <FileUpload
+            value={draft.welcome.photoUrl}
+            onChange={(url) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, photoUrl: url } }))}
+            accept="image/*"
+            storagePath="emagazine-welcome"
+            label="Portrait (square crop, face kept at the top)"
           />
+          <div>
+            <label style={labelStyle}>Message</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 220, resize: "vertical" }}
+              value={draft.welcome.body}
+              onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, body: event.target.value } }))}
+              placeholder="Main English welcome message — leave an empty line between paragraphs"
+            />
+            {(() => {
+              const words = draft.welcome.body.trim() ? draft.welcome.body.trim().split(/\s+/).length : 0;
+              return (
+                <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: words > 380 ? "#92400e" : "#6b7280" }}>
+                  {words} words — up to about 330 words keep the normal text size; longer messages are printed smaller to stay on one A4 page.
+                </p>
+              );
+            })()}
+          </div>
         </div>
 
         <div id="emag-races" style={{ display: "grid", gap: 18 }}>

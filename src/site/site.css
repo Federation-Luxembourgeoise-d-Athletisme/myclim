@@ -4114,7 +4114,7 @@
 .site-emag-page__eyebrow,
 .site-emag-page__header h2,
 .site-emag-cover__kicker,
-.site-emag-cover__copy h1,
+.site-emag-cover__meta,
 .site-emag-record-banner strong {
   font-family: 'Oswald', var(--font-sans, sans-serif);
   text-transform: uppercase;
@@ -4211,6 +4211,18 @@
   align-items: center;
 }
 
+/* Fixed A4 sheet (794 × 1123 px = 210 × 297 mm), scaled from JS to fit. */
+.site-emag__a4 {
+  flex: none;
+  position: relative;
+}
+
+.site-emag__a4-page {
+  width: 794px;
+  height: 1123px;
+  transform-origin: top left;
+}
+
 .site-emag__nav {
   position: absolute;
   top: 50%;
@@ -4278,10 +4290,8 @@
 
 .site-emag-page {
   position: relative;
-  width: min(82vw, 920px);
-  margin: 0 auto;
-  aspect-ratio: 210 / 297;
-  max-height: calc(100vh - var(--site-nav-h) - 180px);
+  width: 794px;
+  height: 1123px;
   border-radius: 28px;
   background: #ffffff;
   border: 1px solid rgba(22, 60, 107, 0.08);
@@ -4313,55 +4323,23 @@
   display: block;
 }
 
-.site-emag-page--highlight {
-  background: var(--emag-black);
-  border: none;
-  position: relative;
-}
-
-.site-emag-page--highlight::before {
-  content: "";
-  position: absolute;
-  top: -70px;
-  right: -90px;
-  width: 260px;
-  height: 260px;
-  background: var(--emag-red);
-  transform: rotate(45deg);
-  z-index: 0;
-}
-
-.site-emag-page--highlight::after {
-  content: "";
-  position: absolute;
-  bottom: -80px;
-  left: -80px;
-  width: 200px;
-  height: 200px;
-  background: var(--emag-blue);
-  transform: rotate(45deg);
-  z-index: 0;
-}
-
-.site-emag-page--highlight .site-emag-page__frame {
-  position: relative;
-  z-index: 1;
-}
-
-.site-emag-page--highlight .site-emag-page__eyebrow {
-  color: #fff;
-  opacity: 0.85;
-}
-
-.site-emag-page--highlight .site-emag-page__header h2,
-.site-emag-page--highlight .site-emag-page__subtitle {
-  color: #fff;
-}
-
 .site-emag-page__frame {
-  min-height: 100%;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   padding: 48px;
   overflow: hidden;
+}
+
+.site-emag-page__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Full-bleed pages: the visual fills the whole A4 sheet. */
+.site-emag-page--cover .site-emag-page__frame {
+  padding: 0;
 }
 
 .site-emag-page__header {
@@ -4379,7 +4357,7 @@
 
 .site-emag-page__header h2 {
   margin: 0;
-  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  font-size: 3.5rem;
   line-height: 1;
   color: #10253d;
 }
@@ -4392,111 +4370,178 @@
   line-height: 1.65;
 }
 
+/* Cover, in the meeting identity: meeting logo, the full key visual (the
+   website hero, lion included) whose red / blue edges continue down the
+   page, then date, venue and the World Athletics label on a light ground. */
 .site-emag-cover {
+  position: relative;
+  height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) 260px;
-  gap: 28px;
-  min-height: 100%;
-  padding: 56px;
-  background-size: cover;
-  background-position: center;
-  color: #ffffff;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: linear-gradient(180deg, #ffffff 0%, #eceef1 100%);
+  color: #10253d;
+  overflow: hidden;
 }
 
-.site-emag-cover__copy {
+.site-emag-cover::before,
+.site-emag-cover::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  z-index: 2;
+}
+
+.site-emag-cover::before {
+  left: 0;
+  background: var(--emag-red);
+}
+
+.site-emag-cover::after {
+  right: 0;
+  background: var(--emag-blue);
+}
+
+.site-emag-cover__head {
   display: grid;
-  align-content: end;
-  gap: 20px;
+  justify-items: center;
+  gap: 18px;
+  padding: 52px 72px 30px;
 }
 
-.site-emag-cover__kicker {
+.site-emag-cover__logo {
+  width: 560px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  mix-blend-mode: multiply;
+}
+
+.site-emag-cover .site-emag-cover__kicker {
   margin: 0;
-  font-size: 0.85rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  opacity: 0.92;
-}
-
-.site-emag-cover__copy h1 {
-  margin: 0;
-  max-width: 720px;
-  font-size: clamp(3.8rem, 7vw, 6rem);
-  line-height: 0.92;
-}
-
-.site-emag-cover__meta,
-.site-emag-cover__lead {
-  margin: 0;
-  max-width: 640px;
-  line-height: 1.7;
-}
-
-.site-emag-cover__meta {
-  font-size: 1rem;
+  color: var(--emag-red);
+  font-size: 1.05rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.3em;
 }
 
-.site-emag-cover__lead {
-  font-size: 1.08rem;
+.site-emag-cover__kicker span {
+  color: var(--emag-blue);
+}
+
+/* The visual fades in under the title instead of starting on a hard edge. */
+.site-emag-cover__visual {
+  aspect-ratio: 1500 / 844;
+  margin-top: -40px;
+  margin-bottom: -24px;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 86%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 86%, transparent 100%);
+}
+
+.site-emag-cover__visual img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+.site-emag-cover__foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 28px;
+  align-content: center;
+  align-items: center;
+  padding: 26px 72px 34px;
+}
+
+.site-emag-cover .site-emag-cover__meta {
+  margin: 0;
+  color: #10253d;
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.site-emag-cover__meta span {
+  display: block;
+  margin-top: 6px;
+  color: var(--emag-blue);
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+}
+
+.site-emag-cover .site-emag-cover__lead {
+  margin: 8px 0 0;
+  max-width: 440px;
+  color: #546770;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.site-emag-cover__labels {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+}
+
+.site-emag-cover__label {
+  width: 150px;
+  height: auto;
+  display: block;
+}
+
+/* The 3 main partners (sponsors in the "main" category), under the label. */
+.site-emag-cover__partners {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* multiply: a logo delivered on a white box blends into the light ground. */
+.site-emag-cover__partners img {
+  width: 120px;
+  height: 62px;
+  object-fit: contain;
+  display: block;
+  mix-blend-mode: multiply;
 }
 
 .site-emag-cover__chips {
+  grid-column: 1 / -1;
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.site-emag-cover__chips span,
-.site-emag-cover__card {
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(14px);
-}
-
 .site-emag-cover__chips span {
-  padding: 10px 16px;
+  padding: 7px 14px;
+  border: 2px solid var(--emag-red);
   border-radius: 999px;
-  font-size: 0.84rem;
+  color: var(--emag-red);
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
-.site-emag-cover__aside {
-  display: grid;
-  align-content: start;
-  gap: 14px;
+.site-emag-cover__chips span + span {
+  border-color: var(--emag-blue);
+  color: var(--emag-blue);
 }
 
-.site-emag-cover__card {
-  border-radius: 20px;
-  padding: 18px;
-}
-
-.site-emag-cover__card span {
-  display: block;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  opacity: 0.8;
-}
-
-.site-emag-cover__card strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 1.5rem;
-}
-
+/* Welcome / president's message: portrait then text flowing over two
+   columns. The font size is reduced from JS (WelcomePage) when a long
+   message would not fit on the A4 page. */
 .site-emag-welcome {
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 36px;
-  align-items: start;
+  height: 100%;
+  columns: 2;
+  column-gap: 32px;
+  column-fill: auto;
+  color: #1f334b;
 }
 
 .site-emag-welcome__photo img,
-.site-emag-highlight__visual img,
 .site-emag-partner-feature__visual img {
   width: 100%;
   height: 100%;
@@ -4506,19 +4551,27 @@
 
 .site-emag-welcome__photo {
   overflow: hidden;
-  border-radius: 28px;
-  aspect-ratio: 4 / 5;
-  box-shadow: 0 20px 45px rgba(11, 31, 56, 0.14);
+  margin-bottom: 18px;
+  border-radius: 20px;
+  aspect-ratio: 1 / 1;
+  break-inside: avoid;
+  box-shadow: 0 14px 32px rgba(11, 31, 56, 0.14);
 }
 
-.site-emag-welcome__text {
-  display: grid;
-  gap: 18px;
-  color: #1f334b;
+.site-emag-welcome__photo img {
+  object-position: center top;
 }
 
-.site-emag-welcome__text p,
-.site-emag-highlight__body,
+.site-emag-welcome p {
+  margin: 0 0 0.85em;
+  font-size: 1em;
+  line-height: 1.62;
+}
+
+.site-emag-welcome .site-emag-signoff {
+  break-inside: avoid;
+}
+
 .site-emag-partner-feature__copy p {
   margin: 0;
   line-height: 1.82;
@@ -4643,111 +4696,227 @@
   font-weight: 700;
 }
 
-.site-emag-highlight {
-  display: grid;
-  gap: 26px;
-  min-height: 100%;
-}
-
-.site-emag-highlight--single {
-  background-size: cover;
-  background-position: center;
-  border-radius: 20px;
-  padding: 24px;
-  align-content: end;
-}
-
-.site-emag-highlight--single .site-emag-highlight__grid {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 340px;
-}
-
-.site-emag-highlight--multi .site-emag-highlight__grid[data-count="2"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.site-emag-highlight--multi .site-emag-highlight__grid[data-count="3"] {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.site-emag-highlight--multi .site-emag-highlight__grid[data-count="4"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.site-emag-highlight__content {
-  display: grid;
-  gap: 22px;
-  align-content: start;
-}
-
-.site-emag-highlight__body {
-  color: #fff;
-}
-
-.site-emag-highlight__grid {
-  display: grid;
-  gap: 16px;
-}
-
-.site-emag-athlete-card {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
+/* Duel / athletes to watch (2026 e-magazine style): photos side by side on
+   the full page, event on top, VS in the middle of a duel, names, flags and
+   PB on a blue gradient at the bottom. */
+.site-emag-duel {
   border: none;
-  border-radius: 14px;
-  background: #fff;
+  background: linear-gradient(180deg, #e9edf2 0%, #c9d6e6 100%);
+  color: #ffffff;
+  font-family: 'Roboto', var(--font-sans, sans-serif);
 }
 
-.site-emag-athlete-card h3 {
-  font-family: 'Oswald', var(--font-sans, sans-serif);
-  text-transform: uppercase;
+.site-emag-duel__photos {
+  position: absolute;
+  inset: 0;
+  display: flex;
 }
 
-.site-emag-athlete-card[data-accent="red"] .site-emag-athlete-card__stats strong {
-  color: var(--emag-red);
-}
-
-.site-emag-athlete-card[data-accent="blue"] .site-emag-athlete-card__stats strong {
-  color: var(--emag-blue);
-}
-
-.site-emag-athlete-card__photo {
-  aspect-ratio: 4 / 3;
-  border-radius: 14px;
+.site-emag-duel__photo {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
   overflow: hidden;
-  background: #10253d;
+  background: linear-gradient(160deg, rgba(227, 11, 23, 0.25), rgba(227, 11, 23, 0.05));
 }
 
-.site-emag-athlete-card__photo img {
+.site-emag-duel__photo[data-side="blue"] {
+  background: linear-gradient(200deg, rgba(0, 158, 218, 0.3), rgba(0, 158, 218, 0.06));
+}
+
+.site-emag-duel__photo + .site-emag-duel__photo {
+  border-left: 3px solid #ffffff;
+}
+
+.site-emag-duel__photo img {
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
-  display: block;
+  object-position: center top;
 }
 
-.site-emag-athlete-card__photo-placeholder {
-  display: block;
-  width: 100%;
-  height: 100%;
+/* Darkened top for the title, blue gradient at the bottom for the names. */
+.site-emag-duel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background:
-    linear-gradient(135deg, var(--emag-red) 0%, var(--emag-red) 50%, var(--emag-blue) 50%, var(--emag-blue) 100%);
-  opacity: 0.16;
+    linear-gradient(180deg, rgba(16, 37, 61, 0.55) 0%, rgba(16, 37, 61, 0) 18%),
+    linear-gradient(180deg, rgba(21, 101, 216, 0) 52%, rgba(21, 101, 216, 0.85) 72%, #1565d8 84%, #0aa3ec 100%);
+  pointer-events: none;
+}
+
+.site-emag-duel__title,
+.site-emag-duel__subtitle,
+.site-emag-duel__vs,
+.site-emag-duel__footer {
+  position: absolute;
+  z-index: 2;
+}
+
+.site-emag-duel .site-emag-duel__title {
+  top: 34px;
+  left: 40px;
+  right: 40px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 3.6rem;
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.35);
+}
+
+.site-emag-duel .site-emag-duel__subtitle {
+  top: 160px;
+  left: 60px;
+  right: 60px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.site-emag-duel__vs {
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%) skewX(-10deg);
+  color: #ffffff;
+  font-size: 9rem;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* Lightning-like slash through the VS. */
+.site-emag-duel__vs::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: 50%;
+  width: 7px;
+  height: 180%;
+  background: #ffffff;
+  transform: translateX(-50%) rotate(28deg);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.6);
+  z-index: -1;
+}
+
+.site-emag-duel__footer {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 28px 44px;
+  display: grid;
+  gap: 18px;
+}
+
+.site-emag-duel .site-emag-duel__body {
+  margin: 0 auto;
+  max-width: 600px;
+  color: #ffffff;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.site-emag-duel__athletes {
+  display: flex;
+}
+
+.site-emag-duel__athlete {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.site-emag-duel__athlete strong {
+  display: grid;
+  font-size: 2.6rem;
+  font-weight: 900;
+  line-height: 1.02;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.site-emag-duel__flag {
+  width: 64px;
+  height: 43px;
+  object-fit: cover;
+  border-radius: 3px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.site-emag-duel__pb {
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.site-emag-duel[data-count="3"] .site-emag-duel__athlete strong {
+  font-size: 1.8rem;
+}
+
+.site-emag-duel[data-count="4"] .site-emag-duel__athlete strong {
+  font-size: 1.4rem;
+}
+
+.site-emag-duel[data-count="3"] .site-emag-duel__pb,
+.site-emag-duel[data-count="4"] .site-emag-duel__pb {
+  font-size: 1.15rem;
+}
+
+.site-emag-duel[data-count="1"] .site-emag-duel__athlete strong {
+  font-size: 3.4rem;
+}
+
+.site-emag-duel .site-emag-duel__empty {
+  flex: 1;
+  margin: 0;
+  color: #ffffff;
+  text-align: center;
+}
+
+/* Meeting record (red) and European record (blue), side by side. */
+.site-emag-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .site-emag-record-banner {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-  padding: 10px 16px;
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px;
   border-radius: 12px;
   background: var(--emag-red);
   color: #fff;
 }
 
-.site-emag-record-banner span:first-child {
-  font-size: 0.72rem;
+.site-emag-record-banner--european {
+  background: var(--emag-blue);
+}
+
+.site-emag-record-banner__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.site-emag-record-banner__top span {
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -4755,59 +4924,27 @@
 }
 
 .site-emag-record-banner strong {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 
 .site-emag-record-banner__holder {
-  font-size: 0.82rem;
-  opacity: 0.9;
-  margin-left: auto;
+  font-size: 0.78rem;
+  opacity: 0.92;
 }
 
-.site-emag-athlete-card h3 {
-  margin: 0;
-  color: #10253d;
-  font-size: 1.3rem;
+.site-emag-nation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.site-emag-athlete-card p {
-  margin: 6px 0 0;
-  color: #607086;
-}
-
-.site-emag-athlete-card__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-}
-
-.site-emag-athlete-card__stats span {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: #f5f9fc;
-}
-
-.site-emag-athlete-card__stats small,
-.site-emag-athlete-card__history small {
-  color: #607086;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.site-emag-athlete-card__stats strong {
-  color: #10253d;
-  font-size: 0.95rem;
-}
-
-.site-emag-athlete-card__history ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: #1f334b;
-  line-height: 1.7;
+.site-emag-nation__flag {
+  width: 20px;
+  height: 14px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(16, 37, 61, 0.12);
 }
 
 .site-emag-partner-feature {
@@ -4876,6 +5013,66 @@
   color: #fff;
 }
 
+.site-emag-table__lane {
+  width: 56px;
+  color: #163c6b;
+  font-weight: 800;
+}
+
+.site-emag-page--record .site-emag-page__header {
+  margin-bottom: 16px;
+}
+
+/* Event photo: full-bleed band at the top of the page, title and records
+   over it. It reuses the frame's top padding, so on a full page (3 heats)
+   it costs no extra height; lighter pages get a taller band. */
+.site-emag-page__header--photo {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 360px;
+  margin: -48px -48px 18px;
+  padding: 48px 48px 20px;
+  background-size: cover;
+  background-position: center;
+}
+
+.site-emag-page--full .site-emag-page__header--photo {
+  min-height: 0;
+}
+
+.site-emag-page__header--photo .site-emag-page__eyebrow,
+.site-emag-page__header--photo h2,
+.site-emag-page__header--photo .site-emag-page__subtitle {
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* More than one heat: tighter rows so up to 3 heats of 8 stay on one A4 page. */
+.site-emag-startlist--compact {
+  gap: 8px;
+}
+
+.site-emag-startlist--compact .site-emag-startlist__heat {
+  border-radius: 14px;
+}
+
+.site-emag-startlist--compact .site-emag-startlist__heat-head {
+  padding: 7px 16px;
+  font-size: 0.86rem;
+}
+
+.site-emag-startlist--compact .site-emag-table th,
+.site-emag-startlist--compact .site-emag-table td {
+  padding: 3px 14px;
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.site-emag-startlist--compact .site-emag-table th {
+  font-size: 0.66rem;
+}
+
 .site-emag__reader-shell::before,
 .site-emag__reader-shell::after {
   content: "";
@@ -4910,11 +5107,6 @@
     grid-template-rows: auto auto auto;
   }
 
-  .site-emag-page {
-    width: min(92vw, 760px);
-    max-height: none;
-  }
-
   .site-emag__reader-meta {
     align-items: start;
     flex-direction: column;
@@ -4945,22 +5137,17 @@
     padding-top: 54px;
   }
 
-  .site-emag__intro-bar,
-  .site-emag-cover,
-  .site-emag-welcome,
-  .site-emag-highlight--single,
-  .site-emag-partner-feature {
-    grid-template-columns: 1fr;
+  /* The A4 pages keep their own layout: they are scaled, not reflowed. */
+  .site-emag__intro-bar {
+    flex-direction: column;
+    align-items: start;
   }
+}
 
-  .site-emag-page__frame,
-  .site-emag-cover {
-    padding: 28px;
-  }
-
-  .site-emag-highlight--multi .site-emag-highlight__grid {
-    grid-template-columns: 1fr;
-  }
+/* Named page so other printouts keep their own margins. */
+@page emagazine {
+  size: A4;
+  margin: 0;
 }
 
 @media print {
@@ -5003,19 +5190,26 @@
     display: block;
   }
 
+  .site-emag__a4 {
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .site-emag__a4-page {
+    transform: none !important;
+    width: 210mm;
+    height: 297mm;
+  }
+
   .site-emag-page {
-    width: auto;
-    aspect-ratio: auto;
+    page: emagazine;
+    width: 210mm;
+    height: 297mm;
     box-shadow: none;
     border: none;
     border-radius: 0;
     break-after: page;
     page-break-after: always;
-  }
-
-  .site-emag-page__frame,
-  .site-emag-cover {
-    min-height: 100vh;
   }
 }
 

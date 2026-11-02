@@ -1,24 +1,65 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useActiveEdition, useSiteEditionYear } from "../app/edition";
 import { useAthleteRegistry, useAthletes } from "../app/athlete-portal-hooks";
 import { useMeetingEditions, useMeetingRecords } from "../app/meeting-history-hooks";
 import { useSponsors } from "./site-hooks";
-import { sponsorCategoryLabel } from "./sponsor-utils";
-import heroImage from "../assets/partner-stories/cmcm-athlete-moment.jpg";
+import { normalizeSponsorCategory, sponsorCategoryLabel } from "./sponsor-utils";
+// Same key visual as the website home hero: default visual of the cover.
+import coverVisual from "../assets/hero-banner.jpg";
+import meetingLogo from "../assets/cmcm-logo.png";
+import waSilverLogo from "../assets/wa-indoor-tour-silver.png";
 import venueImage from "../assets/site-gallery/Coque2026.jpg";
 import {
   athleteDisplayName,
-  athleteParticipationSummary,
-  athleteStats,
-  athleteSubtitle,
   buildAthleteLookup,
   buildOfficialStartlistGroups,
   buildSpecialRaceStartlistGroups,
   disciplineSortIndex,
   findMeetingRecord,
   normalizeEmagazineConfig,
+  parseEventField,
 } from "./site-emagazine-shared";
+import {
+  PAGE_VIEW_DELAY_MS,
+  trackEmagazineOpen,
+  trackEmagazinePageView,
+  trackEmagazinePrint,
+} from "./emagazine-stats";
+import { nationFlagUrl } from "./nation-flags";
+import europeanRecords from "../data/europeanRecords.json";
+
+// Every page is laid out on a real A4 sheet (210 × 297 mm at 96 dpi, the size
+// used when printing) and scaled down as a whole to fit the screen, so the
+// magazine keeps the exact same A4 proportions on every device.
+const A4_PAGE_WIDTH = 794;
+const A4_PAGE_HEIGHT = 1123;
+
+function useA4PageScale(shellNode) {
+  const [scale, setScale] = useState(0.5);
+
+  useEffect(() => {
+    if (!shellNode) return undefined;
+    const compact = window.matchMedia("(max-width: 960px)");
+    function measure() {
+      // Desktop: fit the reader height and leave room for the side arrows.
+      // Compact: the page follows the width and the reader scrolls.
+      const availableWidth = shellNode.clientWidth - (compact.matches ? 0 : 120);
+      const availableHeight = compact.matches ? Infinity : shellNode.clientHeight - 64;
+      setScale(Math.max(0.2, Math.min(availableWidth / A4_PAGE_WIDTH, availableHeight / A4_PAGE_HEIGHT, 1.25)));
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(shellNode);
+    compact.addEventListener("change", measure);
+    return () => {
+      observer.disconnect();
+      compact.removeEventListener("change", measure);
+    };
+  }, [shellNode]);
+
+  return scale;
+}
 
 function formatEditionDate(value) {
   if (!value) return "To be confirmed";
@@ -57,29 +98,46 @@ function sortTimetable(entries = []) {
   });
 }
 
+function NationCell({ noc }) {
+  if (!noc) return "—";
+  const flagUrl = nationFlagUrl(noc);
+  return (
+    <span className="site-emag-nation">
+      {flagUrl ? <img src={flagUrl} alt="" className="site-emag-nation__flag" loading="lazy" /> : null}
+      {noc}
+    </span>
+  );
+}
+
 function StartlistEntryRow({ entry }) {
-  const sb = entry.waIndoorSbCurrent || entry.waIndoorSb || entry.sb || "";
+  // SB = previous indoor season (2026 for the 2027 meeting): World Athletics
+  // value when the profile is linked ("7.21 @ Venue" → "7.21"), else the Excel.
+  const sb = String(entry.waIndoorSb || entry.sb || "").split(" @ ")[0];
   const pb = entry.waPbIndoor || entry.pbIndoor || entry.pb || "";
   return (
     <tr>
-      <td>{entry.heat || "—"}</td>
-      <td>{entry.lane || "—"}</td>
+      <td className="site-emag-table__lane">{entry.lane || "—"}</td>
       <td>
         <strong>{athleteDisplayName(entry)}</strong>
       </td>
-      <td>{entry.nationality || "—"}</td>
+      <td><NationCell noc={entry.nationality} /></td>
       <td>{sb || "—"}</td>
       <td>{pb || "—"}</td>
     </tr>
   );
 }
 
-function MagazinePage({ theme = "light", eyebrow, title, subtitle, headerExtra, children, className = "" }) {
+function MagazinePage({ theme = "light", eyebrow, title, subtitle, headerExtra, headerImage, children, className = "" }) {
   return (
     <section className={`site-emag-page site-emag-page--${theme} ${className}`.trim()}>
       <div className="site-emag-page__frame">
         {(eyebrow || title || subtitle || headerExtra) ? (
-          <header className="site-emag-page__header">
+          <header
+            className={`site-emag-page__header${headerImage ? " site-emag-page__header--photo" : ""}`}
+            style={headerImage
+              ? { backgroundImage: `linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.72) 100%), url(${headerImage})` }
+              : undefined}
+          >
             {eyebrow ? <p className="site-emag-page__eyebrow">{eyebrow}</p> : null}
             {title ? <h2>{title}</h2> : null}
             {subtitle ? <p className="site-emag-page__subtitle">{subtitle}</p> : null}
@@ -100,64 +158,97 @@ function ImportedPage({ imageUrl, title }) {
   );
 }
 
-function CoverPage({ edition, officialGroupsCount, imageUrl }) {
+function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl, mainPartners = [] }) {
   if (imageUrl) {
     return <ImportedPage imageUrl={imageUrl} title="Cover" />;
   }
 
   return (
     <MagazinePage theme="cover" className="site-emag-page--cover">
-      <div className="site-emag-cover" style={{ backgroundImage: `linear-gradient(135deg, rgba(7, 24, 54, 0.76), rgba(193, 26, 52, 0.58)), url(${heroImage})` }}>
-        <div className="site-emag-cover__copy">
-          <p className="site-emag-cover__kicker">Official e-magazine</p>
-          <h1>CMCM Luxembourg Indoor Meeting</h1>
-          <p className="site-emag-cover__meta">
-            {formatEditionDate(edition?.date)} • {edition?.venue || "Coque, Luxembourg"}
+      <div className="site-emag-cover">
+        <header className="site-emag-cover__head">
+          <h1 style={{ margin: 0 }}>
+            <img src={meetingLogo} alt="CMCM Luxembourg Indoor Meeting" className="site-emag-cover__logo" />
+          </h1>
+          <p className="site-emag-cover__kicker">
+            Official e-magazine <span>{edition?.year || ""}</span>
           </p>
-          <p className="site-emag-cover__lead">
-            Start lists, highlights, partner stories and the full editorial build-up to this year’s meeting.
-          </p>
+        </header>
+        <div className="site-emag-cover__visual">
+          <img src={visualUrl || coverVisual} alt="" />
+        </div>
+        <footer className="site-emag-cover__foot">
+          <div>
+            <p className="site-emag-cover__meta">
+              {formatEditionDate(edition?.date)}
+              <span>{edition?.venue || "Coque, Luxembourg"}</span>
+            </p>
+            <p className="site-emag-cover__lead">
+              Start lists, highlights, partner stories and the full build-up to this year’s meeting.
+            </p>
+          </div>
+          <div className="site-emag-cover__labels">
+            <img src={waSilverLogo} alt="World Athletics Indoor Tour Silver" className="site-emag-cover__label" />
+            {mainPartners.length > 0 ? (
+              <div className="site-emag-cover__partners">
+                {mainPartners.map((sponsor) => (
+                  <img key={sponsor.id} src={sponsor.logoUrl} alt={sponsor.name || "Main partner"} />
+                ))}
+              </div>
+            ) : null}
+          </div>
           <div className="site-emag-cover__chips">
             <span>{officialGroupsCount} official start lists</span>
-            <span>Live sync from MyCLIM</span>
             <span>English edition</span>
           </div>
-        </div>
-        <div className="site-emag-cover__aside">
-          <div className="site-emag-cover__card">
-            <span>World Athletics Indoor Tour</span>
-            <strong>Silver Label</strong>
-          </div>
-          <div className="site-emag-cover__card">
-            <span>Edition</span>
-            <strong>{edition?.year || "Current"}</strong>
-          </div>
-        </div>
+        </footer>
       </div>
     </MagazinePage>
   );
 }
 
+// Shrinks the text step by step until the two columns hold the whole message
+// (they overflow sideways into extra columns), down to 72 % of the size.
+function useFitColumns(ref, deps) {
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    function fit() {
+      let scale = 1;
+      element.style.fontSize = "1rem";
+      while (element.scrollWidth > element.clientWidth + 1 && scale > 0.72) {
+        scale -= 0.04;
+        element.style.fontSize = `${scale}rem`;
+      }
+    }
+    fit();
+    // Web fonts arriving later change the text length: measure again.
+    document.fonts?.ready.then(fit);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
+
 function WelcomePage({ edition, config }) {
   const body = config.body || buildDefaultWelcomeBody(edition, Array.isArray(edition?.disciplines) ? edition.disciplines.length : 0);
+  const columnsRef = useRef(null);
+  useFitColumns(columnsRef, [body, config.photoUrl, config.personName, config.personTitle]);
+
   return (
     <MagazinePage
       eyebrow="Welcome"
       title={config.title || `Welcome to the ${edition?.year || ""} edition`}
-      subtitle={config.intro || "An editable message from the organising team."}
+      subtitle={config.intro}
     >
-      <div className="site-emag-welcome">
+      <div className="site-emag-welcome" ref={columnsRef}>
         <div className="site-emag-welcome__photo">
           <img src={config.photoUrl || venueImage} alt={config.personName || "Welcome portrait"} />
         </div>
-        <div className="site-emag-welcome__text">
-          {body.split(/\n{2,}/).map((paragraph, index) => (
-            <p key={`welcome-paragraph-${index}`}>{paragraph}</p>
-          ))}
-          <div className="site-emag-signoff">
-            <strong>{config.personName || "President"}</strong>
-            <span>{config.personTitle || "CMCM Luxembourg Indoor Meeting"}</span>
-          </div>
+        {body.split(/\n{2,}/).map((paragraph, index) => (
+          <p key={`welcome-paragraph-${index}`}>{paragraph}</p>
+        ))}
+        <div className="site-emag-signoff">
+          <strong>{config.personName || "President"}</strong>
+          <span>{config.personTitle || "CMCM Luxembourg Indoor Meeting"}</span>
         </div>
       </div>
     </MagazinePage>
@@ -298,68 +389,75 @@ const HIGHLIGHT_TITLES = {
   duel: "A duel to watch",
 };
 
+const FIELD_EVENT_RE = /jump|vault|put|throw/i;
+
+// "Long Jump Men" from the athletes' Event column ("Long Jump M").
+function highlightEventTitle(athletes) {
+  const parsed = parseEventField(athletes.find((athlete) => athlete.event)?.event);
+  if (!parsed.discipline) return "";
+  const gender = parsed.gender === "W" ? "Women" : parsed.gender === "M" ? "Men" : "";
+  return `${parsed.discipline} ${gender}`.trim();
+}
+
+// "8.25 (2024)" → "8.25M" for field events, "6.55" for running events.
+function highlightPb(athlete, eventTitle) {
+  const mark = String(athlete.waPbIndoor || athlete.pbIndoor || athlete.pb || "").replace(/\s*\(.*\)\s*$/, "").trim();
+  if (!mark) return "";
+  return FIELD_EVENT_RE.test(eventTitle) && /^\d+([.,]\d+)?$/.test(mark) ? `${mark}M` : mark;
+}
+
+// Duel / trio / quatuor / spotlight, in the 2026 e-magazine style: full-height
+// photos side by side, the event on top, "VS" in the middle of a duel, and
+// name, flag and PB on a blue gradient at the bottom.
 function HighlightPage({ page, athletes }) {
-  const title = page.title || HIGHLIGHT_TITLES[page.type] || "Athlete spotlight";
-  const isMulti = athletes.length > 1;
-  const heroAthlete = athletes[0];
-  const heroPhoto = heroAthlete ? (page.athletePhotos?.[heroAthlete._docId] || heroAthlete.photoUrl) : "";
+  const eventTitle = highlightEventTitle(athletes);
+  const title = page.title || eventTitle || HIGHLIGHT_TITLES[page.type] || "Athlete spotlight";
+  const count = Math.max(1, athletes.length);
 
   return (
-    <MagazinePage
-      theme="highlight"
-      eyebrow="Highlights"
-      title={title}
-      subtitle={page.subtitle || "Auto-filled from the athlete database and editable in the admin."}
-    >
-      <div
-        className={`site-emag-highlight ${isMulti ? "site-emag-highlight--multi" : "site-emag-highlight--single"}`}
-        style={!isMulti ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.75)), url(${heroPhoto || page.imageUrl || heroImage})` } : undefined}
-      >
-        <div className="site-emag-highlight__content">
-          {page.body ? <p className="site-emag-highlight__body">{page.body}</p> : null}
-          <div className="site-emag-highlight__grid" data-count={athletes.length}>
-            {athletes.map((athlete, index) => (
-              <article key={athlete._docId} className="site-emag-athlete-card" data-accent={index % 2 === 0 ? "red" : "blue"}>
-                {isMulti ? (
-                  <div className="site-emag-athlete-card__photo">
-                    {(page.athletePhotos?.[athlete._docId] || athlete.photoUrl) ? (
-                      <img src={page.athletePhotos?.[athlete._docId] || athlete.photoUrl} alt={athleteDisplayName(athlete)} />
-                    ) : (
-                      <span className="site-emag-athlete-card__photo-placeholder" aria-hidden="true" />
-                    )}
-                  </div>
-                ) : null}
-                <div>
-                  <h3>{athleteDisplayName(athlete) || "Athlete to be announced"}</h3>
-                  <p>{athleteSubtitle(athlete) || "Profile loading from database"}</p>
-                </div>
-                <div className="site-emag-athlete-card__stats">
-                  {athleteStats(athlete).map((stat) => (
-                    <span key={`${athlete._docId}-${stat.label}`}>
-                      <small>{stat.label}</small>
-                      <strong>{stat.value}</strong>
-                    </span>
-                  ))}
-                </div>
-                {athleteParticipationSummary(athlete).length > 0 ? (
-                  <div className="site-emag-athlete-card__history">
-                    <small>Meeting history</small>
-                    <ul>
-                      {athleteParticipationSummary(athlete).map((entry) => (
-                        <li key={`${athlete._docId}-${entry.year}-${entry.discipline}`}>
-                          {entry.year} • {entry.discipline} • {entry.result || "—"}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </article>
-            ))}
-            {athletes.length === 0 ? <p className="site-emag-empty">Select athletes in the admin to generate this page.</p> : null}
+    <section className="site-emag-page site-emag-duel" data-count={count}>
+      <div className="site-emag-duel__photos">
+        {athletes.length === 0 ? (
+          <div className="site-emag-duel__photo">
+            {page.imageUrl ? <img src={page.imageUrl} alt="" /> : null}
           </div>
+        ) : athletes.map((athlete, index) => {
+          const photo = page.athletePhotos?.[athlete._docId] || athlete.photoUrl || (count === 1 ? page.imageUrl : "");
+          return (
+            <div key={athlete._docId} className="site-emag-duel__photo" data-side={index % 2 === 0 ? "red" : "blue"}>
+              {photo ? <img src={photo} alt={athleteDisplayName(athlete)} /> : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <h2 className="site-emag-duel__title">{title}</h2>
+      {page.subtitle ? <p className="site-emag-duel__subtitle">{page.subtitle}</p> : null}
+      {count === 2 ? <span className="site-emag-duel__vs" aria-hidden="true">VS</span> : null}
+
+      <div className="site-emag-duel__footer">
+        {page.body && count === 1 ? <p className="site-emag-duel__body">{page.body}</p> : null}
+        <div className="site-emag-duel__athletes">
+          {athletes.map((athlete) => {
+            const pb = highlightPb(athlete, eventTitle || title);
+            const flagUrl = nationFlagUrl(athlete.nationality);
+            return (
+              <div key={athlete._docId} className="site-emag-duel__athlete">
+                <strong>
+                  <span>{athlete.firstName}</span>
+                  <span>{athlete.lastName}</span>
+                </strong>
+                {flagUrl ? <img src={flagUrl} alt={athlete.nationality} className="site-emag-duel__flag" /> : null}
+                {pb ? <span className="site-emag-duel__pb">PB: {pb}</span> : null}
+              </div>
+            );
+          })}
+          {athletes.length === 0 ? (
+            <p className="site-emag-duel__empty">Select the athletes of this page in the e-magazine admin.</p>
+          ) : null}
         </div>
       </div>
-    </MagazinePage>
+    </section>
   );
 }
 
@@ -389,37 +487,59 @@ function PartnerFeaturePage({ page, sponsor }) {
   );
 }
 
-function MeetingRecordBanner({ record }) {
-  if (!record) return null;
+function RecordCard({ label, record, variant }) {
+  const year = record.year || String(record.date || "").slice(0, 4);
   return (
-    <div className="site-emag-record-banner">
-      <span>Meeting record (MR)</span>
-      <strong>{record.mark}</strong>
+    <div className={`site-emag-record-banner site-emag-record-banner--${variant}`}>
+      <div className="site-emag-record-banner__top">
+        <span>{label}</span>
+        <strong>{record.mark}{record.pending ? "*" : ""}</strong>
+      </div>
       <span className="site-emag-record-banner__holder">
-        {[record.fullName, record.noc].filter(Boolean).join(" · ")}
-        {record.year ? ` · ${record.year}` : ""}
+        {record.fullName}
+        {record.noc ? <> · <NationCell noc={record.noc} /></> : null}
+        {year ? ` · ${year}` : ""}
       </span>
     </div>
   );
 }
 
-function OfficialStartlistPage({ group }) {
+function RecordBanners({ meetingRecord, europeanRecord }) {
+  if (!meetingRecord && !europeanRecord) return null;
+  return (
+    <div className="site-emag-records">
+      {meetingRecord ? <RecordCard label="Meeting record (MR)" record={meetingRecord} variant="meeting" /> : null}
+      {europeanRecord ? <RecordCard label="European record (ER)" record={europeanRecord} variant="european" /> : null}
+    </div>
+  );
+}
+
+function OfficialStartlistPage({ group, sbSeason, photoUrl }) {
   const groupedHeats = group.entries.reduce((accumulator, entry) => {
     const heatKey = entry.heat || "Main list";
     if (!accumulator.has(heatKey)) accumulator.set(heatKey, []);
     accumulator.get(heatKey).push(entry);
     return accumulator;
   }, new Map());
+  const heatCount = [...groupedHeats.keys()].filter((heat) => heat !== "Main list").length;
+  // Up to three heats of 8 must fit on one A4 page: tighter rows past one
+  // heat, and past two heats the photo band shrinks to the title area.
+  const isCompact = group.entries.length > 8;
+  const isFull = group.entries.length > 16;
 
   return (
     <MagazinePage
       theme="record"
       eyebrow="Start list"
       title={group.title}
-      subtitle="Live entries from the Athlete Portal. This page updates automatically as data is imported."
-      headerExtra={<MeetingRecordBanner record={group.meetingRecord} />}
+      subtitle={group.entries.length
+        ? `${group.entries.length} athletes${heatCount > 1 ? ` · ${heatCount} heats` : ""}`
+        : ""}
+      headerExtra={<RecordBanners meetingRecord={group.meetingRecord} europeanRecord={group.europeanRecord} />}
+      headerImage={photoUrl}
+      className={isFull ? "site-emag-page--full" : ""}
     >
-      <div className="site-emag-startlist">
+      <div className={`site-emag-startlist${isCompact ? " site-emag-startlist--compact" : ""}`}>
         {group.entries.length === 0 ? (
           <div className="site-emag-startlist__placeholder">
             <p>Start list not available yet.</p>
@@ -435,11 +555,10 @@ function OfficialStartlistPage({ group }) {
               <table className="site-emag-table">
                 <thead>
                   <tr>
-                    <th>Heat</th>
                     <th>Lane</th>
                     <th>Athlete</th>
                     <th>Nation</th>
-                    <th>SB</th>
+                    <th>{sbSeason ? `SB ${sbSeason}` : "SB"}</th>
                     <th>PB</th>
                   </tr>
                 </thead>
@@ -458,6 +577,8 @@ function OfficialStartlistPage({ group }) {
 export function SiteEmagazine() {
   const swipeStateRef = useRef({ startX: 0, pointerId: null });
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [readerShellNode, setReaderShellNode] = useState(null);
+  const pageScale = useA4PageScale(readerShellNode);
   const location = useLocation();
   const { siteEditionYear } = useSiteEditionYear();
   const { activeEditionId } = useActiveEdition();
@@ -477,6 +598,9 @@ export function SiteEmagazine() {
       : null;
     return configuredEdition || latestEdition || null;
   }, [editions, siteEditionYear]);
+
+  // Start lists show the SB of the previous indoor season (2026 for 2027).
+  const sbSeason = currentEdition?.year ? Number(currentEdition.year) - 1 : null;
 
   const previewMode = useMemo(
     () => new URLSearchParams(location.search).get("preview") === "1",
@@ -499,6 +623,7 @@ export function SiteEmagazine() {
     () => buildOfficialStartlistGroups(currentEdition?.disciplines || [], athletes).map((group) => ({
       ...group,
       meetingRecord: findMeetingRecord(meetingRecords, group.discipline, group.gender),
+      europeanRecord: findMeetingRecord(europeanRecords.records, group.discipline, group.gender),
     })),
     [currentEdition?.disciplines, athletes, meetingRecords],
   );
@@ -545,7 +670,15 @@ export function SiteEmagazine() {
         return [{
           key: "cover",
           title: "Cover",
-          element: <CoverPage edition={currentEdition} officialGroupsCount={officialStartlists.length} imageUrl={emagazine.cover.imageUrl} />,
+          element: (
+            <CoverPage
+              edition={currentEdition}
+              officialGroupsCount={officialStartlists.length}
+              imageUrl={emagazine.cover.imageUrl}
+              visualUrl={emagazine.cover.visualUrl}
+              mainPartners={sponsors.filter((sponsor) => normalizeSponsorCategory(sponsor.category) === "main" && sponsor.logoUrl)}
+            />
+          ),
         }];
       }
       if (pageId === "welcome") {
@@ -583,7 +716,7 @@ export function SiteEmagazine() {
           .map((group) => ({
             key: `startlist-${group.id}`,
             title: group.title,
-            element: <OfficialStartlistPage group={group} />,
+            element: <OfficialStartlistPage group={group} sbSeason={sbSeason} photoUrl={emagazine.startlistPhotos[group.id]} />,
           }));
       }
       if (pageId.startsWith("official-startlist:")) {
@@ -592,7 +725,7 @@ export function SiteEmagazine() {
         return group ? [{
           key: `startlist-${group.id}`,
           title: group.title,
-          element: <OfficialStartlistPage group={group} />,
+          element: <OfficialStartlistPage group={group} sbSeason={sbSeason} photoUrl={emagazine.startlistPhotos[group.id]} />,
         }] : [];
       }
       if (pageId.startsWith("special:")) {
@@ -609,12 +742,35 @@ export function SiteEmagazine() {
       }
       return [];
     }),
-    [currentEdition, emagazine, officialStartlists, highlightById, partnerById, specialById, sponsors],
+    [currentEdition, emagazine, officialStartlists, highlightById, partnerById, specialById, sponsors, sbSeason],
   );
 
   useEffect(() => {
     setCurrentPageIndex(0);
   }, [currentEdition?.year, orderedMagazinePages.length]);
+
+  // Audience for the sponsors: never counts the admin preview.
+  const statsYear = emagazinePublished && !previewMode ? currentEdition?.year : null;
+  const currentPageKey = orderedMagazinePages[currentPageIndex]?.key;
+  const currentPageTitle = orderedMagazinePages[currentPageIndex]?.title;
+
+  useEffect(() => {
+    if (statsYear) trackEmagazineOpen(statsYear);
+  }, [statsYear]);
+
+  useEffect(() => {
+    if (!statsYear || !currentPageKey) return undefined;
+    const timer = window.setTimeout(
+      () => trackEmagazinePageView(statsYear, currentPageKey, currentPageTitle),
+      PAGE_VIEW_DELAY_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [statsYear, currentPageKey, currentPageTitle]);
+
+  function handlePrint() {
+    if (statsYear) trackEmagazinePrint(statsYear);
+    window.print();
+  }
 
   function goToPage(index) {
     const nextIndex = Math.max(0, Math.min(orderedMagazinePages.length - 1, index));
@@ -701,7 +857,7 @@ export function SiteEmagazine() {
             <h1 className="site-heading site-heading--sm">E-magazine {currentEdition.year}</h1>
           </div>
           <div className="site-emag__actions">
-            <button type="button" className="site-btn site-btn--secondary site-btn--sm" onClick={() => window.print()}>
+            <button type="button" className="site-btn site-btn--secondary site-btn--sm" onClick={handlePrint}>
               Print / Save as PDF
             </button>
             <NavLink to="/statistics" className="site-btn site-btn--primary site-btn--sm">
@@ -725,7 +881,7 @@ export function SiteEmagazine() {
           </div>
         </div>
 
-        <div className="site-emag__reader-shell">
+        <div className="site-emag__reader-shell" ref={setReaderShellNode}>
           <button
             type="button"
             className="site-emag__nav site-emag__nav--prev"
@@ -751,7 +907,14 @@ export function SiteEmagazine() {
                   className="site-emag__sheet"
                   aria-label={`Page ${index + 1}: ${page.title}`}
                 >
-                  {page.element}
+                  <div
+                    className="site-emag__a4"
+                    style={{ width: A4_PAGE_WIDTH * pageScale, height: A4_PAGE_HEIGHT * pageScale }}
+                  >
+                    <div className="site-emag__a4-page" style={{ transform: `scale(${pageScale})` }}>
+                      {page.element}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
