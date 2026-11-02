@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import {
-  collection,
   doc,
-  getDocs,
-  query,
+  getDoc,
   serverTimestamp,
   setDoc,
   updateDoc,
-  where,
 } from "firebase/firestore";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth, db } from "../services/firebase";
@@ -34,11 +31,11 @@ export function InvitePage() {
     if (!token) { setError("Lien invalide ou expiré."); setLoading(false); return; }
     async function load() {
       try {
-        const q = query(collection(db, "invitations"), where("token", "==", token), where("status", "==", "pending"));
-        const snap = await getDocs(q);
-        if (snap.empty) { setError("Ce lien d'invitation est invalide ou a déjà été utilisé."); return; }
-        const d = snap.docs[0];
-        const data = d.data();
+        // L'id de l'invitation est son token : les règles n'autorisent que ce
+        // get, la collection n'est pas listable.
+        const d = await getDoc(doc(db, "invitations", token));
+        const data = d.exists() ? d.data() : null;
+        if (!data || data.status !== "pending") { setError("Ce lien d'invitation est invalide ou a déjà été utilisé."); return; }
         const expiresAt = data.expiresAt?.toDate?.() || new Date(data.expiresAt);
         if (expiresAt && expiresAt < new Date()) { setError("Ce lien d'invitation a expiré. Contactez un administrateur."); return; }
         setInvitation(data);
