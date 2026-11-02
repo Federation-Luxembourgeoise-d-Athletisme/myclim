@@ -44,6 +44,7 @@ function NavIcon({ icon }) {
     ticket: "M4 9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z",
     shield: "M12 3 19 6v5c0 5-3.4 8-7 10-3.6-2-7-5-7-10V6z",
     profile: "M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0",
+    bell: "M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0",
     badge: "M12 3 6 5.5v6.2c0 4.1 2.4 7 6 9.3 3.6-2.3 6-5.2 6-9.3V5.5z",
     pin: "M12 21s-5.5-5.7-5.5-10A5.5 5.5 0 1 1 17.5 11C17.5 15.3 12 21 12 21Zm0-7.5a2.5 2.5 0 1 0-2.5-2.5 2.5 2.5 0 0 0 2.5 2.5Z",
     child: "M12 7.2a2.7 2.7 0 1 0-2.7-2.7A2.7 2.7 0 0 0 12 7.2Zm-4.8 12.3v-4.2a3.2 3.2 0 0 1 3.2-3.2h3.2a3.2 3.2 0 0 1 3.2 3.2v4.2M8.5 10l-2 2.2m9-2.2 2 2.2",
@@ -140,11 +141,7 @@ function AppShell(props) {
   const currentRouteLabelKey =
     flatNavigation.find((item) => item.to === location.pathname)?.labelKey ||
     flatNavigation.find((item) => item.to !== "/app" && isRouteMatch(location.pathname, item.to))?.labelKey;
-  const currentRouteLabel = currentRouteLabelKey
-    ? t(currentRouteLabelKey)
-    : location.pathname === "/app/notifications"
-      ? "Notifications"
-      : t("shellMenuLabel");
+  const currentRouteLabel = currentRouteLabelKey ? t(currentRouteLabelKey) : t("shellMenuLabel");
 
   useEffect(() => {
     function syncSidebarWithViewport() {

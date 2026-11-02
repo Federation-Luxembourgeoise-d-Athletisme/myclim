@@ -8,10 +8,14 @@ import { useBudgetInvoiceConfiguration } from "./config-hooks";
 import { useDocumentsCollection } from "./documents-hooks";
 import { useActiveEdition } from "./edition";
 import { canUserUploadBudgetInvoice } from "./budget-invoice-config";
+import { useComLang } from "./communication/com-i18n";
 import {
+  BudgetLinePicker,
   buildBudgetExpenseTargetOptions,
   formatInvoiceStatusLabel,
+  INVOICE_CONTACT,
   InvoiceInlineList,
+  InvoiceMailDialog,
   InvoiceUploadForm,
 } from "./invoice-management";
 import { extractRolesFromProfile, getDisplayName } from "./utils";
@@ -1590,6 +1594,7 @@ function SimplifiedBudgetTable({
 
 function BudgetTrackingPage({ Panel }) {
   const { currentUser, userProfile } = useAuth();
+  const { tr } = useComLang();
   const { activeEditionId } = useActiveEdition(true);
   const invoiceConfiguration = useBudgetInvoiceConfiguration();
   const { documents: allDocuments } = useDocumentsCollection(true);
@@ -1633,6 +1638,8 @@ function BudgetTrackingPage({ Panel }) {
   const [invoiceLinkDrafts, setInvoiceLinkDrafts] = useState({});
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [selectedInvoiceTargetRowId, setSelectedInvoiceTargetRowId] = useState("");
+  const [isInvoiceMailOpen, setIsInvoiceMailOpen] = useState(false);
+  const [invoiceFilingStatus, setInvoiceFilingStatus] = useState("");
 
   const fallbackBudgets = useMemo(() => buildAllBudgetSeeds(), []);
   const fallbackBudgetMap = useMemo(
@@ -2070,9 +2077,11 @@ function BudgetTrackingPage({ Panel }) {
         updatedAt: serverTimestamp(),
       });
       setSaveStatus(`Facture liée à ${target.rowLabel}.`);
+      setInvoiceFilingStatus(tr(`Facture rangée dans ${target.rowLabel}.`, `Invoice filed under ${target.rowLabel}.`));
     } catch (error) {
       console.error("Unable to link invoice to budget row", error);
       setSaveStatus("La liaison de la facture a échoué.");
+      setInvoiceFilingStatus(tr("La liaison de la facture a échoué.", "Filing the invoice failed."));
     }
   }
 
@@ -2717,7 +2726,9 @@ function BudgetTrackingPage({ Panel }) {
           ["overview", primaryTabLabel],
           ["expenses", "Dépenses"],
           ["revenues", "Recettes"],
-          ...(canManageInvoicePanel || selectedEditionInvoices.length ? [["invoices", "Factures"]] : []),
+          ...(canManageInvoicePanel || selectedEditionInvoices.length
+            ? [["invoices", unclassifiedInvoices.length ? `Factures (${unclassifiedInvoices.length})` : "Factures"]]
+            : []),
           ["simplified", "Simplifiée"],
           ["history", "Historique"],
         ].map(([tabId, label]) => (
@@ -2857,6 +2868,21 @@ function BudgetTrackingPage({ Panel }) {
             title="Classer une facture"
             subtitle="Choisis d'abord la facture par son titre, puis la ligne budgétaire de dépense à laquelle la rattacher."
           >
+            <p
+              className={`budget-invoice-counter ${unclassifiedInvoices.length ? "" : "budget-invoice-counter--done"}`}
+              role="status"
+            >
+              <strong>{unclassifiedInvoices.length}</strong>
+              <span>
+                {unclassifiedInvoices.length
+                  ? tr(
+                      unclassifiedInvoices.length > 1 ? "factures restent à ranger" : "facture reste à ranger",
+                      unclassifiedInvoices.length > 1 ? "invoices left to file" : "invoice left to file",
+                    )
+                  : tr("facture à ranger : tout est classé", "invoices left to file: all done")}
+              </span>
+            </p>
+            {invoiceFilingStatus ? <p className="panel-note">{invoiceFilingStatus}</p> : null}
             {!unclassifiedInvoices.length ? (
               <p className="panel-note">Aucune facture en attente de classement pour cette édition.</p>
             ) : (
@@ -2872,20 +2898,12 @@ function BudgetTrackingPage({ Panel }) {
                   </select>
                 </div>
 
-                <div className="field">
-                  <span>Ligne budgétaire</span>
-                  <select
-                    value={selectedInvoiceTargetRowId}
-                    onChange={(event) => setSelectedInvoiceTargetRowId(event.target.value)}
-                  >
-                    <option value="">Choisir une ligne de dépense</option>
-                    {expenseTargetOptions.map((target) => (
-                      <option key={`selected-invoice-${target.value}`} value={target.value}>
-                        {target.rowLabel} · {target.sectionName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <BudgetLinePicker
+                  key={selectedInvoiceId}
+                  targets={expenseTargetOptions}
+                  value={selectedInvoiceTargetRowId}
+                  onChange={setSelectedInvoiceTargetRowId}
+                />
 
                 {selectedInvoiceForClassification ? (
                   <div className="budget-invoice-admin-cell">
@@ -2912,7 +2930,29 @@ function BudgetTrackingPage({ Panel }) {
                   >
                     Classer la facture
                   </button>
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    disabled={!selectedInvoiceForClassification}
+                    onClick={() => setIsInvoiceMailOpen(true)}
+                  >
+                    {tr(`Envoyer un mail à ${INVOICE_CONTACT.firstName}`, `Email ${INVOICE_CONTACT.firstName}`)}
+                  </button>
                 </div>
+
+                {isInvoiceMailOpen && selectedInvoiceForClassification ? (
+                  <InvoiceMailDialog
+                    invoice={selectedInvoiceForClassification}
+                    target={expenseTargetOptions.find((option) => option.value === selectedInvoiceTargetRowId) ?? null}
+                    senderName={getDisplayName(userProfile, currentUser?.email)}
+                    senderEmail={currentUser?.email || userProfile?.email || ""}
+                    onClose={() => setIsInvoiceMailOpen(false)}
+                    onSent={(recipient) => {
+                      setIsInvoiceMailOpen(false);
+                      setInvoiceFilingStatus(tr(`Mail envoyé à ${recipient}.`, `Email sent to ${recipient}.`));
+                    }}
+                  />
+                ) : null}
               </div>
             )}
           </Panel>
