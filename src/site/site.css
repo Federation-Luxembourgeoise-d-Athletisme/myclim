@@ -4223,6 +4223,21 @@
   transform-origin: top left;
 }
 
+/* Admin live preview (iframe): one page, as wide as the frame. */
+.site-emag-frame {
+  min-height: 100vh;
+  background: #fff;
+  overflow: hidden;
+}
+
+.site-emag-frame__message {
+  margin: 0;
+  padding: 24px 16px;
+  color: #546770;
+  font: 0.85rem/1.5 system-ui, sans-serif;
+  text-align: center;
+}
+
 .site-emag__nav {
   position: absolute;
   top: 50%;

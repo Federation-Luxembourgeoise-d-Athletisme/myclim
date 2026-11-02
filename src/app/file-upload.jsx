@@ -20,7 +20,7 @@ export function FileUpload({
   accept = "application/pdf",
   storagePath = "uploads",
   label = "File",
-  helperText = "PDF files only · Max 20 MB",
+  helperText = accept.startsWith("image/") ? "Images (JPG, PNG…) · Max 20 MB" : "PDF files only · Max 20 MB",
 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");

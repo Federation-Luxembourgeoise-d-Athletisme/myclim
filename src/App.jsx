@@ -22,7 +22,7 @@ import { LanguageProvider } from "./app/language";
 import { SiteLayout } from "./site/site-layout";
 import { SiteHome } from "./site/site-home";
 import { SiteEvent } from "./site/site-event";
-import { SiteEmagazine } from "./site/site-emagazine";
+import { SiteEmagazine, SiteEmagazineFrame } from "./site/site-emagazine";
 import { SiteStatistics } from "./site/site-statistics";
 import { SitePress } from "./site/site-press";
 import { SitePartners } from "./site/site-partners";
@@ -504,6 +504,7 @@ export default function App() {
           <Route path="/athletes/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/caisse" element={<CashDeskPage />} />
           <Route path="/links" element={<SiteLinks />} />
+          <Route path="/e-magazine/frame" element={<SiteEmagazineFrame />} />
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<RequireAuth />}>

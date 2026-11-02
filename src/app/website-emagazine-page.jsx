@@ -5,6 +5,7 @@ import { useAthleteRegistry, useAthletes } from "./athlete-portal-hooks";
 import { useSponsors } from "../site/site-hooks";
 import { FileUpload } from "./file-upload";
 import { EmagazineStatsPanel } from "./website-emagazine-stats";
+import "./website-emagazine-page.css";
 import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emagazine-stats";
 import {
   buildAthleteOptions,
@@ -56,13 +57,6 @@ function moveItem(list, index, direction) {
   const next = [...list];
   [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
   return next;
-}
-
-function jumpToAnchor(anchor) {
-  if (!anchor) return;
-  const element = document.getElementById(anchor);
-  if (!element) return;
-  element.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 const A4_RATIO = 297 / 210;
@@ -199,7 +193,7 @@ function SpecialRaceEditor({ title, race, onChange }) {
   );
 }
 
-function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
+function HighlightEditor({ page, athleteOptions, onChange }) {
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
   const athleteSlotCount = page.type === "quatuor" ? 4 : page.type === "trio" ? 3 : page.type === "duel" ? 2 : 1;
@@ -228,7 +222,6 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
             One full-height photo per athlete (upload it under each athlete), with name, flag and PB from the athlete database.
           </p>
         </div>
-        <EmptyButton onClick={onRemove} style={{ color: "#c62828" }}>Remove</EmptyButton>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr", gap: 12 }}>
@@ -296,7 +289,7 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
   );
 }
 
-function PartnerPageEditor({ page, sponsors, onChange, onRemove }) {
+function PartnerPageEditor({ page, sponsors, onChange }) {
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
 
@@ -311,7 +304,6 @@ function PartnerPageEditor({ page, sponsors, onChange, onRemove }) {
           <h4 style={{ margin: 0, fontSize: "1rem", color: "#10253d" }}>{page.headline || "Partner page"}</h4>
           <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "0.82rem" }}>Choose a sponsor and optionally add a dedicated visual/story.</p>
         </div>
-        <EmptyButton onClick={onRemove} style={{ color: "#c62828" }}>Remove</EmptyButton>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -346,6 +338,82 @@ function PartnerPageEditor({ page, sponsors, onChange, onRemove }) {
   );
 }
 
+const PAGE_SECTIONS = {
+  core: "Opening",
+  special: "Special races",
+  highlight: "Highlights",
+  partner: "Partners",
+  auto: "Start lists",
+};
+
+const STATUS_COLORS = {
+  ready: "#16a34a",
+  missing: "#f59e0b",
+  off: "#9ca3af",
+};
+
+function highlightSlotCount(type) {
+  return type === "quatuor" ? 4 : type === "trio" ? 3 : type === "duel" ? 2 : 1;
+}
+
+function wordCount(text) {
+  return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+// What still has to be filled in before a page looks finished in the magazine.
+function pageReadiness(page, draft, startlistById) {
+  const missing = [];
+  if (page.id === "welcome") {
+    if (!draft.welcome.body.trim()) missing.push("the message");
+    if (!draft.welcome.personName.trim()) missing.push("the signatory's name");
+    if (!draft.welcome.photoUrl) missing.push("the portrait");
+  } else if (page.kind === "special") {
+    const race = draft.specialRaces[page.id.replace("special:", "")];
+    if (!race?.enabled) return { state: "off", missing: [] };
+    if (!race.participants.length) missing.push("the participants");
+  } else if (page.kind === "highlight") {
+    const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
+    if (highlight) {
+      const slots = highlightSlotCount(highlight.type);
+      if (highlight.athleteIds.length < slots) missing.push(`${slots - highlight.athleteIds.length} athlete(s)`);
+      const withoutPhoto = highlight.athleteIds.filter((id) => !highlight.athletePhotos?.[id]).length;
+      if (withoutPhoto) missing.push(`${withoutPhoto} athlete photo(s)`);
+    }
+  } else if (page.kind === "partner") {
+    const partner = draft.partnerPages.find((entry) => entry.id === page.sourceId);
+    if (!partner?.sponsorId) missing.push("the sponsor");
+  } else if (page.kind === "auto") {
+    const groupId = page.id.replace("official-startlist:", "");
+    if (!draft.startlistPhotos[groupId]) missing.push("the event photo");
+    if (!startlistById.get(groupId)?.entries.length) missing.push("athletes (none imported yet)");
+  }
+  return { state: missing.length ? "missing" : "ready", missing };
+}
+
+function StatusDot({ state }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ width: 9, height: 9, borderRadius: "50%", flex: "none", background: STATUS_COLORS[state] }}
+    />
+  );
+}
+
+function EditorSection({ title, description, children, actions = null }) {
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0, flex: "1 1 280px" }}>
+          <h3 style={{ margin: 0, color: "#10253d" }}>{title}</h3>
+          {description ? <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>{description}</p> : null}
+        </div>
+        {actions}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function WebsiteEmagazinePage({ Panel }) {
   const { editions, loading: editionsLoading } = useMeetingEditions();
   const { siteEditionYear } = useSiteEditionYear();
@@ -359,13 +427,20 @@ export function WebsiteEmagazinePage({ Panel }) {
   const effectiveYear = selectedYear ?? defaultYear;
   const selectedEdition = editions.find((edition) => edition.year === effectiveYear) ?? null;
   const [draft, setDraft] = useState(null);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
   const [saving, setSaving] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [status, setStatus] = useState("");
+  const [selectedPageId, setSelectedPageId] = useState("cover");
+  const [showAudience, setShowAudience] = useState(false);
+  const [previewFrame, setPreviewFrame] = useState(null);
+  const [previewReady, setPreviewReady] = useState(false);
 
   useEffect(() => {
     if (!selectedEdition) return;
-    setDraft(deepClone(normalizeEmagazineConfig(selectedEdition.emagazine, selectedEdition)));
+    const config = deepClone(normalizeEmagazineConfig(selectedEdition.emagazine, selectedEdition));
+    setDraft(config);
+    setSavedSnapshot(JSON.stringify(config));
   }, [selectedEdition]);
 
   const athleteOptions = useMemo(
@@ -399,15 +474,43 @@ export function WebsiteEmagazinePage({ Panel }) {
     [visiblePages, draft],
   );
 
-  const startlistGroups = useMemo(
-    () => buildOfficialStartlistGroups(selectedEdition?.disciplines || [], []),
-    [selectedEdition?.disciplines],
+  // Athletes only count for the edition the athlete portal is working on.
+  const startlistById = useMemo(
+    () => new Map(buildOfficialStartlistGroups(selectedEdition?.disciplines || [], athletes).map((group) => [group.id, group])),
+    [selectedEdition?.disciplines, athletes],
   );
 
   const hiddenPages = useMemo(
     () => pageRegistry.filter((page) => !(draft?.pageOrder || []).includes(page.id)),
     [pageRegistry, draft?.pageOrder],
   );
+
+  const readinessById = useMemo(
+    () => new Map(draft ? pageRegistry.map((page) => [page.id, pageReadiness(page, draft, startlistById)]) : []),
+    [pageRegistry, draft, startlistById],
+  );
+
+  const selectedPage = pageRegistryMap.get(selectedPageId) || visiblePages[0] || null;
+
+  // The preview frame rebuilds the selected page from the unsaved draft.
+  useEffect(() => {
+    function handleMessage(event) {
+      if (event.origin === window.location.origin && event.data?.type === "emag-frame-ready") setPreviewReady(true);
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  useEffect(() => {
+    if (!previewFrame?.contentWindow || !previewReady || !draft || !selectedPage) return undefined;
+    const timer = window.setTimeout(() => {
+      previewFrame.contentWindow.postMessage(
+        { type: "emag-draft", year: effectiveYear, config: draft, pageId: selectedPage.id },
+        window.location.origin,
+      );
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [previewFrame, previewReady, draft, selectedPage, effectiveYear]);
 
   if (editionsLoading || !selectedEdition || !draft) {
     return (
@@ -419,13 +522,18 @@ export function WebsiteEmagazinePage({ Panel }) {
 
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
+  const isDirty = JSON.stringify(draft) !== savedSnapshot;
+  const publicationStatus = selectedEdition.emagazineStatus || "published";
+  const countedPages = visiblePages.filter((page) => readinessById.get(page.id)?.state !== "off");
+  const readyCount = countedPages.filter((page) => readinessById.get(page.id)?.state === "ready").length;
 
   async function handleSave() {
     setSaving(true);
     setStatus("");
     try {
       await updateEdition(effectiveYear, { emagazine: draft });
-      setStatus("E-magazine settings saved.");
+      setSavedSnapshot(JSON.stringify(draft));
+      setStatus("Saved");
     } catch (error) {
       setStatus(error.message || "Unable to save the e-magazine settings.");
     } finally {
@@ -434,17 +542,22 @@ export function WebsiteEmagazinePage({ Panel }) {
   }
 
   async function handlePublicationStatusChange(nextStatus) {
-    if (!selectedEdition) return;
     setStatusSaving(true);
     setStatus("");
     try {
       await updateEdition(effectiveYear, { emagazineStatus: nextStatus });
-      setStatus(nextStatus === "published" ? "E-magazine published on the public site." : "E-magazine set offline.");
+      setStatus(nextStatus === "published" ? "Published on the public site" : "Set offline");
     } catch (error) {
       setStatus(error.message || "Unable to update the e-magazine publication status.");
     } finally {
       setStatusSaving(false);
     }
+  }
+
+  function handleEditionChange(year) {
+    if (isDirty && !window.confirm("You have unsaved changes. Switch edition and lose them?")) return;
+    setSelectedYear(year);
+    setSelectedPageId("cover");
   }
 
   function updatePageOrder(updater) {
@@ -461,6 +574,7 @@ export function WebsiteEmagazinePage({ Panel }) {
       ],
       pageOrder: [...current.pageOrder, `highlight:${id}`],
     }));
+    setSelectedPageId(`highlight:${id}`);
   }
 
   function appendPartnerPage() {
@@ -473,23 +587,19 @@ export function WebsiteEmagazinePage({ Panel }) {
       ],
       pageOrder: [...current.pageOrder, `partner:${id}`],
     }));
+    setSelectedPageId(`partner:${id}`);
   }
 
   function hideOrDeletePage(page) {
-    if (page.kind === "highlight") {
+    if (page.kind === "highlight" || page.kind === "partner") {
+      if (!window.confirm(`Delete the page "${page.title}"?`)) return;
+      const listKey = page.kind === "highlight" ? "highlightPages" : "partnerPages";
       setDraft((current) => ({
         ...current,
-        highlightPages: current.highlightPages.filter((entry) => entry.id !== page.sourceId),
+        [listKey]: current[listKey].filter((entry) => entry.id !== page.sourceId),
         pageOrder: current.pageOrder.filter((entry) => entry !== page.id),
       }));
-      return;
-    }
-    if (page.kind === "partner") {
-      setDraft((current) => ({
-        ...current,
-        partnerPages: current.partnerPages.filter((entry) => entry.id !== page.sourceId),
-        pageOrder: current.pageOrder.filter((entry) => entry !== page.id),
-      }));
+      setSelectedPageId("cover");
       return;
     }
     updatePageOrder((currentOrder) => currentOrder.filter((entry) => entry !== page.id));
@@ -517,310 +627,61 @@ export function WebsiteEmagazinePage({ Panel }) {
     }));
   }
 
-  function showHiddenPage(pageId) {
-    updatePageOrder((currentOrder) => [...currentOrder, pageId]);
+  function setWelcome(field, value) {
+    setDraft((current) => ({ ...current, welcome: { ...current.welcome, [field]: value } }));
   }
 
-  return (
-    <Panel title="E-magazine" subtitle="Build the magazine pages automatically from the edition, athlete and sponsor databases">
-      <div style={{ display: "grid", gap: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ ...labelStyle, marginBottom: 0 }}>Edition</label>
-            <select style={{ ...inputStyle, width: 160 }} value={effectiveYear ?? ""} onChange={(event) => setSelectedYear(Number(event.target.value))}>
-              {editions.filter((edition) => !edition.cancelled).map((edition) => (
-                <option key={edition.year} value={edition.year}>{edition.year}</option>
-              ))}
-            </select>
-            <a href="/e-magazine?preview=1" target="_blank" rel="noopener noreferrer" className="btn btn--secondary" style={{ fontSize: "0.8rem" }}>
-              Open public preview
-            </a>
-          </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            {status ? <span style={{ color: "#546770", fontSize: "0.82rem" }}>{status}</span> : null}
-            <button className="btn btn--primary" type="button" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving…" : "Save e-magazine"}
-            </button>
-          </div>
-        </div>
-
-        <div style={{ padding: 18, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <h3 style={{ margin: 0, color: "#10253d" }}>Publication status</h3>
-              <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-                Decide whether the e-magazine is visible in the public navigation.
-              </p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 600 }}>Status:</span>
-              <button
-                type="button"
-                onClick={() => handlePublicationStatusChange("offline")}
-                disabled={statusSaving}
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 6,
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  border: "1px solid #d1d5db",
-                  background: (selectedEdition.emagazineStatus || "published") === "offline" ? "#374151" : "#f3f4f6",
-                  color: (selectedEdition.emagazineStatus || "published") === "offline" ? "#fff" : "#6b7280",
-                }}
-              >
-                Offline
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePublicationStatusChange("published")}
-                disabled={statusSaving}
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 6,
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  border: "1px solid #d1d5db",
-                  background: (selectedEdition.emagazineStatus || "published") === "published" ? "#16a34a" : "#f3f4f6",
-                  color: (selectedEdition.emagazineStatus || "published") === "published" ? "#fff" : "#6b7280",
-                }}
-              >
-                Published
-              </button>
-            </div>
-          </div>
-
-          {(selectedEdition.emagazineStatus || "published") !== "published" ? (
-            <div style={{ padding: "6px 10px", background: "#fef3c7", borderRadius: 6, border: "1px solid #fcd34d", fontSize: "0.75rem", color: "#92400e" }}>
-              ⚠️ Offline — le e-magazine n'apparaît pas dans la navigation publique. Le lien de preview admin reste disponible.
-            </div>
-          ) : (
-            <div style={{ padding: "6px 10px", background: "#dcfce7", borderRadius: 6, border: "1px solid #86efac", fontSize: "0.75rem", color: "#166534" }}>
-              ✅ Published — le e-magazine est visible dans la navigation publique.
-            </div>
-          )}
-        </div>
-
-        <EmagazineStatsPanel year={effectiveYear} pageOrder={statsPageOrder} />
-
-        <div style={{ display: "grid", gap: 18, padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start", flexWrap: "wrap" }}>
-            <div>
-              <h3 style={{ margin: 0, color: "#10253d" }}>Magazine summary</h3>
-              <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem", maxWidth: 760 }}>
-                Reorder the pages, jump directly to the editor section you need, hide pages you do not want, and add new highlight or partner pages.
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <EmptyButton onClick={appendHighlightPage}>+ Add highlight page</EmptyButton>
-              <EmptyButton onClick={appendPartnerPage}>+ Add partner page</EmptyButton>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: 10 }}>
-            {visiblePages.map((page, index) => (
-              <div
-                key={page.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "64px minmax(0, 1fr) auto",
-                  gap: 14,
-                  alignItems: "center",
-                  padding: "14px 16px",
-                  borderRadius: 14,
-                  border: "1px solid #dbe4ee",
-                  background: "#fff",
-                }}
-              >
-                <div style={{ color: "#607086", fontWeight: 800, fontSize: "0.82rem" }}>
-                  #{index + 1}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <strong style={{ color: "#10253d" }}>{page.title}</strong>
-                    <span style={{ fontSize: "0.72rem", color: "#607086", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      {page.kind}
-                    </span>
-                    {page.enabled === false ? (
-                      <span style={{ fontSize: "0.72rem", color: "#c62828", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                        disabled
-                      </span>
-                    ) : null}
-                  </div>
-                  <div style={{ marginTop: 4, color: "#6b7280", fontSize: "0.8rem" }}>
-                    {page.sourcePath === "/app/website/emagazine"
-                      ? "Editable in this configurator"
-                      : page.sourcePath === "/app/website/edition"
-                        ? "Configured from the current edition settings"
-                        : page.sourcePath === "/app/website/sponsors"
-                          ? "Driven by the sponsors database"
-                          : page.sourcePath === "/app/athlete-portal/athletes"
-                            ? "Generated from Athlete Portal imports"
-                            : "Displayed in the public magazine"}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <EmptyButton onClick={() => updatePageOrder((currentOrder) => moveItem(currentOrder, index, -1))} disabled={index === 0}>↑</EmptyButton>
-                  <EmptyButton onClick={() => updatePageOrder((currentOrder) => moveItem(currentOrder, index, 1))} disabled={index === visiblePages.length - 1}>↓</EmptyButton>
-                  {page.editorAnchor ? (
-                    <EmptyButton onClick={() => jumpToAnchor(page.editorAnchor)}>Edit</EmptyButton>
-                  ) : page.sourcePath && page.sourcePath !== "/e-magazine" ? (
-                    <a href={page.sourcePath} className="btn btn--secondary" style={{ fontSize: "0.8rem" }}>Source</a>
-                  ) : (
-                    <a href="/e-magazine?preview=1" target="_blank" rel="noopener noreferrer" className="btn btn--secondary" style={{ fontSize: "0.8rem" }}>Preview</a>
-                  )}
-                  <EmptyButton onClick={() => hideOrDeletePage(page)} style={{ color: "#c62828" }}>
-                    {page.kind === "highlight" || page.kind === "partner" ? "Delete" : "Hide"}
-                  </EmptyButton>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {hiddenPages.length > 0 ? (
-            <div style={{ display: "grid", gap: 10 }}>
-              <strong style={{ color: "#10253d" }}>Hidden / available pages</strong>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {hiddenPages.map((page) => (
-                  <button
-                    key={page.id}
-                    type="button"
-                    onClick={() => showHiddenPage(page.id)}
-                    className="btn btn--secondary"
-                    style={{ fontSize: "0.8rem" }}
-                  >
-                    + {page.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div id="emag-cover" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
-          <div>
-            <h3 style={{ margin: 0, color: "#10253d" }}>Cover</h3>
-            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-              Built-in A4 cover: title, edition, date and venue are filled in automatically around your key visual.
-              Or upload a complete A4 page from the graphic designer below — it then replaces the built-in cover.
-            </p>
-          </div>
+  function renderPageEditor(page) {
+    if (page.id === "cover") {
+      return (
+        <EditorSection
+          title="Cover"
+          description="Built-in A4 cover: title, edition, date, venue and the main partners are filled in automatically around the key visual. Or upload a complete A4 page from the graphic designer: it then replaces the built-in cover."
+        >
           <FileUpload
             value={draft.cover.visualUrl}
             onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, visualUrl: url } }))}
             accept="image/*"
             storagePath="emagazine-imported-pages"
-            label="Key visual (landscape, cropped at the sides) — empty = the website home hero banner"
+            label="Key visual (landscape) — empty = the website home hero banner"
           />
           <FileUpload
             value={draft.cover.imageUrl}
             onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, imageUrl: url } }))}
             accept="image/*"
             storagePath="emagazine-imported-pages"
-            label="Cover page (A4 image)"
+            label="Complete cover page (A4 image, optional)"
           />
           <A4FormatHint imageUrl={draft.cover.imageUrl} />
-        </div>
+        </EditorSection>
+      );
+    }
 
-        <div id="emag-sponsor-pages" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start", flexWrap: "wrap" }}>
-            <div>
-              <h3 style={{ margin: 0, color: "#10253d" }}>Sponsor pages</h3>
-              <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem", maxWidth: 640 }}>
-                A4 pages designed by the graphic designer. When at least one is added, they replace the auto-generated sponsor overview page.
-              </p>
-            </div>
-            <EmptyButton onClick={appendSponsorPage}>+ Add sponsor page</EmptyButton>
-          </div>
-          {draft.sponsorPages.length === 0 ? (
-            <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No imported sponsor page yet — the live sponsor logo grid is shown instead.</p>
-          ) : (
-            <div style={{ display: "grid", gap: 14 }}>
-              {draft.sponsorPages.map((page) => (
-                <div key={page.id} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12, alignItems: "end", padding: 14, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
-                  <div>
-                    <label style={labelStyle}>Label (internal)</label>
-                    <input style={inputStyle} value={page.title} onChange={(event) => updateSponsorPage(page.id, "title", event.target.value)} placeholder="e.g. Gold partners" />
-                  </div>
-                  <div style={{ display: "grid", gap: 6 }}>
-                    <FileUpload
-                      value={page.imageUrl}
-                      onChange={(url) => updateSponsorPage(page.id, "imageUrl", url)}
-                      accept="image/*"
-                      storagePath="emagazine-imported-pages"
-                      label="Page image (A4)"
-                    />
-                    <A4FormatHint imageUrl={page.imageUrl} />
-                  </div>
-                  <EmptyButton onClick={() => removeSponsorPage(page.id)} style={{ color: "#c62828" }}>Remove</EmptyButton>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div id="emag-startlist-photos" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
-          <div>
-            <h3 style={{ margin: 0, color: "#10253d" }}>Start list photos</h3>
-            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem", maxWidth: 720 }}>
-              One photo per event, shown as a banner behind the title and records at the top of its start list page.
-              Landscape photos work best; the bottom of the photo is darkened so the title stays readable.
-            </p>
-          </div>
-          {startlistGroups.length === 0 ? (
-            <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No official discipline configured for this edition yet.</p>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-              {startlistGroups.map((group) => (
-                <div key={group.id} style={{ display: "grid", gap: 8, padding: 14, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
-                  <strong style={{ color: "#10253d", fontSize: "0.9rem" }}>{group.title}</strong>
-                  <FileUpload
-                    value={draft.startlistPhotos[group.id] || ""}
-                    onChange={(url) => setDraft((current) => ({
-                      ...current,
-                      startlistPhotos: { ...current.startlistPhotos, [group.id]: url },
-                    }))}
-                    accept="image/*"
-                    storagePath="emagazine-startlist-photos"
-                    label="Event photo"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div id="emag-welcome" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
-          <div>
-            <h3 style={{ margin: 0, color: "#10253d" }}>Welcome page</h3>
-            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-              The president's message (in English): text, portrait, name and function. Update it each edition.
-            </p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+    if (page.id === "welcome") {
+      const words = wordCount(draft.welcome.body);
+      return (
+        <EditorSection title="Welcome page" description="The president's message (in English): text, portrait, name and function. Update it each edition.">
+          <div className="emag-ed__two-cols">
             <div>
               <label style={labelStyle}>Title</label>
-              <input style={inputStyle} value={draft.welcome.title} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, title: event.target.value } }))} />
+              <input style={inputStyle} value={draft.welcome.title} onChange={(event) => setWelcome("title", event.target.value)} />
             </div>
             <div>
               <label style={labelStyle}>Intro line</label>
-              <input style={inputStyle} value={draft.welcome.intro} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, intro: event.target.value } }))} placeholder="Short subtitle" />
+              <input style={inputStyle} value={draft.welcome.intro} onChange={(event) => setWelcome("intro", event.target.value)} placeholder="Short subtitle" />
             </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Signed by (name)</label>
-              <input style={inputStyle} value={draft.welcome.personName} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personName: event.target.value } }))} placeholder="e.g. first and last name of the president" />
+              <input style={inputStyle} value={draft.welcome.personName} onChange={(event) => setWelcome("personName", event.target.value)} placeholder="First and last name of the president" />
             </div>
             <div>
               <label style={labelStyle}>Function</label>
-              <input style={inputStyle} value={draft.welcome.personTitle} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personTitle: event.target.value } }))} placeholder="e.g. President, FLA" />
+              <input style={inputStyle} value={draft.welcome.personTitle} onChange={(event) => setWelcome("personTitle", event.target.value)} placeholder="President, FLA" />
             </div>
           </div>
           <FileUpload
             value={draft.welcome.photoUrl}
-            onChange={(url) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, photoUrl: url } }))}
+            onChange={(url) => setWelcome("photoUrl", url)}
             accept="image/*"
             storagePath="emagazine-welcome"
             label="Portrait (square crop, face kept at the top)"
@@ -828,105 +689,285 @@ export function WebsiteEmagazinePage({ Panel }) {
           <div>
             <label style={labelStyle}>Message</label>
             <textarea
-              style={{ ...inputStyle, minHeight: 220, resize: "vertical" }}
+              style={{ ...inputStyle, minHeight: 260, resize: "vertical" }}
               value={draft.welcome.body}
-              onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, body: event.target.value } }))}
-              placeholder="Main English welcome message — leave an empty line between paragraphs"
+              onChange={(event) => setWelcome("body", event.target.value)}
+              placeholder="Leave an empty line between paragraphs"
             />
-            {(() => {
-              const words = draft.welcome.body.trim() ? draft.welcome.body.trim().split(/\s+/).length : 0;
-              return (
-                <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: words > 380 ? "#92400e" : "#6b7280" }}>
-                  {words} words — up to about 330 words keep the normal text size; longer messages are printed smaller to stay on one A4 page.
-                </p>
-              );
-            })()}
-          </div>
-        </div>
-
-        <div id="emag-races" style={{ display: "grid", gap: 18 }}>
-          <div>
-            <h3 style={{ margin: 0, color: "#10253d" }}>Special race settings</h3>
-            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-              Enter participants here and their dedicated start list pages will be generated automatically.
+            <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: words > 380 ? "#92400e" : "#6b7280" }}>
+              {words} words — up to about 330 words keep the normal text size; longer messages are printed smaller to stay on one A4 page.
             </p>
           </div>
-          <SpecialRaceEditor
-            title="Influencer Race"
-            race={draft.specialRaces.influencerRace}
-            onChange={(race) => setDraft((current) => ({ ...current, specialRaces: { ...current.specialRaces, influencerRace: race } }))}
-          />
-          <SpecialRaceEditor
-            title="Business Race"
-            race={draft.specialRaces.businessRace}
-            onChange={(race) => setDraft((current) => ({ ...current, specialRaces: { ...current.specialRaces, businessRace: race } }))}
-          />
-        </div>
+        </EditorSection>
+      );
+    }
 
-        <div style={{ display: "grid", gap: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-            <div>
-              <h3 style={{ margin: 0, color: "#10253d" }}>Highlight templates</h3>
-              <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-                Duel, trio, Luxembourg spotlight or international spotlight.
-              </p>
-            </div>
-            <EmptyButton onClick={appendHighlightPage}>
-              + Add highlight page
-            </EmptyButton>
+    if (page.id === "timetable") {
+      return (
+        <EditorSection title="Timetable" description="Built from the timetable of the current edition settings.">
+          <div>
+            <a href="/app/website/edition" className="btn btn--secondary" style={{ fontSize: "0.85rem" }}>Edit the timetable</a>
           </div>
-          {draft.highlightPages.length === 0 ? (
-            <p className="panel-note">No highlight pages configured yet.</p>
-          ) : draft.highlightPages.map((page) => (
-            <div key={page.id} id={`emag-highlight-${page.id}`}>
-              <HighlightEditor
-              page={page}
-              athleteOptions={athleteOptions}
-              onChange={(nextPage) => setDraft((current) => ({
-                ...current,
-                highlightPages: current.highlightPages.map((entry) => entry.id === nextPage.id ? nextPage : entry),
-              }))}
-              onRemove={() => setDraft((current) => ({
-                ...current,
-                highlightPages: current.highlightPages.filter((entry) => entry.id !== page.id),
-                pageOrder: current.pageOrder.filter((entry) => entry !== `highlight:${page.id}`),
-              }))}
-            />
+        </EditorSection>
+      );
+    }
+
+    if (page.id === "sponsors") {
+      return (
+        <EditorSection
+          title="Sponsor overview"
+          description="By default, the logo grid of the partners database. A4 pages designed by the graphic designer replace it as soon as one is added."
+          actions={<EmptyButton onClick={appendSponsorPage}>+ Add sponsor page</EmptyButton>}
+        >
+          <div>
+            <a href="/app/website/sponsors" className="btn btn--secondary" style={{ fontSize: "0.85rem" }}>Edit the partners</a>
+          </div>
+          {draft.sponsorPages.map((sponsorPage) => (
+            <div key={sponsorPage.id} style={{ display: "grid", gap: 10, padding: 14, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "end" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Label (internal)</label>
+                  <input style={inputStyle} value={sponsorPage.title} onChange={(event) => updateSponsorPage(sponsorPage.id, "title", event.target.value)} placeholder="Gold partners" />
+                </div>
+                <EmptyButton onClick={() => removeSponsorPage(sponsorPage.id)} style={{ color: "#c62828" }}>Remove</EmptyButton>
+              </div>
+              <FileUpload
+                value={sponsorPage.imageUrl}
+                onChange={(url) => updateSponsorPage(sponsorPage.id, "imageUrl", url)}
+                accept="image/*"
+                storagePath="emagazine-imported-pages"
+                label="Page image (A4)"
+              />
+              <A4FormatHint imageUrl={sponsorPage.imageUrl} />
             </div>
           ))}
+        </EditorSection>
+      );
+    }
+
+    if (page.kind === "special") {
+      const raceKey = page.id.replace("special:", "");
+      return (
+        <SpecialRaceEditor
+          title={page.title}
+          race={draft.specialRaces[raceKey]}
+          onChange={(race) => setDraft((current) => ({ ...current, specialRaces: { ...current.specialRaces, [raceKey]: race } }))}
+        />
+      );
+    }
+
+    if (page.kind === "highlight") {
+      const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
+      return highlight ? (
+        <HighlightEditor
+          page={highlight}
+          athleteOptions={athleteOptions}
+          onChange={(nextPage) => setDraft((current) => ({
+            ...current,
+            highlightPages: current.highlightPages.map((entry) => (entry.id === nextPage.id ? nextPage : entry)),
+          }))}
+        />
+      ) : null;
+    }
+
+    if (page.kind === "partner") {
+      const partner = draft.partnerPages.find((entry) => entry.id === page.sourceId);
+      return partner ? (
+        <PartnerPageEditor
+          page={partner}
+          sponsors={activeSponsors}
+          onChange={(nextPage) => setDraft((current) => ({
+            ...current,
+            partnerPages: current.partnerPages.map((entry) => (entry.id === nextPage.id ? nextPage : entry)),
+          }))}
+        />
+      ) : null;
+    }
+
+    if (page.kind === "auto") {
+      const groupId = page.id.replace("official-startlist:", "");
+      const group = startlistById.get(groupId);
+      const entries = group?.entries || [];
+      const heats = new Set(entries.map((entry) => String(entry.heat || "").trim()).filter(Boolean)).size;
+      return (
+        <EditorSection
+          title={page.title}
+          description={entries.length
+            ? `${entries.length} athletes${heats > 1 ? ` · ${heats} heats` : ""}, from the start list imported in Athlete Portal. Records, flags and SB are added automatically.`
+            : "No athlete imported for this event yet: the page fills itself once the start list Excel is imported in Athlete Portal."}
+          actions={<a href="/app/athlete-portal/athletes" className="btn btn--secondary" style={{ fontSize: "0.8rem" }}>Athlete Portal</a>}
+        >
+          <FileUpload
+            value={draft.startlistPhotos[groupId] || ""}
+            onChange={(url) => setDraft((current) => ({
+              ...current,
+              startlistPhotos: { ...current.startlistPhotos, [groupId]: url },
+            }))}
+            accept="image/*"
+            storagePath="emagazine-startlist-photos"
+            label="Event photo (landscape, shown as a banner behind the title)"
+          />
+        </EditorSection>
+      );
+    }
+
+    return null;
+  }
+
+  const selectedIndex = selectedPage ? visiblePages.findIndex((page) => page.id === selectedPage.id) : -1;
+  const selectedReadiness = selectedPage ? readinessById.get(selectedPage.id) : null;
+
+  return (
+    <Panel title="E-magazine" subtitle="Pick a page on the left, fill it in the middle, check it on the right">
+      <div className="emag-ed">
+        <div className="emag-ed__bar">
+          <select
+            aria-label="Edition"
+            style={{ ...inputStyle, width: 110 }}
+            value={effectiveYear ?? ""}
+            onChange={(event) => handleEditionChange(Number(event.target.value))}
+          >
+            {editions.filter((edition) => !edition.cancelled).map((edition) => (
+              <option key={edition.year} value={edition.year}>{edition.year}</option>
+            ))}
+          </select>
+
+          <div className="emag-ed__segmented" role="group" aria-label="Publication status">
+            {["offline", "published"].map((value) => (
+              <button
+                key={value}
+                type="button"
+                disabled={statusSaving || publicationStatus === value}
+                onClick={() => handlePublicationStatusChange(value)}
+                className={publicationStatus === value ? `is-active is-${value}` : ""}
+              >
+                {value === "published" ? "Published" : "Offline"}
+              </button>
+            ))}
+          </div>
+
+          <span className={`emag-ed__pill${readyCount === countedPages.length ? " is-done" : ""}`}>
+            {readyCount}/{countedPages.length} pages ready
+          </span>
+
+          <span style={{ flex: 1 }} />
+
+          {status ? <span style={{ color: "#546770", fontSize: "0.82rem" }}>{status}</span> : null}
+          {isDirty ? <span className="emag-ed__dirty">Unsaved changes</span> : null}
+          <EmptyButton onClick={() => setShowAudience((current) => !current)} aria-expanded={showAudience}>
+            Audience {showAudience ? "▴" : "▾"}
+          </EmptyButton>
+          <a href="/e-magazine?preview=1" target="_blank" rel="noopener noreferrer" className="btn btn--secondary" style={{ fontSize: "0.8rem" }}>
+            Open preview
+          </a>
+          <button className="btn btn--primary" type="button" onClick={handleSave} disabled={saving || !isDirty}>
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
 
-        <div style={{ display: "grid", gap: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-            <div>
-              <h3 style={{ margin: 0, color: "#10253d" }}>Partner ad pages</h3>
-              <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-                Add dedicated partner pages on top of the automatic sponsor overview page.
-              </p>
+        {publicationStatus !== "published" ? (
+          <p className="emag-ed__notice">
+            Offline: the e-magazine isn't in the public navigation and no audience is counted. The preview link still works.
+          </p>
+        ) : null}
+
+        {showAudience ? <EmagazineStatsPanel year={effectiveYear} pageOrder={statsPageOrder} /> : null}
+
+        <div className="emag-ed__layout">
+          <nav className="emag-ed__pages" aria-label="Magazine pages">
+            {visiblePages.map((page, index) => {
+              const readiness = readinessById.get(page.id);
+              const showSection = index === 0 || visiblePages[index - 1].kind !== page.kind;
+              return (
+                <div key={page.id}>
+                  {showSection ? <p className="emag-ed__section">{PAGE_SECTIONS[page.kind] || page.kind}</p> : null}
+                  <button
+                    type="button"
+                    className={`emag-ed__page${selectedPage?.id === page.id ? " is-selected" : ""}`}
+                    onClick={() => setSelectedPageId(page.id)}
+                    title={readiness?.missing.length ? `Missing: ${readiness.missing.join(", ")}` : undefined}
+                  >
+                    <span className="emag-ed__page-number">{index + 1}</span>
+                    <StatusDot state={readiness?.state || "ready"} />
+                    <span className="emag-ed__page-title">{page.title}</span>
+                  </button>
+                </div>
+              );
+            })}
+
+            {hiddenPages.length > 0 ? (
+              <>
+                <p className="emag-ed__section">Hidden</p>
+                {hiddenPages.map((page) => (
+                  <button
+                    key={page.id}
+                    type="button"
+                    className="emag-ed__page is-hidden"
+                    onClick={() => {
+                      updatePageOrder((currentOrder) => [...currentOrder, page.id]);
+                      setSelectedPageId(page.id);
+                    }}
+                  >
+                    <span className="emag-ed__page-number">+</span>
+                    <span className="emag-ed__page-title">{page.title}</span>
+                  </button>
+                ))}
+              </>
+            ) : null}
+
+            <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
+              <EmptyButton onClick={appendHighlightPage}>+ Add highlight page</EmptyButton>
+              <EmptyButton onClick={appendPartnerPage}>+ Add partner page</EmptyButton>
             </div>
-            <EmptyButton onClick={appendPartnerPage}>
-              + Add partner page
-            </EmptyButton>
-          </div>
-          {draft.partnerPages.length === 0 ? (
-            <p className="panel-note">No partner feature pages configured yet.</p>
-          ) : draft.partnerPages.map((page) => (
-            <div key={page.id} id={`emag-partner-${page.id}`}>
-              <PartnerPageEditor
-              page={page}
-              sponsors={activeSponsors}
-              onChange={(nextPage) => setDraft((current) => ({
-                ...current,
-                partnerPages: current.partnerPages.map((entry) => entry.id === nextPage.id ? nextPage : entry),
-              }))}
-              onRemove={() => setDraft((current) => ({
-                ...current,
-                partnerPages: current.partnerPages.filter((entry) => entry.id !== page.id),
-                pageOrder: current.pageOrder.filter((entry) => entry !== `partner:${page.id}`),
-              }))}
+          </nav>
+
+          <section className="emag-ed__editor">
+            {selectedPage ? (
+              <>
+                {selectedReadiness?.state === "missing" ? (
+                  <p className="emag-ed__missing">Still missing: {selectedReadiness.missing.join(", ")}.</p>
+                ) : null}
+                {renderPageEditor(selectedPage)}
+                <div className="emag-ed__footer">
+                  {selectedIndex >= 0 ? (
+                    <>
+                      <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>Page {selectedIndex + 1} of {visiblePages.length}</span>
+                      <EmptyButton
+                        onClick={() => updatePageOrder((currentOrder) => moveItem(currentOrder, currentOrder.indexOf(selectedPage.id), -1))}
+                        disabled={selectedIndex === 0}
+                      >
+                        ↑ Move up
+                      </EmptyButton>
+                      <EmptyButton
+                        onClick={() => updatePageOrder((currentOrder) => moveItem(currentOrder, currentOrder.indexOf(selectedPage.id), 1))}
+                        disabled={selectedIndex === visiblePages.length - 1}
+                      >
+                        ↓ Move down
+                      </EmptyButton>
+                      <span style={{ flex: 1 }} />
+                      <EmptyButton onClick={() => hideOrDeletePage(selectedPage)} style={{ color: "#c62828" }}>
+                        {selectedPage.kind === "highlight" || selectedPage.kind === "partner" ? "Delete page" : "Hide page"}
+                      </EmptyButton>
+                    </>
+                  ) : (
+                    <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>This page is hidden from the magazine.</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="panel-note">No page in the magazine yet.</p>
+            )}
+          </section>
+
+          <aside className="emag-ed__preview" aria-label="A4 preview">
+            <p className="emag-ed__section" style={{ marginTop: 0 }}>A4 preview · unsaved changes included</p>
+            <iframe
+              ref={setPreviewFrame}
+              title="A4 preview of the selected page"
+              src="/e-magazine/frame"
+              className="emag-ed__frame"
             />
-            </div>
-          ))}
+          </aside>
         </div>
       </div>
     </Panel>
