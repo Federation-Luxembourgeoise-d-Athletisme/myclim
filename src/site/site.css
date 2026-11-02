@@ -4211,6 +4211,18 @@
   align-items: center;
 }
 
+/* Fixed A4 sheet (794 × 1123 px = 210 × 297 mm), scaled from JS to fit. */
+.site-emag__a4 {
+  flex: none;
+  position: relative;
+}
+
+.site-emag__a4-page {
+  width: 794px;
+  height: 1123px;
+  transform-origin: top left;
+}
+
 .site-emag__nav {
   position: absolute;
   top: 50%;
@@ -4278,10 +4290,8 @@
 
 .site-emag-page {
   position: relative;
-  width: min(82vw, 920px);
-  margin: 0 auto;
-  aspect-ratio: 210 / 297;
-  max-height: calc(100vh - var(--site-nav-h) - 180px);
+  width: 794px;
+  height: 1123px;
   border-radius: 28px;
   background: #ffffff;
   border: 1px solid rgba(22, 60, 107, 0.08);
@@ -4379,7 +4389,7 @@
 
 .site-emag-page__header h2 {
   margin: 0;
-  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  font-size: 3.5rem;
   line-height: 1;
   color: #10253d;
 }
@@ -4421,7 +4431,7 @@
 .site-emag-cover__copy h1 {
   margin: 0;
   max-width: 720px;
-  font-size: clamp(3.8rem, 7vw, 6rem);
+  font-size: 5rem;
   line-height: 0.92;
 }
 
@@ -4910,11 +4920,6 @@
     grid-template-rows: auto auto auto;
   }
 
-  .site-emag-page {
-    width: min(92vw, 760px);
-    max-height: none;
-  }
-
   .site-emag__reader-meta {
     align-items: start;
     flex-direction: column;
@@ -4945,22 +4950,17 @@
     padding-top: 54px;
   }
 
-  .site-emag__intro-bar,
-  .site-emag-cover,
-  .site-emag-welcome,
-  .site-emag-highlight--single,
-  .site-emag-partner-feature {
-    grid-template-columns: 1fr;
+  /* The A4 pages keep their own layout: they are scaled, not reflowed. */
+  .site-emag__intro-bar {
+    flex-direction: column;
+    align-items: start;
   }
+}
 
-  .site-emag-page__frame,
-  .site-emag-cover {
-    padding: 28px;
-  }
-
-  .site-emag-highlight--multi .site-emag-highlight__grid {
-    grid-template-columns: 1fr;
-  }
+/* Named page so other printouts keep their own margins. */
+@page emagazine {
+  size: A4;
+  margin: 0;
 }
 
 @media print {
@@ -5003,19 +5003,26 @@
     display: block;
   }
 
+  .site-emag__a4 {
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .site-emag__a4-page {
+    transform: none !important;
+    width: 210mm;
+    height: 297mm;
+  }
+
   .site-emag-page {
-    width: auto;
-    aspect-ratio: auto;
+    page: emagazine;
+    width: 210mm;
+    height: 297mm;
     box-shadow: none;
     border: none;
     border-radius: 0;
     break-after: page;
     page-break-after: always;
-  }
-
-  .site-emag-page__frame,
-  .site-emag-cover {
-    min-height: 100vh;
   }
 }
 

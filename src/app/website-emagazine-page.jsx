@@ -4,6 +4,8 @@ import { useMeetingEditions, updateEdition } from "./meeting-history-hooks";
 import { useAthleteRegistry, useAthletes } from "./athlete-portal-hooks";
 import { useSponsors } from "../site/site-hooks";
 import { FileUpload } from "./file-upload";
+import { EmagazineStatsPanel } from "./website-emagazine-stats";
+import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emagazine-stats";
 import {
   buildAthleteOptions,
   buildEmagazinePageRegistry,
@@ -60,6 +62,38 @@ function jumpToAnchor(anchor) {
   const element = document.getElementById(anchor);
   if (!element) return;
   element.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+const A4_RATIO = 297 / 210;
+
+// Imported pages are always shown on an A4 sheet: warn when the uploaded
+// image is another format (it would show with white margins).
+function A4FormatHint({ imageUrl }) {
+  const [loaded, setLoaded] = useState(null);
+
+  useEffect(() => {
+    if (!imageUrl) return undefined;
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (!cancelled) setLoaded({ url: imageUrl, width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.src = imageUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
+
+  const size = loaded?.url === imageUrl ? loaded : null;
+  if (!size || !size.width) return null;
+  const isA4 = Math.abs(size.height / size.width - A4_RATIO) / A4_RATIO <= 0.02;
+  return (
+    <p style={{ margin: 0, fontSize: "0.78rem", color: isA4 ? "#166534" : "#92400e" }}>
+      {isA4
+        ? `✅ A4 portrait format (${size.width} × ${size.height} px).`
+        : `⚠️ Not A4 portrait (${size.width} × ${size.height} px): the page will show with white margins. Export it as A4 portrait (e.g. 2480 × 3508 px).`}
+    </p>
+  );
 }
 
 function SpecialRaceEditor({ title, race, onChange }) {
@@ -358,6 +392,12 @@ export function WebsiteEmagazinePage({ Panel }) {
     [draft?.pageOrder, pageRegistryMap],
   );
 
+  const statsPageOrder = useMemo(
+    () => (draft ? visiblePages.flatMap((page) => emagazineStatsPagesForEntry(page, draft)) : [])
+      .map((page) => ({ statsId: emagazineStatsPageId(page.key), title: page.title })),
+    [visiblePages, draft],
+  );
+
   const hiddenPages = useMemo(
     () => pageRegistry.filter((page) => !(draft?.pageOrder || []).includes(page.id)),
     [pageRegistry, draft?.pageOrder],
@@ -556,6 +596,8 @@ export function WebsiteEmagazinePage({ Panel }) {
           )}
         </div>
 
+        <EmagazineStatsPanel year={effectiveYear} pageOrder={statsPageOrder} />
+
         <div style={{ display: "grid", gap: 18, padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start", flexWrap: "wrap" }}>
             <div>
@@ -664,6 +706,7 @@ export function WebsiteEmagazinePage({ Panel }) {
             storagePath="emagazine-imported-pages"
             label="Cover page (A4 image)"
           />
+          <A4FormatHint imageUrl={draft.cover.imageUrl} />
         </div>
 
         <div id="emag-sponsor-pages" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
@@ -686,13 +729,16 @@ export function WebsiteEmagazinePage({ Panel }) {
                     <label style={labelStyle}>Label (internal)</label>
                     <input style={inputStyle} value={page.title} onChange={(event) => updateSponsorPage(page.id, "title", event.target.value)} placeholder="e.g. Gold partners" />
                   </div>
-                  <FileUpload
-                    value={page.imageUrl}
-                    onChange={(url) => updateSponsorPage(page.id, "imageUrl", url)}
-                    accept="image/*"
-                    storagePath="emagazine-imported-pages"
-                    label="Page image (A4)"
-                  />
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <FileUpload
+                      value={page.imageUrl}
+                      onChange={(url) => updateSponsorPage(page.id, "imageUrl", url)}
+                      accept="image/*"
+                      storagePath="emagazine-imported-pages"
+                      label="Page image (A4)"
+                    />
+                    <A4FormatHint imageUrl={page.imageUrl} />
+                  </div>
                   <EmptyButton onClick={() => removeSponsorPage(page.id)} style={{ color: "#c62828" }}>Remove</EmptyButton>
                 </div>
               ))}

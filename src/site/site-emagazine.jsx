@@ -19,6 +19,44 @@ import {
   findMeetingRecord,
   normalizeEmagazineConfig,
 } from "./site-emagazine-shared";
+import {
+  PAGE_VIEW_DELAY_MS,
+  trackEmagazineOpen,
+  trackEmagazinePageView,
+  trackEmagazinePrint,
+} from "./emagazine-stats";
+
+// Every page is laid out on a real A4 sheet (210 × 297 mm at 96 dpi, the size
+// used when printing) and scaled down as a whole to fit the screen, so the
+// magazine keeps the exact same A4 proportions on every device.
+const A4_PAGE_WIDTH = 794;
+const A4_PAGE_HEIGHT = 1123;
+
+function useA4PageScale(shellNode) {
+  const [scale, setScale] = useState(0.5);
+
+  useEffect(() => {
+    if (!shellNode) return undefined;
+    const compact = window.matchMedia("(max-width: 960px)");
+    function measure() {
+      // Desktop: fit the reader height and leave room for the side arrows.
+      // Compact: the page follows the width and the reader scrolls.
+      const availableWidth = shellNode.clientWidth - (compact.matches ? 0 : 120);
+      const availableHeight = compact.matches ? Infinity : shellNode.clientHeight - 64;
+      setScale(Math.max(0.2, Math.min(availableWidth / A4_PAGE_WIDTH, availableHeight / A4_PAGE_HEIGHT, 1.25)));
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(shellNode);
+    compact.addEventListener("change", measure);
+    return () => {
+      observer.disconnect();
+      compact.removeEventListener("change", measure);
+    };
+  }, [shellNode]);
+
+  return scale;
+}
 
 function formatEditionDate(value) {
   if (!value) return "To be confirmed";
@@ -458,6 +496,8 @@ function OfficialStartlistPage({ group }) {
 export function SiteEmagazine() {
   const swipeStateRef = useRef({ startX: 0, pointerId: null });
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [readerShellNode, setReaderShellNode] = useState(null);
+  const pageScale = useA4PageScale(readerShellNode);
   const location = useLocation();
   const { siteEditionYear } = useSiteEditionYear();
   const { activeEditionId } = useActiveEdition();
@@ -616,6 +656,29 @@ export function SiteEmagazine() {
     setCurrentPageIndex(0);
   }, [currentEdition?.year, orderedMagazinePages.length]);
 
+  // Audience for the sponsors: never counts the admin preview.
+  const statsYear = emagazinePublished && !previewMode ? currentEdition?.year : null;
+  const currentPageKey = orderedMagazinePages[currentPageIndex]?.key;
+  const currentPageTitle = orderedMagazinePages[currentPageIndex]?.title;
+
+  useEffect(() => {
+    if (statsYear) trackEmagazineOpen(statsYear);
+  }, [statsYear]);
+
+  useEffect(() => {
+    if (!statsYear || !currentPageKey) return undefined;
+    const timer = window.setTimeout(
+      () => trackEmagazinePageView(statsYear, currentPageKey, currentPageTitle),
+      PAGE_VIEW_DELAY_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [statsYear, currentPageKey, currentPageTitle]);
+
+  function handlePrint() {
+    if (statsYear) trackEmagazinePrint(statsYear);
+    window.print();
+  }
+
   function goToPage(index) {
     const nextIndex = Math.max(0, Math.min(orderedMagazinePages.length - 1, index));
     setCurrentPageIndex(nextIndex);
@@ -701,7 +764,7 @@ export function SiteEmagazine() {
             <h1 className="site-heading site-heading--sm">E-magazine {currentEdition.year}</h1>
           </div>
           <div className="site-emag__actions">
-            <button type="button" className="site-btn site-btn--secondary site-btn--sm" onClick={() => window.print()}>
+            <button type="button" className="site-btn site-btn--secondary site-btn--sm" onClick={handlePrint}>
               Print / Save as PDF
             </button>
             <NavLink to="/statistics" className="site-btn site-btn--primary site-btn--sm">
@@ -725,7 +788,7 @@ export function SiteEmagazine() {
           </div>
         </div>
 
-        <div className="site-emag__reader-shell">
+        <div className="site-emag__reader-shell" ref={setReaderShellNode}>
           <button
             type="button"
             className="site-emag__nav site-emag__nav--prev"
@@ -751,7 +814,14 @@ export function SiteEmagazine() {
                   className="site-emag__sheet"
                   aria-label={`Page ${index + 1}: ${page.title}`}
                 >
-                  {page.element}
+                  <div
+                    className="site-emag__a4"
+                    style={{ width: A4_PAGE_WIDTH * pageScale, height: A4_PAGE_HEIGHT * pageScale }}
+                  >
+                    <div className="site-emag__a4-page" style={{ transform: `scale(${pageScale})` }}>
+                      {page.element}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

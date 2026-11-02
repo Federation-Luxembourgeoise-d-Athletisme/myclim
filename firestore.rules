@@ -244,6 +244,60 @@ service cloud.firestore {
       allow write: if isWebsiteManager();
     }
 
+    // ── Audience du e-magazine (chiffres pour les sponsors) ──────────────────
+    // Écrite par les lecteurs anonymes du site (src/site/emagazine-stats.js) :
+    // uniquement des compteurs qui montent de 0 ou 1 à chaque écriture, plus
+    // le titre de la page et l'horodatage. Lecture : gestionnaires du site.
+    function statCreatedByAtMostOne(field) {
+      return request.resource.data.get(field, 0) in [0, 1];
+    }
+
+    function statBumpedByAtMostOne(field) {
+      return request.resource.data.get(field, 0) is int &&
+        request.resource.data.get(field, 0) - resource.data.get(field, 0) in [0, 1];
+    }
+
+    function statWriteIsTimestamped() {
+      return request.resource.data.updatedAt == request.time;
+    }
+
+    match /emagazineStats/{year} {
+      allow read: if isWebsiteManager();
+      allow create: if year.matches('^[0-9]{4}$') && statWriteIsTimestamped() &&
+        request.resource.data.keys().hasOnly(["opens", "uniqueReaders", "prints", "updatedAt"]) &&
+        statCreatedByAtMostOne("opens") && statCreatedByAtMostOne("uniqueReaders") &&
+        statCreatedByAtMostOne("prints");
+      allow update: if statWriteIsTimestamped() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(["opens", "uniqueReaders", "prints", "updatedAt"]) &&
+        statBumpedByAtMostOne("opens") && statBumpedByAtMostOne("uniqueReaders") &&
+        statBumpedByAtMostOne("prints");
+      allow delete: if isAdminOrManager();
+
+      match /pages/{pageId} {
+        allow read: if isWebsiteManager();
+        allow create: if statWriteIsTimestamped() &&
+          request.resource.data.keys().hasOnly(["views", "title", "updatedAt"]) &&
+          request.resource.data.views == 1 &&
+          request.resource.data.title is string && request.resource.data.title.size() <= 200;
+        allow update: if statWriteIsTimestamped() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["views", "title", "updatedAt"]) &&
+          request.resource.data.views == resource.data.views + 1 &&
+          request.resource.data.title is string && request.resource.data.title.size() <= 200;
+        allow delete: if isAdminOrManager();
+      }
+
+      match /days/{day} {
+        allow read: if isWebsiteManager();
+        allow create: if day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && statWriteIsTimestamped() &&
+          request.resource.data.keys().hasOnly(["opens", "updatedAt"]) &&
+          request.resource.data.opens == 1;
+        allow update: if statWriteIsTimestamped() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["opens", "updatedAt"]) &&
+          request.resource.data.opens == resource.data.opens + 1;
+        allow delete: if isAdminOrManager();
+      }
+    }
+
     // Composition des équipes : lue par tous les bénévoles/chefs d'équipe pour
     // afficher leurs affectations, missions et documents d'équipe.
     match /appSettings/teamsConfiguration {
