@@ -12,6 +12,11 @@ import waSilverLogo from "../assets/wa-indoor-tour-silver.png";
 import venueImage from "../assets/site-gallery/Coque2026.jpg";
 // Race in front of a full stand (website gallery): banner of the timetable page.
 import timetablePhoto from "../assets/site-gallery/ambiance-1.jpg";
+import preprogInfluencer from "../assets/site-gallery/preprog-influencer.jpg";
+import preprogGforster from "../assets/site-gallery/preprog-gforster.jpg";
+import preprogNational60m from "../assets/site-gallery/preprog-national-60m.jpg";
+import preprogBusiness1 from "../assets/site-gallery/preprog-business-1.jpg";
+import preprogBusiness2 from "../assets/site-gallery/preprog-business-2.jpg";
 import {
   athleteDisplayName,
   buildAthleteLookup,
@@ -332,21 +337,69 @@ function SponsorsPage({ sponsors }) {
   );
 }
 
+// What each pre-programme race is, told with the photos and words of the
+// website's Pre-Programme page.
+const SPECIAL_RACE_STORIES = {
+  influencerRace: {
+    eyebrow: "Opening act",
+    banner: preprogInfluencer,
+    photos: [preprogGforster, preprogNational60m],
+    text: "Two spectacular 60m races set the stage — one for women, one for men. Luxembourg influencers go head-to-head against local sports stars in an explosive duel at the heart of the Coque.",
+    facts: [
+      ["Women's race", "60m — influencers vs. Lux stars"],
+      ["Men's race", "60m — influencers vs. Lux stars"],
+      ["When", "Pre-programme, before the elite session"],
+    ],
+  },
+  businessRace: {
+    eyebrow: "Corporate experience",
+    banner: preprogBusiness2,
+    photos: [preprogBusiness1],
+    text: "Luxembourg companies compete side by side on the track, in front of the meeting's audience: a unique mix of team spirit, sport and a premium brand experience.",
+    facts: [
+      ["Format", "Relay race on the track (4 × 200m)"],
+      ["On stage", "Official team presentation in the arena"],
+      ["At the finish", "Final ranking and Business Race podium"],
+    ],
+  },
+};
+
 function SpecialRacePage({ race }) {
+  const story = SPECIAL_RACE_STORIES[race.id];
   return (
     <MagazinePage
       theme="accent"
-      eyebrow="Pre-programme"
+      eyebrow={story?.eyebrow || "Pre-programme"}
       title={race.title}
       subtitle={race.subtitle || `${race.entries.length} participants`}
+      headerImage={story?.banner}
+      className="site-emag-page--special"
     >
       <div className="site-emag-special-race">
+        {story ? (
+          <div className="site-emag-special-race__story">
+            <div className="site-emag-special-race__about">
+              <p>{story.text}</p>
+              <dl>
+                {story.facts.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            <div className="site-emag-special-race__photos">
+              {story.photos.map((src) => <img key={src} src={src} alt="" />)}
+            </div>
+          </div>
+        ) : null}
         <div className="site-emag-special-race__intro">
           <span>{race.discipline}</span>
-          <strong>{race.entries.length} participants</strong>
+          <strong>{race.entries.length ? `${race.entries.length} participants` : "Line-up"}</strong>
         </div>
         {race.entries.length === 0 ? (
-          <p className="site-emag-empty">Participants have not been entered yet.</p>
+          <p className="site-emag-empty">The line-up will be announced closer to the meeting.</p>
         ) : (
           <table className="site-emag-table">
             <thead>

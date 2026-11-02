@@ -4725,6 +4725,59 @@
   font-weight: 700;
 }
 
+.site-emag-special-race__story {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.site-emag-special-race__about p {
+  margin: 0 0 14px;
+  color: #1f3550;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+.site-emag-special-race__about dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.site-emag-special-race__about dl > div {
+  padding: 9px 12px;
+  border-left: 4px solid #e30613;
+  background: #f3f7fb;
+}
+
+.site-emag-special-race__about dt {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5b6b7d;
+}
+
+.site-emag-special-race__about dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+  color: #10253d;
+}
+
+.site-emag-special-race__photos {
+  display: grid;
+  gap: 10px;
+}
+
+.site-emag-special-race__photos img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 14px;
+  display: block;
+}
+
 /* Duel / athletes to watch (2026 e-magazine style): photos side by side on
    the full page, event on top, VS in the middle of a duel, names, flags and
    PB on a blue gradient at the bottom. */
