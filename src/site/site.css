@@ -4648,6 +4648,12 @@
   color: #1999e9;
 }
 
+.site-emag-timetable__info-row td:last-child {
+  color: #6b7280;
+  font-style: italic;
+  font-weight: 600;
+}
+
 .site-emag-timetable__header-row td {
   background: linear-gradient(90deg, #c11a34 0%, #de304c 100%);
   color: #fff;

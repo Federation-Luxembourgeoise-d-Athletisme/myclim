@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { FileUpload } from "./file-upload";
 import { setSiteEditionYear, useSiteEditionYear } from "./edition";
@@ -35,6 +35,7 @@ import {
   serializePrizeMoneySystems,
 } from "./prize-money-utils";
 import { updateEdition, useMeetingEditions } from "./meeting-history-hooks";
+import { defaultTimetableNote, parseTimetablePaste } from "./timetable-import";
 
 /* ── Shared helpers ──────────────────────────────────────── */
 function getDisplayHostname(url) {
@@ -1174,6 +1175,9 @@ export function WebsiteEditionPage({ Panel }) {
   const [ttForm, setTtForm] = useState({ type: "event", time: "", gender: "WOMEN", event: "", round: "Final", isField: false, label: "PRE-PROGRAM" });
   const [timetableSaving, setTimetableSaving] = useState(false);
   const [timetableStatusSaving, setTimetableStatusSaving] = useState(false);
+  const [ttPaste, setTtPaste] = useState("");
+  const [ttNoteDraft, setTtNoteDraft] = useState(null);
+  const ttParsed = useMemo(() => parseTimetablePaste(ttPaste), [ttPaste]);
 
   function getDisc(event) {
     return (selectedEdition?.disciplines || []).find((d) => d.event === event)
@@ -1209,6 +1213,29 @@ export function WebsiteEditionPage({ Panel }) {
     setTimetableStatusSaving(true);
     try { await updateEdition(effectiveYear, { timetableStatus: value }); }
     finally { setTimetableStatusSaving(false); }
+  }
+
+  // Replaces the whole timetable with the pasted rows and stamps the version
+  // note with today's date.
+  async function handleReplaceTimetable() {
+    if (!ttParsed.entries.length) return;
+    if ((selectedEdition?.timetable || []).length
+      && !window.confirm(`Remplacer les ${(selectedEdition.timetable || []).length} entrées actuelles par ${ttParsed.entries.length} entrées ?`)) return;
+    const note = defaultTimetableNote();
+    setTimetableSaving(true);
+    try {
+      await updateEdition(effectiveYear, { timetable: ttParsed.entries, timetableNote: note });
+      setTtPaste("");
+      setTtNoteDraft(null);
+    } finally { setTimetableSaving(false); }
+  }
+
+  async function handleSaveTimetableNote() {
+    setTimetableSaving(true);
+    try {
+      await updateEdition(effectiveYear, { timetableNote: (ttNoteDraft ?? "").trim() });
+      setTtNoteDraft(null);
+    } finally { setTimetableSaving(false); }
   }
 
   async function handleRemoveTimetableEntry(id) {
@@ -1759,6 +1786,63 @@ export function WebsiteEditionPage({ Panel }) {
               </div>
             )}
 
+            {/* Version note shown above the timetable on the site, e-magazine and roadbook */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: "0.7rem", color: "#6b7280", marginBottom: 3 }}>Mention affichée au-dessus de l'horaire (en anglais)</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  type="text"
+                  value={ttNoteDraft ?? selectedEdition.timetableNote ?? ""}
+                  onChange={(e) => setTtNoteDraft(e.target.value)}
+                  placeholder={defaultTimetableNote()}
+                  style={{ ...inp, flex: "1 1 320px" }}
+                />
+                <button
+                  className="btn btn--secondary"
+                  style={{ fontSize: "0.8rem" }}
+                  onClick={() => setTtNoteDraft(defaultTimetableNote())}
+                >Version du jour</button>
+                <button
+                  className="btn btn--secondary"
+                  style={{ fontSize: "0.8rem" }}
+                  disabled={timetableSaving || ttNoteDraft === null}
+                  onClick={handleSaveTimetableNote}
+                >Enregistrer</button>
+              </div>
+            </div>
+
+            {/* Paste from Excel / Word */}
+            <details style={{ marginBottom: 12, padding: "10px 12px", background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: "0.78rem", color: "#374151" }}>
+                Coller un horaire complet (Excel / Word)
+              </summary>
+              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "8px 0" }}>
+                Une ligne par entrée : heure, genre, épreuve et tour (ex. « 16:10 Women 60m Heat 1 »). Les lignes sans épreuve
+                (vidéo, présentation, cérémonie…) deviennent des lignes d'info. Remplace tout l'horaire et met la mention à la date du jour.
+              </p>
+              <textarea
+                value={ttPaste}
+                onChange={(e) => setTtPaste(e.target.value)}
+                rows={8}
+                placeholder={"16:00\t\tOfficial Opening by Speaker\n16:10\tWomen\t60m Heat 1"}
+                style={{ ...inp, width: "100%", fontFamily: "monospace", fontSize: "0.78rem", boxSizing: "border-box" }}
+              />
+              {ttPaste.trim() ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.75rem", color: "#374151" }}>
+                    {ttParsed.entries.filter((e) => e.type === "event").length} épreuve(s), {ttParsed.entries.filter((e) => e.type === "info").length} ligne(s) d'info
+                    {ttParsed.skipped.length ? ` — ignorées : ${ttParsed.skipped.join(" · ")}` : ""}
+                  </span>
+                  <button
+                    className="btn btn--primary"
+                    style={{ fontSize: "0.8rem" }}
+                    disabled={timetableSaving || !ttParsed.entries.length}
+                    onClick={handleReplaceTimetable}
+                  >Remplacer l'horaire</button>
+                </div>
+              ) : null}
+            </details>
+
             {/* Existing entries */}
             {(selectedEdition.timetable || []).length > 0 && (
               <div style={{ marginBottom: 20, border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
@@ -1797,7 +1881,7 @@ export function WebsiteEditionPage({ Panel }) {
                           <span style={{ fontSize: "0.72rem", color: entry.isField ? "rgba(255,255,255,0.5)" : "#9ca3af" }}>{idx + 1}</span>
                           <span style={{ fontSize: "0.82rem", fontWeight: 600 }}>{entry.time || "—"}</span>
                           <span style={{ fontSize: "0.75rem", opacity: 0.85 }}>{entry.gender || "—"}</span>
-                          <span style={{ fontSize: "0.82rem" }}>{entry.event}</span>
+                          <span style={{ fontSize: "0.82rem", fontStyle: entry.type === "info" ? "italic" : "normal" }}>{entry.type === "info" ? entry.label : entry.event}</span>
                           <span style={{ fontSize: "0.72rem", opacity: 0.8 }}>{entry.round || ""}</span>
                         </>
                       )}
