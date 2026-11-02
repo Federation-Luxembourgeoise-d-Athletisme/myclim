@@ -9,6 +9,7 @@ import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emaga
 import {
   buildAthleteOptions,
   buildEmagazinePageRegistry,
+  buildOfficialStartlistGroups,
   normalizeEmagazineConfig,
 } from "../site/site-emagazine-shared";
 
@@ -398,6 +399,11 @@ export function WebsiteEmagazinePage({ Panel }) {
     [visiblePages, draft],
   );
 
+  const startlistGroups = useMemo(
+    () => buildOfficialStartlistGroups(selectedEdition?.disciplines || [], []),
+    [selectedEdition?.disciplines],
+  );
+
   const hiddenPages = useMemo(
     () => pageRegistry.filter((page) => !(draft?.pageOrder || []).includes(page.id)),
     [pageRegistry, draft?.pageOrder],
@@ -748,6 +754,37 @@ export function WebsiteEmagazinePage({ Panel }) {
                     <A4FormatHint imageUrl={page.imageUrl} />
                   </div>
                   <EmptyButton onClick={() => removeSponsorPage(page.id)} style={{ color: "#c62828" }}>Remove</EmptyButton>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div id="emag-startlist-photos" style={{ padding: 20, borderRadius: 16, background: "#f8fbff", border: "1px solid #dbe4ee", display: "grid", gap: 16 }}>
+          <div>
+            <h3 style={{ margin: 0, color: "#10253d" }}>Start list photos</h3>
+            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem", maxWidth: 720 }}>
+              One photo per event, shown as a banner behind the title and records at the top of its start list page.
+              Landscape photos work best; the bottom of the photo is darkened so the title stays readable.
+            </p>
+          </div>
+          {startlistGroups.length === 0 ? (
+            <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No official discipline configured for this edition yet.</p>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+              {startlistGroups.map((group) => (
+                <div key={group.id} style={{ display: "grid", gap: 8, padding: 14, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
+                  <strong style={{ color: "#10253d", fontSize: "0.9rem" }}>{group.title}</strong>
+                  <FileUpload
+                    value={draft.startlistPhotos[group.id] || ""}
+                    onChange={(url) => setDraft((current) => ({
+                      ...current,
+                      startlistPhotos: { ...current.startlistPhotos, [group.id]: url },
+                    }))}
+                    accept="image/*"
+                    storagePath="emagazine-startlist-photos"
+                    label="Event photo"
+                  />
                 </div>
               ))}
             </div>

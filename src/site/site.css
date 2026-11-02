@@ -4991,7 +4991,32 @@
   margin-bottom: 16px;
 }
 
-/* 17+ athletes (e.g. 3 heats of 8): tighter rows so it stays on one A4 page. */
+/* Event photo: full-bleed band at the top of the page, title and records
+   over it. It reuses the frame's top padding, so on a full page (3 heats)
+   it costs no extra height; lighter pages get a taller band. */
+.site-emag-page__header--photo {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 360px;
+  margin: -48px -48px 18px;
+  padding: 48px 48px 20px;
+  background-size: cover;
+  background-position: center;
+}
+
+.site-emag-page--full .site-emag-page__header--photo {
+  min-height: 0;
+}
+
+.site-emag-page__header--photo .site-emag-page__eyebrow,
+.site-emag-page__header--photo h2,
+.site-emag-page__header--photo .site-emag-page__subtitle {
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* More than one heat: tighter rows so up to 3 heats of 8 stay on one A4 page. */
 .site-emag-startlist--compact {
   gap: 8px;
 }

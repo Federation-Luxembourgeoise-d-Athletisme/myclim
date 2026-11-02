@@ -126,12 +126,17 @@ function StartlistEntryRow({ entry }) {
   );
 }
 
-function MagazinePage({ theme = "light", eyebrow, title, subtitle, headerExtra, children, className = "" }) {
+function MagazinePage({ theme = "light", eyebrow, title, subtitle, headerExtra, headerImage, children, className = "" }) {
   return (
     <section className={`site-emag-page site-emag-page--${theme} ${className}`.trim()}>
       <div className="site-emag-page__frame">
         {(eyebrow || title || subtitle || headerExtra) ? (
-          <header className="site-emag-page__header">
+          <header
+            className={`site-emag-page__header${headerImage ? " site-emag-page__header--photo" : ""}`}
+            style={headerImage
+              ? { backgroundImage: `linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.72) 100%), url(${headerImage})` }
+              : undefined}
+          >
             {eyebrow ? <p className="site-emag-page__eyebrow">{eyebrow}</p> : null}
             {title ? <h2>{title}</h2> : null}
             {subtitle ? <p className="site-emag-page__subtitle">{subtitle}</p> : null}
@@ -472,7 +477,7 @@ function RecordBanners({ meetingRecord, europeanRecord }) {
   );
 }
 
-function OfficialStartlistPage({ group, sbSeason }) {
+function OfficialStartlistPage({ group, sbSeason, photoUrl }) {
   const groupedHeats = group.entries.reduce((accumulator, entry) => {
     const heatKey = entry.heat || "Main list";
     if (!accumulator.has(heatKey)) accumulator.set(heatKey, []);
@@ -480,8 +485,10 @@ function OfficialStartlistPage({ group, sbSeason }) {
     return accumulator;
   }, new Map());
   const heatCount = [...groupedHeats.keys()].filter((heat) => heat !== "Main list").length;
-  // Up to three heats of 8 must fit on one A4 page: tighter rows past 16 athletes.
-  const isCompact = group.entries.length > 16;
+  // Up to three heats of 8 must fit on one A4 page: tighter rows past one
+  // heat, and past two heats the photo band shrinks to the title area.
+  const isCompact = group.entries.length > 8;
+  const isFull = group.entries.length > 16;
 
   return (
     <MagazinePage
@@ -492,6 +499,8 @@ function OfficialStartlistPage({ group, sbSeason }) {
         ? `${group.entries.length} athletes${heatCount > 1 ? ` · ${heatCount} heats` : ""}`
         : ""}
       headerExtra={<RecordBanners meetingRecord={group.meetingRecord} europeanRecord={group.europeanRecord} />}
+      headerImage={photoUrl}
+      className={isFull ? "site-emag-page--full" : ""}
     >
       <div className={`site-emag-startlist${isCompact ? " site-emag-startlist--compact" : ""}`}>
         {group.entries.length === 0 ? (
@@ -662,7 +671,7 @@ export function SiteEmagazine() {
           .map((group) => ({
             key: `startlist-${group.id}`,
             title: group.title,
-            element: <OfficialStartlistPage group={group} sbSeason={sbSeason} />,
+            element: <OfficialStartlistPage group={group} sbSeason={sbSeason} photoUrl={emagazine.startlistPhotos[group.id]} />,
           }));
       }
       if (pageId.startsWith("official-startlist:")) {
@@ -671,7 +680,7 @@ export function SiteEmagazine() {
         return group ? [{
           key: `startlist-${group.id}`,
           title: group.title,
-          element: <OfficialStartlistPage group={group} sbSeason={sbSeason} />,
+          element: <OfficialStartlistPage group={group} sbSeason={sbSeason} photoUrl={emagazine.startlistPhotos[group.id]} />,
         }] : [];
       }
       if (pageId.startsWith("special:")) {
