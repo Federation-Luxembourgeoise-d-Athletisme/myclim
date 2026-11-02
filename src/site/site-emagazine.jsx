@@ -6,6 +6,8 @@ import { useMeetingEditions, useMeetingRecords } from "../app/meeting-history-ho
 import { useSponsors } from "./site-hooks";
 import { sponsorCategoryLabel } from "./sponsor-utils";
 import heroImage from "../assets/partner-stories/cmcm-athlete-moment.jpg";
+// Same key visual as the website home hero: default visual of the cover.
+import coverVisual from "../assets/hero-banner.jpg";
 import venueImage from "../assets/site-gallery/Coque2026.jpg";
 import {
   athleteDisplayName,
@@ -174,7 +176,7 @@ function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl }) {
           <span className="site-emag-cover__year">{edition?.year || ""}</span>
         </header>
         <div className="site-emag-cover__visual">
-          <img src={visualUrl || heroImage} alt="CMCM Luxembourg Indoor Meeting" />
+          <img src={visualUrl || coverVisual} alt="CMCM Luxembourg Indoor Meeting" />
         </div>
         <footer className="site-emag-cover__foot">
           <div>

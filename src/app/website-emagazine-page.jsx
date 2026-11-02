@@ -711,7 +711,7 @@ export function WebsiteEmagazinePage({ Panel }) {
             onChange={(url) => setDraft((current) => ({ ...current, cover: { ...current.cover, visualUrl: url } }))}
             accept="image/*"
             storagePath="emagazine-imported-pages"
-            label="Key visual (landscape, e.g. 16:9 — cropped at the sides to fill the cover)"
+            label="Key visual (landscape, cropped at the sides) — empty = the website home hero banner"
           />
           <FileUpload
             value={draft.cover.imageUrl}
