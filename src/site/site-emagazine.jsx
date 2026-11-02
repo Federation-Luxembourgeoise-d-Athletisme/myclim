@@ -5,7 +5,6 @@ import { useAthleteRegistry, useAthletes } from "../app/athlete-portal-hooks";
 import { useMeetingEditions, useMeetingRecords } from "../app/meeting-history-hooks";
 import { useSponsors } from "./site-hooks";
 import { normalizeSponsorCategory, sponsorCategoryLabel } from "./sponsor-utils";
-import heroImage from "../assets/partner-stories/cmcm-athlete-moment.jpg";
 // Same key visual as the website home hero: default visual of the cover.
 import coverVisual from "../assets/hero-banner.jpg";
 import meetingLogo from "../assets/cmcm-logo.png";
@@ -13,15 +12,13 @@ import waSilverLogo from "../assets/wa-indoor-tour-silver.png";
 import venueImage from "../assets/site-gallery/Coque2026.jpg";
 import {
   athleteDisplayName,
-  athleteParticipationSummary,
-  athleteStats,
-  athleteSubtitle,
   buildAthleteLookup,
   buildOfficialStartlistGroups,
   buildSpecialRaceStartlistGroups,
   disciplineSortIndex,
   findMeetingRecord,
   normalizeEmagazineConfig,
+  parseEventField,
 } from "./site-emagazine-shared";
 import {
   PAGE_VIEW_DELAY_MS,
@@ -183,7 +180,8 @@ function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl, mainPart
         <footer className="site-emag-cover__foot">
           <div>
             <p className="site-emag-cover__meta">
-              {formatEditionDate(edition?.date)} <span>•</span> {edition?.venue || "Coque, Luxembourg"}
+              {formatEditionDate(edition?.date)}
+              <span>{edition?.venue || "Coque, Luxembourg"}</span>
             </p>
             <p className="site-emag-cover__lead">
               Start lists, highlights, partner stories and the full build-up to this year’s meeting.
@@ -391,68 +389,75 @@ const HIGHLIGHT_TITLES = {
   duel: "A duel to watch",
 };
 
+const FIELD_EVENT_RE = /jump|vault|put|throw/i;
+
+// "Long Jump Men" from the athletes' Event column ("Long Jump M").
+function highlightEventTitle(athletes) {
+  const parsed = parseEventField(athletes.find((athlete) => athlete.event)?.event);
+  if (!parsed.discipline) return "";
+  const gender = parsed.gender === "W" ? "Women" : parsed.gender === "M" ? "Men" : "";
+  return `${parsed.discipline} ${gender}`.trim();
+}
+
+// "8.25 (2024)" → "8.25M" for field events, "6.55" for running events.
+function highlightPb(athlete, eventTitle) {
+  const mark = String(athlete.waPbIndoor || athlete.pbIndoor || athlete.pb || "").replace(/\s*\(.*\)\s*$/, "").trim();
+  if (!mark) return "";
+  return FIELD_EVENT_RE.test(eventTitle) && /^\d+([.,]\d+)?$/.test(mark) ? `${mark}M` : mark;
+}
+
+// Duel / trio / quatuor / spotlight, in the 2026 e-magazine style: full-height
+// photos side by side, the event on top, "VS" in the middle of a duel, and
+// name, flag and PB on a blue gradient at the bottom.
 function HighlightPage({ page, athletes }) {
-  const title = page.title || HIGHLIGHT_TITLES[page.type] || "Athlete spotlight";
-  const isMulti = athletes.length > 1;
-  const heroAthlete = athletes[0];
-  const heroPhoto = heroAthlete ? (page.athletePhotos?.[heroAthlete._docId] || heroAthlete.photoUrl) : "";
+  const eventTitle = highlightEventTitle(athletes);
+  const title = page.title || eventTitle || HIGHLIGHT_TITLES[page.type] || "Athlete spotlight";
+  const count = Math.max(1, athletes.length);
 
   return (
-    <MagazinePage
-      theme="highlight"
-      eyebrow="Highlights"
-      title={title}
-      subtitle={page.subtitle || "Auto-filled from the athlete database and editable in the admin."}
-    >
-      <div
-        className={`site-emag-highlight ${isMulti ? "site-emag-highlight--multi" : "site-emag-highlight--single"}`}
-        style={!isMulti ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.75)), url(${heroPhoto || page.imageUrl || heroImage})` } : undefined}
-      >
-        <div className="site-emag-highlight__content">
-          {page.body ? <p className="site-emag-highlight__body">{page.body}</p> : null}
-          <div className="site-emag-highlight__grid" data-count={athletes.length}>
-            {athletes.map((athlete, index) => (
-              <article key={athlete._docId} className="site-emag-athlete-card" data-accent={index % 2 === 0 ? "red" : "blue"}>
-                {isMulti ? (
-                  <div className="site-emag-athlete-card__photo">
-                    {(page.athletePhotos?.[athlete._docId] || athlete.photoUrl) ? (
-                      <img src={page.athletePhotos?.[athlete._docId] || athlete.photoUrl} alt={athleteDisplayName(athlete)} />
-                    ) : (
-                      <span className="site-emag-athlete-card__photo-placeholder" aria-hidden="true" />
-                    )}
-                  </div>
-                ) : null}
-                <div>
-                  <h3>{athleteDisplayName(athlete) || "Athlete to be announced"}</h3>
-                  <p>{athleteSubtitle(athlete) || "Profile loading from database"}</p>
-                </div>
-                <div className="site-emag-athlete-card__stats">
-                  {athleteStats(athlete).map((stat) => (
-                    <span key={`${athlete._docId}-${stat.label}`}>
-                      <small>{stat.label}</small>
-                      <strong>{stat.value}</strong>
-                    </span>
-                  ))}
-                </div>
-                {athleteParticipationSummary(athlete).length > 0 ? (
-                  <div className="site-emag-athlete-card__history">
-                    <small>Meeting history</small>
-                    <ul>
-                      {athleteParticipationSummary(athlete).map((entry) => (
-                        <li key={`${athlete._docId}-${entry.year}-${entry.discipline}`}>
-                          {entry.year} • {entry.discipline} • {entry.result || "—"}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </article>
-            ))}
-            {athletes.length === 0 ? <p className="site-emag-empty">Select athletes in the admin to generate this page.</p> : null}
+    <section className="site-emag-page site-emag-duel" data-count={count}>
+      <div className="site-emag-duel__photos">
+        {athletes.length === 0 ? (
+          <div className="site-emag-duel__photo">
+            {page.imageUrl ? <img src={page.imageUrl} alt="" /> : null}
           </div>
+        ) : athletes.map((athlete, index) => {
+          const photo = page.athletePhotos?.[athlete._docId] || athlete.photoUrl || (count === 1 ? page.imageUrl : "");
+          return (
+            <div key={athlete._docId} className="site-emag-duel__photo" data-side={index % 2 === 0 ? "red" : "blue"}>
+              {photo ? <img src={photo} alt={athleteDisplayName(athlete)} /> : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <h2 className="site-emag-duel__title">{title}</h2>
+      {page.subtitle ? <p className="site-emag-duel__subtitle">{page.subtitle}</p> : null}
+      {count === 2 ? <span className="site-emag-duel__vs" aria-hidden="true">VS</span> : null}
+
+      <div className="site-emag-duel__footer">
+        {page.body && count === 1 ? <p className="site-emag-duel__body">{page.body}</p> : null}
+        <div className="site-emag-duel__athletes">
+          {athletes.map((athlete) => {
+            const pb = highlightPb(athlete, eventTitle || title);
+            const flagUrl = nationFlagUrl(athlete.nationality);
+            return (
+              <div key={athlete._docId} className="site-emag-duel__athlete">
+                <strong>
+                  <span>{athlete.firstName}</span>
+                  <span>{athlete.lastName}</span>
+                </strong>
+                {flagUrl ? <img src={flagUrl} alt={athlete.nationality} className="site-emag-duel__flag" /> : null}
+                {pb ? <span className="site-emag-duel__pb">PB: {pb}</span> : null}
+              </div>
+            );
+          })}
+          {athletes.length === 0 ? (
+            <p className="site-emag-duel__empty">Select the athletes of this page in the e-magazine admin.</p>
+          ) : null}
         </div>
       </div>
-    </MagazinePage>
+    </section>
   );
 }
 

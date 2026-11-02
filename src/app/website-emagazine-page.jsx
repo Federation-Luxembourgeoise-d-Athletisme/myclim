@@ -225,7 +225,7 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
         <div>
           <h4 style={{ margin: 0, fontSize: "1rem", color: "#10253d" }}>{page.title || "Highlight page"}</h4>
           <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "0.82rem" }}>
-            Auto-filled from the athlete database.
+            One full-height photo per athlete (upload it under each athlete), with name, flag and PB from the athlete database.
           </p>
         </div>
         <EmptyButton onClick={onRemove} style={{ color: "#c62828" }}>Remove</EmptyButton>
