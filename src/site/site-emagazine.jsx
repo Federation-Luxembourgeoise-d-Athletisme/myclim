@@ -22,6 +22,7 @@ import sponsorsPhoto from "../assets/site-gallery/gallery-memories.jpg";
 import flaLogo from "../assets/fla-logo.png";
 import flaClubsQr from "../assets/fla-clubs-qr.png";
 import flaClubs from "../data/flaClubs.json";
+import { SponsorLogo } from "./sponsor-logo";
 import {
   athleteDisplayName,
   buildAthleteLookup,
@@ -371,7 +372,7 @@ function SponsorsPage({ sponsors }) {
                   className="site-emag-sponsors__logo"
                 >
                   {sponsor.logoUrl ? (
-                    <img src={sponsor.logoUrl} alt={sponsor.name || "Sponsor"} />
+                    <SponsorLogo sponsor={sponsor} alt={sponsor.name || "Sponsor"} />
                   ) : (
                     <span>{sponsor.name || "Sponsor"}</span>
                   )}

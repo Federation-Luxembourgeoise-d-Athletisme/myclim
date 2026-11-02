@@ -4694,7 +4694,9 @@
 }
 
 .site-emag-sponsors__logo {
-  min-height: 96px;
+  /* Fixed height: the logo is sized from this box (see SponsorLogo). */
+  height: 96px;
+  box-sizing: border-box;
   padding: 16px;
   border-radius: 20px;
   border: 1px solid #d9e4ef;
@@ -4705,11 +4707,6 @@
   text-decoration: none;
 }
 
-.site-emag-sponsors__logo img {
-  max-width: 100%;
-  max-height: 60px;
-  object-fit: contain;
-}
 
 .site-emag-special-race {
   display: grid;

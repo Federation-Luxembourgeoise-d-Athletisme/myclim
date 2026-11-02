@@ -18,7 +18,9 @@ import {
   useSponsors,
 } from "../site/site-hooks";
 import {
+  DEFAULT_MANUAL_LOGO,
   DEFAULT_SPONSOR_MEDIA_SETTINGS,
+  getManualLogoSettings,
   getSponsorMediaSettings,
 } from "../site/sponsor-media-utils";
 import { SponsorLogo } from "../site/sponsor-logo";
@@ -551,6 +553,8 @@ function SponsorForm({ initial, categories, onSave, onCancel }) {
   const labelStyle = { fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#546770", display: "block", marginBottom: 6 };
   const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)", fontSize: "0.9rem", fontFamily: "inherit" };
   const previewSponsor = { ...data, ...getSponsorMediaSettings(data) };
+  const isManualLogo = data.logoMode === "manual";
+  const manualLogo = getManualLogoSettings({ ...data, logoMode: "manual" });
 
   return (
     <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 16, padding: 32, maxWidth: 640 }}>
@@ -590,91 +594,104 @@ function SponsorForm({ initial, categories, onSave, onCancel }) {
           helperText="PNG, WEBP, JPEG or SVG · empty margins are removed automatically"
         />
         <div style={{ padding: 16, borderRadius: 12, border: "1px solid rgba(15,23,42,0.08)", background: "#f8fafc", display: "grid", gap: 14 }}>
-          <div>
-            <label style={labelStyle}>Logo size</label>
-            <p style={{ fontSize: "0.8rem", color: "#546770", lineHeight: 1.5 }}>
-              Logos are sized automatically so they all look the same size, whatever their shape. Use the zoom only to fine-tune a logo that still looks too light or too heavy next to the others.
-            </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Logo size</label>
+            <div style={{ display: "inline-flex", borderRadius: 8, border: "1px solid #cbd5e1", overflow: "hidden" }}>
+              {[
+                { key: "auto", label: "Automatic" },
+                { key: "manual", label: "Manual" },
+              ].map((mode) => {
+                const active = (mode.key === "manual") === isManualLogo;
+                return (
+                  <button
+                    key={mode.key}
+                    type="button"
+                    onClick={() => {
+                      set("logoMode", mode.key);
+                      if (mode.key === "auto") set("logoFit", DEFAULT_SPONSOR_MEDIA_SETTINGS.logoFit);
+                    }}
+                    style={{ padding: "6px 14px", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, background: active ? "#163c6b" : "#fff", color: active ? "#fff" : "#475569" }}
+                  >
+                    {mode.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 16, alignItems: "start" }}>
+          <p style={{ fontSize: "0.8rem", color: "#546770", lineHeight: 1.5, margin: 0 }}>
+            {isManualLogo
+              ? "You set the size yourself: 100% = the whole logo fits its box edge to edge. Go above 100% to crop the empty margins of the file, then centre it with the offsets. The previews show the real boxes."
+              : "Every logo gets the same visual weight automatically. Switch to Manual if one still looks wrong."}
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 200px", gap: 16, alignItems: "start" }}>
             <div style={{ display: "grid", gap: 12 }}>
-              <div>
-                <label style={labelStyle}>Fit mode</label>
-                <select
-                  style={inputStyle}
-                  value={data.logoFit}
-                  onChange={(e) => set("logoFit", e.target.value)}
-                >
-                  <option value="contain">Contain the full logo</option>
-                  <option value="cover">Cover the full rectangle</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Zoom: {previewSponsor.logoScale}%</label>
-                <input
-                  type="range"
-                  min="60"
-                  max="200"
-                  step="5"
-                  value={previewSponsor.logoScale}
-                  onChange={(e) => set("logoScale", Number(e.target.value))}
-                  style={{ width: "100%" }}
-                />
-              </div>
-              {previewSponsor.logoFit === "cover" ? (<>
-              <div>
-                <label style={labelStyle}>Horizontal position: {previewSponsor.logoPositionX}%</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={previewSponsor.logoPositionX}
-                  onChange={(e) => set("logoPositionX", Number(e.target.value))}
-                  style={{ width: "100%" }}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Vertical position: {previewSponsor.logoPositionY}%</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={previewSponsor.logoPositionY}
-                  onChange={(e) => set("logoPositionY", Number(e.target.value))}
-                  style={{ width: "100%" }}
-                />
-              </div>
-              </>) : null}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    set("logoFit", DEFAULT_SPONSOR_MEDIA_SETTINGS.logoFit);
-                    set("logoScale", DEFAULT_SPONSOR_MEDIA_SETTINGS.logoScale);
-                    set("logoPositionX", DEFAULT_SPONSOR_MEDIA_SETTINGS.logoPositionX);
-                    set("logoPositionY", DEFAULT_SPONSOR_MEDIA_SETTINGS.logoPositionY);
-                  }}
-                >
-                  Reset size
-                </button>
-              </div>
+              {isManualLogo ? (
+                <>
+                  {[
+                    { field: "logoBoxScale", label: "Size in the box", min: 20, max: 300, step: 5, unit: "%" },
+                    { field: "logoOffsetX", label: "Move left / right", min: -50, max: 50, step: 1, unit: "%" },
+                    { field: "logoOffsetY", label: "Move up / down", min: -50, max: 50, step: 1, unit: "%" },
+                  ].map((control) => (
+                    <div key={control.field}>
+                      <label style={labelStyle}>{control.label}: {manualLogo[control.field]}{control.unit}</label>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <button type="button" className="btn btn-secondary" style={{ padding: "2px 10px" }} onClick={() => set(control.field, Math.max(control.min, manualLogo[control.field] - control.step))}>−</button>
+                        <input
+                          type="range"
+                          min={control.min}
+                          max={control.max}
+                          step={control.step}
+                          value={manualLogo[control.field]}
+                          onChange={(e) => set(control.field, Number(e.target.value))}
+                          style={{ flex: 1 }}
+                        />
+                        <button type="button" className="btn btn-secondary" style={{ padding: "2px 10px" }} onClick={() => set(control.field, Math.min(control.max, manualLogo[control.field] + control.step))}>+</button>
+                      </div>
+                    </div>
+                  ))}
+                  <div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        set("logoBoxScale", DEFAULT_MANUAL_LOGO.logoBoxScale);
+                        set("logoOffsetX", DEFAULT_MANUAL_LOGO.logoOffsetX);
+                        set("logoOffsetY", DEFAULT_MANUAL_LOGO.logoOffsetY);
+                      }}
+                    >
+                      Reset (100%, centred)
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label style={labelStyle}>Fine-tune: {previewSponsor.logoScale}%</label>
+                  <input
+                    type="range"
+                    min="60"
+                    max="200"
+                    step="5"
+                    value={previewSponsor.logoScale}
+                    onChange={(e) => set("logoScale", Number(e.target.value))}
+                    style={{ width: "100%" }}
+                  />
+                </div>
+              )}
             </div>
             <div>
               <div style={{ fontSize: "0.72rem", color: "#6b7280", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Preview
+                Preview (real size)
               </div>
               {data.logoUrl ? (
                 <div style={{ display: "grid", gap: 8 }}>
                   {[
-                    { label: "Website", width: 180, height: 58 },
-                    { label: "Links page", width: 77, height: 63 },
+                    { label: "Website", width: 180, height: 58, padding: 8 },
+                    { label: "E-magazine", width: 150, height: 96, padding: 16 },
+                    { label: "Links page", width: 77, height: 63, padding: 8 },
                   ].map((frame) => (
                     <div key={frame.label}>
                       <div style={{ fontSize: "0.7rem", color: "#6b7280", marginBottom: 4 }}>{frame.label}</div>
-                      <div style={{ width: frame.width, height: frame.height, padding: 8, boxSizing: "border-box", borderRadius: 10, border: "1px solid rgba(0,0,0,0.08)", background: "#fff", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: frame.width, height: frame.height, padding: frame.padding, boxSizing: "border-box", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", outline: isManualLogo ? "1px dashed rgba(22,60,107,0.25)" : "none", outlineOffset: -frame.padding }}>
                         <SponsorLogo sponsor={previewSponsor} alt={data.name || "Sponsor logo preview"} />
                       </div>
                     </div>
