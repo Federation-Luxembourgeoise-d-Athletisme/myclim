@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { deleteObject, ref as storageRef } from "firebase/storage";
+import { db, storage } from "../services/firebase";
 import { useAuth } from "../context/auth-context";
 import meetingLogoUrl from "../assets/cmcm-logo.png";
 import sponsorsStripUrl from "../assets/accreditation-sponsors-strip.png";
@@ -1855,6 +1856,8 @@ function BudgetTrackingPage({ Panel }) {
       draftBudget.currentEditionId === latestBudget.currentEditionId &&
       (activeRoles.includes("admin") || activeRoles.includes("budget") || canUploadInvoices),
   );
+  // Les règles Firestore ne laissent supprimer un document qu'aux admins et gestionnaires.
+  const canDeleteInvoices = activeRoles.includes("admin") || activeRoles.includes("gestionnaire");
   const simplifiedExpenseRows = useMemo(
     () => (draftBudget ? buildSimplifiedRows(draftBudget, "expense") : []),
     [draftBudget],
@@ -2082,6 +2085,36 @@ function BudgetTrackingPage({ Panel }) {
       console.error("Unable to link invoice to budget row", error);
       setSaveStatus("La liaison de la facture a échoué.");
       setInvoiceFilingStatus(tr("La liaison de la facture a échoué.", "Filing the invoice failed."));
+    }
+  }
+
+  async function handleDeleteInvoice(invoice) {
+    if (!invoice?.id) return;
+    const invoiceTitle = invoice.title || invoice.fileName || tr("Facture", "Invoice");
+    const confirmed = window.confirm(
+      tr(
+        `Supprimer définitivement la facture « ${invoiceTitle} » et son fichier ?`,
+        `Permanently delete the invoice "${invoiceTitle}" and its file?`,
+      ),
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, "documents", invoice.id));
+      // Le fichier est retiré ensuite ; un échec ici ne bloque pas la suppression de la facture.
+      if (invoice.filePath) {
+        await deleteObject(storageRef(storage, invoice.filePath)).catch((error) =>
+          console.warn("Unable to delete invoice file", error),
+        );
+      }
+      const message = tr(`Facture « ${invoiceTitle} » supprimée.`, `Invoice "${invoiceTitle}" deleted.`);
+      setSaveStatus(message);
+      setInvoiceFilingStatus(message);
+    } catch (error) {
+      console.error("Unable to delete invoice", error);
+      const message = tr("La suppression de la facture a échoué.", "Deleting the invoice failed.");
+      setSaveStatus(message);
+      setInvoiceFilingStatus(message);
     }
   }
 
@@ -2938,6 +2971,16 @@ function BudgetTrackingPage({ Panel }) {
                   >
                     {tr(`Envoyer un mail à ${INVOICE_CONTACT.firstName}`, `Email ${INVOICE_CONTACT.firstName}`)}
                   </button>
+                  {canDeleteInvoices ? (
+                    <button
+                      className="button button--ghost-danger"
+                      type="button"
+                      disabled={!selectedInvoiceForClassification}
+                      onClick={() => handleDeleteInvoice(selectedInvoiceForClassification)}
+                    >
+                      {tr("Supprimer la facture", "Delete invoice")}
+                    </button>
+                  ) : null}
                 </div>
 
                 {isInvoiceMailOpen && selectedInvoiceForClassification ? (
@@ -2999,6 +3042,15 @@ function BudgetTrackingPage({ Panel }) {
                                 onClick={() => handleUnlinkInvoice(invoice)}
                               >
                                 Délier
+                              </button>
+                            ) : null}
+                            {canDeleteInvoices ? (
+                              <button
+                                className="button button--ghost-danger"
+                                type="button"
+                                onClick={() => handleDeleteInvoice(invoice)}
+                              >
+                                {tr("Supprimer", "Delete")}
                               </button>
                             ) : null}
                           </div>
