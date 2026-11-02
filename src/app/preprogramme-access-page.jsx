@@ -456,7 +456,15 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
       setError(t("natErrorNoEvent"));
       return;
     }
-    if (selectedEvents.some((eventName) => parsePerformanceToSeconds(formData.events[eventName].personalBest) === null)) {
+    // En indoor, beaucoup n'ont ni PB ni SB sur la distance : il suffit d'un
+    // des trois (record, meilleure perf. 2026 ou autres temps en texte libre).
+    // Un PB/SB saisi doit en revanche être lisible pour le classement admin.
+    const eventEntries = selectedEvents.map((eventName) => formData.events[eventName]);
+    if (eventEntries.some((entry) => [entry.personalBest, entry.seasonBest].some((value) => value && parsePerformanceToSeconds(value) === null))) {
+      setError(t("natErrorPerformanceFormat"));
+      return;
+    }
+    if (eventEntries.some((entry) => ![entry.personalBest, entry.seasonBest, entry.otherTimes].some((value) => String(value || "").trim()))) {
       setError(t("natErrorPerformance"));
       return;
     }
@@ -618,7 +626,9 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
         {NATIONAL_RACE_EVENTS.map((eventName) => {
           const entry = formData.events[eventName];
           const placeholder = eventName === "800 m" ? "2:05.30" : "7.45";
-          const personalBestInvalid = entry.personalBest && parsePerformanceToSeconds(entry.personalBest) === null;
+          const hasUnreadableTime = [entry.personalBest, entry.seasonBest].some(
+            (value) => value && parsePerformanceToSeconds(value) === null,
+          );
           return (
             <div key={eventName} className="preprogramme-event-block">
               <label className="selection-card selection-card--compact">
@@ -627,17 +637,21 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
               </label>
               {entry.selected ? (
                 <>
+                  <p className="panel-note">{t("natTimesRequiredNote")}</p>
                   <div className="field-grid">
-                    <AuthFormField label={t("natPersonalBest")} hint={t("natPerformanceFormat").replace("{example}", placeholder)} required>
-                      <input inputMode="decimal" placeholder={placeholder} required value={entry.personalBest} onChange={(event) => handleEventChange(eventName, "personalBest", event.target.value)} />
+                    <AuthFormField label={t("natPersonalBest")} hint={t("natPerformanceFormat").replace("{example}", placeholder)}>
+                      <input inputMode="decimal" placeholder={placeholder} value={entry.personalBest} onChange={(event) => handleEventChange(eventName, "personalBest", event.target.value)} />
                     </AuthFormField>
                     <AuthFormField label={t("natSeasonBest")} hint={t("natSeasonBestHint")}>
                       <input inputMode="decimal" placeholder={placeholder} value={entry.seasonBest} onChange={(event) => handleEventChange(eventName, "seasonBest", event.target.value)} />
                     </AuthFormField>
                   </div>
-                  {personalBestInvalid ? <p className="form-error">{t("natErrorPerformance")}</p> : null}
+                  {hasUnreadableTime ? <p className="form-error">{t("natErrorPerformanceFormat")}</p> : null}
                   <AuthFormField label={t("natPerformanceContext")} hint={t("natPerformanceContextHint")}>
                     <input value={entry.performanceContext} onChange={(event) => handleEventChange(eventName, "performanceContext", event.target.value)} />
+                  </AuthFormField>
+                  <AuthFormField label={t("natOtherTimes")} hint={t("natOtherTimesHint")}>
+                    <textarea rows="2" value={entry.otherTimes} onChange={(event) => handleEventChange(eventName, "otherTimes", event.target.value)} />
                   </AuthFormField>
                 </>
               ) : null}

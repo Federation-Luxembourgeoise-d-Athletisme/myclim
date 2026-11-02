@@ -68,7 +68,7 @@ function getU14PageHeader(activeTab, basketRequestsCount) {
       return {
         eyebrow: "Module Pré-programme",
         title: "Courses nationales",
-        description: "Demandes adultes 60 m et 800 m : sélection sur performance, puis engagement sur SELTEC.",
+        description: "Demandes adultes 60 m et 800 m, pilotées par la commission des athlètes : sélection sur performance, puis engagement SELTEC par l'organisation.",
       };
     case "timeline":
       return {

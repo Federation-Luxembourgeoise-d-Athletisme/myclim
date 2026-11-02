@@ -422,7 +422,7 @@ export function SitePreProgramme() {
                   </p>
                 </div>
                 <p style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", lineHeight: 1.7, marginTop: 0, marginBottom: 16 }}>
-                  Women's and men's 60m and 800m races are held before the main programme: 8 places per 60m race, 6 per 800m race. Athletes apply on MyCLIM; the athletes' commission selects on performance, with priority to Luxembourg licence holders. Selected athletes then confirm their entry on SELTEC.
+                  Women's and men's 60m and 800m races are held before the main programme: 8 places per 60m race, 6 per 800m race. The national races are run by the athletes' commission: athletes apply on MyCLIM, selection is based on performance with priority to Luxembourg licence holders, and the organisers then handle the entries of selected athletes.
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
                   {nationalRaces.map(({ event, icon }) => (

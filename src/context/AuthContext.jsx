@@ -699,6 +699,7 @@ export function AuthProvider({ children }) {
           personalBest: eventEntry.personalBest,
           seasonBest: eventEntry.seasonBest,
           performanceContext: eventEntry.performanceContext,
+          otherTimes: eventEntry.otherTimes || "",
           notes: formData.notes,
           isMinor,
           guardianFirstName: isMinor ? formData.guardianFirstName : "",

@@ -77,7 +77,7 @@ const ROLE_ACCESS_DESCRIPTIONS = {
   chef_equipe: "Accès à \"Mon équipe\" : consulter les membres de son équipe et ajouter des documents utiles pour elle. Voit aussi les présences limitées à ses équipes.",
   benevole: "Accès à l'espace bénévole standard : dossier bénévole, mes affectations et mes documents.",
   parent_u14: "Accès à \"Mes enfants\" : suivi des inscriptions au pré-programme U12/U14 et au porte-panier.",
-  athlete_preprogram: "Accès à \"Mon inscription\" : suivi de sa demande aux courses nationales du pré-programme (60 m / 800 m) et lien SELTEC une fois retenu.",
+  athlete_preprogram: "Accès à \"Mon inscription\" : suivi de sa demande aux courses nationales du pré-programme (60 m / 800 m).",
   chef_transport_athletes: "Responsable du transport : voit arrivées et départs des athlètes avec leur manager, et répartit les bénévoles transport. Inclut tout ce que voit un bénévole transport.",
   benevole_transport_athletes: "Bénévole transport : voit uniquement les arrivées des athlètes qu'il ou elle va chercher (nom, jour, heure, vol, provenance).",
   kine: "Accès à la page « Réservations kiné » : voir et gérer les créneaux de soins réservés par les athlètes.",

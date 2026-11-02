@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { useSiteEditionYear } from "./edition";
-import { useMeetingEditions } from "./meeting-history-hooks";
 import { useLanguage } from "./language-context";
 import {
   NATIONAL_RACE_REQUESTS_COLLECTION,
@@ -15,24 +13,11 @@ import { formatDateTimeForDisplay } from "./u14-helpers";
 import { useAuth } from "../context/auth-context";
 import { db } from "../services/firebase";
 
-// Même lien SELTEC que celui configuré pour le site (réglages de l'édition) :
-// l'athlète retenu s'y engage ensuite comme pour le programme principal.
-function useNationalRacesSeltecUrl() {
-  const { siteEditionYear } = useSiteEditionYear();
-  const { editions } = useMeetingEditions();
-  const edition =
-    (siteEditionYear && editions.find((entry) => Number(entry.year || entry.id) === Number(siteEditionYear))) ||
-    editions[0] ||
-    null;
-  return String(edition?.preprogrammeNationalRacesUrl || "").trim();
-}
-
 function MyNationalRacePage(props) {
   const { DataTable, Panel } = props;
   const { currentUser } = useAuth();
   const { t } = useLanguage();
   const { requests, loading, error } = useNationalRaceRequests({ athleteUserId: currentUser?.uid || "", enabled: Boolean(currentUser) });
-  const seltecUrl = useNationalRacesSeltecUrl();
   const [busyRequestId, setBusyRequestId] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -74,15 +59,6 @@ function MyNationalRacePage(props) {
         <div className="notice-card notice-card--ok">
           <strong>{t("natSelectedTitle")}</strong>
           <p>{t("natSelectedBody")}</p>
-          {seltecUrl ? (
-            <div className="auth-links">
-              <a className="button button--primary button-link" href={seltecUrl} rel="noreferrer" target="_blank">
-                {t("natSeltecButton")}
-              </a>
-            </div>
-          ) : (
-            <p className="panel-note">{t("natSeltecPending")}</p>
-          )}
         </div>
       ) : null}
 
@@ -111,9 +87,6 @@ function MyNationalRacePage(props) {
                     status: (
                       <div className="table-stack">
                         <span className={getNationalRaceStatusPillClass(request.status)}>{t(getNationalRaceStatusKey(request.status))}</span>
-                        {request.status === "selected" ? (
-                          <span className="parent-request-note">{request.seltecEntered ? t("natSeltecDone") : t("natSeltecTodo")}</span>
-                        ) : null}
                         {request.athleteMessage ? <span className="parent-request-practical">{request.athleteMessage}</span> : null}
                       </div>
                     ),

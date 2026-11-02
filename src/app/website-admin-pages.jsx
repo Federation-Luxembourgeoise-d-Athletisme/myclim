@@ -1564,7 +1564,7 @@ export function WebsiteEditionPage({ Panel }) {
                 Pré-programme — lien SELTEC pour les courses nationales (60m M/W, 800m M/W)
               </div>
               <div style={{ fontSize: "0.72rem", color: "#6b7280", marginBottom: 6 }}>
-                Affiché uniquement aux athlètes retenus, dans leur espace « Mon inscription ». L'inscription publique passe par /pre-programme.
+                Usage interne : n'est plus affiché publiquement. Les athlètes s'inscrivent via /pre-programme et l'organisation engage elle-même les athlètes retenus sur SELTEC.
               </div>
               {selectedEdition.preprogrammeNationalRacesUrl && (
                 <div style={{ fontSize: "0.72rem", color: "#6b7280", marginBottom: 6, wordBreak: "break-all" }}>

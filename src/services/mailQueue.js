@@ -475,7 +475,7 @@ export function buildNationalRaceRegistrationMail({ firstName, email, events }) 
 
 Votre demande pour les courses nationales du pré-programme a bien été reçue (${eventList}).
 
-La sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois. Vous verrez la décision dans votre espace MyCLIM. Si vous êtes retenu(e), il vous restera à confirmer votre engagement sur SELTEC, comme pour toute compétition.
+Les courses nationales sont pilotées par la commission des athlètes : la sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois. Vous verrez la décision dans votre espace MyCLIM. Si vous êtes retenu(e), l'organisation se charge de votre engagement et vous recontactera.
 
 À bientôt,
 L'équipe CMCM Luxembourg Indoor Meeting
@@ -486,7 +486,7 @@ Hello ${displayName},
 
 Your entry request for the pre-programme national races has been received (${eventList}).
 
-Selection is based on performance, with priority given to Luxembourg licence holders. You will see the decision in your MyCLIM space. If selected, you will then confirm your entry on SELTEC, as for any competition.
+The national races are run by the athletes' commission: selection is based on performance, with priority given to Luxembourg licence holders. You will see the decision in your MyCLIM space. If selected, the organisers handle your entry and will contact you.
 
 See you soon,
 The CMCM Luxembourg Indoor Meeting team`,
@@ -499,8 +499,8 @@ The CMCM Luxembourg Indoor Meeting team`,
           Votre demande pour les <strong>courses nationales du pré-programme</strong> a bien été reçue : <strong>${eventList}</strong>.
         </p>
         <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">
-          La sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois.
-          Si vous êtes retenu(e), il vous restera à confirmer votre engagement sur <strong>SELTEC</strong>.
+          Les courses nationales sont pilotées par la <strong>commission des athlètes</strong> : la sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois.
+          Si vous êtes retenu(e), l'organisation se charge de votre engagement et vous recontactera.
         </p>
         <p style="margin:0 0 28px 0;">
           <a href="${appUrl}" style="display:inline-block;background:#e30d25;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;">
@@ -511,8 +511,8 @@ The CMCM Luxembourg Indoor Meeting team`,
           <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">Hello ${displayName},</p>
           <p style="margin:0;font-size:16px;line-height:1.7;">
             Your entry request for the <strong>pre-programme national races</strong> has been received: <strong>${eventList}</strong>.
-            Selection is based on performance, with priority given to Luxembourg licence holders.
-            If selected, you will then confirm your entry on <strong>SELTEC</strong>.
+            The national races are run by the <strong>athletes' commission</strong>: selection is based on performance, with priority given to Luxembourg licence holders.
+            If selected, the organisers handle your entry and will contact you.
           </p>
         `)}
         <p style="margin:0;font-size:15px;line-height:1.7;">

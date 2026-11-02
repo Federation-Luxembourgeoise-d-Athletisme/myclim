@@ -1,8 +1,9 @@
 import { normalizeComparableValue } from "./u14-helpers";
 
-// Courses nationales du pré-programme (adultes) : l'inscription passe d'abord
-// par MyCLIM, la commission sélectionne sur performance, puis les athlètes
-// retenus sont engagés sur SELTEC comme pour le programme principal.
+// Courses nationales du pré-programme (adultes), pilotées par la commission
+// des athlètes : l'inscription passe d'abord par MyCLIM, la commission
+// sélectionne sur performance, puis l'organisation engage elle-même les
+// athlètes retenus sur SELTEC.
 const NATIONAL_RACE_REQUESTS_COLLECTION = "nationalRaceRequests";
 const NATIONAL_RACE_ATHLETE_ROLE = "athlete_preprogram";
 const NATIONAL_RACE_EVENTS = ["60 m", "800 m"];
@@ -106,7 +107,7 @@ function getNationalRaceStatusPillClass(status) {
 }
 
 function createEmptyNationalRaceEventEntry() {
-  return { selected: false, personalBest: "", seasonBest: "", performanceContext: "" };
+  return { selected: false, personalBest: "", seasonBest: "", performanceContext: "", otherTimes: "" };
 }
 
 function createEmptyNationalRaceForm() {

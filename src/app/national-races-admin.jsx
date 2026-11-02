@@ -87,7 +87,7 @@ function NationalRacesAdminTab(props) {
         type: "national-race-selected",
         to: request.email,
         subject: `Vous êtes retenu(e) pour le ${request.event} / You have been selected for the ${request.event}`,
-        body: `Bonjour ${request.firstName},\n\nVous êtes retenu(e) pour le ${request.event} des courses nationales du pré-programme du CMCM Luxembourg Indoor Meeting.\n\nIl vous reste à confirmer votre engagement sur SELTEC : le lien est disponible dans votre espace MyCLIM (${getAppBaseUrl()}/app/mon-inscription).\n\n---\n\nHello ${request.firstName},\n\nYou have been selected for the ${request.event} of the pre-programme national races. Please confirm your entry on SELTEC: the link is in your MyCLIM space (${getAppBaseUrl()}/app/mon-inscription).\n`,
+        body: `Bonjour ${request.firstName},\n\nVous êtes retenu(e) pour le ${request.event} des courses nationales du pré-programme du CMCM Luxembourg Indoor Meeting.\n\nL'organisation se charge de votre engagement et reviendra vers vous avec les informations pratiques. Votre statut est visible dans votre espace MyCLIM (${getAppBaseUrl()}/app/mon-inscription).\n\n---\n\nHello ${request.firstName},\n\nYou have been selected for the ${request.event} of the pre-programme national races. The organisers handle your entry and will contact you with the practical information. Your status is in your MyCLIM space (${getAppBaseUrl()}/app/mon-inscription).\n`,
         metadata: { requestId: request.id, raceCode: request.raceCode },
       });
     } catch (mailError) {
@@ -141,7 +141,7 @@ function NationalRacesAdminTab(props) {
             { key: "licence", label: "Licence" },
             { key: "performance", label: "Performance" },
             { key: "status", label: "Décision" },
-            { key: "seltec", label: "SELTEC" },
+            { key: "seltec", label: "Engagé SELTEC (orga)" },
             { key: "message", label: "Message à l'athlète" },
           ]}
           rows={
@@ -182,8 +182,9 @@ function NationalRacesAdminTab(props) {
                       performance: (
                         <div className="table-stack">
                           <strong>PB {request.personalBest || "-"}</strong>
-                          {request.seasonBest ? <span>SB {request.seasonBest}</span> : null}
+                          <span>SB 2026 {request.seasonBest || "-"}</span>
                           {request.performanceContext ? <span>{request.performanceContext}</span> : null}
+                          {request.otherTimes ? <span>Autres temps : {request.otherTimes}</span> : null}
                           {request.notes ? <span className="parent-request-note">{request.notes}</span> : null}
                         </div>
                       ),
