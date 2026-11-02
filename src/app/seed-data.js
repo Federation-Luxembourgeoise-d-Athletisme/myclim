@@ -220,6 +220,8 @@ const platformRoleOptions = [
   { value: "chef_equipe", label: "Chef d'équipe" },
   { value: "benevole", label: "Bénévole" },
   { value: "parent_u14", label: "Parent U14" },
+  { value: "athlete_preprogram", label: "Athlète courses nationales" },
+  { value: "commission_athletes", label: "Commission des athlètes" },
   { value: "kine", label: "Kiné" },
   { value: "chef_transport_athletes", label: "Chef transport athlètes" },
   { value: "benevole_transport_athletes", label: "Bénévole transport athlètes" },

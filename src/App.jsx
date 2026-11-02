@@ -47,6 +47,8 @@ import { BudgetTrackingPage as BudgetTrackingPageScreen } from "./app/budget-tra
 import { MyAssignmentsPage as MyAssignmentsPageScreen, MyDocumentsPage as MyDocumentsPageScreen } from "./app/volunteer-space-pages";
 import { DocumentsPage as DocumentsPageScreen } from "./app/documents-page";
 import { MyChildrenPage as MyChildrenPageScreen } from "./app/my-children-page";
+import { MyNationalRacePage as MyNationalRacePageScreen } from "./app/my-national-race-page";
+import { NationalRacesPage as NationalRacesPageScreen } from "./app/national-races-page";
 import { ProfilePage as ProfilePageScreen, VolunteerProfilePage as VolunteerProfilePageScreen } from "./app/profile-pages";
 import { TeamPage as TeamPageScreen } from "./app/team-page";
 import {
@@ -81,7 +83,7 @@ const lazyNamed = (factory, exportName) =>
   lazy(() => factory().then((module) => ({ default: module[exportName] })));
 const LoginPage = lazyNamed(() => import("./app/public-auth-pages"), "LoginPage");
 const VolunteerAccessPage = lazyNamed(() => import("./app/public-auth-pages"), "VolunteerAccessPage");
-const U14AccessPage = lazyNamed(() => import("./app/public-auth-pages"), "U14AccessPage");
+const PreProgrammeAccessPage = lazyNamed(() => import("./app/preprogramme-access-page"), "PreProgrammeAccessPage");
 const VipAccessPage = lazyNamed(() => import("./app/vip-pages"), "VipAccessPage");
 const VipPartnerPortalPage = lazyNamed(() => import("./app/vip-pages"), "VipPartnerPortalPage");
 const VipAdminPage = lazyNamed(() => import("./app/vip-admin-page"), "VipAdminPage");
@@ -458,6 +460,14 @@ function MyChildrenPage() {
   );
 }
 
+function NationalRacesPage() {
+  return <NationalRacesPageScreen Panel={Panel} loadMailQueueModule={loadMailQueueModule} />;
+}
+
+function MyNationalRacePage() {
+  return <MyNationalRacePageScreen DataTable={DataTable} Panel={Panel} />;
+}
+
 function VolunteerProfilePage() {
   return (
     <VolunteerProfilePageScreen
@@ -497,7 +507,7 @@ export default function App() {
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/benevoles" element={<VolunteerAccessPage />} />
           <Route path="/volunteer-apply" element={<Navigate replace to="/benevoles" />} />
-          <Route path="/pre-programme" element={<U14AccessPage />} />
+          <Route path="/pre-programme" element={<PreProgrammeAccessPage />} />
           <Route path="/vip" element={<VipAccessPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/vip/orga/:portalId" element={<VipPartnerPortalPage />} />
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
@@ -549,6 +559,12 @@ export default function App() {
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "parent_u14"]} />}>
                 <Route path="mes-enfants" element={<MyChildrenPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "commission_athletes"]} />}>
+                <Route path="courses-nationales" element={<NationalRacesPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "athlete_preprogram"]} />}>
+                <Route path="mon-inscription" element={<MyNationalRacePage />} />
               </Route>
               <Route path="profil" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />

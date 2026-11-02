@@ -21,6 +21,7 @@ function getPrimaryRole(profile) {
   if (roles.includes("gestionnaire")) return "gestionnaire";
   if (roles.includes("chef_equipe")) return "chef_equipe";
   if (roles.includes("parent_u14")) return "parent_u14";
+  if (roles.includes("athlete_preprogram")) return "athlete_preprogram";
   return "benevole";
 }
 
@@ -37,8 +38,10 @@ function getDefaultRouteByRoles(roles = []) {
   if (roles.includes("chef_transport_athletes")) return "/app/athlete-portal/transport";
   if (roles.includes("benevole_transport_athletes")) return "/app/athlete-portal/mes-transport";
   if (roles.includes("kine")) return "/app/kine";
+  if (roles.includes("commission_athletes")) return "/app/courses-nationales";
   if (roles.includes("benevole")) return "/app/mes-affectations";
   if (roles.includes("parent_u14")) return "/app/mes-enfants";
+  if (roles.includes("athlete_preprogram")) return "/app/mon-inscription";
   return "/app";
 }
 
@@ -47,6 +50,11 @@ function buildNavigationFromRoles(roles) {
   const preProgrammeLinks = [
     makeLink("/app/u14", "navPreprogramU12U14", "U12 / U14", "spark"),
     makeLink("/app/u14/porte-panier", "navPreprogramBasketCarrier", "Porte-panier", "child"),
+  ];
+  // Courses nationales : rangées sous « Pré-programme », mais page à part
+  // (pas un onglet U12/U14), pilotée par la commission des athlètes.
+  const nationalRacesLinks = [
+    makeLink("/app/courses-nationales", "navNationalRaces", "Courses nationales", "spark"),
   ];
 
   if (isAdminNavigation) {
@@ -73,7 +81,7 @@ function buildNavigationFromRoles(roles) {
       makeSection("navSectionCommunication", "Communication", [
         makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
       ]),
-      makeSection("navSectionPreprogram", "Pré-programme", preProgrammeLinks),
+      makeSection("navSectionPreprogram", "Pré-programme", [...preProgrammeLinks, ...nationalRacesLinks]),
       makeSection("navSectionWebsite", "Site web", [
         makeLink("/app/website", "navWebsiteOverviewAdmin", "Vue d’ensemble", "grid"),
         makeLink("/app/website/edition", "navWebsiteEdition", "Édition courante", "calendar"),
@@ -112,6 +120,10 @@ function buildNavigationFromRoles(roles) {
       personalLinks.push(makeLink("/app/mes-enfants", "navMyChildren", "Mes enfants", "child"));
     }
 
+    if (roles.includes("athlete_preprogram")) {
+      personalLinks.push(makeLink("/app/mon-inscription", "navMyNationalRace", "Mon inscription", "spark"));
+    }
+
     const navigation = [
       makeSection("navSectionOverview", "Vue générale", [
         makeLink("/app", "navOverview", "Vue d'ensemble", "dashboard"),
@@ -134,7 +146,11 @@ function buildNavigationFromRoles(roles) {
       makeSection("navSectionCommunication", "Communication", [
         makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
       ]),
-      makeSection("navSectionPreprogram", "Pré-programme", preProgrammeLinks),
+      makeSection(
+        "navSectionPreprogram",
+        "Pré-programme",
+        roles.includes("commission_athletes") ? [...preProgrammeLinks, ...nationalRacesLinks] : preProgrammeLinks,
+      ),
     ];
 
     if (roles.includes("gestionnaire_site")) {
@@ -197,6 +213,14 @@ function buildNavigationFromRoles(roles) {
 
   if (roles.includes("parent_u14")) {
     links.push(makeLink("/app/mes-enfants", "navMyChildren", "Mes enfants", "child"));
+  }
+
+  if (roles.includes("athlete_preprogram")) {
+    links.push(makeLink("/app/mon-inscription", "navMyNationalRace", "Mon inscription", "spark"));
+  }
+
+  if (roles.includes("commission_athletes")) {
+    links.push(...nationalRacesLinks);
   }
 
   if (roles.includes("chef_transport_athletes")) {

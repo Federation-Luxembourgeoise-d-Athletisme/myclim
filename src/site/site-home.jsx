@@ -894,7 +894,7 @@ export function SiteHome() {
               Become a volunteer
             </a>
             <NavLink to="/pre-programme" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
-              Pre-program inscription
+              Pre-programme registration
             </NavLink>
             <NavLink to="/press" className="site-btn" style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1.5px solid rgba(255,255,255,0.35)" }}>
               Press registration

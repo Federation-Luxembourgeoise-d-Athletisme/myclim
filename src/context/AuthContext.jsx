@@ -12,6 +12,7 @@ import {
 } from "firebase/auth";
 import {
   addDoc,
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -21,6 +22,12 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { ACTIVE_EDITION_DOC_PATH, DEFAULT_ACTIVE_EDITION, normalizeEditionId } from "../app/edition";
+import {
+  NATIONAL_RACE_ATHLETE_ROLE,
+  NATIONAL_RACE_EVENTS,
+  NATIONAL_RACE_REQUESTS_COLLECTION,
+  getNationalRaceCode,
+} from "../app/national-races-helpers";
 import { AuthContext } from "./auth-context";
 import { isTechnicalSessionUid } from "./technical-sessions";
 import { auth, db, functions } from "../services/firebase";
@@ -488,23 +495,31 @@ export function AuthProvider({ children }) {
 
   async function createU14PreProgramRegistration(formData) {
     const activeEditionId = await resolveActiveEditionId();
-    const credential = await createUserWithEmailAndPassword(auth, formData.parentEmail, formData.password);
+    // Déjà connecté (athlète, bénévole…) : on ajoute le rôle parent au compte
+    // existant au lieu d'en créer un second avec la même adresse.
+    const existingUser = auth.currentUser && !isTechnicalSessionUid(auth.currentUser.uid) ? auth.currentUser : null;
+    const credential = existingUser
+      ? { user: existingUser }
+      : await createUserWithEmailAndPassword(auth, formData.parentEmail, formData.password);
+    const parentEmail = credential.user.email || formData.parentEmail;
+    formData = { ...formData, parentEmail };
 
-    const parentProfile = buildBaseProfile(credential.user, {
-      firstName: formData.parentFirstName,
-      lastName: formData.parentLastName,
-      phone: formData.parentPhone,
-      accountStatus: "pre_programme_recu",
-      userTypes: ["parent_u14"],
-    });
+    const parentProfile = existingUser
+      ? { userTypes: arrayUnion("parent_u14"), updatedAt: serverTimestamp() }
+      : buildBaseProfile(credential.user, {
+          firstName: formData.parentFirstName,
+          lastName: formData.parentLastName,
+          phone: formData.parentPhone,
+          accountStatus: "pre_programme_recu",
+          userTypes: ["parent_u14"],
+        });
 
     try {
       await setDoc(doc(db, "users", credential.user.uid), parentProfile, { merge: true });
     } catch (error) {
-      const cleanupSucceeded = await rollbackIncompleteRegistration(
-        credential.user,
-        "Pre-program parent registration",
-      );
+      const cleanupSucceeded = existingUser
+        ? false
+        : await rollbackIncompleteRegistration(credential.user, "Pre-program parent registration");
       throw createRegistrationStepError(
         "preprogram/users-write-failed",
         buildFirestoreWriteFailureMessage("profil parent", error, cleanupSucceeded),
@@ -540,10 +555,9 @@ export function AuthProvider({ children }) {
           createdAt: serverTimestamp(),
         });
       } catch (error) {
-        const cleanupSucceeded = await rollbackIncompleteRegistration(
-          credential.user,
-          "Pre-program child registration",
-        );
+        const cleanupSucceeded = existingUser
+          ? false
+          : await rollbackIncompleteRegistration(credential.user, "Pre-program child registration");
         throw createRegistrationStepError(
           "preprogram/child-write-failed",
           buildFirestoreWriteFailureMessage(
@@ -582,10 +596,9 @@ export function AuthProvider({ children }) {
           submittedAt: serverTimestamp(),
         });
       } catch (error) {
-        const cleanupSucceeded = await rollbackIncompleteRegistration(
-          credential.user,
-          "Pre-program request registration",
-        );
+        const cleanupSucceeded = existingUser
+          ? false
+          : await rollbackIncompleteRegistration(credential.user, "Pre-program request registration");
         throw createRegistrationStepError(
           "preprogram/request-write-failed",
           buildFirestoreWriteFailureMessage(
@@ -609,6 +622,132 @@ export function AuthProvider({ children }) {
       );
     } catch (mailError) {
       console.error("Pre-program account email could not be sent", mailError);
+    }
+
+    return credential;
+  }
+
+  // Inscription aux courses nationales du pré-programme. Sans session, le
+  // compte athlète est créé ; avec une session existante (bénévole, parent…),
+  // on ajoute simplement le rôle athlète au profil. Une demande par épreuve.
+  async function createNationalRaceRegistration(formData) {
+    const activeEditionId = await resolveActiveEditionId();
+    const existingUser = auth.currentUser && !isTechnicalSessionUid(auth.currentUser.uid) ? auth.currentUser : null;
+    const credential = existingUser
+      ? { user: existingUser }
+      : await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+    const athleteUser = credential.user;
+    const athleteEmail = athleteUser.email || formData.email;
+
+    try {
+      if (existingUser) {
+        await setDoc(
+          doc(db, "users", athleteUser.uid),
+          { userTypes: arrayUnion(NATIONAL_RACE_ATHLETE_ROLE), updatedAt: serverTimestamp() },
+          { merge: true },
+        );
+      } else {
+        await setDoc(
+          doc(db, "users", athleteUser.uid),
+          buildBaseProfile(athleteUser, {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            phone: formData.phone,
+            accountStatus: "pre_programme_recu",
+            userTypes: [NATIONAL_RACE_ATHLETE_ROLE],
+          }),
+          { merge: true },
+        );
+      }
+    } catch (error) {
+      const cleanupSucceeded = existingUser
+        ? false
+        : await rollbackIncompleteRegistration(athleteUser, "National race athlete registration");
+      throw createRegistrationStepError(
+        "preprogram/users-write-failed",
+        buildFirestoreWriteFailureMessage("profil athlète", error, cleanupSucceeded),
+        error,
+      );
+    }
+
+    const isMinor = Boolean(formData.isMinor);
+    const isLuxLicensed = formData.isLuxLicensed === "oui";
+    const selectedEvents = NATIONAL_RACE_EVENTS.filter((event) => formData.events?.[event]?.selected);
+
+    for (const event of selectedEvents) {
+      const eventEntry = formData.events[event];
+
+      try {
+        await addDoc(collection(db, NATIONAL_RACE_REQUESTS_COLLECTION), {
+          editionId: activeEditionId,
+          athleteUserId: athleteUser.uid,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: athleteEmail,
+          phone: formData.phone,
+          birthDate: formData.birthDate,
+          birthYear: new Date(formData.birthDate).getFullYear(),
+          gender: formData.gender,
+          event,
+          raceCode: getNationalRaceCode(event, formData.gender),
+          isLuxLicensed,
+          club: isLuxLicensed ? formData.club : "",
+          bibNumber: isLuxLicensed ? formData.bibNumber : "",
+          foreignCountry: isLuxLicensed ? "" : formData.foreignCountry,
+          foreignClub: isLuxLicensed ? "" : formData.foreignClub,
+          foreignLicenceNumber: isLuxLicensed ? "" : formData.foreignLicenceNumber,
+          personalBest: eventEntry.personalBest,
+          personalBestPlace: eventEntry.personalBestPlace,
+          personalBestDate: eventEntry.personalBestDate,
+          seasonBest: eventEntry.seasonBest,
+          seasonBestPlace: eventEntry.seasonBestPlace,
+          seasonBestDate: eventEntry.seasonBestDate,
+          otherTime: eventEntry.otherTime,
+          otherTimePlace: eventEntry.otherTimePlace,
+          otherTimeDate: eventEntry.otherTimeDate,
+          notes: formData.notes,
+          isMinor,
+          guardianFirstName: isMinor ? formData.guardianFirstName : "",
+          guardianLastName: isMinor ? formData.guardianLastName : "",
+          guardianEmail: isMinor ? formData.guardianEmail : "",
+          guardianPhone: isMinor ? formData.guardianPhone : "",
+          guardianConsent: isMinor ? Boolean(formData.guardianConsent) : false,
+          imageConsent: Boolean(formData.imageConsent),
+          status: "submitted",
+          seltecEntered: false,
+          submittedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        const cleanupSucceeded = existingUser
+          ? false
+          : await rollbackIncompleteRegistration(athleteUser, "National race request registration");
+        throw createRegistrationStepError(
+          "preprogram/request-write-failed",
+          buildFirestoreWriteFailureMessage(`demande ${event}`, error, cleanupSucceeded),
+          error,
+        );
+      }
+    }
+
+    try {
+      const { buildNationalRaceGuardianMail, buildNationalRaceRegistrationMail, enqueueTransactionalMail } =
+        await loadMailQueueModule();
+      await enqueueTransactionalMail(
+        buildNationalRaceRegistrationMail({ firstName: formData.firstName, email: athleteEmail, events: selectedEvents }),
+      );
+      if (isMinor && formData.guardianEmail) {
+        await enqueueTransactionalMail(
+          buildNationalRaceGuardianMail({
+            guardianFirstName: formData.guardianFirstName,
+            guardianEmail: formData.guardianEmail,
+            athleteName: [formData.firstName, formData.lastName].filter(Boolean).join(" "),
+            events: selectedEvents,
+          }),
+        );
+      }
+    } catch (mailError) {
+      console.error("National race registration email could not be sent", mailError);
     }
 
     return credential;
@@ -689,6 +828,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         addU14ChildRegistration,
+        createNationalRaceRegistration,
         createU14PreProgramRegistration,
         createVolunteerApplication,
         currentUser,
