@@ -120,15 +120,20 @@ async function fetchGraphAccessToken() {
   return graphAccessToken;
 }
 
-async function sendMailWithGraph({ to, subject, text, html }) {
-  const sender = readRequiredEnv("MICROSOFT_GRAPH_SENDER");
-  const fromAddress = getDefaultFromAddress();
-  const accessToken = await fetchGraphAccessToken();
-  const recipients = String(to || "")
+function toGraphRecipients(addresses) {
+  return String(addresses || "")
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean)
     .map((address) => ({ emailAddress: { address } }));
+}
+
+async function sendMailWithGraph({ to, cc, subject, text, html }) {
+  const sender = readRequiredEnv("MICROSOFT_GRAPH_SENDER");
+  const fromAddress = getDefaultFromAddress();
+  const accessToken = await fetchGraphAccessToken();
+  const recipients = toGraphRecipients(to);
+  const ccRecipients = toGraphRecipients(cc);
 
   if (!recipients.length) {
     throw new Error("At least one recipient email address is required.");
@@ -150,6 +155,7 @@ async function sendMailWithGraph({ to, subject, text, html }) {
             content: html || text || "",
           },
           toRecipients: recipients,
+          ...(ccRecipients.length ? { ccRecipients } : {}),
           from: {
             emailAddress: {
               address: fromAddress,
@@ -176,13 +182,14 @@ async function sendMailWithGraph({ to, subject, text, html }) {
 
   return {
     messageId: `graph-${Date.now()}`,
-    accepted: recipients.map((recipient) => recipient.emailAddress.address),
+    accepted: [...recipients, ...ccRecipients].map((recipient) => recipient.emailAddress.address),
     rejected: [],
   };
 }
 
 function normalizeMailPayload(payload) {
   const to = String(payload?.to || "").trim();
+  const cc = String(payload?.cc || "").trim();
   const subject = String(payload?.subject || "").trim();
   const text = String(payload?.body || payload?.text || "").trim();
   const html = String(payload?.html || "").trim() || buildHtmlFromText(text);
@@ -193,7 +200,7 @@ function normalizeMailPayload(payload) {
     throw error;
   }
 
-  return { to, subject, text: text || subject, html };
+  return { to, ...(cc ? { cc } : {}), subject, text: text || subject, html };
 }
 
 export async function sendTransactionalMail(payload) {

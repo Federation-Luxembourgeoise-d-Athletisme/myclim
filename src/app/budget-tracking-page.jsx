@@ -2945,6 +2945,7 @@ function BudgetTrackingPage({ Panel }) {
                     invoice={selectedInvoiceForClassification}
                     target={expenseTargetOptions.find((option) => option.value === selectedInvoiceTargetRowId) ?? null}
                     senderName={getDisplayName(userProfile, currentUser?.email)}
+                    senderEmail={currentUser?.email || userProfile?.email || ""}
                     onClose={() => setIsInvoiceMailOpen(false)}
                     onSent={(recipient) => {
                       setIsInvoiceMailOpen(false);

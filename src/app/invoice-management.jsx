@@ -122,7 +122,7 @@ function BudgetLinePicker({ targets = [], value = "", onChange }) {
   );
 }
 
-function buildInvoiceMailDraft({ invoice, target, senderName, tr }) {
+function buildInvoiceMailDraft({ invoice, target, senderName, senderEmail, tr }) {
   const title = invoice?.title || invoice?.fileName || tr("Facture", "Invoice");
   const url = getInvoiceDocumentUrl(invoice) || invoice?.resolvedUrl || "";
   const details = [
@@ -136,6 +136,8 @@ function buildInvoiceMailDraft({ invoice, target, senderName, tr }) {
 
   return {
     to: INVOICE_CONTACT.email,
+    // Copie à la personne qui envoie, pour garder une trace dans sa boîte.
+    cc: String(senderEmail || "").trim(),
     subject: tr(`Facture à traiter : ${title}`, `Invoice to process: ${title}`),
     body: [
       tr(`Bonjour ${INVOICE_CONTACT.firstName},`, `Hello ${INVOICE_CONTACT.firstName},`),
@@ -154,9 +156,9 @@ function buildInvoiceMailDraft({ invoice, target, senderName, tr }) {
   };
 }
 
-function InvoiceMailDialog({ invoice, target, senderName, onClose, onSent }) {
+function InvoiceMailDialog({ invoice, target, senderName, senderEmail, onClose, onSent }) {
   const { tr } = useComLang();
-  const [draft, setDraft] = useState(() => buildInvoiceMailDraft({ invoice, target, senderName, tr }));
+  const [draft, setDraft] = useState(() => buildInvoiceMailDraft({ invoice, target, senderName, senderEmail, tr }));
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
 
@@ -178,7 +180,12 @@ function InvoiceMailDialog({ invoice, target, senderName, onClose, onSent }) {
     setIsSending(true);
     setError("");
     try {
-      await enqueueTransactionalMail({ to: draft.to.trim(), subject: draft.subject.trim(), body: draft.body });
+      await enqueueTransactionalMail({
+        to: draft.to.trim(),
+        ...(draft.cc.trim() ? { cc: draft.cc.trim() } : {}),
+        subject: draft.subject.trim(),
+        body: draft.body,
+      });
       onSent?.(draft.to.trim());
     } catch (sendError) {
       console.error("Unable to send invoice mail", sendError);
@@ -203,6 +210,10 @@ function InvoiceMailDialog({ invoice, target, senderName, onClose, onSent }) {
         <label className="field">
           <span>{tr("À", "To")}</span>
           <input name="to" type="email" required value={draft.to} onChange={handleChange} />
+        </label>
+        <label className="field">
+          <span>{tr("Copie à", "Copy to")}</span>
+          <input name="cc" type="email" multiple value={draft.cc} onChange={handleChange} />
         </label>
         <label className="field">
           <span>{tr("Objet", "Subject")}</span>
