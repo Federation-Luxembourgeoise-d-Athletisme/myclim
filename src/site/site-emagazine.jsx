@@ -25,6 +25,8 @@ import {
   trackEmagazinePageView,
   trackEmagazinePrint,
 } from "./emagazine-stats";
+import { nationFlagUrl } from "./nation-flags";
+import europeanRecords from "../data/europeanRecords.json";
 
 // Every page is laid out on a real A4 sheet (210 × 297 mm at 96 dpi, the size
 // used when printing) and scaled down as a whole to fit the screen, so the
@@ -95,8 +97,21 @@ function sortTimetable(entries = []) {
   });
 }
 
+function NationCell({ noc }) {
+  if (!noc) return "—";
+  const flagUrl = nationFlagUrl(noc);
+  return (
+    <span className="site-emag-nation">
+      {flagUrl ? <img src={flagUrl} alt="" className="site-emag-nation__flag" loading="lazy" /> : null}
+      {noc}
+    </span>
+  );
+}
+
 function StartlistEntryRow({ entry }) {
-  const sb = entry.waIndoorSbCurrent || entry.waIndoorSb || entry.sb || "";
+  // SB = previous indoor season (2026 for the 2027 meeting): World Athletics
+  // value when the profile is linked ("7.21 @ Venue" → "7.21"), else the Excel.
+  const sb = String(entry.waIndoorSb || entry.sb || "").split(" @ ")[0];
   const pb = entry.waPbIndoor || entry.pbIndoor || entry.pb || "";
   return (
     <tr>
@@ -104,7 +119,7 @@ function StartlistEntryRow({ entry }) {
       <td>
         <strong>{athleteDisplayName(entry)}</strong>
       </td>
-      <td>{entry.nationality || "—"}</td>
+      <td><NationCell noc={entry.nationality} /></td>
       <td>{sb || "—"}</td>
       <td>{pb || "—"}</td>
     </tr>
@@ -430,21 +445,34 @@ function PartnerFeaturePage({ page, sponsor }) {
   );
 }
 
-function MeetingRecordBanner({ record }) {
-  if (!record) return null;
+function RecordCard({ label, record, variant }) {
+  const year = record.year || String(record.date || "").slice(0, 4);
   return (
-    <div className="site-emag-record-banner">
-      <span>Meeting record (MR)</span>
-      <strong>{record.mark}</strong>
+    <div className={`site-emag-record-banner site-emag-record-banner--${variant}`}>
+      <div className="site-emag-record-banner__top">
+        <span>{label}</span>
+        <strong>{record.mark}{record.pending ? "*" : ""}</strong>
+      </div>
       <span className="site-emag-record-banner__holder">
-        {[record.fullName, record.noc].filter(Boolean).join(" · ")}
-        {record.year ? ` · ${record.year}` : ""}
+        {record.fullName}
+        {record.noc ? <> · <NationCell noc={record.noc} /></> : null}
+        {year ? ` · ${year}` : ""}
       </span>
     </div>
   );
 }
 
-function OfficialStartlistPage({ group }) {
+function RecordBanners({ meetingRecord, europeanRecord }) {
+  if (!meetingRecord && !europeanRecord) return null;
+  return (
+    <div className="site-emag-records">
+      {meetingRecord ? <RecordCard label="Meeting record (MR)" record={meetingRecord} variant="meeting" /> : null}
+      {europeanRecord ? <RecordCard label="European record (ER)" record={europeanRecord} variant="european" /> : null}
+    </div>
+  );
+}
+
+function OfficialStartlistPage({ group, sbSeason }) {
   const groupedHeats = group.entries.reduce((accumulator, entry) => {
     const heatKey = entry.heat || "Main list";
     if (!accumulator.has(heatKey)) accumulator.set(heatKey, []);
@@ -463,7 +491,7 @@ function OfficialStartlistPage({ group }) {
       subtitle={group.entries.length
         ? `${group.entries.length} athletes${heatCount > 1 ? ` · ${heatCount} heats` : ""}`
         : ""}
-      headerExtra={<MeetingRecordBanner record={group.meetingRecord} />}
+      headerExtra={<RecordBanners meetingRecord={group.meetingRecord} europeanRecord={group.europeanRecord} />}
     >
       <div className={`site-emag-startlist${isCompact ? " site-emag-startlist--compact" : ""}`}>
         {group.entries.length === 0 ? (
@@ -484,7 +512,7 @@ function OfficialStartlistPage({ group }) {
                     <th>Lane</th>
                     <th>Athlete</th>
                     <th>Nation</th>
-                    <th>SB</th>
+                    <th>{sbSeason ? `SB ${sbSeason}` : "SB"}</th>
                     <th>PB</th>
                   </tr>
                 </thead>
@@ -525,6 +553,9 @@ export function SiteEmagazine() {
     return configuredEdition || latestEdition || null;
   }, [editions, siteEditionYear]);
 
+  // Start lists show the SB of the previous indoor season (2026 for 2027).
+  const sbSeason = currentEdition?.year ? Number(currentEdition.year) - 1 : null;
+
   const previewMode = useMemo(
     () => new URLSearchParams(location.search).get("preview") === "1",
     [location.search],
@@ -546,6 +577,7 @@ export function SiteEmagazine() {
     () => buildOfficialStartlistGroups(currentEdition?.disciplines || [], athletes).map((group) => ({
       ...group,
       meetingRecord: findMeetingRecord(meetingRecords, group.discipline, group.gender),
+      europeanRecord: findMeetingRecord(europeanRecords.records, group.discipline, group.gender),
     })),
     [currentEdition?.disciplines, athletes, meetingRecords],
   );
@@ -630,7 +662,7 @@ export function SiteEmagazine() {
           .map((group) => ({
             key: `startlist-${group.id}`,
             title: group.title,
-            element: <OfficialStartlistPage group={group} />,
+            element: <OfficialStartlistPage group={group} sbSeason={sbSeason} />,
           }));
       }
       if (pageId.startsWith("official-startlist:")) {
@@ -639,7 +671,7 @@ export function SiteEmagazine() {
         return group ? [{
           key: `startlist-${group.id}`,
           title: group.title,
-          element: <OfficialStartlistPage group={group} />,
+          element: <OfficialStartlistPage group={group} sbSeason={sbSeason} />,
         }] : [];
       }
       if (pageId.startsWith("special:")) {
@@ -656,7 +688,7 @@ export function SiteEmagazine() {
       }
       return [];
     }),
-    [currentEdition, emagazine, officialStartlists, highlightById, partnerById, specialById, sponsors],
+    [currentEdition, emagazine, officialStartlists, highlightById, partnerById, specialById, sponsors, sbSeason],
   );
 
   useEffect(() => {

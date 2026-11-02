@@ -4809,20 +4809,36 @@
   opacity: 0.16;
 }
 
-.site-emag-record-banner {
-  display: flex;
-  align-items: baseline;
+/* Meeting record (red) and European record (blue), side by side. */
+.site-emag-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-  padding: 10px 16px;
+  margin-top: 12px;
+}
+
+.site-emag-record-banner {
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px;
   border-radius: 12px;
   background: var(--emag-red);
   color: #fff;
 }
 
-.site-emag-record-banner span:first-child {
-  font-size: 0.72rem;
+.site-emag-record-banner--european {
+  background: var(--emag-blue);
+}
+
+.site-emag-record-banner__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.site-emag-record-banner__top span {
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -4830,13 +4846,27 @@
 }
 
 .site-emag-record-banner strong {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 
 .site-emag-record-banner__holder {
-  font-size: 0.82rem;
-  opacity: 0.9;
-  margin-left: auto;
+  font-size: 0.78rem;
+  opacity: 0.92;
+}
+
+.site-emag-nation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.site-emag-nation__flag {
+  width: 20px;
+  height: 14px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(16, 37, 61, 0.12);
 }
 
 .site-emag-athlete-card h3 {
@@ -4957,9 +4987,13 @@
   font-weight: 800;
 }
 
+.site-emag-page--record .site-emag-page__header {
+  margin-bottom: 16px;
+}
+
 /* 17+ athletes (e.g. 3 heats of 8): tighter rows so it stays on one A4 page. */
 .site-emag-startlist--compact {
-  gap: 10px;
+  gap: 8px;
 }
 
 .site-emag-startlist--compact .site-emag-startlist__heat {
@@ -4973,7 +5007,7 @@
 
 .site-emag-startlist--compact .site-emag-table th,
 .site-emag-startlist--compact .site-emag-table td {
-  padding: 4px 14px;
+  padding: 3px 14px;
   font-size: 0.84rem;
   line-height: 1.25;
 }
