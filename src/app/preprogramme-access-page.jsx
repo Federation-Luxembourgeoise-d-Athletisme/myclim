@@ -464,7 +464,7 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
       setError(t("natErrorPerformanceFormat"));
       return;
     }
-    if (eventEntries.some((entry) => ![entry.personalBest, entry.seasonBest, entry.otherTimes].some((value) => String(value || "").trim()))) {
+    if (eventEntries.some((entry) => ![entry.personalBest, entry.seasonBest, entry.otherTime].some((value) => String(value || "").trim()))) {
       setError(t("natErrorPerformance"));
       return;
     }
@@ -638,21 +638,43 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
               {entry.selected ? (
                 <>
                   <p className="panel-note">{t("natTimesRequiredNote")}</p>
-                  <div className="field-grid">
-                    <AuthFormField label={t("natPersonalBest")} hint={t("natPerformanceFormat").replace("{example}", placeholder)}>
-                      <input inputMode="decimal" placeholder={placeholder} value={entry.personalBest} onChange={(event) => handleEventChange(eventName, "personalBest", event.target.value)} />
-                    </AuthFormField>
-                    <AuthFormField label={t("natSeasonBest")} hint={t("natSeasonBestHint")}>
-                      <input inputMode="decimal" placeholder={placeholder} value={entry.seasonBest} onChange={(event) => handleEventChange(eventName, "seasonBest", event.target.value)} />
-                    </AuthFormField>
+                  <div className="preprogramme-time-table">
+                    <div className="preprogramme-time-row preprogramme-time-row--head" aria-hidden="true">
+                      <span />
+                      <span>{t("natTimeColTime")}</span>
+                      <span>{t("natTimeColPlace")}</span>
+                      <span>{t("natTimeColDate")}</span>
+                    </div>
+                    {[
+                      { key: "personalBest", label: t("natPersonalBest"), timePlaceholder: placeholder },
+                      { key: "seasonBest", label: t("natSeasonBest"), timePlaceholder: placeholder },
+                      { key: "otherTime", label: t("natOtherTimes"), timePlaceholder: t("natOtherTimePlaceholder") },
+                    ].map((row) => (
+                      <div key={row.key} className="preprogramme-time-row">
+                        <strong>{row.label}</strong>
+                        <input
+                          aria-label={`${row.label} — ${t("natTimeColTime")}`}
+                          inputMode={row.key === "otherTime" ? undefined : "decimal"}
+                          placeholder={row.timePlaceholder}
+                          value={entry[row.key]}
+                          onChange={(event) => handleEventChange(eventName, row.key, event.target.value)}
+                        />
+                        <input
+                          aria-label={`${row.label} — ${t("natTimeColPlace")}`}
+                          placeholder={t("natTimePlacePlaceholder")}
+                          value={entry[`${row.key}Place`]}
+                          onChange={(event) => handleEventChange(eventName, `${row.key}Place`, event.target.value)}
+                        />
+                        <input
+                          aria-label={`${row.label} — ${t("natTimeColDate")}`}
+                          type="date"
+                          value={entry[`${row.key}Date`]}
+                          onChange={(event) => handleEventChange(eventName, `${row.key}Date`, event.target.value)}
+                        />
+                      </div>
+                    ))}
                   </div>
                   {hasUnreadableTime ? <p className="form-error">{t("natErrorPerformanceFormat")}</p> : null}
-                  <AuthFormField label={t("natPerformanceContext")} hint={t("natPerformanceContextHint")}>
-                    <input value={entry.performanceContext} onChange={(event) => handleEventChange(eventName, "performanceContext", event.target.value)} />
-                  </AuthFormField>
-                  <AuthFormField label={t("natOtherTimes")} hint={t("natOtherTimesHint")}>
-                    <textarea rows="2" value={entry.otherTimes} onChange={(event) => handleEventChange(eventName, "otherTimes", event.target.value)} />
-                  </AuthFormField>
                 </>
               ) : null}
             </div>

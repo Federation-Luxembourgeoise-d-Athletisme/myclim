@@ -9,7 +9,7 @@ import {
   compareNationalRaceRequests,
 } from "./national-races-helpers";
 import { useNationalRaceRequests } from "./national-races-hooks";
-import { formatDateTimeForDisplay } from "./u14-helpers";
+import { formatDateForDisplay, formatDateTimeForDisplay } from "./u14-helpers";
 
 const STATUS_LABELS = {
   submitted: "Demande reçue",
@@ -181,10 +181,21 @@ function NationalRacesAdminTab(props) {
                       ),
                       performance: (
                         <div className="table-stack">
-                          <strong>PB {request.personalBest || "-"}</strong>
-                          <span>SB 2026 {request.seasonBest || "-"}</span>
-                          {request.performanceContext ? <span>{request.performanceContext}</span> : null}
-                          {request.otherTimes ? <span>Autres temps : {request.otherTimes}</span> : null}
+                          {[
+                            { label: "PB", prefix: "personalBest" },
+                            { label: "SB 2026", prefix: "seasonBest" },
+                            { label: "Autre", prefix: "otherTime" },
+                          ]
+                            .filter((row) => request[row.prefix])
+                            .map((row) => (
+                              <span key={row.prefix}>
+                                <strong>{row.label} {request[row.prefix]}</strong>
+                                {[request[`${row.prefix}Place`], formatDateForDisplay(request[`${row.prefix}Date`])]
+                                  .filter((value) => value && value !== "Non définie")
+                                  .map((value) => ` · ${value}`)
+                                  .join("")}
+                              </span>
+                            ))}
                           {request.notes ? <span className="parent-request-note">{request.notes}</span> : null}
                         </div>
                       ),

@@ -80,8 +80,9 @@ function MyNationalRacePage(props) {
                     race: getNationalRaceDefinition(request.raceCode)?.label || request.event,
                     performance: (
                       <div className="table-stack">
-                        <strong>{t("natPersonalBestShort")} {request.personalBest || "-"}</strong>
+                        {request.personalBest ? <strong>{t("natPersonalBestShort")} {request.personalBest}</strong> : null}
                         {request.seasonBest ? <span>{t("natSeasonBestShort")} {request.seasonBest}</span> : null}
+                        {request.otherTime ? <span>{request.otherTime}</span> : null}
                       </div>
                     ),
                     status: (

@@ -6742,3 +6742,36 @@ tr.row--warning > td {
   border-bottom: 0;
   padding-bottom: 0;
 }
+
+.preprogramme-time-table {
+  display: grid;
+  gap: 8px;
+}
+
+.preprogramme-time-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.1fr) 1fr 1.3fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.preprogramme-time-row--head {
+  font-size: 0.75rem;
+  color: #6a7890;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 640px) {
+  .preprogramme-time-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .preprogramme-time-row > strong {
+    grid-column: 1 / -1;
+  }
+
+  .preprogramme-time-row--head {
+    display: none;
+  }
+}

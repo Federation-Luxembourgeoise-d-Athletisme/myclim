@@ -107,7 +107,20 @@ function getNationalRaceStatusPillClass(status) {
 }
 
 function createEmptyNationalRaceEventEntry() {
-  return { selected: false, personalBest: "", seasonBest: "", performanceContext: "", otherTimes: "" };
+  // Trois lignes temps / lieu / date : en indoor, beaucoup n'ont ni PB ni SB
+  // sur la distance, d'où la ligne « autre temps » en texte libre.
+  return {
+    selected: false,
+    personalBest: "",
+    personalBestPlace: "",
+    personalBestDate: "",
+    seasonBest: "",
+    seasonBestPlace: "",
+    seasonBestDate: "",
+    otherTime: "",
+    otherTimePlace: "",
+    otherTimeDate: "",
+  };
 }
 
 function createEmptyNationalRaceForm() {
