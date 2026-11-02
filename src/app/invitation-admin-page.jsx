@@ -492,6 +492,7 @@ function getRoleDescription(role) {
     chef_equipe: "Gestion de son équipe et pointage des présences",
     benevole: "Dossier bénévole, affectations, documents",
     parent_u14: "Inscription et suivi des enfants pré-programme",
+    athlete_preprogram: "Suivi de son inscription aux courses nationales du pré-programme",
   };
   return descriptions[role] || "";
 }

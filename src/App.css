@@ -6705,3 +6705,40 @@ tr.row--warning > td {
     min-width: 0;
   }
 }
+
+/* ── Page d'inscription pré-programme (choix du parcours) ── */
+.preprogramme-path-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.preprogramme-path-card {
+  align-items: flex-start;
+}
+
+.preprogramme-path-card p {
+  margin: 4px 0 0;
+}
+
+.preprogramme-path-card--active {
+  border-color: rgba(20, 159, 219, 0.42);
+  box-shadow: 0 16px 36px rgba(20, 159, 219, 0.12);
+}
+
+.preprogramme-child-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preprogramme-event-block {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.preprogramme-event-block:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}

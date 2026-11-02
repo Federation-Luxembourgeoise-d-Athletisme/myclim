@@ -355,6 +355,23 @@ service cloud.firestore {
       allow delete: if isAdminOrManager();
     }
 
+    // Courses nationales du pré-programme (adultes) : l'athlète crée et lit ses
+    // propres demandes ; il ne peut ensuite que se désister. Sélection, liste
+    // d'attente et suivi SELTEC restent aux admins/gestionnaires.
+    match /nationalRaceRequests/{requestId} {
+      allow create: if (isSignedIn() &&
+          request.resource.data.athleteUserId == request.auth.uid &&
+          request.resource.data.status == "submitted") ||
+        isAdminOrManager();
+      allow read: if (isSignedIn() && resource.data.athleteUserId == request.auth.uid) || isAdminOrManager();
+      allow update: if isAdminOrManager() ||
+        (isSignedIn() &&
+         resource.data.athleteUserId == request.auth.uid &&
+         request.resource.data.status == "withdrawn" &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "withdrawnAt", "updatedAt"]));
+      allow delete: if isAdminOrManager();
+    }
+
     // Places protégées pré-programme : manquait complètement (tombait dans le
     // catch-all admin-only), ce qui empêchait un parent de libérer sa place
     // protégée quand il se désiste (my-children-page.jsx handleDeclineAttendance).

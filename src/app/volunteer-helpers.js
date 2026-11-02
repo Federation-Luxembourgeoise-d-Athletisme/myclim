@@ -39,6 +39,7 @@ const ROLE_LABEL_KEYS = {
   chef_equipe: "roleLabelTeamLead",
   benevole: "roleLabelVolunteer",
   parent_u14: "roleLabelParentU14",
+  athlete_preprogram: "roleLabelAthletePreprogram",
   gestionnaire_site: "roleLabelWebsiteManager",
   chef_transport_athletes: "roleLabelAthleteTransportLead",
   benevole_transport_athletes: "roleLabelAthleteTransportVolunteer",
