@@ -4563,11 +4563,15 @@
   font-weight: 700;
 }
 
+/* Welcome / president's message: portrait then text flowing over two
+   columns. The font size is reduced from JS (WelcomePage) when a long
+   message would not fit on the A4 page. */
 .site-emag-welcome {
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 36px;
-  align-items: start;
+  height: 100%;
+  columns: 2;
+  column-gap: 32px;
+  column-fill: auto;
+  color: #1f334b;
 }
 
 .site-emag-welcome__photo img,
@@ -4581,18 +4585,27 @@
 
 .site-emag-welcome__photo {
   overflow: hidden;
-  border-radius: 28px;
-  aspect-ratio: 4 / 5;
-  box-shadow: 0 20px 45px rgba(11, 31, 56, 0.14);
+  margin-bottom: 18px;
+  border-radius: 20px;
+  aspect-ratio: 1 / 1;
+  break-inside: avoid;
+  box-shadow: 0 14px 32px rgba(11, 31, 56, 0.14);
 }
 
-.site-emag-welcome__text {
-  display: grid;
-  gap: 18px;
-  color: #1f334b;
+.site-emag-welcome__photo img {
+  object-position: center top;
 }
 
-.site-emag-welcome__text p,
+.site-emag-welcome p {
+  margin: 0 0 0.85em;
+  font-size: 1em;
+  line-height: 1.62;
+}
+
+.site-emag-welcome .site-emag-signoff {
+  break-inside: avoid;
+}
+
 .site-emag-highlight__body,
 .site-emag-partner-feature__copy p {
   margin: 0;

@@ -795,7 +795,7 @@ export function WebsiteEmagazinePage({ Panel }) {
           <div>
             <h3 style={{ margin: 0, color: "#10253d" }}>Welcome page</h3>
             <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "0.84rem" }}>
-              Editable English welcome text, portrait, name and title.
+              The president's message (in English): text, portrait, name and function. Update it each edition.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -808,17 +808,40 @@ export function WebsiteEmagazinePage({ Panel }) {
               <input style={inputStyle} value={draft.welcome.intro} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, intro: event.target.value } }))} placeholder="Short subtitle" />
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            <input style={inputStyle} value={draft.welcome.photoUrl} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, photoUrl: event.target.value } }))} placeholder="Portrait image URL" />
-            <input style={inputStyle} value={draft.welcome.personName} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personName: event.target.value } }))} placeholder="Name" />
-            <input style={inputStyle} value={draft.welcome.personTitle} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personTitle: event.target.value } }))} placeholder="Title" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Signed by (name)</label>
+              <input style={inputStyle} value={draft.welcome.personName} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personName: event.target.value } }))} placeholder="e.g. first and last name of the president" />
+            </div>
+            <div>
+              <label style={labelStyle}>Function</label>
+              <input style={inputStyle} value={draft.welcome.personTitle} onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, personTitle: event.target.value } }))} placeholder="e.g. President, FLA" />
+            </div>
           </div>
-          <textarea
-            style={{ ...inputStyle, minHeight: 180, resize: "vertical" }}
-            value={draft.welcome.body}
-            onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, body: event.target.value } }))}
-            placeholder="Main English welcome message"
+          <FileUpload
+            value={draft.welcome.photoUrl}
+            onChange={(url) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, photoUrl: url } }))}
+            accept="image/*"
+            storagePath="emagazine-welcome"
+            label="Portrait (square crop, face kept at the top)"
           />
+          <div>
+            <label style={labelStyle}>Message</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 220, resize: "vertical" }}
+              value={draft.welcome.body}
+              onChange={(event) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, body: event.target.value } }))}
+              placeholder="Main English welcome message — leave an empty line between paragraphs"
+            />
+            {(() => {
+              const words = draft.welcome.body.trim() ? draft.welcome.body.trim().split(/\s+/).length : 0;
+              return (
+                <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: words > 380 ? "#92400e" : "#6b7280" }}>
+                  {words} words — up to about 330 words keep the normal text size; longer messages are printed smaller to stay on one A4 page.
+                </p>
+              );
+            })()}
+          </div>
         </div>
 
         <div id="emag-races" style={{ display: "grid", gap: 18 }}>

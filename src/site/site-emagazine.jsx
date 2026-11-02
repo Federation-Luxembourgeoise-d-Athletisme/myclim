@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useActiveEdition, useSiteEditionYear } from "../app/edition";
 import { useAthleteRegistry, useAthletes } from "../app/athlete-portal-hooks";
@@ -199,26 +199,48 @@ function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl }) {
   );
 }
 
+// Shrinks the text step by step until the two columns hold the whole message
+// (they overflow sideways into extra columns), down to 72 % of the size.
+function useFitColumns(ref, deps) {
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    function fit() {
+      let scale = 1;
+      element.style.fontSize = "1rem";
+      while (element.scrollWidth > element.clientWidth + 1 && scale > 0.72) {
+        scale -= 0.04;
+        element.style.fontSize = `${scale}rem`;
+      }
+    }
+    fit();
+    // Web fonts arriving later change the text length: measure again.
+    document.fonts?.ready.then(fit);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
+
 function WelcomePage({ edition, config }) {
   const body = config.body || buildDefaultWelcomeBody(edition, Array.isArray(edition?.disciplines) ? edition.disciplines.length : 0);
+  const columnsRef = useRef(null);
+  useFitColumns(columnsRef, [body, config.photoUrl, config.personName, config.personTitle]);
+
   return (
     <MagazinePage
       eyebrow="Welcome"
       title={config.title || `Welcome to the ${edition?.year || ""} edition`}
-      subtitle={config.intro || "An editable message from the organising team."}
+      subtitle={config.intro}
     >
-      <div className="site-emag-welcome">
+      <div className="site-emag-welcome" ref={columnsRef}>
         <div className="site-emag-welcome__photo">
           <img src={config.photoUrl || venueImage} alt={config.personName || "Welcome portrait"} />
         </div>
-        <div className="site-emag-welcome__text">
-          {body.split(/\n{2,}/).map((paragraph, index) => (
-            <p key={`welcome-paragraph-${index}`}>{paragraph}</p>
-          ))}
-          <div className="site-emag-signoff">
-            <strong>{config.personName || "President"}</strong>
-            <span>{config.personTitle || "CMCM Luxembourg Indoor Meeting"}</span>
-          </div>
+        {body.split(/\n{2,}/).map((paragraph, index) => (
+          <p key={`welcome-paragraph-${index}`}>{paragraph}</p>
+        ))}
+        <div className="site-emag-signoff">
+          <strong>{config.personName || "President"}</strong>
+          <span>{config.personTitle || "CMCM Luxembourg Indoor Meeting"}</span>
         </div>
       </div>
     </MagazinePage>
