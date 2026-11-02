@@ -70,6 +70,8 @@ export function InvitePage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         userTypes: roles.length ? roles : ["benevole"],
+        // Les règles Firestore vérifient les rôles accordés contre cette invitation.
+        invitationId,
         accountStatus: "active",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
