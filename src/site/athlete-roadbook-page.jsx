@@ -453,6 +453,7 @@ function AthleteRoadbookPage() {
 
         <section id="timetable" className="rb-section rb-section--break">
           <SectionHead id="timetable" index={4} copy={copy} />
+          {timetable.length && edition?.timetableNote ? <p className="rb-muted">{edition.timetableNote}</p> : null}
           {timetable.length ? (
             <table className="rb-table rb-timetable">
               <tbody>
@@ -469,7 +470,7 @@ function AthleteRoadbookPage() {
                         {row.gender === "WOMEN" ? copy.women : row.gender === "MEN" ? copy.men : row.gender || ""}
                       </td>
                       <td>
-                        {row.isField ? <b>{row.event}</b> : row.event}
+                        {row.type === "info" ? <i>{row.label}</i> : row.isField ? <b>{row.event}</b> : row.event}
                         {row.round ? ` ${row.round}` : ""}
                         {row.isField ? <span className="rb-tag">{copy.field}</span> : null}
                       </td>

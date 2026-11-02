@@ -287,7 +287,7 @@ export function SiteEvent() {
           <SectionTitle
             eyebrow="Programme"
             title="Event timetable"
-            lead="Approximate schedule for competition day. Times may be adjusted — please check the official programme closer to the event."
+            lead={currentEdition?.timetableNote || "Approximate schedule for competition day. Times may be adjusted — please check the official programme closer to the event."}
           />
 
           {timetableVisible && timetable.length > 0 ? (
@@ -344,9 +344,10 @@ export function SiteEvent() {
                       padding: "14px 20px",
                       fontWeight: 600,
                       fontSize: "0.9rem",
-                      color: entry.isField ? "#fff" : "var(--site-text)",
+                      color: entry.isField ? "#fff" : entry.type === "info" ? "var(--site-text-muted)" : "var(--site-text)",
+                      fontStyle: entry.type === "info" ? "italic" : "normal",
                     }}>
-                      {entry.event}
+                      {entry.type === "info" ? entry.label : entry.event}
                     </div>
                     {entry.round && (
                       <div style={{

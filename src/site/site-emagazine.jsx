@@ -90,14 +90,6 @@ function groupSponsorsByCategory(sponsors) {
   return [...map.values()];
 }
 
-function sortTimetable(entries = []) {
-  return [...entries].sort((a, b) => {
-    if (a.type === "header" && b.type !== "header") return -1;
-    if (a.type !== "header" && b.type === "header") return 1;
-    return 0;
-  });
-}
-
 function NationCell({ noc }) {
   if (!noc) return "—";
   const flagUrl = nationFlagUrl(noc);
@@ -263,7 +255,7 @@ function TimetablePage({ edition }) {
       theme="accent"
       eyebrow="Competition day"
       title="Timetable"
-      subtitle="Programme extracted automatically from the current edition settings."
+      subtitle={edition?.timetableNote || "Times are indicative and subject to change."}
     >
       <div className="site-emag-timetable">
         {rows.length === 0 ? (
@@ -271,10 +263,16 @@ function TimetablePage({ edition }) {
         ) : (
           <table className="site-emag-table site-emag-table--timetable">
             <tbody>
-              {sortTimetable(rows).map((row) => (
+              {rows.map((row) => (
                 row.type === "header" ? (
                   <tr key={row.id} className="site-emag-timetable__header-row">
                     <td colSpan={3}>{row.label}</td>
+                  </tr>
+                ) : row.type === "info" ? (
+                  <tr key={row.id} className="site-emag-timetable__info-row">
+                    <td>{row.time || "—"}</td>
+                    <td />
+                    <td>{row.label}</td>
                   </tr>
                 ) : (
                   <tr key={row.id}>
