@@ -17,6 +17,8 @@ import preprogGforster from "../assets/site-gallery/preprog-gforster.jpg";
 import preprogNational60m from "../assets/site-gallery/preprog-national-60m.jpg";
 import preprogBusiness1 from "../assets/site-gallery/preprog-business-1.jpg";
 import preprogBusiness2 from "../assets/site-gallery/preprog-business-2.jpg";
+// Photo booth in front of the partners' wall: banner of the sponsor page.
+import sponsorsPhoto from "../assets/site-gallery/gallery-memories.jpg";
 import {
   athleteDisplayName,
   buildAthleteLookup,
@@ -307,7 +309,9 @@ function SponsorsPage({ sponsors }) {
     <MagazinePage
       eyebrow="Partners"
       title="The brands behind the meeting"
-      subtitle="A live selection of active sponsors configured on the public site."
+      subtitle="Thank you to the partners who make the meeting possible."
+      headerImage={sponsorsPhoto}
+      className="site-emag-page--sponsors"
     >
       <div className="site-emag-sponsors">
         {groups.map((group) => (

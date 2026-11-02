@@ -4689,13 +4689,13 @@
 
 .site-emag-sponsors__logos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
 }
 
 .site-emag-sponsors__logo {
-  min-height: 120px;
-  padding: 20px;
+  min-height: 96px;
+  padding: 16px;
   border-radius: 20px;
   border: 1px solid #d9e4ef;
   background: #fff;
@@ -4707,7 +4707,7 @@
 
 .site-emag-sponsors__logo img {
   max-width: 100%;
-  max-height: 72px;
+  max-height: 60px;
   object-fit: contain;
 }
 
@@ -5123,6 +5123,12 @@
 
 .site-emag-page--full .site-emag-page__header--photo {
   min-height: 0;
+}
+
+/* The logo wall needs the room: a lower banner keeps it on one A4 page. */
+.site-emag-page--sponsors .site-emag-page__header--photo {
+  min-height: 270px;
+  background-position: center 30%;
 }
 
 .site-emag-page__header--photo .site-emag-page__eyebrow,
