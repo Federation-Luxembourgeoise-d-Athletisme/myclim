@@ -6775,3 +6775,221 @@ tr.row--warning > td {
     display: none;
   }
 }
+
+/* ── Courses nationales (commission des athlètes) ── */
+.nat-muted {
+  color: #6a7890;
+  font-size: 0.8rem;
+}
+
+.nat-spacer {
+  flex: 1;
+}
+
+.nat-pad {
+  padding: 12px 14px;
+}
+
+.nat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.nat-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nat-chip {
+  border: 1px solid #dbe4f0;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.nat-chip--active {
+  border-color: rgba(20, 159, 219, 0.6);
+  box-shadow: 0 0 0 2px rgba(20, 159, 219, 0.15);
+  font-weight: 700;
+}
+
+.nat-chip--over {
+  border-color: #e0a100;
+}
+
+.nat-card {
+  background: #fff;
+  border: 1px solid #dbe4f0;
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.nat-card--flush {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.nat-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.nat-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f6f9fc;
+}
+
+.nat-row {
+  display: grid;
+  grid-template-columns: 22px 26px minmax(160px, 1.6fr) minmax(130px, 1.2fr) minmax(170px, 1.1fr) minmax(110px, 0.9fr) minmax(150px, 1.2fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 14px;
+  border-top: 1px solid #e8eef6;
+  font-size: 0.88rem;
+}
+
+.nat-row--head {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6a7890;
+  align-items: center;
+}
+
+.nat-row--withdrawn {
+  opacity: 0.6;
+}
+
+.nat-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.nat-details summary {
+  cursor: pointer;
+  color: #0d6fb8;
+  font-size: 0.78rem;
+}
+
+.nat-details[open] {
+  display: grid;
+  gap: 2px;
+  font-size: 0.8rem;
+}
+
+.nat-inline-check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.nat-seg {
+  display: inline-flex;
+  border: 1px solid #c9d6e6;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.nat-seg__item {
+  border: 0;
+  border-right: 1px solid #dbe4f0;
+  background: #fff;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.nat-seg__item:last-child {
+  border-right: 0;
+}
+
+.nat-seg__item--ok {
+  background: #e3f4e8;
+  color: #1d6b38;
+  font-weight: 700;
+}
+
+.nat-seg__item--warn {
+  background: #fdf1d8;
+  color: #8a5a00;
+  font-weight: 700;
+}
+
+.nat-seg__item--danger {
+  background: #fbe4e4;
+  color: #a12727;
+  font-weight: 700;
+}
+
+.nat-message-input {
+  width: 100%;
+}
+
+.nat-table {
+  border: 1px solid #e8eef6;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.nat-mail-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-top: 1px solid #e8eef6;
+  font-size: 0.88rem;
+}
+
+.nat-mail-row:first-child {
+  border-top: 0;
+}
+
+.nat-button--active {
+  border-color: rgba(20, 159, 219, 0.6);
+}
+
+.nat-preview {
+  background: #f6f9fc;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.nat-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .nat-row {
+    grid-template-columns: 22px 26px minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .nat-row--head {
+    display: none;
+  }
+}

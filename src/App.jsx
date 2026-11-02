@@ -48,6 +48,7 @@ import { MyAssignmentsPage as MyAssignmentsPageScreen, MyDocumentsPage as MyDocu
 import { DocumentsPage as DocumentsPageScreen } from "./app/documents-page";
 import { MyChildrenPage as MyChildrenPageScreen } from "./app/my-children-page";
 import { MyNationalRacePage as MyNationalRacePageScreen } from "./app/my-national-race-page";
+import { NationalRacesPage as NationalRacesPageScreen } from "./app/national-races-page";
 import { ProfilePage as ProfilePageScreen, VolunteerProfilePage as VolunteerProfilePageScreen } from "./app/profile-pages";
 import { TeamPage as TeamPageScreen } from "./app/team-page";
 import {
@@ -459,6 +460,10 @@ function MyChildrenPage() {
   );
 }
 
+function NationalRacesPage() {
+  return <NationalRacesPageScreen Panel={Panel} loadMailQueueModule={loadMailQueueModule} />;
+}
+
 function MyNationalRacePage() {
   return <MyNationalRacePageScreen DataTable={DataTable} Panel={Panel} />;
 }
@@ -554,6 +559,9 @@ export default function App() {
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "parent_u14"]} />}>
                 <Route path="mes-enfants" element={<MyChildrenPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "commission_athletes"]} />}>
+                <Route path="courses-nationales" element={<NationalRacesPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "athlete_preprogram"]} />}>
                 <Route path="mon-inscription" element={<MyNationalRacePage />} />

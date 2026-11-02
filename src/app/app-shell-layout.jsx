@@ -181,6 +181,7 @@ function AppShell(props) {
       benevole: "/app/mes-affectations",
       parent_u14: "/app/mes-enfants",
       athlete_preprogram: "/app/mon-inscription",
+      commission_athletes: "/app/courses-nationales",
     };
 
     navigate(defaultRouteByRole[nextRole] || "/app");

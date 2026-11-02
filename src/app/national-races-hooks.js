@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { NATIONAL_RACE_REQUESTS_COLLECTION } from "./national-races-helpers";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
+import {
+  NATIONAL_RACE_MAIL_TEMPLATES_DOC_PATH,
+  NATIONAL_RACE_REQUESTS_COLLECTION,
+  normalizeNationalRaceMailTemplates,
+} from "./national-races-helpers";
 import { getTimestampMs } from "./u14-helpers";
 import { recordMatchesEdition, useActiveEdition } from "./edition";
 import { db } from "../services/firebase";
@@ -51,4 +55,24 @@ function useNationalRaceRequests({ enabled = true, athleteUserId = "" } = {}) {
     : { requests: [], loading: false, error: "" };
 }
 
-export { useNationalRaceRequests };
+function useNationalRaceMailTemplates(enabled = true) {
+  const [templates, setTemplates] = useState(() => normalizeNationalRaceMailTemplates(null));
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    return onSnapshot(
+      doc(db, ...NATIONAL_RACE_MAIL_TEMPLATES_DOC_PATH),
+      (snapshot) => {
+        setTemplates(normalizeNationalRaceMailTemplates(snapshot.exists() ? snapshot.data() : null));
+        setError("");
+      },
+      () => setError("Impossible de charger les modèles de mails."),
+    );
+  }, [enabled]);
+
+  return { templates, error };
+}
+
+export { useNationalRaceMailTemplates, useNationalRaceRequests };

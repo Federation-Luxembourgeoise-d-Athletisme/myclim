@@ -27,14 +27,12 @@ import {
   useU14PracticalInfoConfiguration,
   useU14RequestsList,
 } from "./u14-hooks";
-import { NationalRacesAdminTab } from "./national-races-admin";
 import { db } from "../services/firebase";
 
 const U14_TAB_PATHS = {
   preprogram: "/app/u14",
   protected: "/app/u14/places-protegees",
   basket: "/app/u14/porte-panier",
-  national: "/app/u14/courses-nationales",
   timeline: "/app/u14/chronologie",
   practical: "/app/u14/infos-pratiques",
 };
@@ -44,7 +42,6 @@ function getU14TabFromPath(pathname) {
 
   if (normalizedPath.endsWith("/porte-panier")) return "basket";
   if (normalizedPath.endsWith("/places-protegees")) return "protected";
-  if (normalizedPath.endsWith("/courses-nationales")) return "national";
   if (normalizedPath.endsWith("/chronologie")) return "timeline";
   if (normalizedPath.endsWith("/infos-pratiques")) return "practical";
   return "preprogram";
@@ -63,12 +60,6 @@ function getU14PageHeader(activeTab, basketRequestsCount) {
         eyebrow: "Module Pré-programme",
         title: "Places protégées",
         description: "Gestion des places réservées par course et des invitations parent associées.",
-      };
-    case "national":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Courses nationales",
-        description: "Demandes adultes 60 m et 800 m, pilotées par la commission des athlètes : sélection sur performance, puis engagement SELTEC par l'organisation.",
       };
     case "timeline":
       return {
@@ -691,13 +682,6 @@ function U14Page(props) {
           Porte-panier ({basketRequests.length})
         </button>
         <button
-          className={`admin-subtab ${activeU14Tab === "national" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("national")}
-        >
-          Courses nationales
-        </button>
-        <button
           className={`admin-subtab ${activeU14Tab === "timeline" ? "admin-subtab--active" : ""}`}
           type="button"
           onClick={() => openU14Tab("timeline")}
@@ -1117,10 +1101,6 @@ function U14Page(props) {
             }
           />
         </Panel>
-      ) : null}
-
-      {activeU14Tab === "national" ? (
-        <NationalRacesAdminTab DataTable={DataTable} Panel={Panel} loadMailQueueModule={loadMailQueueModule} />
       ) : null}
 
       {activeU14Tab === "practical" ? (

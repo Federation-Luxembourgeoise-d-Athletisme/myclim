@@ -40,6 +40,7 @@ const ROLE_LABEL_KEYS = {
   benevole: "roleLabelVolunteer",
   parent_u14: "roleLabelParentU14",
   athlete_preprogram: "roleLabelAthletePreprogram",
+  commission_athletes: "roleLabelAthleteCommission",
   gestionnaire_site: "roleLabelWebsiteManager",
   chef_transport_athletes: "roleLabelAthleteTransportLead",
   benevole_transport_athletes: "roleLabelAthleteTransportVolunteer",

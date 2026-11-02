@@ -49,6 +49,16 @@ service cloud.firestore {
       return isSignedIn() && "chef_transport_athletes" in userTypes();
     }
 
+    // Commission des athlètes : pilote les courses nationales du pré-programme
+    // (sélection et décisions), sans accès aux U12/U14 ni aux bénévoles.
+    function isAthleteCommission() {
+      return isSignedIn() && "commission_athletes" in userTypes();
+    }
+
+    function canManageNationalRaces() {
+      return isAdmin() || isAthleteCommission();
+    }
+
     function isPhysio() {
       return isSignedIn() && "kine" in userTypes();
     }
@@ -357,19 +367,24 @@ service cloud.firestore {
 
     // Courses nationales du pré-programme (adultes) : l'athlète crée et lit ses
     // propres demandes ; il ne peut ensuite que se désister. Sélection, liste
-    // d'attente et suivi SELTEC restent aux admins/gestionnaires.
+    // d'attente, mails et suivi SELTEC restent à la commission et aux admins.
     match /nationalRaceRequests/{requestId} {
       allow create: if (isSignedIn() &&
           request.resource.data.athleteUserId == request.auth.uid &&
           request.resource.data.status == "submitted") ||
-        isAdminOrManager();
-      allow read: if (isSignedIn() && resource.data.athleteUserId == request.auth.uid) || isAdminOrManager();
-      allow update: if isAdminOrManager() ||
+        canManageNationalRaces();
+      allow read: if (isSignedIn() && resource.data.athleteUserId == request.auth.uid) || canManageNationalRaces();
+      allow update: if canManageNationalRaces() ||
         (isSignedIn() &&
          resource.data.athleteUserId == request.auth.uid &&
          request.resource.data.status == "withdrawn" &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "withdrawnAt", "updatedAt"]));
-      allow delete: if isAdminOrManager();
+      allow delete: if canManageNationalRaces();
+    }
+
+    // Modèles de mails des décisions (retenu / attente / non retenu).
+    match /appSettings/nationalRaceMailTemplates {
+      allow read, write: if canManageNationalRaces();
     }
 
     // Places protégées pré-programme : manquait complètement (tombait dans le

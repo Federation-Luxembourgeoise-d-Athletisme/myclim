@@ -21,7 +21,13 @@ function MyNationalRacePage(props) {
   const [busyRequestId, setBusyRequestId] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const hasSelectedRequest = requests.some((request) => request.status === "selected");
+  // La commission prévient au compte-goutte : l'athlète ne voit une décision
+  // qu'une fois le mail correspondant envoyé (notifiedStatus).
+  const visibleRequests = requests.map((request) => ({
+    ...request,
+    visibleStatus: request.status === "withdrawn" ? "withdrawn" : request.notifiedStatus || "submitted",
+  }));
+  const hasSelectedRequest = visibleRequests.some((request) => request.visibleStatus === "selected");
 
   async function handleWithdraw(request) {
     if (!window.confirm(t("natWithdrawConfirm").replace("{event}", request.event))) return;
@@ -74,8 +80,8 @@ function MyNationalRacePage(props) {
           rows={
             loading
               ? [{ race: t("mcLoading"), performance: "-", status: "-", submittedAt: "-", actions: "-" }]
-              : requests.length
-                ? requests.map((request) => ({
+              : visibleRequests.length
+                ? visibleRequests.map((request) => ({
                     id: request.id,
                     race: getNationalRaceDefinition(request.raceCode)?.label || request.event,
                     performance: (
@@ -87,13 +93,13 @@ function MyNationalRacePage(props) {
                     ),
                     status: (
                       <div className="table-stack">
-                        <span className={getNationalRaceStatusPillClass(request.status)}>{t(getNationalRaceStatusKey(request.status))}</span>
-                        {request.athleteMessage ? <span className="parent-request-practical">{request.athleteMessage}</span> : null}
+                        <span className={getNationalRaceStatusPillClass(request.visibleStatus)}>{t(getNationalRaceStatusKey(request.visibleStatus))}</span>
+                        {request.athleteMessage && request.notifiedStatus ? <span className="parent-request-practical">{request.athleteMessage}</span> : null}
                       </div>
                     ),
                     submittedAt: formatDateTimeForDisplay(request.submittedAt),
                     actions:
-                      request.status === "withdrawn" || request.status === "not_selected" ? (
+                      request.visibleStatus === "withdrawn" || request.visibleStatus === "not_selected" ? (
                         "-"
                       ) : (
                         <button
