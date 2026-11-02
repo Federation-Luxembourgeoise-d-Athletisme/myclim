@@ -4780,6 +4780,113 @@
   display: block;
 }
 
+/* FLA clubs page (2026 e-magazine): red fading to white, then a red table. */
+.site-emag-clubs {
+  display: flex;
+  flex-direction: column;
+  padding: 44px 40px 0;
+  background: linear-gradient(180deg, #d94a55 0%, #f3c9cd 30%, #fdf4f5 46%);
+  color: #ffffff;
+}
+
+.site-emag-clubs__list {
+  flex: 1;
+  margin: 0 -40px;
+  padding: 26px 40px 30px;
+  background: #e52a3a;
+}
+
+.site-emag-clubs__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 30px;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.site-emag-clubs__head h2 {
+  margin: 0;
+  max-width: 300px;
+  color: #e52a3a;
+  font-size: 3rem;
+  line-height: 1.05;
+  font-weight: 800;
+}
+
+.site-emag-clubs__head img {
+  width: 260px;
+  height: auto;
+}
+
+.site-emag-clubs__join {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 30px 22px;
+}
+
+.site-emag-clubs__join p {
+  margin: 0;
+  max-width: 360px;
+  color: #e52a3a;
+  font-size: 1.9rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.site-emag-clubs__join figure {
+  margin: 0;
+  text-align: center;
+}
+
+.site-emag-clubs__join figure img {
+  width: 150px;
+  height: 150px;
+  padding: 8px;
+  background: #ffffff;
+  display: block;
+}
+
+.site-emag-clubs__join figcaption {
+  margin-top: 6px;
+  color: #e52a3a;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.site-emag-clubs__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.site-emag-clubs__table th {
+  padding: 0 8px 12px;
+  text-align: left;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.site-emag-clubs__table td {
+  padding: 5px 8px;
+  font-weight: 600;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.site-emag-clubs__table td:first-child {
+  color: #ffe1e3;
+  font-weight: 700;
+}
+
+.site-emag-clubs__table a {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
 /* Duel / athletes to watch (2026 e-magazine style): photos side by side on
    the full page, event on top, VS in the middle of a duel, names, flags and
    PB on a blue gradient at the bottom. */

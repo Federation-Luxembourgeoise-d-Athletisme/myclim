@@ -19,6 +19,9 @@ import preprogBusiness1 from "../assets/site-gallery/preprog-business-1.jpg";
 import preprogBusiness2 from "../assets/site-gallery/preprog-business-2.jpg";
 // Photo booth in front of the partners' wall: banner of the sponsor page.
 import sponsorsPhoto from "../assets/site-gallery/gallery-memories.jpg";
+import flaLogo from "../assets/fla-logo.png";
+import flaClubsQr from "../assets/fla-clubs-qr.png";
+import flaClubs from "../data/flaClubs.json";
 import {
   athleteDisplayName,
   buildAthleteLookup,
@@ -299,6 +302,47 @@ function TimetablePage({ edition }) {
         )}
       </div>
     </MagazinePage>
+  );
+}
+
+// "Want to discover athletics?" — the FLA clubs page of the 2026 e-magazine.
+function ClubsPage() {
+  return (
+    <section className="site-emag-page site-emag-clubs">
+      <div className="site-emag-clubs__head">
+        <h2>Want to discover athletics?</h2>
+        <img src={flaLogo} alt="Fédération Luxembourgeoise d'Athlétisme" />
+      </div>
+      <div className="site-emag-clubs__join">
+        <p>Join one of our competitive athletics clubs!</p>
+        <figure>
+          <img src={flaClubsQr} alt="QR code to the list of FLA clubs" />
+          <figcaption>Scan me!</figcaption>
+        </figure>
+      </div>
+      <div className="site-emag-clubs__list">
+      <table className="site-emag-clubs__table">
+        <thead>
+          <tr>
+            <th>Club</th>
+            <th>Email address</th>
+            <th>Website</th>
+            <th>Telephone</th>
+          </tr>
+        </thead>
+        <tbody>
+          {flaClubs.clubs.map((club) => (
+            <tr key={club.name}>
+              <td>{club.name}</td>
+              <td>{club.email}</td>
+              <td>{club.website ? <a href={`https://${club.website}`} target="_blank" rel="noopener noreferrer">{club.website}</a> : null}</td>
+              <td>{club.phone}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      </div>
+    </section>
   );
 }
 
@@ -739,6 +783,14 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
           pageId,
           title: emagazine.welcome.title || `Welcome to the ${currentEdition?.year || ""} edition`,
           element: <WelcomePage edition={currentEdition} config={emagazine.welcome} />,
+        }];
+      }
+      if (pageId === "clubs") {
+        return [{
+          key: "clubs",
+          pageId,
+          title: "Athletics clubs",
+          element: <ClubsPage />,
         }];
       }
       if (pageId === "timetable") {

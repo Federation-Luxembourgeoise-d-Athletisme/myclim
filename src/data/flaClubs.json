@@ -1,0 +1,20 @@
+{
+  "source": "EN_ E-MAGAZINE CMCM Indoor meeting - 2026 (clubs page)",
+  "clubs": [
+    { "name": "CA Belvaux", "email": "info@cab.lu", "website": "www.cab.lu", "phone": "+352 661 556 897" },
+    { "name": "CA Dudelange", "email": "comite@cadudelange.lu", "website": "www.cadudelange.lu", "phone": "+352 321 255 833" },
+    { "name": "CAE Grevenmacher", "email": "info@caeg.lu", "website": "www.caeg.lu", "phone": "+352 26 72 93 47" },
+    { "name": "CAFOLA", "email": "comite@cafola.lu", "website": "www.cafola.lu", "phone": "+352 331 579 200" },
+    { "name": "CAPA", "email": "info@capa.lu", "website": "www.capa.lu", "phone": "+352 621 271 527" },
+    { "name": "CA Schifflange", "email": "cas@pt.lu", "website": "www.cas.lu", "phone": "+352 57 06 95" },
+    { "name": "Celtic Diekirch", "email": "celtic@celtic.lu", "website": "www.celtic.lu", "phone": "+352 621 328 838" },
+    { "name": "CS Luxembourg", "email": "cslath@pt.lu", "website": "www.cslath.lu", "phone": "+352 44 42 41" },
+    { "name": "CSN Clervaux", "email": "info@csn.lu", "website": "www.csn.lu", "phone": "+352 621 510 966" },
+    { "name": "Karibu", "email": "info@karibu.lu", "website": "www.karibu.lu", "phone": "+352 621 374 930" },
+    { "name": "LIAL", "email": "lial.club@gmail.com", "website": "www.lial.lu", "phone": "+352 661 140 779" },
+    { "name": "RBUAP", "email": "info@rbuap.com", "website": "www.rbuap.com", "phone": "+352 691 963 644" },
+    { "name": "Trilux", "email": "triathlon.luxembourg@gmail.com", "website": "www.trilux.lu", "phone": "+352 48 11 12" },
+    { "name": "Trispeed Mamer", "email": "info@trispeed.lu", "website": "www.trispeed.lu", "phone": "+352 621 140 306" },
+    { "name": "Team X3M Snooze", "email": "info@x3m.lu", "website": "www.x3m.lu", "phone": "+352 661 391 279" }
+  ]
+}

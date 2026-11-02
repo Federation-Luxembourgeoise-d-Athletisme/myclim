@@ -66,6 +66,7 @@ function buildDefaultPageOrder(config, edition) {
     ...config.highlightPages.map((page) => `highlight:${page.id}`),
     ...config.partnerPages.map((page) => `partner:${page.id}`),
     ...buildOfficialStartlistPageIds(edition),
+    "clubs",
   ];
 }
 
@@ -136,6 +137,8 @@ export function buildEmagazinePageRegistry(config, edition) {
       editorAnchor: "emag-startlist-photos",
       sourcePath: "/app/athlete-portal/athletes",
     })),
+    // FLA clubs and how to join them (list in src/data/flaClubs.json).
+    { id: "clubs", kind: "core", title: "Athletics clubs", editorAnchor: null, sourcePath: "/e-magazine" },
   ];
 }
 
