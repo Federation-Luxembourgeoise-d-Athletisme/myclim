@@ -1,0 +1,263 @@
+/* Cloche en haut à droite de l'app et page /app/notifications. */
+
+.notif-bell {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 30;
+}
+
+.notif-bell__button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid #c5d9f1;
+  background: #ffffff;
+  color: #1a4aa1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(26, 74, 161, 0.1);
+}
+
+.notif-bell__button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.notif-bell__count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e30613;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.notif-popover {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(23, 50, 74, 0.18);
+  overflow: hidden;
+}
+
+.notif-popover__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.notif-popover .notif-list {
+  overflow-y: auto;
+}
+
+.notif-popover__foot {
+  padding: 12px 16px;
+  border-top: 1px solid #edf1f6;
+  color: #1a4aa1;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.notif-link {
+  border: 0;
+  background: none;
+  color: #1a4aa1;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notif-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 12px 16px 12px 26px;
+  border: 0;
+  border-bottom: 1px solid #f1f4f8;
+  background: none;
+  color: #16323c;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+
+.notif-item:hover {
+  background: #f6f9fd;
+}
+
+.notif-item--unread::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 18px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #0099ff;
+}
+
+.notif-item__title {
+  font-weight: 600;
+}
+
+.notif-item--unread .notif-item__title {
+  font-weight: 700;
+}
+
+.notif-item__body {
+  color: #44596b;
+  font-size: 0.9rem;
+  white-space: pre-line;
+}
+
+.notif-item__when {
+  color: #7b8a99;
+  font-size: 0.78rem;
+}
+
+.notif-empty {
+  margin: 0;
+  padding: 16px;
+  color: #5d6b82;
+}
+
+/* La barre mobile et la barre « Voir comme » laissent la place à la cloche. */
+.shell-mobile-bar,
+.content-toolbar {
+  padding-right: 56px;
+}
+
+.notif-page {
+  display: grid;
+  gap: 18px;
+  max-width: 900px;
+}
+
+.notif-device__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.notif-device__on {
+  color: #1b7a3d;
+  font-weight: 600;
+}
+
+.notif-device__hint,
+.notif-device__message {
+  margin: 0;
+  color: #44596b;
+}
+
+.notif-prefs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notif-prefs__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 0;
+  border-top: 1px solid #edf1f6;
+}
+
+.notif-prefs__channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notif-prefs__hint {
+  display: block;
+  color: #5d6b82;
+  font-size: 0.85rem;
+}
+
+.notif-announce {
+  display: grid;
+  gap: 14px;
+}
+
+.notif-announce__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.notif-announce__groups legend {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.notif-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #c5d9f1;
+  border-radius: 999px;
+  background: #f6f9fd;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.notif-chip input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.notif-field {
+  display: grid;
+  gap: 6px;
+}
+
+.notif-field span {
+  font-weight: 600;
+}
+
+.notif-field input,
+.notif-field textarea {
+  padding: 10px 12px;
+  border: 1px solid #c9d6e4;
+  border-radius: 10px;
+  font: inherit;
+}

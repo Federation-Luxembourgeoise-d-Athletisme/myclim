@@ -21,6 +21,7 @@ import { buildUserIdentitySet, formatVolunteerApplicationStatus, isTeamLeadAssig
 import { ACCREDITATION_CONFIGURATION_DOC_PATH, TEAM_CONFIGURATION_DOC_PATH } from "./seed-data";
 import { getDisplayName, normalizeRole } from "./utils";
 import { LanguageSwitch } from "./language";
+import { NotificationBell } from "./notifications/notifications-ui";
 import { useLanguage } from "./language-context";
 import { db } from "../services/firebase";
 
@@ -139,7 +140,11 @@ function AppShell(props) {
   const currentRouteLabelKey =
     flatNavigation.find((item) => item.to === location.pathname)?.labelKey ||
     flatNavigation.find((item) => item.to !== "/app" && isRouteMatch(location.pathname, item.to))?.labelKey;
-  const currentRouteLabel = currentRouteLabelKey ? t(currentRouteLabelKey) : t("shellMenuLabel");
+  const currentRouteLabel = currentRouteLabelKey
+    ? t(currentRouteLabelKey)
+    : location.pathname === "/app/notifications"
+      ? "Notifications"
+      : t("shellMenuLabel");
 
   useEffect(() => {
     function syncSidebarWithViewport() {
@@ -322,6 +327,7 @@ function AppShell(props) {
         />
       ) : null}
       <main className="content">
+        <NotificationBell />
         {!isSidebarOpen ? (
           <button
             className="shell-sidebar-rail"

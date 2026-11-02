@@ -10,6 +10,16 @@ import { sendMail } from "./mailer.js";
 // Module Communication : validation des publications (voir communication.js).
 export * from "./communication.js";
 export * from "./communication-social.js";
+// Notifications de l'équipe : cloche, push et e-mail (voir notifications.js).
+export {
+  notifyPressRegistration,
+  notifyU14Request,
+  notifyVipPartnerEntry,
+  notifyVipRegistration,
+  notifyVolunteerApplication,
+  sendTeamAnnouncement,
+  sendTestNotification,
+} from "./notifications.js";
 
 
 admin.initializeApp();
