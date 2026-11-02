@@ -4415,6 +4415,7 @@
   max-width: 100%;
   height: auto;
   display: block;
+  mix-blend-mode: multiply;
 }
 
 .site-emag-cover .site-emag-cover__kicker {
@@ -4429,8 +4430,13 @@
   color: var(--emag-blue);
 }
 
+/* The visual fades in under the title instead of starting on a hard edge. */
 .site-emag-cover__visual {
   aspect-ratio: 1500 / 844;
+  margin-top: -40px;
+  margin-bottom: -24px;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 86%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 86%, transparent 100%);
 }
 
 .site-emag-cover__visual img {
@@ -4491,13 +4497,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 6px;
 }
 
 /* multiply: a logo delivered on a white box blends into the light ground. */
 .site-emag-cover__partners img {
-  width: 92px;
-  height: 48px;
+  width: 120px;
+  height: 62px;
   object-fit: contain;
   display: block;
   mix-blend-mode: multiply;
