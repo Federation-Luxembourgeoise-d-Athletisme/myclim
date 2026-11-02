@@ -171,6 +171,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Notifications (cloche) : écrites uniquement par le serveur
+    // (functions/src/notifications.js) ; la personne peut seulement les lire,
+    // les marquer comme lues et les supprimer.
+    match /users/{userId}/notifications/{notificationId} {
+      allow read, delete: if isOwner(userId);
+      allow update: if isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read", "readAt"]);
+    }
+
+    // Appareils activés pour le push (un document par jeton FCM).
+    match /users/{userId}/pushTokens/{tokenId} {
+      allow read, write: if isOwner(userId);
+    }
+
     // ── Portail athlètes ─────────────────────────────────────────────────────
     // Manquait complètement (tombait dans le catch-all admin-only), ce qui
     // bloquait meeting_director et le transport athlètes malgré des routes

@@ -106,6 +106,7 @@ const WebsiteLinksPageScreen = lazyNamed(() => import("./app/website-links-page"
 const SiteLinks = lazyNamed(() => import("./site/site-links"), "SiteLinks");
 const InvitationAdminPageScreen = lazyNamed(() => import("./app/invitation-admin-page"), "InvitationAdminPage");
 const InvitePage = lazyNamed(() => import("./app/invite-page"), "InvitePage");
+const NotificationsPage = lazyNamed(() => import("./app/notifications/notifications-ui"), "NotificationsPage");
 const CommunicationModule = lazyNamed(() => import("./app/communication/communication-module"), "CommunicationModule");
 const AthleteRoadbookPage = lazyNamed(() => import("./site/athlete-roadbook-page"), "AthleteRoadbookPage");
 const AthleteRoadbookAdminPageScreen = lazyNamed(() => import("./app/athlete-roadbook-admin-page"), "AthleteRoadbookAdminPage");
@@ -549,6 +550,7 @@ export default function App() {
                 <Route path="mes-enfants" element={<MyChildrenPage />} />
               </Route>
               <Route path="profil" element={<ProfilePage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
               <Route path="athlete-portal">
                 <Route index element={<Navigate replace to="athletes" />} />
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>

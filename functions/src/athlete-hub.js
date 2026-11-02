@@ -9,6 +9,8 @@
 import admin from "firebase-admin";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
+import { notifyAthleteGuests, notifyPhysioBooking } from "./notifications.js";
 
 const REGION = "europe-west1";
 const DEFAULT_EDITION = "test";
@@ -316,6 +318,9 @@ export const bookPhysioSlot = onCall({ region: REGION }, async (request) => {
     return { id: refs[freeIndex].id, ...data };
   });
 
+  // Prévenir les kinés ne doit jamais faire échouer la réservation.
+  await notifyPhysioBooking(booking, "booked").catch((error) => logger.error("Physio notification failed", error));
+
   return { booking: publicBooking(booking) };
 });
 
@@ -328,6 +333,7 @@ export const cancelPhysioBooking = onCall({ region: REGION }, async (request) =>
   }
   // Supprimer libère le créneau pour un autre athlète.
   await ref.delete();
+  await notifyPhysioBooking(snapshot.data(), "cancelled").catch((error) => logger.error("Physio notification failed", error));
   return { ok: true };
 });
 
@@ -395,5 +401,12 @@ export const saveAthleteGuests = onCall({ region: REGION }, async (request) => {
   }
 
   await batch.commit();
+  const named = guests.filter((guest) => guest.firstName);
+  const changed = Array.from({ length: MAX_GUESTS }, (_, index) => index).some((index) => {
+    const before = current[index];
+    const after = guests[index];
+    return `${before?.firstName || ""} ${before?.lastName || ""}` !== `${after?.firstName || ""} ${after?.lastName || ""}`;
+  });
+  if (changed) await notifyAthleteGuests(athlete, named).catch((error) => logger.error("Guests notification failed", error));
   return { guests: await loadAthleteGuests(editionId, athlete.id) };
 });

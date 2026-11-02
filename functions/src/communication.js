@@ -1,16 +1,15 @@
 // ── Module Communication : validation des publications ─────────────────────
 // Porté de myFLA (app/api/communication/validation). Seul le serveur écrit le
 // champ `validation` des com_publications (règles Firestore) : il vérifie qui
-// peut répondre et prévient les personnes concernées par e-mail (mailQueue).
-/* global process */
+// peut répondre et prévient les personnes concernées (cloche, push, e-mail).
 
 import admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
+import { notifyUsers } from "./notifications.js";
 
 const REGION = "europe-west1";
 const COMMUNICATION_ROLES = ["admin", "gestionnaire"];
-const DEFAULT_APP_BASE_URL = "https://cmcm-luxembourg-indoor-meeting.lu";
 
 function firestore() {
   return admin.firestore();
@@ -20,20 +19,8 @@ function memberName(user = {}) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email || "Un membre de l'équipe";
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 // Messages d'erreur dans la langue de l'app de la personne (français ou anglais).
 const translator = (request) => (fr, en) => (request.data?.lang === "fr" ? fr : en);
-
-function appBaseUrl() {
-  return String(process.env.APP_BASE_URL || DEFAULT_APP_BASE_URL).replace(/\/$/, "");
-}
 
 export const comPublicationValidation = onCall({ region: REGION }, async (request) => {
   const tr = translator(request);
@@ -99,58 +86,30 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
       : [...new Set([validation.demandeePar, ...validation.demandeeA])].filter((memberUid) => memberUid !== uid);
 
   const author = memberName(requester);
-  const url = `${appBaseUrl()}/app/communication/publication/${encodeURIComponent(publication.id)}`;
-  // E-mail bilingue (anglais puis français) : l'équipe ne parle pas toujours français.
   const title = publication.titre;
-  const subject =
-    action === "demande"
-      ? `${author} asks for your approval / demande ta validation: “${title}”`
-      : action === "validee"
-        ? `👍 ${author} approved / a validé “${title}”`
-        : `👎 ${author} requests changes / demande de revoir “${title}”`;
-  const introEn =
-    action === "demande"
-      ? `${author} asks you to approve the publication “${title}” planned for ${publication.date}.`
-      : action === "validee"
-        ? `${author} approved the publication “${title}” planned for ${publication.date}.`
-        : `${author} requests changes to the publication “${title}” planned for ${publication.date}.`;
-  const introFr =
-    action === "demande"
-      ? `${author} te demande de valider la publication « ${title} » prévue le ${publication.date}.`
-      : action === "validee"
-        ? `${author} a validé la publication « ${title} » prévue le ${publication.date}.`
-        : `${author} demande des corrections sur la publication « ${title} » prévue le ${publication.date}.`;
-  const body = [introEn, message ? `Message: ${message}` : "", `Open the publication: ${url}`, "—", introFr, `Ouvrir la publication : ${url}`]
-    .filter(Boolean)
-    .join("\n\n");
-  const html = [
-    `<p>${escapeHtml(introEn)}</p>`,
-    message ? `<p><strong>Message:</strong> ${escapeHtml(message)}</p>` : "",
-    `<p><a href="${escapeHtml(url)}">Open the publication in MyCLIM</a></p>`,
-    `<hr><p lang="fr">${escapeHtml(introFr)}</p>`,
-    `<p lang="fr"><a href="${escapeHtml(url)}">Ouvrir la publication dans MyCLIM</a></p>`,
-  ].join("");
+  const titles = {
+    demande: { fr: `${author} demande ta validation`, en: `${author} asks for your approval` },
+    validee: { fr: `👍 ${author} a validé une publication`, en: `👍 ${author} approved a publication` },
+    a_revoir: { fr: `👎 ${author} demande des corrections`, en: `👎 ${author} requests changes` },
+  };
+  const intros = {
+    demande: { fr: `« ${title} », prévue le ${publication.date}, attend ta validation.`, en: `“${title}”, planned for ${publication.date}, is waiting for your approval.` },
+    validee: { fr: `« ${title} », prévue le ${publication.date}, est validée.`, en: `“${title}”, planned for ${publication.date}, is approved.` },
+    a_revoir: { fr: `« ${title} », prévue le ${publication.date}, est à revoir.`, en: `“${title}”, planned for ${publication.date}, needs changes.` },
+  };
+  const withMessage = (text, label) => (message ? `${text}
+${label} ${message}` : text);
 
-  await Promise.all(
-    recipients
-      .map((memberUid) => teamById.get(memberUid))
-      .filter((user) => user?.email)
-      .map((user) =>
-        firestore()
-          .collection("mailQueue")
-          .add({
-            to: user.email,
-            subject,
-            body,
-            html,
-            status: "pending",
-            source: "communication-validation",
-            publicationId: publication.id,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          })
-          .catch((error) => logger.error("Validation mail enqueue failed", { publicationId: publication.id, error: error?.message })),
-      ),
-  );
+  // Cloche, push et e-mail selon les préférences de chacun (voir notifications.js).
+  // Un envoi raté ne doit pas faire échouer la validation, déjà enregistrée.
+  await notifyUsers({
+    users: recipients.map((memberUid) => teamById.get(memberUid)).filter(Boolean),
+    type: "com_validation",
+    title: titles[action],
+    body: { fr: withMessage(intros[action].fr, "Message :"), en: withMessage(intros[action].en, "Message:") },
+    path: `/app/communication/publication/${encodeURIComponent(publication.id)}`,
+    data: { publicationId: publication.id },
+  }).catch((error) => logger.error("Validation notification failed", { publicationId: publication.id, error: error?.message }));
 
   return { validation };
 });
