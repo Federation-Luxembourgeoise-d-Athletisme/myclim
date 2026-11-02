@@ -244,7 +244,7 @@ function HighlightEditor({ page, athleteOptions, onChange, onRemove }) {
         </div>
         <div>
           <label style={labelStyle}>Title</label>
-          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Page title" />
+          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Empty = the athletes' event, e.g. Long Jump Men" />
         </div>
         <div>
           <label style={labelStyle}>Image URL</label>
