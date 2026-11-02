@@ -51,8 +51,8 @@ function buildNavigationFromRoles(roles) {
     makeLink("/app/u14", "navPreprogramU12U14", "U12 / U14", "spark"),
     makeLink("/app/u14/porte-panier", "navPreprogramBasketCarrier", "Porte-panier", "child"),
   ];
-  // Courses nationales : module à part, piloté par la commission des athlètes
-  // (pas les mêmes personnes que le pré-programme U12/U14).
+  // Courses nationales : rangées sous « Pré-programme », mais page à part
+  // (pas un onglet U12/U14), pilotée par la commission des athlètes.
   const nationalRacesLinks = [
     makeLink("/app/courses-nationales", "navNationalRaces", "Courses nationales", "spark"),
   ];
@@ -81,8 +81,7 @@ function buildNavigationFromRoles(roles) {
       makeSection("navSectionCommunication", "Communication", [
         makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
       ]),
-      makeSection("navSectionPreprogram", "Pré-programme", preProgrammeLinks),
-      makeSection("navSectionNationalRaces", "Courses nationales", nationalRacesLinks),
+      makeSection("navSectionPreprogram", "Pré-programme", [...preProgrammeLinks, ...nationalRacesLinks]),
       makeSection("navSectionWebsite", "Site web", [
         makeLink("/app/website", "navWebsiteOverviewAdmin", "Vue d’ensemble", "grid"),
         makeLink("/app/website/edition", "navWebsiteEdition", "Édition courante", "calendar"),
@@ -125,10 +124,6 @@ function buildNavigationFromRoles(roles) {
       personalLinks.push(makeLink("/app/mon-inscription", "navMyNationalRace", "Mon inscription", "spark"));
     }
 
-    if (roles.includes("commission_athletes")) {
-      personalLinks.push(...nationalRacesLinks);
-    }
-
     const navigation = [
       makeSection("navSectionOverview", "Vue générale", [
         makeLink("/app", "navOverview", "Vue d'ensemble", "dashboard"),
@@ -151,7 +146,11 @@ function buildNavigationFromRoles(roles) {
       makeSection("navSectionCommunication", "Communication", [
         makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
       ]),
-      makeSection("navSectionPreprogram", "Pré-programme", preProgrammeLinks),
+      makeSection(
+        "navSectionPreprogram",
+        "Pré-programme",
+        roles.includes("commission_athletes") ? [...preProgrammeLinks, ...nationalRacesLinks] : preProgrammeLinks,
+      ),
     ];
 
     if (roles.includes("gestionnaire_site")) {
