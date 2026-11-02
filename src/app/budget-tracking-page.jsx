@@ -28,7 +28,6 @@ import {
   applyCanonicalHistoricalBudget,
   buildAllBudgetSeeds,
   buildBudgetDiff,
-  buildSimplifiedRows,
   createBudgetRow,
   enrichBudgetWithLinkedActuals,
   getBudgetDocumentLabel,
@@ -90,6 +89,23 @@ function formatCurrency(value) {
   return currencyFormatter.format(value);
 }
 
+const roundedCurrencyFormatter = new Intl.NumberFormat("fr-LU", {
+  style: "currency",
+  currency: "EUR",
+  maximumFractionDigits: 0,
+});
+
+// La vue d'ensemble arrondit à l'euro pour que les deux tableaux tiennent côte à côte.
+function formatRoundedCurrency(value) {
+  if (value == null) return "—";
+  return roundedCurrencyFormatter.format(value);
+}
+
+function formatRoundedVariance(value) {
+  if (value == null) return "—";
+  return `${value > 0 ? "+" : ""}${formatRoundedCurrency(value)}`;
+}
+
 function formatDateTime(value) {
   if (!value || Number.isNaN(new Date(value).getTime())) return "En attente";
   return new Date(value).toLocaleString("fr-LU", {
@@ -145,12 +161,6 @@ function sumBudgetRowsField(rows = [], fieldName, { emptyAsNull = false } = {}) 
 function formatVariance(value) {
   if (value == null) return "—";
   return `${value > 0 ? "+" : ""}${formatCurrency(value)}`;
-}
-
-function getBalanceToneClass(value) {
-  if (value > 0) return "budget-balance budget-balance--positive";
-  if (value < 0) return "budget-balance budget-balance--negative";
-  return "budget-balance";
 }
 
 function getVarianceToneClass(value, side = "neutral") {
@@ -1302,142 +1312,6 @@ function BudgetLineTable({
   );
 }
 
-function BudgetOverviewTable({
-  collectionKey,
-  sections,
-  currentEditionId,
-  allowEditing,
-  actualColumnLabel,
-  onValueChange,
-  totals,
-  invoicesByRowId,
-}) {
-  const amountColumns = [
-    { key: "currentForecast", label: `Prév. ${currentEditionId}`, cellClassName: "budget-table__cell--forecast" },
-    { key: "currentActual", label: actualColumnLabel, cellClassName: "budget-table__cell--actual" },
-  ];
-
-  function renderTextField(row, fieldName, placeholder) {
-    if (!allowEditing) {
-      return <span className="budget-cell-text">{row[fieldName] || "—"}</span>;
-    }
-
-    return (
-      <input
-        className="budget-text-input"
-        type="text"
-        value={row[fieldName]}
-        onChange={(event) => onValueChange(collectionKey, row.id, fieldName, event.target.value)}
-        placeholder={placeholder}
-      />
-    );
-  }
-
-  function renderInvoiceCell(row) {
-    return <InvoiceInlineList invoices={invoicesByRowId[row.id] || []} />;
-  }
-
-  return (
-    <div className="table-wrap table-wrap--compact">
-      <table className="data-table data-table--admin data-table--compact budget-table budget-table--sheet budget-overview-table">
-        <colgroup>
-          <col className="budget-col budget-col--label" />
-          <col className="budget-col budget-col--details" />
-          {amountColumns.map((column) => (
-            <col className="budget-col budget-col--amount" key={column.key} />
-          ))}
-          <col className="budget-col budget-col--reference" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Poste</th>
-            <th>Détail</th>
-            {amountColumns.map((column) => (
-              <th key={column.key} className={`budget-table__col ${column.cellClassName.replace("__cell", "__col")}`}>
-                {column.label}
-              </th>
-            ))}
-            <th>Factures</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sections.map(({ sectionName, rows }) => {
-            const sectionCurrentForecast = sumBudgetRowsField(rows, "currentForecast");
-            const sectionCurrentActual = sumBudgetRowsField(rows, "currentActual", { emptyAsNull: true });
-            const sectionInvoiceCount = rows.reduce((sum, row) => sum + (invoicesByRowId[row.id]?.length || 0), 0);
-
-            return (
-              <Fragment key={sectionName}>
-                <tr className="budget-overview-table__section-row">
-                  <th className="budget-overview-table__section-title" colSpan={2} scope="rowgroup">
-                    <div className="budget-overview-table__section-heading">
-                      <strong>{sectionName}</strong>
-                      <span>{rows.length} ligne(s)</span>
-                    </div>
-                  </th>
-                  <th className="budget-overview-table__section-total budget-table__cell--forecast">
-                    {formatCurrency(sectionCurrentForecast)}
-                  </th>
-                  <th className="budget-overview-table__section-total budget-table__cell--actual">
-                    {formatCurrency(sectionCurrentActual)}
-                  </th>
-                  <th className="budget-overview-table__section-total">
-                    {sectionInvoiceCount ? `${sectionInvoiceCount} facture(s)` : "—"}
-                  </th>
-                </tr>
-                {rows.map((row) => (
-                  <tr className={row.isCustom ? "budget-table__row budget-table__row--custom" : "budget-table__row"} key={row.id}>
-                    <td className="budget-table__label">
-                      {allowEditing ? (
-                        <div className="budget-table__label-content">
-                          <div className="budget-table__label-inline">
-                            <span className="budget-row-ref">#{row.rowNumber}</span>
-                            <input
-                              className="budget-text-input"
-                              type="text"
-                              value={row.label}
-                              onChange={(event) => onValueChange(collectionKey, row.id, "label", event.target.value)}
-                              placeholder="Libellé"
-                            />
-                            {row.isCustom ? <span className="budget-custom-badge">Ajoutée</span> : null}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="budget-cell-text">{row.label}</span>
-                      )}
-                    </td>
-                    <td className="budget-table__details">{renderTextField(row, "details", "Détail")}</td>
-                    {amountColumns.map((column) => (
-                      <td className={`budget-table__cell ${column.cellClassName}`} key={`${row.id}-${column.key}`}>
-                        <BudgetAmountField
-                          row={row}
-                          fieldName={column.key}
-                          onValueChange={onValueChange}
-                          collectionKey={collectionKey}
-                          isEditable={allowEditing}
-                        />
-                      </td>
-                    ))}
-                    <td>{renderInvoiceCell(row)}</td>
-                  </tr>
-                ))}
-              </Fragment>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="budget-overview-table__footer">
-            <th colSpan={2}>Total</th>
-            <th className="budget-table__cell--forecast">{formatCurrency(totals.currentForecast)}</th>
-            <th className="budget-table__cell--actual">{formatCurrency(totals.currentActual)}</th>
-            <th>{Object.values(invoicesByRowId).flat().length || "—"}</th>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  );
-}
-
 function PanelTotals({ title, totals, side, hasComparison }) {
   if (!totals) return null;
 
@@ -1466,130 +1340,350 @@ function BudgetSeedLog({ lines = [] }) {
   );
 }
 
-function SimplifiedBudgetTable({
-  Panel,
+function computeEvolutionPercent(referenceValue, currentValue) {
+  if (currentValue == null || !referenceValue) return null;
+  return ((currentValue - referenceValue) / Math.abs(referenceValue)) * 100;
+}
+
+function formatPercent(value) {
+  if (value == null) return "";
+  const rounded = Math.abs(value) < 10 ? Math.round(value * 10) / 10 : Math.round(value);
+  const sign = rounded > 0 ? "+" : (rounded < 0 ? "−" : "");
+  return `${sign}${Math.abs(rounded).toLocaleString("fr-LU")} %`;
+}
+
+function getEvolutionToneClass(value, side) {
+  // Sous 1 % on reste neutre : l'écart n'est pas significatif.
+  return getVarianceToneClass(value == null || Math.abs(value) < 1 ? 0 : value, side);
+}
+
+function hasBudgetValue(value) {
+  return toBudgetNumber(value) != null;
+}
+
+function buildOverviewBlocs(sections) {
+  return sections.map(({ sectionName, rows }) => ({
+    sectionName,
+    rows: rows.filter((row) => hasBudgetValue(row.referenceActual) || hasBudgetValue(row.currentForecast) || hasBudgetValue(row.currentActual)),
+    referenceActual: sumBudgetRowsField(rows, "referenceActual"),
+    currentForecast: sumBudgetRowsField(rows, "currentForecast"),
+    currentActual: sumBudgetRowsField(rows, "currentActual", { emptyAsNull: true }),
+  }));
+}
+
+function buildAttentionPoints({ expenseBlocs, revenueBlocs, referenceEditionId, comparisonField }) {
+  // On ne remonte que les blocs dont l'évolution est à la fois forte en % et significative en euros.
+  return [
+    ...expenseBlocs.map((bloc) => ({ ...bloc, side: "expense" })),
+    ...revenueBlocs.map((bloc) => ({ ...bloc, side: "revenue" })),
+  ]
+    .map((bloc) => ({
+      ...bloc,
+      compared: bloc[comparisonField] ?? 0,
+      delta: (bloc[comparisonField] ?? 0) - bloc.referenceActual,
+      evolution: computeEvolutionPercent(bloc.referenceActual, bloc[comparisonField]),
+    }))
+    .filter((bloc) => bloc.evolution != null && Math.abs(bloc.evolution) >= 20 && Math.abs(bloc.delta) >= 2000)
+    .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
+    .slice(0, 4)
+    .map((bloc) => ({
+      id: `${bloc.side}-${bloc.sectionName}`,
+      tone: (bloc.side === "expense") === (bloc.delta > 0) ? "warn" : "info",
+      title: `${bloc.side === "expense" ? "Dépenses" : "Recettes"} · ${bloc.sectionName} : ${formatPercent(bloc.evolution)}`,
+      text: `${formatRoundedCurrency(bloc.compared)} ${comparisonField === "currentActual" ? "définitifs" : "prévus"} contre ${formatRoundedCurrency(bloc.referenceActual)} réalisés en ${referenceEditionId}.`,
+    }));
+}
+
+function BudgetOverviewSide({
   title,
-  subtitle,
   side,
-  rows,
-  selectedMap,
-  detailSelections,
-  displayMode,
-  showDetails,
-  onToggleRow,
-  onToggleDetailRow,
+  blocs,
+  totals,
+  openSections,
+  onToggleSection,
+  hasComparison,
   referenceEditionId,
   currentEditionId,
-  hasComparison,
+  actualShortLabel,
+  showActual,
+  comparisonField,
 }) {
-  const visibleRows = rows.filter((row) => selectedMap[row.id] ?? true);
-  const showForecast = displayMode === "forecast" || displayMode === "both";
-  const showActual = displayMode === "actual" || displayMode === "both";
+  const lineCount = blocs.reduce((sum, bloc) => sum + bloc.rows.length, 0);
+  const gridClassName = `budget-overview-board__grid${hasComparison ? " budget-overview-board__grid--compare" : ""}`;
+  const amountColumnCount = 1 + (hasComparison ? 1 : 0) + (showActual ? 1 : 0);
+  // Sur téléphone, la colonne de l'année de comparaison est masquée (le % reste affiché).
+  const gridStyle = {
+    "--budget-amount-columns": amountColumnCount,
+    "--budget-amount-columns-mobile": amountColumnCount - (hasComparison ? 1 : 0),
+  };
+
+  function renderTrend(referenceValue, forecastValue, actualValue, { isLine = false } = {}) {
+    if (hasComparison) {
+      const comparedValue = comparisonField === "currentActual" ? actualValue : forecastValue;
+      if (isLine && !toBudgetNumber(referenceValue) && toBudgetNumber(comparedValue)) {
+        return <span className="budget-overview-board__trend budget-overview-board__trend--new">nouveau</span>;
+      }
+      const evolution = computeEvolutionPercent(toBudgetNumber(referenceValue), toBudgetNumber(comparedValue));
+      return <span className={`budget-overview-board__trend ${getEvolutionToneClass(evolution, side)}`}>{formatPercent(evolution)}</span>;
+    }
+
+    const variance = computeVariance(toBudgetNumber(forecastValue), toBudgetNumber(actualValue));
+    return <span className={`budget-overview-board__trend ${getVarianceToneClass(variance, side)}`}>{variance == null ? "" : formatRoundedVariance(variance)}</span>;
+  }
+
+  function getActualClassName(forecastValue, actualValue) {
+    const forecast = toBudgetNumber(forecastValue);
+    const actual = toBudgetNumber(actualValue);
+    const isOverrun = side === "expense" && actual != null && forecast != null && actual > forecast;
+    return `budget-overview-board__amount${isOverrun ? " budget-overview-board__amount--alert" : ""}`;
+  }
 
   return (
-    <Panel title={title} subtitle={subtitle}>
-      <div className="budget-simplified-picker">
-        <div className="budget-simplified-picker__header">
-          <strong>Blocs affichés</strong>
-          <span>{visibleRows.length} sur {rows.length}</span>
-        </div>
-        <div className="budget-simplified-picker__grid">
-          {rows.map((row) => (
-            <label className="budget-simplified-check" key={row.id}>
-              <input
-                type="checkbox"
-                checked={selectedMap[row.id] ?? true}
-                onChange={() => onToggleRow(row.id)}
-              />
-              <span>{row.label}</span>
-            </label>
-          ))}
-        </div>
+    <article className="budget-overview-board__side">
+      <header className="budget-overview-board__side-header">
+        <h3>{title}</h3>
+        <span>{blocs.length} blocs · {lineCount} lignes</span>
+      </header>
+      <div className={`${gridClassName} budget-overview-board__head`} style={gridStyle}>
+        <span>Bloc / poste</span>
+        {hasComparison ? <span>Réal. {referenceEditionId}</span> : null}
+        <span>Prévu {currentEditionId}</span>
+        {showActual ? <span>{actualShortLabel} {currentEditionId}</span> : null}
+        <span>{hasComparison ? `vs ${referenceEditionId}` : "Écart"}</span>
       </div>
+      {blocs.map((bloc) => {
+        const isOpen = Boolean(openSections[bloc.sectionName]);
+        const share = totals.currentForecast ? Math.round((bloc.currentForecast / totals.currentForecast) * 100) : 0;
 
-      {showDetails ? (
-        <div className="budget-simplified-detail-picker">
-          <div className="budget-simplified-picker__header">
-            <strong>Détail affiché</strong>
-            <span>Le total du bloc reste inchangé.</span>
-          </div>
-          <div className="budget-simplified-detail-picker__stack">
-            {visibleRows.map((row) => (
-              <div className="budget-simplified-detail-group" key={`${row.id}-details`}>
-                <strong>{row.label}</strong>
-                <div className="budget-simplified-detail-picker__grid">
-                  {row.items.map((item) => (
-                    <label className="budget-simplified-check budget-simplified-check--detail" key={item.id}>
-                      <input
-                        type="checkbox"
-                        checked={detailSelections[row.id]?.[item.id] ?? true}
-                        onChange={() => onToggleDetailRow(row.id, item.id)}
-                      />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
+        return (
+          <div className={`budget-overview-board__bloc${isOpen ? " budget-overview-board__bloc--open" : ""}`} key={bloc.sectionName}>
+            <button
+              type="button"
+              className={`${gridClassName} budget-overview-board__bloc-row`}
+              style={gridStyle}
+              aria-expanded={isOpen}
+              onClick={() => onToggleSection(bloc.sectionName)}
+            >
+              <span className="budget-overview-board__name">
+                <span className="budget-overview-board__chevron" aria-hidden="true" />
+                <span className="budget-overview-board__name-text">
+                  <strong>{bloc.sectionName}</strong>
+                  <small>{bloc.rows.length} ligne(s) · {share} % du total</small>
+                </span>
+              </span>
+              {hasComparison ? <span className="budget-overview-board__amount budget-overview-board__amount--muted">{formatRoundedCurrency(bloc.referenceActual)}</span> : null}
+              <span className="budget-overview-board__amount budget-overview-board__amount--strong">{formatRoundedCurrency(bloc.currentForecast)}</span>
+              {showActual ? <span className={getActualClassName(bloc.currentForecast, bloc.currentActual)}>{formatRoundedCurrency(bloc.currentActual)}</span> : null}
+              {renderTrend(bloc.referenceActual, bloc.currentForecast, bloc.currentActual)}
+            </button>
+            {isOpen ? (
+              <div className="budget-overview-board__lines">
+                {bloc.rows.map((row) => (
+                  <div className={`${gridClassName} budget-overview-board__line`} style={gridStyle} key={row.id}>
+                    <span className="budget-overview-board__line-label" title={row.details ? `${row.label} — ${row.details}` : row.label}>
+                      {row.label || "Sans libellé"}
+                      {row.details ? <small>{row.details}</small> : null}
+                    </span>
+                    {hasComparison ? <span className="budget-overview-board__amount budget-overview-board__amount--muted">{formatRoundedCurrency(toBudgetNumber(row.referenceActual))}</span> : null}
+                    <span className="budget-overview-board__amount">{formatRoundedCurrency(toBudgetNumber(row.currentForecast))}</span>
+                    {showActual ? <span className={getActualClassName(row.currentForecast, row.currentActual)}>{formatRoundedCurrency(toBudgetNumber(row.currentActual))}</span> : null}
+                    {renderTrend(row.referenceActual, row.currentForecast, row.currentActual, { isLine: true })}
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
+          </div>
+        );
+      })}
+      <div className={`${gridClassName} budget-overview-board__total`} style={gridStyle}>
+        <span>Total {title.toLowerCase()}</span>
+        {hasComparison ? <span className="budget-overview-board__amount">{formatRoundedCurrency(totals.referenceActual)}</span> : null}
+        <span className="budget-overview-board__amount">{formatRoundedCurrency(totals.currentForecast)}</span>
+        {showActual ? <span className="budget-overview-board__amount">{formatRoundedCurrency(totals.currentActual)}</span> : null}
+        {renderTrend(totals.referenceActual, totals.currentForecast, totals.currentActual)}
+      </div>
+    </article>
+  );
+}
+
+function BudgetOverview({
+  budget,
+  totals,
+  expenseSections,
+  revenueSections,
+  hasComparison,
+  isBudgetLocked,
+  hasCurrentActualValues,
+  unclassifiedInvoiceCount,
+  showInvoiceCard,
+  onOpenInvoices,
+}) {
+  const [openSections, setOpenSections] = useState({ expenses: {}, revenues: {} });
+  const expenseBlocs = useMemo(() => buildOverviewBlocs(expenseSections), [expenseSections]);
+  const revenueBlocs = useMemo(() => buildOverviewBlocs(revenueSections), [revenueSections]);
+  const referenceEditionId = budget.referenceEditionId;
+  const currentEditionId = budget.currentEditionId;
+  const actualLabel = isBudgetLocked ? "Définitif" : "Réalisé";
+  const actualShortLabel = isBudgetLocked ? "Déf." : "Réal.";
+  // Tant qu'aucun réalisé n'est saisi, la colonne ne contiendrait que des tirets : on la masque.
+  const showActualColumn = isBudgetLocked || hasCurrentActualValues;
+  // Un budget définitif se compare sur ses montants définitifs, sinon on compare le prévisionnel.
+  const comparisonField = isBudgetLocked ? "currentActual" : "currentForecast";
+  // Tant qu'aucun réalisé n'est saisi, les chiffres clés montrent le prévisionnel.
+  const summaryField = !isBudgetLocked && !hasCurrentActualValues ? "currentForecast" : "currentActual";
+  const summaryLabel = summaryField === "currentForecast" ? "prévues" : (isBudgetLocked ? "définitives" : "réalisées");
+  const allSectionCount = expenseBlocs.length + revenueBlocs.length;
+  const openSectionCount = Object.values(openSections.expenses).filter(Boolean).length
+    + Object.values(openSections.revenues).filter(Boolean).length;
+  const isAllOpen = allSectionCount > 0 && openSectionCount === allSectionCount;
+  const attentionPoints = hasComparison
+    ? buildAttentionPoints({ expenseBlocs, revenueBlocs, referenceEditionId, comparisonField })
+    : [];
+
+  function toggleSection(collectionKey, sectionName) {
+    setOpenSections((current) => ({
+      ...current,
+      [collectionKey]: { ...current[collectionKey], [sectionName]: !current[collectionKey][sectionName] },
+    }));
+  }
+
+  function toggleAllSections() {
+    if (isAllOpen) {
+      setOpenSections({ expenses: {}, revenues: {} });
+      return;
+    }
+
+    setOpenSections({
+      expenses: Object.fromEntries(expenseBlocs.map((bloc) => [bloc.sectionName, true])),
+      revenues: Object.fromEntries(revenueBlocs.map((bloc) => [bloc.sectionName, true])),
+    });
+  }
+
+  function renderComparisonNote(collectionKey, positiveIsGood) {
+    if (summaryField === "currentForecast") {
+      if (!hasComparison) return null;
+      const evolution = computeEvolutionPercent(totals[collectionKey].referenceActual, totals[collectionKey].currentForecast);
+      return (
+        <small>
+          <span className={getEvolutionToneClass(evolution, positiveIsGood ? "revenue" : "expense")}>{formatPercent(evolution)}</span>
+          {" "}vs réalisé {referenceEditionId} ({formatRoundedCurrency(totals[collectionKey].referenceActual)})
+        </small>
+      );
+    }
+
+    return <small>{formatRoundedCurrency(totals[collectionKey].currentForecast)} prévus</small>;
+  }
+
+  return (
+    <div className="budget-overview">
+      <section className="budget-kpis" aria-label="Chiffres clés">
+        <article className="budget-kpi">
+          <span className="budget-kpi__label">Dépenses {summaryLabel}</span>
+          <strong className="budget-kpi__value">{formatRoundedCurrency(totals.expenses[summaryField])}</strong>
+          {renderComparisonNote("expenses", false)}
+        </article>
+        <article className="budget-kpi">
+          <span className="budget-kpi__label">Recettes {summaryLabel}</span>
+          <strong className="budget-kpi__value">{formatRoundedCurrency(totals.revenues[summaryField])}</strong>
+          {renderComparisonNote("revenues", true)}
+        </article>
+        <article className="budget-kpi budget-kpi--highlight">
+          <span className="budget-kpi__label">Résultat {summaryField === "currentForecast" ? "prévu" : (isBudgetLocked ? "définitif" : "réalisé")}</span>
+          <strong className="budget-kpi__value">{formatRoundedVariance(totals.balance[summaryField])}</strong>
+          {hasComparison ? <small>Réalisé {referenceEditionId} : {formatRoundedVariance(totals.balance.referenceActual)}</small> : null}
+        </article>
+        {showInvoiceCard ? (
+          <button
+            type="button"
+            className={`budget-kpi budget-kpi--action${unclassifiedInvoiceCount ? " budget-kpi--warn" : ""}`}
+            onClick={onOpenInvoices}
+          >
+            <span className="budget-kpi__label">Factures à classer</span>
+            <strong className="budget-kpi__value">{unclassifiedInvoiceCount}</strong>
+            <small>{unclassifiedInvoiceCount ? "Classer maintenant →" : "Tout est classé"}</small>
+          </button>
+        ) : null}
+      </section>
+
+      <section className="budget-overview-board" aria-label="Dépenses et recettes">
+        <div className="budget-overview-board__toolbar">
+          <h2>Dépenses et recettes</h2>
+          <div className="budget-overview-board__toolbar-actions">
+            <span>Clique sur un bloc pour voir ses lignes</span>
+            <button type="button" className="button button--secondary" onClick={toggleAllSections}>
+              {isAllOpen ? "Tout replier" : "Tout déplier"}
+            </button>
           </div>
         </div>
-      ) : null}
+        <div className="budget-overview-board__sides">
+          <BudgetOverviewSide
+            title="Dépenses"
+            side="expense"
+            blocs={expenseBlocs}
+            totals={totals.expenses}
+            openSections={openSections.expenses}
+            onToggleSection={(sectionName) => toggleSection("expenses", sectionName)}
+            hasComparison={hasComparison}
+            referenceEditionId={referenceEditionId}
+            currentEditionId={currentEditionId}
+            actualShortLabel={actualShortLabel}
+            showActual={showActualColumn}
+            comparisonField={comparisonField}
+          />
+          <BudgetOverviewSide
+            title="Recettes"
+            side="revenue"
+            blocs={revenueBlocs}
+            totals={totals.revenues}
+            openSections={openSections.revenues}
+            onToggleSection={(sectionName) => toggleSection("revenues", sectionName)}
+            hasComparison={hasComparison}
+            referenceEditionId={referenceEditionId}
+            currentEditionId={currentEditionId}
+            actualShortLabel={actualShortLabel}
+            showActual={showActualColumn}
+            comparisonField={comparisonField}
+          />
+        </div>
+        <div className="budget-overview-board__result">
+          <strong>Résultat (recettes − dépenses)</strong>
+          {hasComparison ? (
+            <span>
+              <small>Réalisé {referenceEditionId}</small>
+              <b>{formatRoundedVariance(totals.balance.referenceActual)}</b>
+            </span>
+          ) : null}
+          <span>
+            <small>Prévu {currentEditionId}</small>
+            <b>{formatRoundedVariance(totals.balance.currentForecast)}</b>
+          </span>
+          <span>
+            <small>{actualLabel} {currentEditionId}</small>
+            <b>{hasCurrentActualValues ? formatRoundedVariance(totals.balance.currentActual) : "—"}</b>
+          </span>
+        </div>
+      </section>
 
-      <div className="table-wrap table-wrap--compact">
-        <table className="data-table data-table--admin data-table--compact budget-table budget-table--sheet budget-table--summary">
-          <thead>
-            <tr>
-              <th>Bloc</th>
-              {hasComparison ? <th>Réalisé {referenceEditionId}</th> : null}
-              {showForecast ? <th>Prév. {currentEditionId}</th> : null}
-              {showActual ? <th>Réalisé {currentEditionId}</th> : null}
-              {showForecast && showActual ? <th>Écart {currentEditionId}</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRows.map((row) => (
-              <Fragment key={row.id}>
-                <tr key={row.id}>
-                  <td>{row.label}</td>
-                  {hasComparison ? <td>{formatCurrency(row.referenceActual)}</td> : null}
-                  {showForecast ? <td>{formatCurrency(row.currentForecast)}</td> : null}
-                  {showActual ? <td>{formatCurrency(row.currentActual)}</td> : null}
-                  {showForecast && showActual ? (
-                    <td className="budget-table__variance">
-                      <span className={getVarianceToneClass(computeVariance(row.currentForecast, row.currentActual), side)}>
-                        {formatVariance(computeVariance(row.currentForecast, row.currentActual))}
-                      </span>
-                    </td>
-                  ) : null}
-                </tr>
-                {showDetails ? row.items
-                  .filter((item) => detailSelections[row.id]?.[item.id] ?? true)
-                  .map((item) => (
-                  <tr className="budget-table__detail-row" key={`${row.id}-${item.id}`}>
-                    <td>
-                      <div className="budget-detail-label">
-                        <span>{item.label}</span>
-                        {item.details ? <small>{item.details}</small> : null}
-                      </div>
-                    </td>
-                    {hasComparison ? <td>{formatCurrency(item.referenceActual)}</td> : null}
-                    {showForecast ? <td>{formatCurrency(item.currentForecast)}</td> : null}
-                    {showActual ? <td>{formatCurrency(item.currentActual)}</td> : null}
-                    {showForecast && showActual ? (
-                      <td className="budget-table__variance">
-                        <span className={getVarianceToneClass(computeVariance(item.currentForecast, item.currentActual), side)}>
-                          {formatVariance(computeVariance(item.currentForecast, item.currentActual))}
-                        </span>
-                      </td>
-                    ) : null}
-                  </tr>
-                )) : null}
-              </Fragment>
+      {attentionPoints.length || (!isBudgetLocked && !hasCurrentActualValues) ? (
+        <section className="budget-attention">
+          <h2>Points d&apos;attention</h2>
+          <ul>
+            {attentionPoints.map((point) => (
+              <li className={`budget-attention__item budget-attention__item--${point.tone}`} key={point.id}>
+                <strong>{point.title}</strong>
+                <span>{point.text}</span>
+              </li>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
+            {!isBudgetLocked && !hasCurrentActualValues ? (
+              <li className="budget-attention__item">
+                <strong>Réalisé {currentEditionId} pas encore saisi</strong>
+                <span>La colonne se remplit à mesure que les montants réalisés sont saisis dans les lignes budgétaires.</span>
+              </li>
+            ) : null}
+          </ul>
+        </section>
+      ) : null}
+    </div>
   );
 }
 
@@ -1605,20 +1699,11 @@ function BudgetTrackingPage({ Panel }) {
   const [selectedEditionId, setSelectedEditionId] = useState("");
   const [draftBudget, setDraftBudget] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [linesCollectionKey, setLinesCollectionKey] = useState("expenses");
   const [isEditMode, setIsEditMode] = useState(false);
   const [newBudgetYear, setNewBudgetYear] = useState("");
   const [isCreatingBudget, setIsCreatingBudget] = useState(false);
   const [pendingNewBudgetId, setPendingNewBudgetId] = useState("");
-  const [simplifiedDisplayMode, setSimplifiedDisplayMode] = useState("both");
-  const [simplifiedShowDetails, setSimplifiedShowDetails] = useState(false);
-  const [simplifiedSelections, setSimplifiedSelections] = useState({
-    expenses: {},
-    revenues: {},
-  });
-  const [simplifiedDetailSelections, setSimplifiedDetailSelections] = useState({
-    expenses: {},
-    revenues: {},
-  });
   const [sectionDrafts, setSectionDrafts] = useState({
     expenses: "",
     revenues: "",
@@ -1726,7 +1811,6 @@ function BudgetTrackingPage({ Panel }) {
   const isBudgetEditable = Boolean(selectedBudget && latestBudget && selectedBudget.editionId === latestBudget.editionId && !isBudgetLocked);
   const canEditBudget = isBudgetEditable && isEditMode;
   const canCreateNextBudget = Boolean(selectedBudget && latestBudget && selectedBudget.editionId === latestBudget.editionId);
-  const primaryTabLabel = isBudgetLocked ? "Budget définitif" : (isBudgetEditable ? "Prévisionnel / actuel" : "Budget consulté");
 
   useEffect(() => {
     if (!selectedBudget) return;
@@ -1742,6 +1826,18 @@ function BudgetTrackingPage({ Panel }) {
     setIsEditMode(false);
     setSaveStatus("");
   }, [selectedBudget]);
+
+  useEffect(() => {
+    // Les menus Exporter / Plus d'actions se referment quand on clique ailleurs.
+    function closeOpenMenus(event) {
+      document.querySelectorAll(".budget-menu[open]").forEach((menu) => {
+        if (!menu.contains(event.target)) menu.removeAttribute("open");
+      });
+    }
+
+    document.addEventListener("pointerdown", closeOpenMenus);
+    return () => document.removeEventListener("pointerdown", closeOpenMenus);
+  }, []);
 
   useEffect(() => {
     if (!latestBudget) return;
@@ -1858,47 +1954,6 @@ function BudgetTrackingPage({ Panel }) {
   );
   // Les règles Firestore ne laissent supprimer un document qu'aux admins et gestionnaires.
   const canDeleteInvoices = activeRoles.includes("admin") || activeRoles.includes("gestionnaire");
-  const simplifiedExpenseRows = useMemo(
-    () => (draftBudget ? buildSimplifiedRows(draftBudget, "expense") : []),
-    [draftBudget],
-  );
-  const simplifiedRevenueRows = useMemo(
-    () => (draftBudget ? buildSimplifiedRows(draftBudget, "revenue") : []),
-    [draftBudget],
-  );
-
-  useEffect(() => {
-    setSimplifiedSelections((currentSelections) => ({
-      expenses: Object.fromEntries(
-        simplifiedExpenseRows.map((row) => [row.id, currentSelections.expenses[row.id] ?? true]),
-      ),
-      revenues: Object.fromEntries(
-        simplifiedRevenueRows.map((row) => [row.id, currentSelections.revenues[row.id] ?? true]),
-      ),
-    }));
-  }, [simplifiedExpenseRows, simplifiedRevenueRows]);
-
-  useEffect(() => {
-    setSimplifiedDetailSelections((currentSelections) => ({
-      expenses: Object.fromEntries(
-        simplifiedExpenseRows.map((row) => [
-          row.id,
-          Object.fromEntries(
-            row.items.map((item) => [item.id, currentSelections.expenses[row.id]?.[item.id] ?? true]),
-          ),
-        ]),
-      ),
-      revenues: Object.fromEntries(
-        simplifiedRevenueRows.map((row) => [
-          row.id,
-          Object.fromEntries(
-            row.items.map((item) => [item.id, currentSelections.revenues[row.id]?.[item.id] ?? true]),
-          ),
-        ]),
-      ),
-    }));
-  }, [simplifiedExpenseRows, simplifiedRevenueRows]);
-
   useEffect(() => {
     setInvoiceLinkDrafts((currentDrafts) =>
       Object.fromEntries(
@@ -2408,29 +2463,6 @@ function BudgetTrackingPage({ Panel }) {
     }
   }
 
-  function handleToggleSimplifiedRow(sideKey, rowId) {
-    setSimplifiedSelections((currentSelections) => ({
-      ...currentSelections,
-      [sideKey]: {
-        ...currentSelections[sideKey],
-        [rowId]: !(currentSelections[sideKey][rowId] ?? true),
-      },
-    }));
-  }
-
-  function handleToggleSimplifiedDetailRow(sideKey, rowId, itemId) {
-    setSimplifiedDetailSelections((currentSelections) => ({
-      ...currentSelections,
-      [sideKey]: {
-        ...currentSelections[sideKey],
-        [rowId]: {
-          ...currentSelections[sideKey][rowId],
-          [itemId]: !(currentSelections[sideKey][rowId]?.[itemId] ?? true),
-        },
-      },
-    }));
-  }
-
   async function handleExportExcel() {
     if (!draftBudget || !totals) return;
 
@@ -2570,8 +2602,22 @@ function BudgetTrackingPage({ Panel }) {
   }
 
   const currentYearLabel = getBudgetDocumentLabel(draftBudget);
-  const topbarSummaryField = !isBudgetLocked && !hasCurrentActualValues ? "currentForecast" : "currentActual";
-  const topbarSummaryLabel = topbarSummaryField === "currentForecast" ? "Prévisionnel" : (isBudgetLocked ? "Définitif" : "Réalisé");
+  const budgetStatus = isBudgetLocked
+    ? { label: "Définitif", tone: "locked" }
+    : !isBudgetEditable
+      ? { label: "Lecture seule", tone: "neutral" }
+      : isEditMode
+        ? { label: "Modification en cours", tone: "editing" }
+        : { label: hasCurrentActualValues ? "Suivi en cours" : "Prévisionnel en cours", tone: "active" };
+  const showInvoicesTab = canManageInvoicePanel || selectedEditionInvoices.length > 0;
+  const lineSideConfig = linesCollectionKey === "revenues"
+    ? { side: "revenue", collectionKey: "revenues", sections: revenueSections, totals: totals.revenues }
+    : { side: "expense", collectionKey: "expenses", sections: expenseSections, totals: totals.expenses };
+  const lineTotalField = !isBudgetLocked && !hasCurrentActualValues ? "currentForecast" : "currentActual";
+
+  function closeMenu(event) {
+    event.currentTarget.closest("details")?.removeAttribute("open");
+  }
 
   return (
     <div className="page budget-page">
@@ -2582,84 +2628,27 @@ function BudgetTrackingPage({ Panel }) {
         </div>
       ) : null}
 
-      <section className="budget-topbar">
-        <div className="budget-topbar__header">
-          <div className="budget-topbar__identity">
-            <p className="budget-topbar__eyebrow">Budget {currentYearLabel}</p>
-            <h1>{primaryTabLabel}</h1>
-            <p>{draftBudget.meetingLevel || "meeting"}</p>
+      <header className="budget-header">
+        <div className="budget-header__identity">
+          <p className="budget-header__eyebrow">Budget</p>
+          <div className="budget-header__title">
+            <h1>Budget {currentYearLabel}</h1>
+            <span className={`budget-status-badge budget-status-badge--${budgetStatus.tone}`}>{budgetStatus.label}</span>
+            {usesFallbackBudgets ? <span className="budget-status-badge budget-status-badge--warn">Source provisoire</span> : null}
           </div>
-          <div className="budget-toolbar-actions">
-            {canCreateNextBudget ? (
-              <div className="budget-toolbar-actions__new">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newBudgetYear}
-                  onChange={(event) => setNewBudgetYear(event.target.value)}
-                  placeholder="2027"
-                />
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={handleCreateBudget}
-                  disabled={isCreatingBudget}
-                >
-                  {isCreatingBudget ? "Création..." : "Nouveau budget"}
-                </button>
-              </div>
-            ) : null}
-            <span className={`status-pill ${isBudgetEditable ? "status-pill--ok" : "status-pill--warn"}`}>
-              {isBudgetEditable ? (isEditMode ? "Mode modification actif" : "Budget en cours prêt à modifier") : (isBudgetLocked ? "Budget verrouillé" : "Lecture seule")}
-            </span>
-            {usesFallbackBudgets ? (
-              <span className="status-pill status-pill--warn">Source provisoire</span>
-            ) : (
-              <span className="status-pill">Firebase</span>
-            )}
-            <button
-              className="button button--secondary budget-export-button"
-              type="button"
-              onClick={handleExportExcel}
-              disabled={isExportingExcel}
-            >
-              {isExportingExcel ? "Export Excel..." : "Export Excel"}
-            </button>
-            <button
-              className="button button--secondary budget-export-button"
-              type="button"
-              onClick={handleExportPdf}
-              disabled={isExportingPdf}
-            >
-              {isExportingPdf ? "Export PDF..." : "Export PDF"}
-            </button>
-            {isBudgetEditable ? (
-              <>
-                {!isEditMode ? (
-                  <button className="button button--secondary" type="button" onClick={() => setIsEditMode(true)}>
-                    Modifier
-                  </button>
-                ) : (
-                  <>
-                    <button className="button button--secondary" type="button" onClick={() => setIsEditMode(false)}>
-                      Fermer
-                    </button>
-                    <button className="button button--secondary" type="button" onClick={resetDraft} disabled={!hasUnsavedChanges || isSaving}>
-                      Réinitialiser
-                    </button>
-                    <button className="button button--primary" type="button" onClick={handleSave} disabled={isSaving}>
-                      {isSaving ? "Enregistrement..." : "Enregistrer"}
-                    </button>
-                  </>
-                )}
-              </>
-            ) : null}
-          </div>
+          <p className="budget-header__meta">
+            {[
+              draftBudget.meetingLevel,
+              hasPersistedBudget
+                ? `Modifié le ${formatDateTime(draftBudget.updatedAt)} par ${draftBudget.updatedByName || actorName}`
+                : "Modèle local, pas encore enregistré",
+            ].filter(Boolean).join(" · ")}
+          </p>
         </div>
 
-        <div className="budget-toolbar">
-          <label className="field budget-toolbar__field">
-            <span>Budget consulté</span>
+        <div className="budget-header__actions">
+          <label className="budget-header__edition">
+            <span>Édition</span>
             <select
               value={selectedEditionId}
               onChange={(event) => {
@@ -2674,210 +2663,162 @@ function BudgetTrackingPage({ Panel }) {
               ))}
             </select>
           </label>
-          <div className="budget-toolbar__meta">
-            <strong>{hasPersistedBudget ? "Budget sauvegardé" : "Modèle local"}</strong>
-            <span>{formatDateTime(draftBudget.updatedAt)}</span>
-            <span>{draftBudget.updatedByName || actorName}</span>
-          </div>
+
+          <details className="budget-menu">
+            <summary className="button button--secondary">
+              {isExportingExcel || isExportingPdf ? "Export…" : "Exporter"}
+            </summary>
+            <div className="budget-menu__panel">
+              <button type="button" onClick={(event) => { closeMenu(event); handleExportExcel(); }} disabled={isExportingExcel}>
+                Fichier Excel
+              </button>
+              <button type="button" onClick={(event) => { closeMenu(event); handleExportPdf(); }} disabled={isExportingPdf}>
+                PDF imprimable
+              </button>
+            </div>
+          </details>
+
+          {isBudgetEditable ? (
+            !isEditMode ? (
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => {
+                  setIsEditMode(true);
+                  setActiveTab("lines");
+                }}
+              >
+                Modifier le budget
+              </button>
+            ) : (
+              <>
+                <button className="button button--secondary" type="button" onClick={() => setIsEditMode(false)}>
+                  Fermer
+                </button>
+                <button className="button button--secondary" type="button" onClick={resetDraft} disabled={!hasUnsavedChanges || isSaving}>
+                  Réinitialiser
+                </button>
+                <button className="button button--primary" type="button" onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? "Enregistrement..." : "Enregistrer"}
+                </button>
+              </>
+            )
+          ) : null}
+
+          {canCreateNextBudget ? (
+            <details className="budget-menu budget-menu--end">
+              <summary className="button button--secondary budget-menu__more" aria-label="Plus d'actions">⋯</summary>
+              <div className="budget-menu__panel budget-menu__panel--form">
+                <label className="field">
+                  <span>Créer le budget de l&apos;édition</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={newBudgetYear}
+                    onChange={(event) => setNewBudgetYear(event.target.value)}
+                    placeholder="2028"
+                  />
+                </label>
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={handleCreateBudget}
+                  disabled={isCreatingBudget}
+                >
+                  {isCreatingBudget ? "Création..." : "Créer à partir de ce budget"}
+                </button>
+              </div>
+            </details>
+          ) : null}
         </div>
+      </header>
 
-        <div className="budget-inline-summary budget-inline-summary--topbar" aria-label={`Synthèse ${topbarSummaryLabel.toLowerCase()} du budget`}>
-          <span className="budget-inline-summary__context">{topbarSummaryLabel} {draftBudget.currentEditionId}</span>
-          <span className="budget-inline-summary__item">
-            <strong>Dépenses</strong>
-            <span>{formatCurrency(totals.expenses[topbarSummaryField])}</span>
-          </span>
-          <span className="budget-inline-summary__item">
-            <strong>Recettes</strong>
-            <span>{formatCurrency(totals.revenues[topbarSummaryField])}</span>
-          </span>
-          <span className="budget-inline-summary__item budget-inline-summary__item--balance">
-            <strong>Bilan</strong>
-            <span className={getBalanceToneClass(totals.balance[topbarSummaryField])}>
-              {formatCurrency(totals.balance[topbarSummaryField])}
-            </span>
-          </span>
-        </div>
+      {budgetSeedLog.length ? <BudgetSeedLog lines={budgetSeedLog} /> : null}
+      {exportStatus ? <p className="panel-note budget-save-status">{exportStatus}</p> : null}
+      {saveStatus ? <p className="panel-note budget-save-status">{saveStatus}</p> : null}
 
-        {budgetSeedLog.length ? <BudgetSeedLog lines={budgetSeedLog} /> : null}
-        {exportStatus ? <p className="panel-note budget-save-status">{exportStatus}</p> : null}
-        {saveStatus ? <p className="panel-note budget-save-status">{saveStatus}</p> : null}
-      </section>
-
-      {activeTab !== "overview" && activeTab !== "invoices" ? (
-        <section className="budget-summary-grid">
-            {hasComparison ? (
-              <article className="budget-summary-card">
-                <span className="budget-summary-card__label">Dépenses {draftBudget.referenceEditionId}</span>
-                <strong>{formatCurrency(totals.expenses.referenceActual)}</strong>
-                <small>Réalisé de comparaison</small>
-              </article>
-            ) : null}
-            <article className="budget-summary-card">
-              <span className="budget-summary-card__label">Dépenses {draftBudget.currentEditionId}</span>
-              <strong>{formatCurrency(totals.expenses.currentActual)}</strong>
-              <small>{formatCurrency(totals.expenses.currentForecast)} prévues</small>
-              <span className={getVarianceToneClass(computeVariance(totals.expenses.currentForecast, totals.expenses.currentActual), "expense")}>
-                {formatVariance(computeVariance(totals.expenses.currentForecast, totals.expenses.currentActual))}
-              </span>
-            </article>
-            {hasComparison ? (
-              <article className="budget-summary-card">
-                <span className="budget-summary-card__label">Recettes {draftBudget.referenceEditionId}</span>
-                <strong>{formatCurrency(totals.revenues.referenceActual)}</strong>
-                <small>Réalisé de comparaison</small>
-              </article>
-            ) : null}
-            <article className="budget-summary-card">
-              <span className="budget-summary-card__label">Recettes {draftBudget.currentEditionId}</span>
-              <strong>{formatCurrency(totals.revenues.currentActual)}</strong>
-              <small>{formatCurrency(totals.revenues.currentForecast)} prévues</small>
-              <span className={getVarianceToneClass(computeVariance(totals.revenues.currentForecast, totals.revenues.currentActual), "revenue")}>
-                {formatVariance(computeVariance(totals.revenues.currentForecast, totals.revenues.currentActual))}
-              </span>
-            </article>
-            {hasComparison ? (
-              <article className="budget-summary-card budget-summary-card--balance">
-                <span className="budget-summary-card__label">Équilibre {draftBudget.referenceEditionId}</span>
-                <strong className={getBalanceToneClass(totals.balance.referenceActual)}>{formatCurrency(totals.balance.referenceActual)}</strong>
-                <small>Réalisé de comparaison</small>
-              </article>
-            ) : null}
-            <article className="budget-summary-card budget-summary-card--balance">
-              <span className="budget-summary-card__label">Équilibre {draftBudget.currentEditionId}</span>
-              <strong className={getBalanceToneClass(totals.balance.currentActual)}>{formatCurrency(totals.balance.currentActual)}</strong>
-              <small>{formatCurrency(totals.balance.currentForecast)} prévisionnel</small>
-              <span className={getVarianceToneClass(computeVariance(totals.balance.currentForecast, totals.balance.currentActual), "balance")}>
-                {formatVariance(computeVariance(totals.balance.currentForecast, totals.balance.currentActual))}
-              </span>
-            </article>
-        </section>
-      ) : null}
-
-      <div className="admin-subtabs" role="tablist" aria-label="Navigation du budget">
+      <nav className="budget-tabs" aria-label="Sections du budget">
         {[
-          ["overview", primaryTabLabel],
-          ["expenses", "Dépenses"],
-          ["revenues", "Recettes"],
-          ...(canManageInvoicePanel || selectedEditionInvoices.length
-            ? [["invoices", unclassifiedInvoices.length ? `Factures (${unclassifiedInvoices.length})` : "Factures"]]
-            : []),
-          ["simplified", "Simplifiée"],
+          ["overview", "Vue d'ensemble"],
+          ["lines", "Lignes budgétaires"],
+          ...(showInvoicesTab ? [["invoices", "Factures"]] : []),
           ["history", "Historique"],
         ].map(([tabId, label]) => (
           <button
             key={tabId}
-            className={`admin-subtab ${activeTab === tabId ? "admin-subtab--active" : ""}`}
+            className={`budget-tabs__tab${activeTab === tabId ? " budget-tabs__tab--active" : ""}`}
             type="button"
+            aria-current={activeTab === tabId ? "page" : undefined}
             onClick={() => setActiveTab(tabId)}
           >
             {label}
+            {tabId === "invoices" && unclassifiedInvoices.length ? (
+              <span className="budget-tabs__count" aria-label={`${unclassifiedInvoices.length} à classer`}>{unclassifiedInvoices.length}</span>
+            ) : null}
           </button>
         ))}
-      </div>
-
-      {activeTab === "overview" && canEditBudget ? (
-        <p className="panel-note budget-reorder-note">
-          Pour déplacer les lignes, ouvre l&apos;onglet Dépenses ou Recettes puis utilise le bouton "Depl." au bout de la ligne.
-        </p>
-      ) : null}
+      </nav>
 
       {activeTab === "overview" ? (
-        <div className="budget-sheet-stack">
-          <section className="budget-sheet-group">
-            <div className="budget-sheet-group__header">
-              <div>
-                <h3>Dépenses</h3>
-                <p>{isBudgetLocked ? `Budget ${draftBudget.currentEditionId} — prévisionnel et définitif.` : `Budget ${draftBudget.currentEditionId} — prévisionnel et réalisé.`}</p>
-              </div>
-            </div>
-            <BudgetOverviewTable
-              collectionKey="expenses"
-              sections={expenseSections}
-              currentEditionId={draftBudget.currentEditionId}
-              allowEditing={canEditBudget}
-              actualColumnLabel={`${isBudgetLocked ? "Définitif" : "Réalisé"} ${draftBudget.currentEditionId}`}
-              onValueChange={handleRowChange}
-              totals={totals.expenses}
-              invoicesByRowId={invoicesByBudgetRowId}
-            />
-          </section>
+        <BudgetOverview
+          budget={draftBudget}
+          totals={totals}
+          expenseSections={expenseSections}
+          revenueSections={revenueSections}
+          hasComparison={hasComparison}
+          isBudgetLocked={isBudgetLocked}
+          hasCurrentActualValues={hasCurrentActualValues}
+          unclassifiedInvoiceCount={unclassifiedInvoices.length}
+          showInvoiceCard={showInvoicesTab}
+          onOpenInvoices={() => setActiveTab("invoices")}
+        />
+      ) : null}
 
-          <section className="budget-sheet-group">
-            <div className="budget-sheet-group__header">
-              <div>
-                <h3>Recettes</h3>
-                <p>{isBudgetLocked ? `Budget ${draftBudget.currentEditionId} — prévisionnel et définitif.` : `Budget ${draftBudget.currentEditionId} — prévisionnel et réalisé.`}</p>
-              </div>
-            </div>
-            <BudgetOverviewTable
-              collectionKey="revenues"
-              sections={revenueSections}
-              currentEditionId={draftBudget.currentEditionId}
-              allowEditing={canEditBudget}
-              actualColumnLabel={`${isBudgetLocked ? "Définitif" : "Réalisé"} ${draftBudget.currentEditionId}`}
-              onValueChange={handleRowChange}
-              totals={totals.revenues}
-              invoicesByRowId={invoicesByBudgetRowId}
-            />
-          </section>
+      {activeTab === "lines" ? (
+        <div className="budget-lines">
+          <div className="budget-segmented" role="group" aria-label="Côté du budget">
+            {[
+              ["expenses", "Dépenses", totals.expenses],
+              ["revenues", "Recettes", totals.revenues],
+            ].map(([collectionKey, label, sideTotals]) => (
+              <button
+                key={collectionKey}
+                type="button"
+                className={`budget-segmented__option${linesCollectionKey === collectionKey ? " budget-segmented__option--active" : ""}`}
+                aria-pressed={linesCollectionKey === collectionKey}
+                onClick={() => setLinesCollectionKey(collectionKey)}
+              >
+                {label} · {formatCurrency(sideTotals[lineTotalField])}
+              </button>
+            ))}
+          </div>
+          <BudgetLineTable
+            key={lineSideConfig.collectionKey}
+            side={lineSideConfig.side}
+            collectionKey={lineSideConfig.collectionKey}
+            sections={lineSideConfig.sections}
+            referenceEditionId={draftBudget.referenceEditionId}
+            currentEditionId={draftBudget.currentEditionId}
+            hasComparison={hasComparison}
+            isEditable={canEditBudget}
+            newSectionName={sectionDrafts[lineSideConfig.collectionKey]}
+            onValueChange={handleRowChange}
+            onAddRow={handleAddRow}
+            onDeleteRow={handleDeleteRow}
+            onNewSectionNameChange={handleNewSectionNameChange}
+            onAddSection={handleAddSection}
+            dragState={dragState}
+            dragOverRowId={dragOverRowId}
+            onRowDragStart={handleRowDragStart}
+            onRowDragOver={handleRowDragOver}
+            onRowDrop={handleRowDrop}
+            onRowDragEnd={handleRowDragEnd}
+            totals={lineSideConfig.totals}
+            invoicesByRowId={invoicesByBudgetRowId}
+            canManageInvoices={canManageInvoicePanel}
+            onUnlinkInvoice={handleUnlinkInvoice}
+          />
         </div>
-      ) : null}
-
-      {activeTab === "expenses" ? (
-        <BudgetLineTable
-          side="expense"
-          collectionKey="expenses"
-          sections={expenseSections}
-          referenceEditionId={draftBudget.referenceEditionId}
-          currentEditionId={draftBudget.currentEditionId}
-          hasComparison={hasComparison}
-          isEditable={canEditBudget}
-          newSectionName={sectionDrafts.expenses}
-          onValueChange={handleRowChange}
-          onAddRow={handleAddRow}
-          onDeleteRow={handleDeleteRow}
-          onNewSectionNameChange={handleNewSectionNameChange}
-          onAddSection={handleAddSection}
-          dragState={dragState}
-          dragOverRowId={dragOverRowId}
-          onRowDragStart={handleRowDragStart}
-          onRowDragOver={handleRowDragOver}
-          onRowDrop={handleRowDrop}
-          onRowDragEnd={handleRowDragEnd}
-          totals={totals.expenses}
-          invoicesByRowId={invoicesByBudgetRowId}
-          canManageInvoices={canManageInvoicePanel}
-          onUnlinkInvoice={handleUnlinkInvoice}
-        />
-      ) : null}
-
-      {activeTab === "revenues" ? (
-        <BudgetLineTable
-          side="revenue"
-          collectionKey="revenues"
-          sections={revenueSections}
-          referenceEditionId={draftBudget.referenceEditionId}
-          currentEditionId={draftBudget.currentEditionId}
-          hasComparison={hasComparison}
-          isEditable={canEditBudget}
-          newSectionName={sectionDrafts.revenues}
-          onValueChange={handleRowChange}
-          onAddRow={handleAddRow}
-          onDeleteRow={handleDeleteRow}
-          onNewSectionNameChange={handleNewSectionNameChange}
-          onAddSection={handleAddSection}
-          dragState={dragState}
-          dragOverRowId={dragOverRowId}
-          onRowDragStart={handleRowDragStart}
-          onRowDragOver={handleRowDragOver}
-          onRowDrop={handleRowDrop}
-          onRowDragEnd={handleRowDragEnd}
-          totals={totals.revenues}
-          invoicesByRowId={invoicesByBudgetRowId}
-          canManageInvoices={canManageInvoicePanel}
-          onUnlinkInvoice={handleUnlinkInvoice}
-        />
       ) : null}
 
       {activeTab === "invoices" ? (
@@ -3063,69 +3004,6 @@ function BudgetTrackingPage({ Panel }) {
             </Panel>
           ) : null}
         </section>
-      ) : null}
-
-      {activeTab === "simplified" ? (
-        <div className="budget-simplified-layout">
-          <Panel
-            title="Réglages de la vue simplifiée"
-            subtitle="Choisissez les gros blocs à afficher, puis le niveau de lecture souhaité."
-          >
-            <div className="budget-simplified-controls">
-              <label className="field budget-simplified-controls__field">
-                <span>Afficher</span>
-                <select value={simplifiedDisplayMode} onChange={(event) => setSimplifiedDisplayMode(event.target.value)}>
-                  <option value="forecast">Prévisionnel</option>
-                  <option value="actual">Réalisé</option>
-                  <option value="both">Les deux</option>
-                </select>
-              </label>
-              <label className="budget-simplified-toggle">
-                <input
-                  type="checkbox"
-                  checked={simplifiedShowDetails}
-                  onChange={(event) => setSimplifiedShowDetails(event.target.checked)}
-                />
-                <span>Afficher le détail des lignes</span>
-              </label>
-            </div>
-          </Panel>
-
-          <div className="budget-overview-grid">
-            <SimplifiedBudgetTable
-              Panel={Panel}
-              title="Version simplifiée — dépenses"
-              subtitle="Agrégats calculés automatiquement à partir du budget détaillé."
-              side="expense"
-              rows={simplifiedExpenseRows}
-              selectedMap={simplifiedSelections.expenses}
-              detailSelections={simplifiedDetailSelections.expenses}
-              displayMode={simplifiedDisplayMode}
-              showDetails={simplifiedShowDetails}
-              onToggleRow={(rowId) => handleToggleSimplifiedRow("expenses", rowId)}
-              onToggleDetailRow={(rowId, itemId) => handleToggleSimplifiedDetailRow("expenses", rowId, itemId)}
-              referenceEditionId={draftBudget.referenceEditionId}
-              currentEditionId={draftBudget.currentEditionId}
-              hasComparison={hasComparison}
-            />
-            <SimplifiedBudgetTable
-              Panel={Panel}
-              title="Version simplifiée — recettes"
-              subtitle="Même logique, côté recettes, pour lire rapidement l'équilibre."
-              side="revenue"
-              rows={simplifiedRevenueRows}
-              selectedMap={simplifiedSelections.revenues}
-              detailSelections={simplifiedDetailSelections.revenues}
-              displayMode={simplifiedDisplayMode}
-              showDetails={simplifiedShowDetails}
-              onToggleRow={(rowId) => handleToggleSimplifiedRow("revenues", rowId)}
-              onToggleDetailRow={(rowId, itemId) => handleToggleSimplifiedDetailRow("revenues", rowId, itemId)}
-              referenceEditionId={draftBudget.referenceEditionId}
-              currentEditionId={draftBudget.currentEditionId}
-              hasComparison={hasComparison}
-            />
-          </div>
-        </div>
       ) : null}
 
       {activeTab === "history" ? (
