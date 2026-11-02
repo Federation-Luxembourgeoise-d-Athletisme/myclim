@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   collection,
   deleteDoc,
@@ -12,6 +12,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { getAppBaseUrl } from "../services/app-url";
@@ -74,7 +75,9 @@ function InviteForm({ onSaved, onCancel }) {
 
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const invitationRef = doc(collection(db, "invitations"));
+      // Le token sert d'id : le lien d'activation lit l'invitation (get) sans
+      // que la collection soit listable.
+      const invitationRef = doc(db, "invitations", token);
 
       await setDoc(invitationRef, {
         email: email.trim().toLowerCase(),
@@ -294,7 +297,7 @@ function BulkInviteForm({ onSaved, onCancel }) {
 
         const token = crypto.randomUUID();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        const invitationRef = doc(collection(db, "invitations"));
+        const invitationRef = doc(db, "invitations", token);
 
         await setDoc(invitationRef, {
           email: row.email,
@@ -504,15 +507,40 @@ export function InvitationAdminPage({ Panel }) {
   const [bulkCreating, setBulkCreating] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
   const [resendFallbackUrl, setResendFallbackUrl] = useState("");
+  const rekeying = useRef(new Set());
 
   useEffect(() => {
     const q = query(collection(db, "invitations"), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, (snap) => {
-      setInvitations(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setInvitations(docs);
       setLoading(false);
+      rekeyLegacyInvitations(docs);
     });
     return unsub;
   }, []);
+
+  // Les invitations créées avant le passage « token = id » ont un id aléatoire :
+  // leur lien (/invite?token=…) ne les trouve plus. On les recopie sous leur
+  // token, une fois, quand un admin ouvre la page — les liens déjà envoyés
+  // refonctionnent sans renvoi.
+  async function rekeyLegacyInvitations(docs) {
+    const legacy = docs.filter((inv) =>
+      inv.status === "pending" && inv.token && inv.id !== inv.token && !rekeying.current.has(inv.id));
+    if (legacy.length === 0) return;
+    legacy.forEach((inv) => rekeying.current.add(inv.id));
+    const batch = writeBatch(db);
+    legacy.forEach(({ id, ...data }) => {
+      batch.set(doc(db, "invitations", data.token), data);
+      batch.delete(doc(db, "invitations", id));
+    });
+    try {
+      await batch.commit();
+    } catch (e) {
+      legacy.forEach((inv) => rekeying.current.delete(inv.id));
+      setActionStatus(`Erreur lors de la mise à jour des anciens liens : ${e.message}`);
+    }
+  }
 
   async function handleResend(invitation) {
     setActionStatus("Renvoi en cours…");
@@ -524,17 +552,23 @@ export function InvitationAdminPage({ Panel }) {
       return;
     }
 
-    // 1. Renouveler le token en Firestore
+    // 1. Renouveler le token en Firestore : il sert d'id, donc l'invitation
+    // passe sous un nouveau document et l'ancien lien cesse de fonctionner.
     let activationUrl = "";
     try {
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await updateDoc(doc(db, "invitations", invitation.id), {
+      const { id: oldId, ...data } = invitation;
+      const batch = writeBatch(db);
+      batch.set(doc(db, "invitations", token), {
+        ...data,
         token,
         status: "pending",
         expiresAt,
         resentAt: serverTimestamp(),
       });
+      batch.delete(doc(db, "invitations", oldId));
+      await batch.commit();
       activationUrl = `${getAppBaseUrl()}/invite?token=${token}`;
     } catch (firestoreErr) {
       setActionStatus(`Erreur : ${firestoreErr.message}`);
