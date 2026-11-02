@@ -1,6 +1,4 @@
 import { NavLink } from "react-router-dom";
-import { useSiteEditionYear } from "../app/edition";
-import { useMeetingEditions } from "../app/meeting-history-hooks";
 import business1 from "../assets/site-gallery/preprog-business-1.jpg";
 import business2 from "../assets/site-gallery/preprog-business-2.jpg";
 import influencer from "../assets/site-gallery/preprog-influencer.jpg";
@@ -60,14 +58,6 @@ function PhotoGrid({ photos }) {
 }
 
 export function SitePreProgramme() {
-  const { siteEditionYear } = useSiteEditionYear();
-  const { editions } = useMeetingEditions();
-  const latestEdition = editions[0] || null;
-  const configuredEdition = siteEditionYear
-    ? editions.find((edition) => Number(edition.year || edition.id) === Number(siteEditionYear)) || null
-    : null;
-  const currentEdition = configuredEdition || latestEdition || null;
-  const nationalRacesRegistrationUrl = String(currentEdition?.preprogrammeNationalRacesUrl || "").trim();
   const nationalRaces = [
     { event: "60m Women", icon: "⚡" },
     { event: "60m Men", icon: "⚡" },
@@ -99,11 +89,14 @@ export function SitePreProgramme() {
             Before the elite programme kicks off, the CMCM Luxembourg Indoor Meeting offers a dynamic and entertaining pre-programme open to the public — featuring corporate relay races, youth athletics, influencer challenges and an inclusive Special Olympics race.
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 32 }}>
-            <a href="#business-race" className="site-btn site-btn--primary">
-              Business Race →
+            <NavLink to="/pre-programme" className="site-btn site-btn--primary">
+              Register for the pre-programme →
+            </NavLink>
+            <a href="#business-race" className="site-btn site-btn--secondary">
+              Business Race
             </a>
             <a href="#youth" className="site-btn site-btn--secondary">
-              Youth Programme
+              Youth & national races
             </a>
           </div>
         </div>
@@ -391,13 +384,13 @@ export function SitePreProgramme() {
                 borderRadius: "var(--site-radius-sm)",
                 marginBottom: 24,
               }}>
-                <strong style={{ color: "var(--site-text)", display: "block", marginBottom: 10 }}>How the registration form works</strong>
+                <strong style={{ color: "var(--site-text)", display: "block", marginBottom: 10 }}>How registration works</strong>
                 <div style={{ display: "grid", gap: 10 }}>
                   {[
-                    "A parent account is created during registration.",
-                    "For each child, you fill in birth date, club and licence number.",
-                    "You can choose Youth Pre-Programme, Basket Carrier, or accept either option depending on availability.",
-                    "Each child can only be confirmed for one activity on meeting day, and the final status is then tracked in the parent portal.",
+                    "One registration page for the whole pre-programme: youth races, basket carriers and national races.",
+                    "Youth: a parent registers as many children as needed (birth date, club, FLA bib number) and chooses a race, basket carrier, or either.",
+                    "National races: athletes register themselves; under 18, with the explicit consent of a parent.",
+                    "Everything is then tracked in MyCLIM: status, decision and practical information.",
                   ].map((item) => (
                     <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                       <span style={{ color: "var(--site-red)", fontWeight: 700, marginTop: 1, flexShrink: 0 }}>•</span>
@@ -406,9 +399,9 @@ export function SitePreProgramme() {
                   ))}
                 </div>
               </div>
-              <a href="/pre-programme" className="site-btn site-btn--primary site-btn--sm">
-                Register (athlete access) →
-              </a>
+              <NavLink to="/pre-programme?parcours=jeunes" className="site-btn site-btn--primary site-btn--sm">
+                Register a child →
+              </NavLink>
 
               <div
                 id="national-races"
@@ -425,11 +418,11 @@ export function SitePreProgramme() {
                     🏁 National Races
                   </h3>
                   <p style={{ margin: "8px 0 0", fontSize: "1rem", color: "var(--site-text-muted)" }}>
-                    60m & 800m registrations via SELTEC
+                    60m & 800m · apply on MyCLIM
                   </p>
                 </div>
                 <p style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", lineHeight: 1.7, marginTop: 0, marginBottom: 16 }}>
-                  National races will also be held before the main programme, with dedicated entries for women and men on 60m and 800m.
+                  Women's and men's 60m and 800m races are held before the main programme: 8 places per 60m race, 6 per 800m race. Athletes apply on MyCLIM; the athletes' commission selects on performance, with priority to Luxembourg licence holders. Selected athletes then confirm their entry on SELTEC.
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
                   {nationalRaces.map(({ event, icon }) => (
@@ -463,20 +456,9 @@ export function SitePreProgramme() {
                     </div>
                   ))}
                 </div>
-                {nationalRacesRegistrationUrl ? (
-                  <a
-                    href={nationalRacesRegistrationUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="site-btn site-btn--secondary site-btn--sm"
-                  >
-                    Register on SELTEC →
-                  </a>
-                ) : (
-                  <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--site-text-dim)" }}>
-                    Registration link will be published here as soon as it is available.
-                  </p>
-                )}
+                <NavLink to="/pre-programme?parcours=courses-nationales" className="site-btn site-btn--primary site-btn--sm">
+                  Apply for a national race →
+                </NavLink>
               </div>
             </div>
 
