@@ -10,6 +10,8 @@ import coverVisual from "../assets/hero-banner.jpg";
 import meetingLogo from "../assets/cmcm-logo.png";
 import waSilverLogo from "../assets/wa-indoor-tour-silver.png";
 import venueImage from "../assets/site-gallery/Coque2026.jpg";
+// Race in front of a full stand (website gallery): banner of the timetable page.
+import timetablePhoto from "../assets/site-gallery/ambiance-1.jpg";
 import {
   athleteDisplayName,
   buildAthleteLookup,
@@ -256,12 +258,15 @@ function TimetablePage({ edition }) {
       eyebrow="Competition day"
       title="Timetable"
       subtitle={edition?.timetableNote || "Times are indicative and subject to change."}
+      headerImage={timetablePhoto}
+      className="site-emag-page--timetable"
     >
       <div className="site-emag-timetable">
         {rows.length === 0 ? (
           <p className="site-emag-empty">The timetable has not been configured yet.</p>
         ) : (
-          <table className="site-emag-table site-emag-table--timetable">
+          // A full meeting day (25+ rows) only fits on one A4 page with tighter rows.
+          <table className={`site-emag-table site-emag-table--timetable${rows.length > 16 ? " site-emag-table--timetable-compact" : ""}`}>
             <tbody>
               {rows.map((row) => (
                 row.type === "header" ? (
