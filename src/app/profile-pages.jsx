@@ -738,6 +738,12 @@ function ProfilePage(props) {
         </Panel>
       </section>
 
+      <Panel title={t("accountNotificationsTitle")} subtitle={t("accountNotificationsSubtitle")}>
+        <NavLink className="button button--secondary button-link" to="/app/notifications">
+          {t("accountNotificationsOpen")}
+        </NavLink>
+      </Panel>
+
       <Panel
         title={t("accountHistoryTitle")}
         subtitle={t("accountHistorySubtitle")}

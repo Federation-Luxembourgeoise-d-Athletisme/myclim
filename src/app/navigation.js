@@ -55,6 +55,7 @@ function buildNavigationFromRoles(roles) {
         makeLink("/app", "navDashboard", "Tableau de bord", "dashboard"),
         makeLink("/app/documents", "navDocuments", "Documents", "folder"),
         makeLink("/app/budget", "navBudget", "Budget", "dashboard"),
+        makeLink("/app/notifications", "navNotifications", "Notifications", "bell"),
       ]),
       makeSection("navSectionVolunteers", "Bénévoles", [
         makeLink("/app/benevoles", "navVolunteersLink", "Bénévoles", "users"),
@@ -116,6 +117,7 @@ function buildNavigationFromRoles(roles) {
         makeLink("/app", "navOverview", "Vue d'ensemble", "dashboard"),
         makeLink("/app/documents", "navDocuments", "Documents", "folder"),
         ...(roles.includes("budget") ? [makeLink("/app/budget", "navBudget", "Budget", "dashboard")] : []),
+        makeLink("/app/notifications", "navNotifications", "Notifications", "bell"),
       ]),
       makeSection("navSectionVolunteers", "Bénévoles", [
         makeLink("/app/benevoles", "navVolunteersLink", "Bénévoles", "users"),
@@ -160,7 +162,7 @@ function buildNavigationFromRoles(roles) {
     return navigation;
   }
 
-  const links = [makeLink("/app", "navOverview", "Vue d'ensemble", "dashboard")];
+  const links = [makeLink("/app", "navOverview", "Vue d'ensemble", "dashboard"), makeLink("/app/notifications", "navNotifications", "Notifications", "bell")];
 
   if (roles.includes("budget")) {
     links.push(makeLink("/app/budget", "navBudget", "Budget", "dashboard"));
