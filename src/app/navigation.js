@@ -87,7 +87,7 @@ function buildNavigationFromRoles(roles) {
         makeLink("/app/edition-meeting", "navEditionSettings", "Édition du meeting", "calendar"),
         makeLink("/app/invitations", "navInvitations", "Invitations", "spark"),
         makeLink("/app/certificat", "navCertificateSettings", "Certificat bénévole", "badge"),
-        makeLink("/app/profil", "navMyProfile", "Mon profil", "profile"),
+        makeLink("/app/profil", "navMyProfile", "Mon profil", "profile"), makeLink("/app/notifications", "navNotifications", "Notifications", "bell"),
       ]),
     ];
   }
@@ -154,7 +154,7 @@ function buildNavigationFromRoles(roles) {
     }
 
     navigation.push(
-      makeSection("navSectionSettings", "Réglages", [makeLink("/app/profil", "navMyProfile", "Mon profil", "profile")]),
+      makeSection("navSectionSettings", "Réglages", [makeLink("/app/profil", "navMyProfile", "Mon profil", "profile"), makeLink("/app/notifications", "navNotifications", "Notifications", "bell")]),
     );
 
     return navigation;
@@ -209,7 +209,7 @@ function buildNavigationFromRoles(roles) {
     links.push(makeLink("/app/athlete-portal/mes-transport", "navMyTransports", "Mes transports", "pin"));
   }
 
-  links.push(makeLink("/app/profil", "navMyProfile", "Mon profil", "profile"));
+  links.push(makeLink("/app/profil", "navMyProfile", "Mon profil", "profile"), makeLink("/app/notifications", "navNotifications", "Notifications", "bell"));
 
   return links;
 }
