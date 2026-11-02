@@ -4951,6 +4951,37 @@
   color: #fff;
 }
 
+.site-emag-table__lane {
+  width: 56px;
+  color: #163c6b;
+  font-weight: 800;
+}
+
+/* 17+ athletes (e.g. 3 heats of 8): tighter rows so it stays on one A4 page. */
+.site-emag-startlist--compact {
+  gap: 10px;
+}
+
+.site-emag-startlist--compact .site-emag-startlist__heat {
+  border-radius: 14px;
+}
+
+.site-emag-startlist--compact .site-emag-startlist__heat-head {
+  padding: 7px 16px;
+  font-size: 0.86rem;
+}
+
+.site-emag-startlist--compact .site-emag-table th,
+.site-emag-startlist--compact .site-emag-table td {
+  padding: 4px 14px;
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.site-emag-startlist--compact .site-emag-table th {
+  font-size: 0.66rem;
+}
+
 .site-emag__reader-shell::before,
 .site-emag__reader-shell::after {
   content: "";

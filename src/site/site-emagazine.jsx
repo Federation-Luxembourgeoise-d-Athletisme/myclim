@@ -100,8 +100,7 @@ function StartlistEntryRow({ entry }) {
   const pb = entry.waPbIndoor || entry.pbIndoor || entry.pb || "";
   return (
     <tr>
-      <td>{entry.heat || "—"}</td>
-      <td>{entry.lane || "—"}</td>
+      <td className="site-emag-table__lane">{entry.lane || "—"}</td>
       <td>
         <strong>{athleteDisplayName(entry)}</strong>
       </td>
@@ -452,16 +451,21 @@ function OfficialStartlistPage({ group }) {
     accumulator.get(heatKey).push(entry);
     return accumulator;
   }, new Map());
+  const heatCount = [...groupedHeats.keys()].filter((heat) => heat !== "Main list").length;
+  // Up to three heats of 8 must fit on one A4 page: tighter rows past 16 athletes.
+  const isCompact = group.entries.length > 16;
 
   return (
     <MagazinePage
       theme="record"
       eyebrow="Start list"
       title={group.title}
-      subtitle="Live entries from the Athlete Portal. This page updates automatically as data is imported."
+      subtitle={group.entries.length
+        ? `${group.entries.length} athletes${heatCount > 1 ? ` · ${heatCount} heats` : ""}`
+        : ""}
       headerExtra={<MeetingRecordBanner record={group.meetingRecord} />}
     >
-      <div className="site-emag-startlist">
+      <div className={`site-emag-startlist${isCompact ? " site-emag-startlist--compact" : ""}`}>
         {group.entries.length === 0 ? (
           <div className="site-emag-startlist__placeholder">
             <p>Start list not available yet.</p>
@@ -477,7 +481,6 @@ function OfficialStartlistPage({ group }) {
               <table className="site-emag-table">
                 <thead>
                   <tr>
-                    <th>Heat</th>
                     <th>Lane</th>
                     <th>Athlete</th>
                     <th>Nation</th>
