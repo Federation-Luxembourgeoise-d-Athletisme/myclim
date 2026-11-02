@@ -244,6 +244,26 @@ service cloud.firestore {
       allow write: if isWebsiteManager();
     }
 
+    // Historique du meeting (records, vainqueurs, résultats) : affiché à tous
+    // sur la page publique Results & Statistics et dans le e-magazine
+    // (bandeau record du meeting). Sans ces règles, seuls admin/gestionnaire
+    // pouvaient les lire (règle générale) et les visiteurs ne voyaient rien.
+    // L'écriture reste celle de la règle générale (admin/gestionnaire).
+    match /meetingRecords/{recordId} {
+      allow read: if true;
+      allow write: if isAdminOrManager();
+    }
+
+    match /meetingWinners/{winnerId} {
+      allow read: if true;
+      allow write: if isAdminOrManager();
+    }
+
+    match /meetingResults/{resultId} {
+      allow read: if true;
+      allow write: if isAdminOrManager();
+    }
+
     // ── Audience du e-magazine (chiffres pour les sponsors) ──────────────────
     // Écrite par les lecteurs anonymes du site (src/site/emagazine-stats.js) :
     // uniquement des compteurs qui montent de 0 ou 1 à chaque écriture, plus
