@@ -4393,9 +4393,9 @@
   height: 100%;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  /* Plain white like the key visual's own background, so the logo area and
-     the footer read as one surface. */
-  background: #ffffff;
+  /* One plain grey for the whole cover, so the logo area and the footer read
+     as one surface. */
+  background: #eceef1;
   color: #10253d;
   overflow: hidden;
 }
@@ -4454,6 +4454,8 @@
   margin-bottom: -24px;
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 86%, transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 86%, transparent 100%);
+  /* The key visual's white background takes the grey of the cover. */
+  mix-blend-mode: multiply;
 }
 
 .site-emag-cover__visual img {
