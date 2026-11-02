@@ -8,6 +8,8 @@ import { sponsorCategoryLabel } from "./sponsor-utils";
 import heroImage from "../assets/partner-stories/cmcm-athlete-moment.jpg";
 // Same key visual as the website home hero: default visual of the cover.
 import coverVisual from "../assets/hero-banner.jpg";
+import meetingLogo from "../assets/cmcm-logo.png";
+import waSilverLogo from "../assets/wa-indoor-tour-silver.png";
 import venueImage from "../assets/site-gallery/Coque2026.jpg";
 import {
   athleteDisplayName,
@@ -168,29 +170,26 @@ function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl }) {
     <MagazinePage theme="cover" className="site-emag-page--cover">
       <div className="site-emag-cover">
         <header className="site-emag-cover__head">
-          <p className="site-emag-cover__kicker">Official e-magazine</p>
-          <h1>
-            <span>CMCM Luxembourg</span>
-            <span>Indoor Meeting</span>
+          <h1 style={{ margin: 0 }}>
+            <img src={meetingLogo} alt="CMCM Luxembourg Indoor Meeting" className="site-emag-cover__logo" />
           </h1>
-          <span className="site-emag-cover__year">{edition?.year || ""}</span>
+          <p className="site-emag-cover__kicker">
+            Official e-magazine <span>{edition?.year || ""}</span>
+          </p>
         </header>
         <div className="site-emag-cover__visual">
-          <img src={visualUrl || coverVisual} alt="CMCM Luxembourg Indoor Meeting" />
+          <img src={visualUrl || coverVisual} alt="" />
         </div>
         <footer className="site-emag-cover__foot">
           <div>
             <p className="site-emag-cover__meta">
-              {formatEditionDate(edition?.date)} • {edition?.venue || "Coque, Luxembourg"}
+              {formatEditionDate(edition?.date)} <span>•</span> {edition?.venue || "Coque, Luxembourg"}
             </p>
             <p className="site-emag-cover__lead">
               Start lists, highlights, partner stories and the full build-up to this year’s meeting.
             </p>
           </div>
-          <div className="site-emag-cover__label">
-            <span>World Athletics Indoor Tour</span>
-            <strong>Silver Label</strong>
-          </div>
+          <img src={waSilverLogo} alt="World Athletics Indoor Tour Silver" className="site-emag-cover__label" />
           <div className="site-emag-cover__chips">
             <span>{officialGroupsCount} official start lists</span>
             <span>English edition</span>

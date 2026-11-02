@@ -4114,8 +4114,6 @@
 .site-emag-page__eyebrow,
 .site-emag-page__header h2,
 .site-emag-cover__kicker,
-.site-emag-cover__head h1,
-.site-emag-cover__year,
 .site-emag-cover__meta,
 .site-emag-record-banner strong {
   font-family: 'Oswald', var(--font-sans, sans-serif);
@@ -4417,15 +4415,16 @@
   line-height: 1.65;
 }
 
-/* Cover: title block, landscape key visual (cropped to fill), black footer.
-   The red / blue side stripes echo the meeting key visual. */
+/* Cover, in the meeting identity: meeting logo, the full key visual (the
+   website hero, lion included) whose red / blue edges continue down the
+   page, then date, venue and the World Athletics label on a light ground. */
 .site-emag-cover {
   position: relative;
   height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  background: linear-gradient(180deg, #ffffff 0%, #eef0f3 100%);
-  color: #0b0b0b;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: linear-gradient(180deg, #ffffff 0%, #eceef1 100%);
+  color: #10253d;
   overflow: hidden;
 }
 
@@ -4435,7 +4434,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 16px;
+  width: 32px;
   z-index: 2;
 }
 
@@ -4451,47 +4450,32 @@
 
 .site-emag-cover__head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 24px;
-  align-items: end;
-  padding: 48px 60px 28px;
+  justify-items: center;
+  gap: 18px;
+  padding: 52px 72px 30px;
 }
 
-.site-emag-cover .site-emag-cover__kicker {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--emag-red);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-}
-
-.site-emag-cover__head h1 {
-  margin: 0;
-  color: #0b0b0b;
-  font-size: 5.1rem;
-  font-weight: 700;
-  line-height: 0.95;
-}
-
-.site-emag-cover__head h1 span {
+.site-emag-cover__logo {
+  width: 560px;
+  max-width: 100%;
+  height: auto;
   display: block;
 }
 
-.site-emag-cover__head h1 span + span {
+.site-emag-cover .site-emag-cover__kicker {
+  margin: 0;
   color: var(--emag-red);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
 }
 
-.site-emag-cover__year {
+.site-emag-cover__kicker span {
   color: var(--emag-blue);
-  font-size: 4.6rem;
-  font-weight: 700;
-  line-height: 0.95;
 }
 
 .site-emag-cover__visual {
-  position: relative;
-  min-height: 0;
+  aspect-ratio: 1500 / 844;
 }
 
 .site-emag-cover__visual img {
@@ -4505,47 +4489,36 @@
 .site-emag-cover__foot {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px 28px;
-  align-items: end;
-  padding: 30px 60px 40px;
-  background: #0b0b0b;
-  color: #ffffff;
+  gap: 16px 28px;
+  align-content: center;
+  align-items: center;
+  padding: 26px 72px 34px;
 }
 
 .site-emag-cover .site-emag-cover__meta {
   margin: 0;
-  color: #ffffff;
-  font-size: 2rem;
+  color: #10253d;
+  font-size: 2.1rem;
   font-weight: 700;
   line-height: 1.1;
 }
 
+.site-emag-cover__meta span {
+  color: var(--emag-red);
+}
+
 .site-emag-cover .site-emag-cover__lead {
-  margin: 10px 0 0;
-  max-width: 460px;
-  color: rgba(255, 255, 255, 0.78);
+  margin: 8px 0 0;
+  max-width: 440px;
+  color: #546770;
   font-size: 0.98rem;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 .site-emag-cover__label {
-  display: grid;
-  gap: 4px;
-  padding: 14px 18px;
-  border-left: 4px solid var(--emag-blue);
-  background: rgba(255, 255, 255, 0.08);
-  text-align: left;
-}
-
-.site-emag-cover__label span {
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-
-.site-emag-cover__label strong {
-  font-size: 1.35rem;
+  width: 150px;
+  height: auto;
+  display: block;
 }
 
 .site-emag-cover__chips {
@@ -4556,11 +4529,17 @@
 }
 
 .site-emag-cover__chips span {
-  padding: 8px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  padding: 7px 14px;
+  border: 2px solid var(--emag-red);
   border-radius: 999px;
+  color: var(--emag-red);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.site-emag-cover__chips span + span {
+  border-color: var(--emag-blue);
+  color: var(--emag-blue);
 }
 
 /* Welcome / president's message: portrait then text flowing over two
