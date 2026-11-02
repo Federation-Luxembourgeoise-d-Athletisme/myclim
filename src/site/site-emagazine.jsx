@@ -574,12 +574,9 @@ function OfficialStartlistPage({ group, sbSeason, photoUrl }) {
   );
 }
 
-export function SiteEmagazine() {
-  const swipeStateRef = useRef({ startX: 0, pointerId: null });
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [readerShellNode, setReaderShellNode] = useState(null);
-  const pageScale = useA4PageScale(readerShellNode);
-  const location = useLocation();
+// Builds every magazine page of the site edition. The admin preview frame
+// passes the unsaved draft (and the edition year being edited) as overrides.
+function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
   const { siteEditionYear } = useSiteEditionYear();
   const { activeEditionId } = useActiveEdition();
   const { editions, loading: editionsLoading } = useMeetingEditions();
@@ -593,25 +590,19 @@ export function SiteEmagazine() {
 
   const currentEdition = useMemo(() => {
     const latestEdition = editions[0] || null;
-    const configuredEdition = siteEditionYear
-      ? editions.find((edition) => Number(edition.year || edition.id) === Number(siteEditionYear)) || null
+    const wantedYear = editionYear ?? siteEditionYear;
+    const configuredEdition = wantedYear
+      ? editions.find((edition) => Number(edition.year || edition.id) === Number(wantedYear)) || null
       : null;
     return configuredEdition || latestEdition || null;
-  }, [editions, siteEditionYear]);
+  }, [editions, siteEditionYear, editionYear]);
 
   // Start lists show the SB of the previous indoor season (2026 for 2027).
   const sbSeason = currentEdition?.year ? Number(currentEdition.year) - 1 : null;
 
-  const previewMode = useMemo(
-    () => new URLSearchParams(location.search).get("preview") === "1",
-    [location.search],
-  );
-
-  const emagazinePublished = (currentEdition?.emagazineStatus || "published") === "published";
-
   const emagazine = useMemo(
-    () => normalizeEmagazineConfig(currentEdition?.emagazine, currentEdition),
-    [currentEdition],
+    () => normalizeEmagazineConfig(configOverride ?? currentEdition?.emagazine, currentEdition),
+    [currentEdition, configOverride],
   );
 
   const athleteLookup = useMemo(
@@ -669,6 +660,7 @@ export function SiteEmagazine() {
       if (pageId === "cover") {
         return [{
           key: "cover",
+          pageId,
           title: "Cover",
           element: (
             <CoverPage
@@ -684,6 +676,7 @@ export function SiteEmagazine() {
       if (pageId === "welcome") {
         return [{
           key: "welcome",
+          pageId,
           title: emagazine.welcome.title || `Welcome to the ${currentEdition?.year || ""} edition`,
           element: <WelcomePage edition={currentEdition} config={emagazine.welcome} />,
         }];
@@ -691,6 +684,7 @@ export function SiteEmagazine() {
       if (pageId === "timetable") {
         return [{
           key: "timetable",
+          pageId,
           title: "Timetable",
           element: <TimetablePage edition={currentEdition} />,
         }];
@@ -699,12 +693,14 @@ export function SiteEmagazine() {
         if (emagazine.sponsorPages.length > 0) {
           return emagazine.sponsorPages.map((page) => ({
             key: `sponsor-page-${page.id}`,
+            pageId,
             title: page.title || "Sponsors",
             element: <ImportedPage imageUrl={page.imageUrl} title={page.title || "Sponsors"} />,
           }));
         }
         return [{
           key: "sponsors",
+          pageId,
           title: "Sponsor overview",
           element: <SponsorsPage sponsors={sponsors} />,
         }];
@@ -715,6 +711,7 @@ export function SiteEmagazine() {
           .sort((a, b) => disciplineSortIndex(a.discipline) - disciplineSortIndex(b.discipline) || a.title.localeCompare(b.title))
           .map((group) => ({
             key: `startlist-${group.id}`,
+            pageId: `official-startlist:${group.id}`,
             title: group.title,
             element: <OfficialStartlistPage group={group} sbSeason={sbSeason} photoUrl={emagazine.startlistPhotos[group.id]} />,
           }));
@@ -724,26 +721,49 @@ export function SiteEmagazine() {
         const group = officialStartlists.find((entry) => entry.id === groupId);
         return group ? [{
           key: `startlist-${group.id}`,
+          pageId,
           title: group.title,
           element: <OfficialStartlistPage group={group} sbSeason={sbSeason} photoUrl={emagazine.startlistPhotos[group.id]} />,
         }] : [];
       }
       if (pageId.startsWith("special:")) {
         const page = specialById.get(pageId.replace("special:", ""));
-        return page ? [{ key: `special-${page.id}`, title: page.title, element: <SpecialRacePage race={page} /> }] : [];
+        return page ? [{ key: `special-${page.id}`, pageId, title: page.title, element: <SpecialRacePage race={page} /> }] : [];
       }
       if (pageId.startsWith("highlight:")) {
         const page = highlightById.get(pageId.replace("highlight:", ""));
-        return page ? [{ key: `highlight-${page.id}`, title: page.title || "Highlight", element: <HighlightPage page={page} athletes={page.athletes} /> }] : [];
+        return page ? [{ key: `highlight-${page.id}`, pageId, title: page.title || "Highlight", element: <HighlightPage page={page} athletes={page.athletes} /> }] : [];
       }
       if (pageId.startsWith("partner:")) {
         const page = partnerById.get(pageId.replace("partner:", ""));
-        return page ? [{ key: `partner-${page.id}`, title: page.headline || page.sponsor?.name || "Partner story", element: <PartnerFeaturePage page={page} sponsor={page.sponsor} /> }] : [];
+        return page ? [{ key: `partner-${page.id}`, pageId, title: page.headline || page.sponsor?.name || "Partner story", element: <PartnerFeaturePage page={page} sponsor={page.sponsor} /> }] : [];
       }
       return [];
     }),
     [currentEdition, emagazine, officialStartlists, highlightById, partnerById, specialById, sponsors, sbSeason],
   );
+
+  return {
+    loading: editionsLoading || athletesLoading || registryLoading || sponsorsLoading,
+    currentEdition,
+    orderedMagazinePages,
+  };
+}
+
+export function SiteEmagazine() {
+  const swipeStateRef = useRef({ startX: 0, pointerId: null });
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [readerShellNode, setReaderShellNode] = useState(null);
+  const pageScale = useA4PageScale(readerShellNode);
+  const location = useLocation();
+  const { loading, currentEdition, orderedMagazinePages } = useMagazinePages();
+
+  const previewMode = useMemo(
+    () => new URLSearchParams(location.search).get("preview") === "1",
+    [location.search],
+  );
+
+  const emagazinePublished = (currentEdition?.emagazineStatus || "published") === "published";
 
   useEffect(() => {
     setCurrentPageIndex(0);
@@ -796,7 +816,7 @@ export function SiteEmagazine() {
     }
   }
 
-  if (editionsLoading || athletesLoading || registryLoading || sponsorsLoading) {
+  if (loading) {
     return (
       <section className="site-section">
         <div className="site-container">
@@ -946,6 +966,68 @@ export function SiteEmagazine() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function useFrameWidthScale(node) {
+  const [scale, setScale] = useState(0.4);
+
+  useEffect(() => {
+    if (!node) return undefined;
+    function measure() {
+      setScale(Math.max(0.1, node.clientWidth / A4_PAGE_WIDTH));
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+
+  return scale;
+}
+
+// Live preview embedded in Admin → E-magazine: shows one page built from the
+// unsaved draft the configurator posts here. Never counted in the audience.
+export function SiteEmagazineFrame() {
+  const location = useLocation();
+  const initialPageId = new URLSearchParams(location.search).get("page") || "cover";
+  const [draft, setDraft] = useState(null);
+  const [frameNode, setFrameNode] = useState(null);
+  const scale = useFrameWidthScale(frameNode);
+
+  useEffect(() => {
+    function handleMessage(event) {
+      if (event.origin !== window.location.origin || event.data?.type !== "emag-draft") return;
+      setDraft({ year: event.data.year, config: event.data.config, pageId: event.data.pageId });
+    }
+    window.addEventListener("message", handleMessage);
+    window.parent?.postMessage({ type: "emag-frame-ready" }, window.location.origin);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  const { loading, orderedMagazinePages } = useMagazinePages({
+    editionYear: draft?.year ?? null,
+    configOverride: draft?.config ?? null,
+  });
+  const pageId = draft?.pageId || initialPageId;
+  const page = orderedMagazinePages.find((entry) => entry.pageId === pageId);
+
+  let message = "";
+  if (loading || !draft) message = "Loading the preview…";
+  else if (!page) message = "This page is hidden or has nothing to show yet.";
+
+  return (
+    <div className="site-emag-frame" ref={setFrameNode}>
+      {message ? (
+        <p className="site-emag-frame__message">{message}</p>
+      ) : (
+        <div className="site-emag__a4" style={{ width: A4_PAGE_WIDTH * scale, height: A4_PAGE_HEIGHT * scale }}>
+          <div className="site-emag__a4-page" style={{ transform: `scale(${scale})` }}>
+            {page.element}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
