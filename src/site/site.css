@@ -4515,9 +4515,34 @@
   line-height: 1.5;
 }
 
+.site-emag-cover__labels {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+}
+
 .site-emag-cover__label {
   width: 150px;
   height: auto;
+  display: block;
+}
+
+/* The 3 main partners (sponsors in the "main" category), under the label. */
+.site-emag-cover__partners {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(16, 37, 61, 0.08);
+}
+
+.site-emag-cover__partners img {
+  width: 92px;
+  height: 48px;
+  object-fit: contain;
   display: block;
 }
 

@@ -4,7 +4,7 @@ import { useActiveEdition, useSiteEditionYear } from "../app/edition";
 import { useAthleteRegistry, useAthletes } from "../app/athlete-portal-hooks";
 import { useMeetingEditions, useMeetingRecords } from "../app/meeting-history-hooks";
 import { useSponsors } from "./site-hooks";
-import { sponsorCategoryLabel } from "./sponsor-utils";
+import { normalizeSponsorCategory, sponsorCategoryLabel } from "./sponsor-utils";
 import heroImage from "../assets/partner-stories/cmcm-athlete-moment.jpg";
 // Same key visual as the website home hero: default visual of the cover.
 import coverVisual from "../assets/hero-banner.jpg";
@@ -161,7 +161,7 @@ function ImportedPage({ imageUrl, title }) {
   );
 }
 
-function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl }) {
+function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl, mainPartners = [] }) {
   if (imageUrl) {
     return <ImportedPage imageUrl={imageUrl} title="Cover" />;
   }
@@ -189,7 +189,16 @@ function CoverPage({ edition, officialGroupsCount, imageUrl, visualUrl }) {
               Start lists, highlights, partner stories and the full build-up to this year’s meeting.
             </p>
           </div>
-          <img src={waSilverLogo} alt="World Athletics Indoor Tour Silver" className="site-emag-cover__label" />
+          <div className="site-emag-cover__labels">
+            <img src={waSilverLogo} alt="World Athletics Indoor Tour Silver" className="site-emag-cover__label" />
+            {mainPartners.length > 0 ? (
+              <div className="site-emag-cover__partners">
+                {mainPartners.map((sponsor) => (
+                  <img key={sponsor.id} src={sponsor.logoUrl} alt={sponsor.name || "Main partner"} />
+                ))}
+              </div>
+            ) : null}
+          </div>
           <div className="site-emag-cover__chips">
             <span>{officialGroupsCount} official start lists</span>
             <span>English edition</span>
@@ -656,7 +665,15 @@ export function SiteEmagazine() {
         return [{
           key: "cover",
           title: "Cover",
-          element: <CoverPage edition={currentEdition} officialGroupsCount={officialStartlists.length} imageUrl={emagazine.cover.imageUrl} visualUrl={emagazine.cover.visualUrl} />,
+          element: (
+            <CoverPage
+              edition={currentEdition}
+              officialGroupsCount={officialStartlists.length}
+              imageUrl={emagazine.cover.imageUrl}
+              visualUrl={emagazine.cover.visualUrl}
+              mainPartners={sponsors.filter((sponsor) => normalizeSponsorCategory(sponsor.category) === "main" && sponsor.logoUrl)}
+            />
+          ),
         }];
       }
       if (pageId === "welcome") {
