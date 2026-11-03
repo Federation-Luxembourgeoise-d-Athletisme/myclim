@@ -52,6 +52,7 @@ export function emagazineStatsPagesForEntry(page, config) {
   const prefixes = [
     ["official-startlist:", "startlist-"],
     ["special:", "special-"],
+    ["athlete:", "athlete-"],
     ["highlight:", "highlight-"],
     ["partner:", "partner-"],
   ];

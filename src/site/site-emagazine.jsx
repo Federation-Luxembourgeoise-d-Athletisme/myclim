@@ -349,6 +349,66 @@ function ClubsPage() {
   );
 }
 
+const RECORD_LABELS = {
+  NR: "National record",
+  MR: "Meeting record",
+  ER: "European record",
+  WR: "World record",
+  WL: "World lead",
+};
+
+// One Luxembourg athlete per page, edited in Admin → E-magazine.
+function AthletePage({ page, edition }) {
+  const events = page.events.filter((entry) => entry.event || entry.pb || entry.sb);
+  return (
+    <section className="site-emag-page site-emag-athlete">
+      <div className="site-emag-athlete__flag" aria-hidden="true" />
+      {page.photoUrl ? (
+        <img className="site-emag-athlete__photo" src={page.photoUrl} alt={athleteDisplayName(page)} />
+      ) : null}
+      <div className="site-emag-athlete__content">
+        <p className="site-emag-athlete__kicker">
+          {page.country || "Luxembourg"} · CMCM Luxembourg Indoor Meeting {edition?.year || ""}
+        </p>
+        <h2 className="site-emag-athlete__name">
+          <span>{page.firstName}</span>
+          <strong>{page.lastName}</strong>
+        </h2>
+        {page.text ? <p className="site-emag-athlete__text">{page.text}</p> : null}
+        {events.length ? (
+          <div className="site-emag-athlete__events">
+            {events.map((entry) => (
+              <article key={entry.id} className="site-emag-athlete__event">
+                <h3>{entry.event}</h3>
+                <dl>
+                  <div className="site-emag-athlete__stat site-emag-athlete__stat--pb">
+                    <dt>Personal best</dt>
+                    <dd>
+                      {entry.pb || "—"}
+                      {entry.record ? (
+                        <abbr title={RECORD_LABELS[entry.record.toUpperCase()] || entry.record}>{entry.record}</abbr>
+                      ) : null}
+                    </dd>
+                  </div>
+                  {entry.sb ? (
+                    <div className="site-emag-athlete__stat">
+                      <dt>Season best</dt>
+                      <dd>{entry.sb}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {entry.record && RECORD_LABELS[entry.record.toUpperCase()] ? (
+                  <p className="site-emag-athlete__record">{RECORD_LABELS[entry.record.toUpperCase()]}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 // Closing page: everything is edited in Admin → E-magazine → Thank you.
 function ThanksPage({ edition, config, sponsors }) {
   const logos = sponsors.filter((sponsor) => sponsor.logoUrl);
@@ -883,6 +943,10 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
       if (pageId.startsWith("special:")) {
         const page = specialById.get(pageId.replace("special:", ""));
         return page ? [{ key: `special-${page.id}`, pageId, title: page.title, element: <SpecialRacePage race={page} /> }] : [];
+      }
+      if (pageId.startsWith("athlete:")) {
+        const page = emagazine.athletePages.find((entry) => `athlete:${entry.id}` === pageId);
+        return page ? [{ key: `athlete-${page.id}`, pageId, title: athleteDisplayName(page) || "Athlete", element: <AthletePage page={page} edition={currentEdition} /> }] : [];
       }
       if (pageId.startsWith("highlight:")) {
         const page = highlightById.get(pageId.replace("highlight:", ""));

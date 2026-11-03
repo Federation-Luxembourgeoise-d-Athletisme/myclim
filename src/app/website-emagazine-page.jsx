@@ -341,6 +341,7 @@ function PartnerPageEditor({ page, sponsors, onChange }) {
 const PAGE_SECTIONS = {
   core: "Opening",
   special: "Special races",
+  athlete: "Luxembourg athletes",
   highlight: "Highlights",
   partner: "Partners",
   auto: "Start lists",
@@ -371,6 +372,13 @@ function pageReadiness(page, draft, startlistById) {
   } else if (page.id === "thanks") {
     if (!draft.thanks.names.length) missing.push("the people to thank");
     if (!draft.thanks.closing.trim()) missing.push("the closing words");
+  } else if (page.kind === "athlete") {
+    const athlete = draft.athletePages.find((entry) => entry.id === page.sourceId);
+    if (athlete) {
+      if (!athlete.firstName.trim() || !athlete.lastName.trim()) missing.push("the name");
+      if (!athlete.photoUrl) missing.push("the photo");
+      if (!athlete.events.some((entry) => entry.event.trim())) missing.push("an event");
+    }
   } else if (page.kind === "special") {
     const race = draft.specialRaces[page.id.replace("special:", "")];
     if (!race?.enabled) return { state: "off", missing: [] };
@@ -581,6 +589,27 @@ export function WebsiteEmagazinePage({ Panel }) {
     setSelectedPageId(`highlight:${id}`);
   }
 
+  function appendAthletePage() {
+    const id = `athlete-${Date.now()}`;
+    setDraft((current) => ({
+      ...current,
+      athletePages: [
+        ...current.athletePages,
+        {
+          id,
+          firstName: "",
+          lastName: "",
+          country: "Luxembourg",
+          photoUrl: "",
+          text: "",
+          events: [{ id: `event-${Date.now()}`, event: "", pb: "", sb: "", record: "" }],
+        },
+      ],
+      pageOrder: [...current.pageOrder, `athlete:${id}`],
+    }));
+    setSelectedPageId(`athlete:${id}`);
+  }
+
   function appendPartnerPage() {
     const id = `partner-${Date.now()}`;
     setDraft((current) => ({
@@ -595,9 +624,9 @@ export function WebsiteEmagazinePage({ Panel }) {
   }
 
   function hideOrDeletePage(page) {
-    if (page.kind === "highlight" || page.kind === "partner") {
+    if (page.kind === "highlight" || page.kind === "partner" || page.kind === "athlete") {
       if (!window.confirm(`Delete the page "${page.title}"?`)) return;
-      const listKey = page.kind === "highlight" ? "highlightPages" : "partnerPages";
+      const listKey = { highlight: "highlightPages", partner: "partnerPages", athlete: "athletePages" }[page.kind];
       setDraft((current) => ({
         ...current,
         [listKey]: current[listKey].filter((entry) => entry.id !== page.sourceId),
@@ -801,6 +830,80 @@ export function WebsiteEmagazinePage({ Panel }) {
       );
     }
 
+    if (page.kind === "athlete") {
+      const athlete = draft.athletePages.find((entry) => entry.id === page.sourceId);
+      if (!athlete) return null;
+      const setAthlete = (patch) => setDraft((current) => ({
+        ...current,
+        athletePages: current.athletePages.map((entry) => (entry.id === athlete.id ? { ...entry, ...patch } : entry)),
+      }));
+      const setEvent = (eventId, field, value) => setAthlete({
+        events: athlete.events.map((entry) => (entry.id === eventId ? { ...entry, [field]: value } : entry)),
+      });
+      return (
+        <EditorSection
+          title="Luxembourg athlete"
+          description="One page per athlete: cut-out photo (PNG with a transparent background, full body), name and records. Update the times each edition."
+        >
+          <div className="emag-ed__two-cols">
+            <div>
+              <label style={labelStyle}>First name</label>
+              <input style={inputStyle} value={athlete.firstName} onChange={(event) => setAthlete({ firstName: event.target.value })} />
+            </div>
+            <div>
+              <label style={labelStyle}>Last name</label>
+              <input style={inputStyle} value={athlete.lastName} onChange={(event) => setAthlete({ lastName: event.target.value })} />
+            </div>
+            <div>
+              <label style={labelStyle}>Country</label>
+              <input style={inputStyle} value={athlete.country} onChange={(event) => setAthlete({ country: event.target.value })} placeholder="Luxembourg" />
+            </div>
+          </div>
+          <FileUpload
+            value={athlete.photoUrl}
+            onChange={(url) => setAthlete({ photoUrl: url })}
+            accept="image/*"
+            storagePath="emagazine-athletes"
+            label="Photo (portrait, cut-out PNG, full body)"
+          />
+          <div style={{ display: "grid", gap: 10 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Events — record: NR, MR, ER, WR or WL (optional)</label>
+            {athlete.events.map((entry) => (
+              <div key={entry.id} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 0.8fr auto", gap: 8, alignItems: "center" }}>
+                <input style={inputStyle} value={entry.event} onChange={(event) => setEvent(entry.id, "event", event.target.value)} placeholder="Event (60m)" aria-label="Event" />
+                <input style={inputStyle} value={entry.pb} onChange={(event) => setEvent(entry.id, "pb", event.target.value)} placeholder="PB" aria-label="Personal best" />
+                <input style={inputStyle} value={entry.sb} onChange={(event) => setEvent(entry.id, "sb", event.target.value)} placeholder="SB" aria-label="Season best" />
+                <input style={inputStyle} value={entry.record} onChange={(event) => setEvent(entry.id, "record", event.target.value)} placeholder="NR" aria-label="Record" />
+                <EmptyButton
+                  onClick={() => setAthlete({ events: athlete.events.filter((item) => item.id !== entry.id) })}
+                  style={{ color: "#c62828" }}
+                >
+                  Remove
+                </EmptyButton>
+              </div>
+            ))}
+            <div>
+              <EmptyButton
+                onClick={() => setAthlete({ events: [...athlete.events, { id: `event-${Date.now()}`, event: "", pb: "", sb: "", record: "" }] })}
+                disabled={athlete.events.length >= 3}
+              >
+                + Add event
+              </EmptyButton>
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Short text (optional)</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
+              value={athlete.text}
+              onChange={(event) => setAthlete({ text: event.target.value })}
+              placeholder="A few lines about the athlete — up to about 50 words"
+            />
+          </div>
+        </EditorSection>
+      );
+    }
+
     if (page.kind === "highlight") {
       const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
       return highlight ? (
@@ -961,6 +1064,7 @@ export function WebsiteEmagazinePage({ Panel }) {
             ) : null}
 
             <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
+              <EmptyButton onClick={appendAthletePage}>+ Add Luxembourg athlete</EmptyButton>
               <EmptyButton onClick={appendHighlightPage}>+ Add highlight page</EmptyButton>
               <EmptyButton onClick={appendPartnerPage}>+ Add partner page</EmptyButton>
             </div>
@@ -991,7 +1095,7 @@ export function WebsiteEmagazinePage({ Panel }) {
                       </EmptyButton>
                       <span style={{ flex: 1 }} />
                       <EmptyButton onClick={() => hideOrDeletePage(selectedPage)} style={{ color: "#c62828" }}>
-                        {selectedPage.kind === "highlight" || selectedPage.kind === "partner" ? "Delete page" : "Hide page"}
+                        {["highlight", "partner", "athlete"].includes(selectedPage.kind) ? "Delete page" : "Hide page"}
                       </EmptyButton>
                     </>
                   ) : (

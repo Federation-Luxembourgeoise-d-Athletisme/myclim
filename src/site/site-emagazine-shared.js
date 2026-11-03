@@ -2,6 +2,8 @@ import {
   buildAthleteIdentityKeys,
   resolveAthleteBirthYear,
 } from "../app/athlete-portal-hooks";
+// Cut-out portrait of the 2026 magazine: photo of the prefilled athlete page.
+import vanDerWekenPhoto from "../assets/emag-athlete-van-der-weken.png";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -44,6 +46,21 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
     },
   },
   highlightPages: [],
+  // One page per Luxembourg athlete, prefilled with the 2026 one.
+  athletePages: [
+    {
+      id: "athlete-van-der-weken",
+      firstName: "Patrizia",
+      lastName: "Van der Weken",
+      country: "Luxembourg",
+      photoUrl: vanDerWekenPhoto,
+      text: "",
+      events: [
+        { id: "event-1", event: "60m", pb: "7.06", sb: "7.06", record: "NR" },
+        { id: "event-2", event: "200m", pb: "23.17", sb: "23.17", record: "NR" },
+      ],
+    },
+  ],
   partnerPages: [],
   // Header photo of each official start list page, by group id ("60m-W").
   startlistPhotos: {},
@@ -82,6 +99,7 @@ function buildDefaultPageOrder(config, edition) {
     "sponsors",
     "special:influencerRace",
     "special:businessRace",
+    ...config.athletePages.map((page) => `athlete:${page.id}`),
     ...config.highlightPages.map((page) => `highlight:${page.id}`),
     ...config.partnerPages.map((page) => `partner:${page.id}`),
     ...buildOfficialStartlistPageIds(edition),
@@ -101,8 +119,14 @@ function normalizePageOrder(pageOrder, config, edition) {
     }).filter((value) => knownIds.has(value))
     : [];
   const normalized = normalizedRaw.filter((value, index) => normalizedRaw.indexOf(value) === index);
-  const missing = buildDefaultPageOrder(config, edition).filter((id) => !normalized.includes(id));
-  return [...normalized, ...missing];
+  // A page new to a saved order goes after the page it follows by default.
+  const defaultOrder = buildDefaultPageOrder(config, edition);
+  defaultOrder.forEach((id, index) => {
+    if (normalized.includes(id)) return;
+    const previous = defaultOrder.slice(0, index).reverse().find((entry) => normalized.includes(entry));
+    normalized.splice(previous ? normalized.indexOf(previous) + 1 : 0, 0, id);
+  });
+  return normalized;
 }
 
 export function buildEmagazinePageRegistry(config, edition) {
@@ -134,6 +158,14 @@ export function buildEmagazinePageRegistry(config, edition) {
       sourcePath: "/app/website/emagazine",
       enabled: config.specialRaces.businessRace.enabled,
     },
+    ...config.athletePages.map((page) => ({
+      id: `athlete:${page.id}`,
+      kind: "athlete",
+      sourceId: page.id,
+      title: [page.firstName, page.lastName].filter(Boolean).join(" ") || "Athlete page",
+      editorAnchor: null,
+      sourcePath: "/app/website/emagazine",
+    })),
     ...config.highlightPages.map((page) => ({
       id: `highlight:${page.id}`,
       kind: "highlight",
@@ -197,6 +229,24 @@ function normalizeHighlightPage(page, index) {
     imageUrl: normalizeText(page?.imageUrl),
     athleteIds,
     athletePhotos,
+  };
+}
+
+function normalizeAthletePage(page, index) {
+  return {
+    id: page?.id || makeStableId("athlete", index),
+    firstName: normalizeText(page?.firstName),
+    lastName: normalizeText(page?.lastName),
+    country: normalizeText(page?.country),
+    photoUrl: normalizeText(page?.photoUrl),
+    text: normalizeText(page?.text),
+    events: (Array.isArray(page?.events) ? page.events : []).map((entry, eventIndex) => ({
+      id: entry?.id || makeStableId("event", eventIndex),
+      event: normalizeText(entry?.event),
+      pb: normalizeText(entry?.pb),
+      sb: normalizeText(entry?.sb),
+      record: normalizeText(entry?.record),
+    })),
   };
 }
 
@@ -269,6 +319,8 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
       },
     },
     highlightPages: (rawConfig?.highlightPages || []).map(normalizeHighlightPage),
+    athletePages: (Array.isArray(rawConfig?.athletePages) ? rawConfig.athletePages : DEFAULT_EMAGAZINE_CONFIG.athletePages)
+      .map(normalizeAthletePage),
     partnerPages: (rawConfig?.partnerPages || []).map(normalizePartnerPage),
     sponsorPages: (rawConfig?.sponsorPages || []).map((page, index) => normalizeImportedPage(page, index, "sponsor-page")),
     startlistPhotos: Object.entries(rawConfig?.startlistPhotos || {}).reduce((accumulator, [groupId, url]) => {

@@ -4906,6 +4906,183 @@
   max-height: 100%;
 }
 
+/* Luxembourg athlete: cut-out portrait on a flag ribbon, records on the right. */
+.site-emag-athlete {
+  background:
+    radial-gradient(circle at 18% 78%, rgba(0, 161, 222, 0.28), transparent 46%),
+    linear-gradient(160deg, #13253d 0%, #0b1626 100%);
+  color: #ffffff;
+}
+
+/* The ribbon stops where the text column starts. */
+.site-emag-athlete__flag {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 372px;
+  overflow: hidden;
+}
+
+.site-emag-athlete__flag::before {
+  content: "";
+  position: absolute;
+  left: -190px;
+  top: 360px;
+  width: 640px;
+  height: 300px;
+  transform: rotate(-14deg);
+  background: linear-gradient(180deg, #ef3340 0 33.3%, #ffffff 33.3% 66.6%, #00a1de 66.6% 100%);
+  opacity: 0.92;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+}
+
+.site-emag-athlete__photo {
+  position: absolute;
+  left: 34px;
+  bottom: 0;
+  height: 1000px;
+  width: auto;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.45));
+}
+
+.site-emag-athlete__content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 360px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 64px 48px 56px 24px;
+}
+
+.site-emag-athlete .site-emag-athlete__content h2,
+.site-emag-athlete .site-emag-athlete__content h3,
+.site-emag-athlete .site-emag-athlete__content p,
+.site-emag-athlete .site-emag-athlete__content dd {
+  color: #ffffff;
+}
+
+.site-emag-athlete .site-emag-athlete__kicker {
+  margin: 0 0 18px;
+  color: #ff6b75;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.site-emag-athlete__name {
+  margin: 0 0 30px;
+  display: grid;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.site-emag-athlete__name span {
+  font-size: 2.3rem;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.site-emag-athlete__name strong {
+  margin-top: 6px;
+  font-size: 3.9rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.site-emag-athlete__events {
+  margin-top: auto;
+  display: grid;
+  gap: 18px;
+}
+
+.site-emag-athlete__event {
+  padding: 22px 26px;
+  backdrop-filter: blur(6px);
+  border-left: 6px solid #ef3340;
+  border-radius: 0 16px 16px 0;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.site-emag-athlete__event h3 {
+  margin: 0 0 12px;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.site-emag-athlete__event dl {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.site-emag-athlete__stat:not(.site-emag-athlete__stat--pb) {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.site-emag-athlete__stat:not(.site-emag-athlete__stat--pb) dt {
+  margin: 0;
+}
+
+.site-emag-athlete__stat dt {
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.site-emag-athlete .site-emag-athlete__stat dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.site-emag-athlete .site-emag-athlete__stat--pb dd {
+  font-size: 3.6rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.site-emag-athlete__stat abbr {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ef3340;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+}
+
+.site-emag-athlete .site-emag-athlete__record {
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+}
+
+.site-emag-athlete .site-emag-athlete__text {
+  margin: 0 0 24px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
 /* FLA clubs page (2026 e-magazine): red fading to white, then a red table. */
 .site-emag-clubs {
   display: flex;
