@@ -12,11 +12,11 @@ import {
   fetchAthleteEventsFromWa,
   sameAthlete,
   searchWaAthletes,
+  waCodeForEvent,
 } from "../site/emagazine-athlete-data";
 import {
   athleteDisplayName,
   buildAthleteLookup,
-  buildAthleteOptions,
   buildEmagazinePageRegistry,
   buildOfficialStartlistGroups,
   normalizeEmagazineConfig,
@@ -201,7 +201,75 @@ function SpecialRaceEditor({ title, race, onChange }) {
   );
 }
 
-function HighlightEditor({ page, athleteOptions, onChange }) {
+// Search box over the athlete database, with a World Athletics fallback.
+function AthleteFinder({ athleteCards, onPick, disabled = false, placeholder = "Last or first name, from the athlete database" }) {
+  const [search, setSearch] = useState("");
+  const [waMatches, setWaMatches] = useState(null);
+  const [message, setMessage] = useState("");
+  const inputStyle = fieldInputStyle();
+
+  const matches = useMemo(() => {
+    const key = searchKey(search.trim());
+    if (key.length < 2) return [];
+    return athleteCards
+      .filter((card) => searchKey(athleteDisplayName(card)).includes(key) || searchKey(`${card.lastName} ${card.firstName}`).includes(key))
+      .slice(0, 8);
+  }, [search, athleteCards]);
+
+  async function searchWa() {
+    setMessage("Searching World Athletics…");
+    try {
+      setWaMatches(await searchWaAthletes(search.trim()));
+      setMessage("");
+    } catch (error) {
+      setMessage(error.message || "World Athletics did not answer.");
+    }
+  }
+
+  function pick(person) {
+    setSearch("");
+    setWaMatches(null);
+    onPick(person);
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={placeholder} disabled={disabled} />
+        <EmptyButton disabled={disabled || search.trim().length < 3} onClick={searchWa} style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+          Search on World Athletics
+        </EmptyButton>
+      </div>
+      {message ? <span style={{ fontSize: "0.82rem", color: "#546770" }}>{message}</span> : null}
+      {matches.length || waMatches ? (
+        <div style={{ display: "grid", gap: 4, padding: 6, border: "1px solid #dbe4ee", borderRadius: 10, background: "#fff" }}>
+          {matches.map((card) => (
+            <button key={card._docId} type="button" className="emag-ed__page" onClick={() => pick(card)}>
+              <span className="emag-ed__page-title">
+                {athleteDisplayName(card)} {card.nationality ? `(${card.nationality})` : ""} {card.birthYear ? `· ${card.birthYear}` : ""}
+                {card.waid ? "" : " · no WA ID"}
+              </span>
+            </button>
+          ))}
+          {(waMatches || []).map((person) => (
+            <button key={person.waid} type="button" className="emag-ed__page" onClick={() => pick(person)}>
+              <span className="emag-ed__page-title">
+                World Athletics: {person.firstName} {person.lastName} ({person.country}){person.birthYear ? ` · ${person.birthYear}` : ""}
+              </span>
+            </button>
+          ))}
+          {waMatches && !waMatches.length ? <span style={{ fontSize: "0.82rem", color: "#6b7280" }}>Nobody found on World Athletics.</span> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Duel / 3 / 4 athletes: the athletes are saved with the page (name, flag,
+// World Athletics PB in the page event, photo) so that the public sees them.
+function HighlightEditor({ page, athleteCards, onChange }) {
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
   const athleteSlotCount = page.type === "quatuor" ? 4 : page.type === "trio" ? 3 : page.type === "duel" ? 2 : 1;
@@ -210,90 +278,138 @@ function HighlightEditor({ page, athleteOptions, onChange }) {
     onChange({ ...page, [field]: value });
   }
 
-  function setAthleteAt(index, value) {
-    const next = [...page.athleteIds];
-    next[index] = value;
-    onChange({ ...page, athleteIds: next.filter(Boolean) });
+  function setAthleteAt(index, athlete) {
+    const next = [...page.athletes];
+    next[index] = athlete;
+    onChange({ ...page, athletes: next.filter(Boolean) });
   }
 
-  function setAthletePhoto(athleteId, url) {
-    if (!athleteId) return;
-    onChange({ ...page, athletePhotos: { ...(page.athletePhotos || {}), [athleteId]: url } });
+  async function pbFor(waid) {
+    if (!waid || !page.event) return { pb: "", record: "" };
+    const events = await fetchAthleteEventsFromWa(waid);
+    const code = waCodeForEvent(page.event);
+    const match = events.find((entry) => entry.disciplineCode === code)
+      || events.find((entry) => entry.event.toLowerCase() === page.event.toLowerCase());
+    return { pb: match?.pb || "", record: match?.record || "" };
+  }
+
+  async function pick(index, person) {
+    setBusy("Loading the World Athletics PB…");
+    setMessage("");
+    const waid = person.waid ? String(person.waid) : "";
+    let best = { pb: "", record: "" };
+    try {
+      best = await pbFor(waid);
+      if (!waid) setMessage("No World Athletics ID in the database: search on World Athletics to get the PB.");
+      else if (!page.event) setMessage("Fill in the event to get the PBs.");
+      else if (!best.pb) setMessage(`No indoor ${page.event} PB on World Athletics.`);
+    } catch (error) {
+      setMessage(`World Athletics: ${error.message}`);
+    }
+    setAthleteAt(index, {
+      id: waid ? `wa-${waid}` : `athlete-${index + 1}-${searchKey(person.lastName).replace(/[^a-z]/g, "")}`,
+      firstName: person.firstName || "",
+      lastName: person.lastName || "",
+      nationality: person.nationality || person.country || "",
+      waid,
+      ...best,
+      photoUrl: page.athletes[index]?.photoUrl || "",
+    });
+    setBusy("");
+  }
+
+  async function updatePbs() {
+    setBusy("Updating the PBs from World Athletics…");
+    setMessage("");
+    try {
+      const athletes = await Promise.all(page.athletes.map(async (athlete) => ({ ...athlete, ...(await pbFor(athlete.waid)) })));
+      onChange({ ...page, athletes });
+    } catch (error) {
+      setMessage(`World Athletics: ${error.message}`);
+    }
+    setBusy("");
   }
 
   return (
-    <div style={{ display: "grid", gap: 14, padding: 18, border: "1px solid #dbe4ee", borderRadius: 14, background: "#fff" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <div>
-          <h4 style={{ margin: 0, fontSize: "1rem", color: "#10253d" }}>{page.title || "Highlight page"}</h4>
-          <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "0.82rem" }}>
-            One full-height photo per athlete (upload it under each athlete), with name, flag and PB from the athlete database.
-          </p>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr", gap: 12 }}>
+    <EditorSection
+      title={page.title || "Highlight page"}
+      description="One full-height photo per athlete. Find each athlete by name: the flag and the PB in the page event come from World Athletics."
+      actions={(
+        <EmptyButton disabled={!page.event || !page.athletes.length || Boolean(busy)} onClick={updatePbs}>
+          Update PBs from World Athletics
+        </EmptyButton>
+      )}
+    >
+      <div className="emag-ed__two-cols">
         <div>
           <label style={labelStyle}>Template</label>
           <select style={inputStyle} value={page.type} onChange={(event) => set("type", event.target.value)}>
-            <option value="duel">Vs 2</option>
-            <option value="trio">Vs 3</option>
-            <option value="quatuor">Vs 4</option>
-            <option value="luxembourg">Luxembourg spotlight</option>
-            <option value="international">International spotlight</option>
+            <option value="duel">Duel (2 athletes)</option>
+            <option value="trio">3 athletes</option>
+            <option value="quatuor">4 athletes</option>
           </select>
         </div>
         <div>
-          <label style={labelStyle}>Title</label>
-          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Empty = the athletes' event, e.g. Long Jump Men" />
+          <label style={labelStyle}>Event (for the PBs)</label>
+          <input style={inputStyle} value={page.event} onChange={(event) => set("event", event.target.value)} placeholder="400m, 60m hurdles, Long Jump" />
         </div>
         <div>
-          <label style={labelStyle}>Image URL</label>
-          <input style={inputStyle} value={page.imageUrl} onChange={(event) => set("imageUrl", event.target.value)} placeholder="https://…" />
+          <label style={labelStyle}>Title</label>
+          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Athletes to watch" />
         </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={labelStyle}>Subtitle</label>
-          <input style={inputStyle} value={page.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder="Optional subtitle" />
-        </div>
-        <div>
-          <label style={labelStyle}>Manual intro</label>
-          <input style={inputStyle} value={page.body} onChange={(event) => set("body", event.target.value)} placeholder="Optional intro text" />
+          <input style={inputStyle} value={page.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder="400m Men" />
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${athleteSlotCount}, minmax(0, 1fr))`, gap: 12 }}>
+      {busy || message ? <p style={{ margin: 0, fontSize: "0.84rem", color: busy ? "#1d4ed8" : "#92400e" }}>{busy || message}</p> : null}
+      {!page.athletes.length && page.athleteIds.length ? (
+        <p className="emag-ed__missing">Older page: pick the athletes again below so that the public sees them.</p>
+      ) : null}
+
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(athleteSlotCount, 2)}, minmax(0, 1fr))`, gap: 12 }}>
         {Array.from({ length: athleteSlotCount }).map((_, index) => {
-          const athleteId = page.athleteIds[index] || "";
+          const athlete = page.athletes[index];
           return (
-            <div key={`${page.id}-athlete-${index}`} style={{ display: "grid", gap: 8 }}>
-              <label style={labelStyle}>Athlete {index + 1}</label>
-              <select
-                style={inputStyle}
-                value={athleteId}
-                onChange={(event) => setAthleteAt(index, event.target.value)}
-              >
-                <option value="">Select athlete</option>
-                {athleteOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              {athleteId ? (
+            <div key={`${page.id}-athlete-${index}`} style={{ display: "grid", gap: 8, alignContent: "start", padding: 12, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Athlete {index + 1}</label>
+              {athlete ? (
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: "0.9rem", color: "#10253d" }}>
+                    <strong>{athlete.firstName} {athlete.lastName}</strong> {athlete.nationality ? `(${athlete.nationality})` : ""}
+                    <br />
+                    <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
+                      PB {page.event}: {athlete.pb ? `${athlete.pb}${athlete.record ? ` ${athlete.record}` : ""}` : "—"}
+                    </span>
+                  </span>
+                  <EmptyButton onClick={() => onChange({ ...page, athletes: page.athletes.filter((_, position) => position !== index) })} style={{ color: "#c62828" }}>
+                    Remove
+                  </EmptyButton>
+                </div>
+              ) : null}
+              {athlete || index === page.athletes.length ? (
+                <AthleteFinder
+                  athleteCards={athleteCards}
+                  disabled={Boolean(busy)}
+                  placeholder={athlete ? "Replace with…" : "Find the athlete by name"}
+                  onPick={(person) => pick(index, person)}
+                />
+              ) : null}
+              {athlete ? (
                 <FileUpload
-                  value={page.athletePhotos?.[athleteId] || ""}
-                  onChange={(url) => setAthletePhoto(athleteId, url)}
+                  value={athlete.photoUrl}
+                  onChange={(url) => setAthleteAt(index, { ...athlete, photoUrl: url })}
                   accept="image/*"
                   storagePath="emagazine-athlete-photos"
-                  label="Photo de cet athlète"
+                  label="Photo (portrait, full height of the page)"
                 />
               ) : null}
             </div>
           );
         })}
       </div>
-    </div>
+    </EditorSection>
   );
 }
 
@@ -353,22 +469,12 @@ function searchKey(value) {
 }
 
 function AthletePageEditor({ page, athleteCards, onChange }) {
-  const [search, setSearch] = useState("");
-  const [waMatches, setWaMatches] = useState(null);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const meetingResults = useRef(null);
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
   const set = (patch) => onChange({ ...page, ...patch });
-
-  const matches = useMemo(() => {
-    const key = searchKey(search.trim());
-    if (key.length < 2) return [];
-    return athleteCards
-      .filter((card) => searchKey(athleteDisplayName(card)).includes(key) || searchKey(`${card.lastName} ${card.firstName}`).includes(key))
-      .slice(0, 8);
-  }, [search, athleteCards]);
 
   async function meetingStatsFor(person) {
     meetingResults.current ||= await fetchAllMeetingResults();
@@ -384,8 +490,6 @@ function AthletePageEditor({ page, athleteCards, onChange }) {
   async function pick(person) {
     setBusy("Loading the athlete…");
     setMessage("");
-    setSearch("");
-    setWaMatches(null);
     const nationality = person.nationality || person.country || "";
     let next = {
       ...page,
@@ -434,43 +538,9 @@ function AthletePageEditor({ page, athleteCards, onChange }) {
       title="Luxembourg athlete"
       description="Search the athlete by name: the bests come from World Athletics and the history from the meeting results. Only the photo and the short text are typed in."
     >
-      <div style={{ position: "relative" }}>
+      <div>
         <label style={labelStyle}>Find the athlete</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            style={inputStyle}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Last or first name, from the athlete database"
-          />
-          <EmptyButton
-            disabled={search.trim().length < 3 || Boolean(busy)}
-            onClick={() => run("Searching World Athletics…", async () => setWaMatches(await searchWaAthletes(search.trim())))}
-            style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}
-          >
-            Search on World Athletics
-          </EmptyButton>
-        </div>
-        {matches.length || waMatches ? (
-          <div style={{ display: "grid", gap: 4, marginTop: 6, padding: 6, border: "1px solid #dbe4ee", borderRadius: 10, background: "#fff" }}>
-            {matches.map((card) => (
-              <button key={card._docId} type="button" className="emag-ed__page" onClick={() => pick(card)}>
-                <span className="emag-ed__page-title">
-                  {athleteDisplayName(card)} {card.nationality ? `(${card.nationality})` : ""} {card.birthYear ? `· ${card.birthYear}` : ""}
-                  {card.waid ? "" : " · no WA ID"}
-                </span>
-              </button>
-            ))}
-            {(waMatches || []).map((person) => (
-              <button key={person.waid} type="button" className="emag-ed__page" onClick={() => pick(person)}>
-                <span className="emag-ed__page-title">
-                  World Athletics: {person.firstName} {person.lastName} ({person.country}){person.birthYear ? ` · ${person.birthYear}` : ""}
-                </span>
-              </button>
-            ))}
-            {waMatches && !waMatches.length ? <span style={{ fontSize: "0.82rem", color: "#6b7280" }}>Nobody found on World Athletics.</span> : null}
-          </div>
-        ) : null}
+        <AthleteFinder athleteCards={athleteCards} onPick={pick} disabled={Boolean(busy)} />
       </div>
 
       {busy || message ? (
@@ -644,8 +714,8 @@ function pageReadiness(page, draft, startlistById) {
     const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
     if (highlight) {
       const slots = highlightSlotCount(highlight.type);
-      if (highlight.athleteIds.length < slots) missing.push(`${slots - highlight.athleteIds.length} athlete(s)`);
-      const withoutPhoto = highlight.athleteIds.filter((id) => !highlight.athletePhotos?.[id]).length;
+      if (highlight.athletes.length < slots) missing.push(`${slots - highlight.athletes.length} athlete(s)`);
+      const withoutPhoto = highlight.athletes.filter((athlete) => !athlete.photoUrl).length;
       if (withoutPhoto) missing.push(`${withoutPhoto} athlete photo(s)`);
     }
   } else if (page.kind === "partner") {
@@ -717,10 +787,7 @@ export function WebsiteEmagazinePage({ Panel }) {
     [registry, athletes],
   );
 
-  const athleteOptions = useMemo(
-    () => buildAthleteOptions(registry, athletes),
-    [registry, athletes],
-  );
+
 
   const activeSponsors = useMemo(
     () => sponsors.filter((sponsor) => sponsor.active),
@@ -844,7 +911,7 @@ export function WebsiteEmagazinePage({ Panel }) {
       ...current,
       highlightPages: [
         ...current.highlightPages,
-        { id, type: "duel", title: "", subtitle: "", body: "", imageUrl: "", athleteIds: [] },
+        { id, type: "duel", title: "", subtitle: "", body: "", imageUrl: "", event: "", athletes: [], athleteIds: [], athletePhotos: {} },
       ],
       pageOrder: [...current.pageOrder, `highlight:${id}`],
     }));
@@ -897,6 +964,10 @@ export function WebsiteEmagazinePage({ Panel }) {
         ...current,
         [listKey]: current[listKey].filter((entry) => entry.id !== page.sourceId),
         pageOrder: current.pageOrder.filter((entry) => entry !== page.id),
+        // A deleted 2026 sample page must not come back with the defaults.
+        dismissedSamples: page.sourceId.startsWith("sample-")
+          ? [...current.dismissedSamples, page.sourceId]
+          : current.dismissedSamples,
       }));
       setSelectedPageId("cover");
       return;
@@ -1115,8 +1186,9 @@ export function WebsiteEmagazinePage({ Panel }) {
       const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
       return highlight ? (
         <HighlightEditor
+          key={highlight.id}
           page={highlight}
-          athleteOptions={athleteOptions}
+          athleteCards={athleteCards}
           onChange={(nextPage) => setDraft((current) => ({
             ...current,
             highlightPages: current.highlightPages.map((entry) => (entry.id === nextPage.id ? nextPage : entry)),

@@ -56,6 +56,16 @@ export function buildAthleteEventsFromWa(data) {
     });
 }
 
+// World Athletics discipline code of an event typed in the admin: "60m hurdles" → "60H".
+export function waCodeForEvent(event) {
+  const value = String(event || "").toLowerCase().replace(/\s+/g, "");
+  const field = { longjump: "LJ", highjump: "HJ", triplejump: "TJ", polevault: "PV", shotput: "SP" };
+  const fieldCode = Object.entries(field).find(([name]) => value.includes(name));
+  if (fieldCode) return fieldCode[1];
+  const match = value.match(/^(\d+)m?(hurdles|h)?/);
+  return match ? `${match[1]}${match[2] ? "H" : ""}` : "";
+}
+
 function normalizeName(value) {
   return String(value || "")
     .normalize("NFD")

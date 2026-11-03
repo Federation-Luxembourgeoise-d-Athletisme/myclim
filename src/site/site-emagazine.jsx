@@ -672,7 +672,7 @@ function HighlightPage({ page, athletes }) {
                   <span>{athlete.lastName}</span>
                 </strong>
                 {flagUrl ? <img src={flagUrl} alt={athlete.nationality} className="site-emag-duel__flag" /> : null}
-                {pb ? <span className="site-emag-duel__pb">PB: {pb}</span> : null}
+                {pb ? <span className="site-emag-duel__pb">PB: {pb}{athlete.record ? ` ${athlete.record}` : ""}</span> : null}
               </div>
             );
           })}
@@ -851,7 +851,9 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
   const highlightPages = useMemo(
     () => emagazine.highlightPages.map((page) => ({
       ...page,
-      athletes: page.athleteIds.map((id) => athleteLookup.get(id)).filter(Boolean),
+      athletes: page.athletes.length
+        ? page.athletes.map((athlete) => ({ ...athlete, _docId: athlete.id }))
+        : page.athleteIds.map((id) => athleteLookup.get(id)).filter(Boolean),
     })),
     [emagazine.highlightPages, athleteLookup],
   );

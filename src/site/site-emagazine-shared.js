@@ -4,6 +4,16 @@ import {
 } from "../app/athlete-portal-hooks";
 // Cut-out portrait of the 2026 magazine: photo of the prefilled athlete page.
 import vanDerWekenPhoto from "../assets/emag-athlete-van-der-weken.png";
+// Photos of the 2026 duel pages: sample highlight pages to try the layouts.
+import bredauPhoto from "../assets/emag-samples/bredau.jpg";
+import iguacelPhoto from "../assets/emag-samples/iguacel.jpg";
+import fernandezPhoto from "../assets/emag-samples/fernandez.jpg";
+import martinezPhoto from "../assets/emag-samples/martinez.jpg";
+import szymanskiPhoto from "../assets/emag-samples/szymanski.jpg";
+import czykierPhoto from "../assets/emag-samples/czykier.jpg";
+import llopisPhoto from "../assets/emag-samples/llopis.jpg";
+import verheydenPhoto from "../assets/emag-samples/verheyden.jpg";
+import querinjeanPhoto from "../assets/emag-samples/querinjean.jpg";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -101,6 +111,46 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
   },
   pageOrder: [],
 };
+
+// 2026 duel pages with their World Athletics PBs (November 2026), added to
+// every edition until they are deleted in the admin.
+const SAMPLE_HIGHLIGHT_PAGES = [
+  {
+    id: "sample-duel",
+    type: "duel",
+    title: "3000m Men",
+    event: "3000m",
+    athletes: [
+      { id: "wa-14754671", firstName: "Ruben", lastName: "Verheyden", nationality: "BEL", waid: "14754671", pb: "7:39.90", record: "", photoUrl: verheydenPhoto },
+      { id: "wa-14929147", firstName: "Ruben", lastName: "Querinjean", nationality: "LUX", waid: "14929147", pb: "7:40.64", record: "NR", photoUrl: querinjeanPhoto },
+    ],
+  },
+  {
+    id: "sample-trio",
+    type: "trio",
+    title: "Athletes to watch",
+    subtitle: "400m Men",
+    event: "400m",
+    athletes: [
+      { id: "wa-14771929", firstName: "Jean Paul", lastName: "Bredau", nationality: "GER", waid: "14771929", pb: "45.94", record: "", photoUrl: bredauPhoto },
+      { id: "wa-14564235", firstName: "Christian", lastName: "Iguacel", nationality: "BEL", waid: "14564235", pb: "46.48", record: "", photoUrl: iguacelPhoto },
+      { id: "wa-14932553", firstName: "Markel", lastName: "Fernandez", nationality: "ESP", waid: "14932553", pb: "45.95", record: "", photoUrl: fernandezPhoto },
+    ],
+  },
+  {
+    id: "sample-quatuor",
+    type: "quatuor",
+    title: "Pick your podium",
+    subtitle: "60m hurdles Men",
+    event: "60m hurdles",
+    athletes: [
+      { id: "wa-14734118", firstName: "Asier", lastName: "Martínez", nationality: "ESP", waid: "14734118", pb: "7.49", record: "", photoUrl: martinezPhoto },
+      { id: "wa-14799803", firstName: "Jakub", lastName: "Szymański", nationality: "POL", waid: "14799803", pb: "7.37", record: "NR", photoUrl: szymanskiPhoto },
+      { id: "wa-14434325", firstName: "Damian", lastName: "Czykier", nationality: "POL", waid: "14434325", pb: "7.48", record: "", photoUrl: czykierPhoto },
+      { id: "wa-14711683", firstName: "Enrique", lastName: "Llopis", nationality: "ESP", waid: "14711683", pb: "7.42", record: "NR", photoUrl: llopisPhoto },
+    ],
+  },
+];
 
 function buildOfficialStartlistPageIds(edition) {
   return buildOfficialStartlistGroups(edition?.disciplines || [], [])
@@ -243,6 +293,20 @@ function normalizeHighlightPage(page, index) {
     subtitle: normalizeText(page?.subtitle),
     body: normalizeText(page?.body),
     imageUrl: normalizeText(page?.imageUrl),
+    // Event of the World Athletics PBs ("400m", "60m hurdles").
+    event: normalizeText(page?.event),
+    // Athletes saved with the page (name, flag, WA PB, photo): the public can
+    // read them, unlike the athlete database behind the older athleteIds.
+    athletes: (Array.isArray(page?.athletes) ? page.athletes : []).map((athlete, athleteIndex) => ({
+      id: athlete?.id || makeStableId("athlete", athleteIndex),
+      firstName: normalizeText(athlete?.firstName),
+      lastName: normalizeText(athlete?.lastName),
+      nationality: normalizeText(athlete?.nationality),
+      waid: normalizeText(athlete?.waid),
+      pb: normalizeText(athlete?.pb),
+      record: normalizeText(athlete?.record),
+      photoUrl: normalizeText(athlete?.photoUrl),
+    })),
     athleteIds,
     athletePhotos,
   };
@@ -342,7 +406,12 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
         participants: (specialRaces.businessRace?.participants || []).map(normalizeParticipant),
       },
     },
-    highlightPages: (rawConfig?.highlightPages || []).map(normalizeHighlightPage),
+    highlightPages: [
+      ...(rawConfig?.highlightPages || []),
+      ...SAMPLE_HIGHLIGHT_PAGES.filter((page) => !(rawConfig?.highlightPages || []).some((saved) => saved?.id === page.id)
+        && !(rawConfig?.dismissedSamples || []).includes(page.id)),
+    ].map(normalizeHighlightPage),
+    dismissedSamples: Array.isArray(rawConfig?.dismissedSamples) ? rawConfig.dismissedSamples.map(normalizeText).filter(Boolean) : [],
     athletePages: (Array.isArray(rawConfig?.athletePages) ? rawConfig.athletePages : DEFAULT_EMAGAZINE_CONFIG.athletePages)
       .map(normalizeAthletePage),
     partnerPages: (rawConfig?.partnerPages || []).map(normalizePartnerPage),
