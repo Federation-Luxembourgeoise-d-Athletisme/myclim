@@ -976,6 +976,7 @@ const messages = {
     ppInvSubmitBody: "You'll receive a confirmation email with the practical information.",
     ppInvSubmitButton: "Confirm the place",
     ppInvClaimFailed: "Your registration is saved, but the reserved place could not be applied ({message}). The organisers will get back to you.",
+    ppInvYearMismatch: "This place is reserved for a child born in {year}. Check the date of birth, or contact the organisers if the year is wrong.",
     mcConfirmMailError: "Your confirmation is saved, but the confirmation email could not be sent.",
   },
   fr: {
@@ -1949,6 +1950,7 @@ const messages = {
     ppInvSubmitBody: "Vous recevrez un mail de confirmation avec les informations pratiques.",
     ppInvSubmitButton: "Confirmer la place",
     ppInvClaimFailed: "Votre inscription est enregistrée, mais la place réservée n'a pas pu être appliquée ({message}). L'organisation reviendra vers vous.",
+    ppInvYearMismatch: "Cette place est réservée à un enfant né en {year}. Vérifiez la date de naissance, ou contactez l'organisation si l'année est fausse.",
     mcConfirmMailError: "Votre confirmation est enregistrée, mais le mail de confirmation n'a pas pu être envoyé.",
   },
   de: {

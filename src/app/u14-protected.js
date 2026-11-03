@@ -67,9 +67,26 @@ const U14_PROTECTED_INVITE_STATUS_LABELS = {
   cancelled: "Annulée",
 };
 
-// Liste collée depuis Excel : Nom, Prénom, Club, Mail, Bib (tabulations,
-// points-virgules ou virgules). Une ligne d'en-tête éventuelle est ignorée.
-// Les erreurs sont des codes (name, email, bib), traduits par l'onglet.
+// Année de naissance écrite « 16 » ou « 2016 ». L'année fixe la réserve
+// (U12 ou U14) : seules les années du pré-programme sont acceptées.
+function parseU14BirthYear(value) {
+  const digits = String(value || "").trim();
+  if (!/^\d{2}$|^\d{4}$/.test(digits)) return "";
+  const year = digits.length === 2 ? 2000 + Number(digits) : Number(digits);
+  return getU14CategoryFromBirthYear(year) ? String(year) : "";
+}
+
+function getU14CategoryFromBirthYear(year) {
+  const value = Number(year);
+  if (value === 2016 || value === 2017) return "U12";
+  if (value === 2014 || value === 2015) return "U14";
+  return "";
+}
+
+// Liste collée depuis Excel : Nom, Prénom, Club, Mail, Dossard, Année
+// (tabulations, points-virgules ou virgules). Une ligne d'en-tête éventuelle
+// est ignorée. Les erreurs sont des codes (name, email, bib, year), traduits
+// par l'onglet.
 function parseU14ProtectedInvitesPaste(text) {
   return String(text || "")
     .split(/\r?\n/)
@@ -77,12 +94,14 @@ function parseU14ProtectedInvitesPaste(text) {
     .filter(Boolean)
     .map((line) => line.split(line.includes("\t") ? "\t" : line.includes(";") ? ";" : ",").map((cell) => cell.trim()))
     .filter((cells) => !/^(nom|name)$/i.test(cells[0] || ""))
-    .map(([lastName = "", firstName = "", club = "", parentEmail = "", bibNumber = ""]) => {
+    .map(([lastName = "", firstName = "", club = "", parentEmail = "", bibNumber = "", yearCell = ""]) => {
+      const birthYear = parseU14BirthYear(yearCell);
       const errors = [];
       if (!lastName || !firstName) errors.push("name");
       if (!/^\S+@\S+\.\S+$/.test(parentEmail)) errors.push("email");
       if (!bibNumber) errors.push("bib");
-      return { lastName, firstName, club, parentEmail: parentEmail.toLowerCase(), bibNumber, errors };
+      if (!birthYear) errors.push("year");
+      return { lastName, firstName, club, parentEmail: parentEmail.toLowerCase(), bibNumber, birthYear, errors };
     });
 }
 
@@ -97,6 +116,7 @@ function buildU14ProtectedInviteUrl(token) {
 }
 
 export {
+  getU14CategoryFromBirthYear,
   DEFAULT_U14_PROTECTED_POOLS,
   U14_PROTECTED_INVITES_COLLECTION,
   U14_PROTECTED_INVITE_STATUS_LABELS,

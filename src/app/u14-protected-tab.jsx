@@ -8,6 +8,7 @@ import {
   U14_PROTECTED_SETTINGS_DOC_PATH,
   buildU14ProtectedInviteUrl,
   generateU14InviteToken,
+  getU14CategoryFromBirthYear,
   getU14ProtectedInviteStatus,
   parseU14ProtectedInvitesPaste,
 } from "./u14-protected";
@@ -123,6 +124,7 @@ function U14ProtectedTab(props) {
         lastName: row.lastName,
         club: row.club,
         bibNumber: row.bibNumber,
+        birthYear: row.birthYear,
         parentEmail: row.parentEmail,
         deadline: settings.deadline,
         status: "invited",
@@ -229,7 +231,7 @@ function U14ProtectedTab(props) {
       >
         <textarea
           className="u14-paste"
-          placeholder={"Weber\tEmma\tCAB\tparent@example.lu\t245"}
+          placeholder={"Weber\tEmma\tCAB\tparent@example.lu\t245\t2016"}
           rows="5"
           value={pasteText}
           onChange={(event) => setPasteText(event.target.value)}
@@ -246,6 +248,7 @@ function U14ProtectedTab(props) {
                 { key: "child", label: text.colChild },
                 { key: "club", label: text.colClub },
                 { key: "bib", label: text.colBib },
+                { key: "year", label: text.colYear },
                 { key: "email", label: text.colEmail },
                 { key: "check", label: text.colCheck },
               ]}
@@ -254,6 +257,7 @@ function U14ProtectedTab(props) {
                 child: `${row.firstName} ${row.lastName}`,
                 club: row.club || "-",
                 bib: row.bibNumber || "-",
+                year: row.birthYear ? `${row.birthYear} · ${getU14CategoryFromBirthYear(row.birthYear)}` : "-",
                 email: row.parentEmail || "-",
                 check: row.errors.length ? (
                   <span className="status-pill status-pill--danger">{row.errors.map((code) => text.rowErrors[code] || code).join(", ")}</span>
@@ -293,7 +297,10 @@ function U14ProtectedTab(props) {
                     child: (
                       <div className="table-stack">
                         <strong>{invite.firstName} {invite.lastName}</strong>
-                        <span className="parent-request-note">{invite.club || "-"} · {fill(copy.table.bib, { bib: invite.bibNumber || "-" })}</span>
+                        <span className="parent-request-note">
+                          {invite.club || "-"} · {fill(copy.table.bib, { bib: invite.bibNumber || "-" })}
+                          {invite.birthYear ? ` · ${invite.birthYear} · ${getU14CategoryFromBirthYear(invite.birthYear)}` : ""}
+                        </span>
                       </div>
                     ),
                     email: invite.parentEmail,

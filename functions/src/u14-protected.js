@@ -124,6 +124,13 @@ export const claimU14ProtectedInvite = onCall({ region: REGION }, async (request
       throw new HttpsError("failed-precondition", "Une place protégée concerne une course, pas le porte-panier.");
     }
 
+    // L'année de naissance est sur la fiche enfant, pas sur la demande.
+    const childSnapshot = invite.birthYear && entry.childId ? await transaction.get(db.collection("u14Children").doc(entry.childId)) : null;
+    const childBirthYear = String(childSnapshot?.data()?.birthYear || String(childSnapshot?.data()?.birthDate || "").slice(0, 4));
+    if (invite.birthYear && childBirthYear !== String(invite.birthYear)) {
+      throw new HttpsError("failed-precondition", `Cette place est réservée à un enfant né en ${invite.birthYear}.`);
+    }
+
     const poolKey = poolKeyFor(entry.category, entry.gender);
     if (!poolKey) throw new HttpsError("failed-precondition", "Catégorie U12 / U14 non reconnue pour cet enfant.");
 

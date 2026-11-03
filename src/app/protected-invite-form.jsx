@@ -52,7 +52,8 @@ function ProtectedInviteForm({ token, accountBar }) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isLoggedIn = Boolean(currentUser);
-  const category = getU14CategoryFromBirthDate(formData.birthDate);
+  const yearMismatch = Boolean(invite?.birthYear && formData.birthDate && formData.birthDate.slice(0, 4) !== String(invite.birthYear));
+  const category = yearMismatch ? "" : getU14CategoryFromBirthDate(formData.birthDate);
   const allowedEvents = getU14AllowedEvents(category);
 
   useEffect(() => {
@@ -128,6 +129,10 @@ function ProtectedInviteForm({ token, accountBar }) {
     setError("");
     if (!isLoggedIn && formData.password !== formData.confirmPassword) {
       setError(t("errorPasswordMismatch"));
+      return;
+    }
+    if (yearMismatch) {
+      setError(t("ppInvYearMismatch").replace("{year}", invite.birthYear));
       return;
     }
     if (!category) {
@@ -225,7 +230,12 @@ function ProtectedInviteForm({ token, accountBar }) {
             </select>
           </AuthFormField>
         </div>
-        {formData.birthDate && !category ? (
+        {yearMismatch ? (
+          <div className="notice-card notice-card--danger">
+            <p>{t("ppInvYearMismatch").replace("{year}", invite.birthYear)}</p>
+          </div>
+        ) : null}
+        {formData.birthDate && !category && !yearMismatch ? (
           <div className="notice-card notice-card--danger">
             <strong>{t("u14NotEligibleTitle")}</strong>
             <p>{t("u14NotEligibleBody")}</p>
