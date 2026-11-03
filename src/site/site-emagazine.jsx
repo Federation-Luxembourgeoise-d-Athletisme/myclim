@@ -655,8 +655,10 @@ function HighlightPage({ page, athletes }) {
         })}
       </div>
 
-      <h2 className="site-emag-duel__title">{title}</h2>
-      {page.subtitle ? <p className="site-emag-duel__subtitle">{page.subtitle}</p> : null}
+      <div className="site-emag-duel__head">
+        <h2 className="site-emag-duel__title">{title}</h2>
+        {page.subtitle ? <p className="site-emag-duel__subtitle">{page.subtitle}</p> : null}
+      </div>
       {count === 2 ? <span className="site-emag-duel__vs" aria-hidden="true">VS</span> : null}
 
       <div className="site-emag-duel__footer">
