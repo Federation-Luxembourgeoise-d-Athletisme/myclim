@@ -357,9 +357,12 @@ const RECORD_LABELS = {
   WL: "World lead",
 };
 
-// One Luxembourg athlete per page, edited in Admin → E-magazine.
+// One Luxembourg athlete per page, edited in Admin → E-magazine: bests from
+// World Athletics, history from the meeting results (saved with the page).
 function AthletePage({ page, edition }) {
-  const events = page.events.filter((entry) => entry.event || entry.pb || entry.sb);
+  const events = page.events.filter((entry) => entry.shown && (entry.event || entry.pb)).slice(0, 3);
+  const stats = page.showMeetingStats ? page.meetingStats : null;
+  const meetingBest = stats?.bests?.[0];
   return (
     <section className="site-emag-page site-emag-athlete">
       <div className="site-emag-athlete__flag" aria-hidden="true" />
@@ -375,6 +378,29 @@ function AthletePage({ page, edition }) {
           <strong>{page.lastName}</strong>
         </h2>
         {page.text ? <p className="site-emag-athlete__text">{page.text}</p> : null}
+        {stats ? (
+          <div className="site-emag-athlete__meeting">
+            <p className="site-emag-athlete__meeting-title">At the CMCM Luxembourg Indoor Meeting</p>
+            <dl>
+              <div>
+                <dt>{stats.editions > 1 ? `editions since ${stats.firstYear}` : `edition (${stats.firstYear})`}</dt>
+                <dd>{stats.editions}</dd>
+              </div>
+              {stats.wins ? (
+                <div>
+                  <dt>{stats.wins > 1 ? "wins" : "win"}</dt>
+                  <dd>{stats.wins}</dd>
+                </div>
+              ) : null}
+              {meetingBest ? (
+                <div>
+                  <dt>best {meetingBest.event} ({meetingBest.year})</dt>
+                  <dd>{meetingBest.mark}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+        ) : null}
         {events.length ? (
           <div className="site-emag-athlete__events">
             {events.map((entry) => (
@@ -382,7 +408,7 @@ function AthletePage({ page, edition }) {
                 <h3>{entry.event}</h3>
                 <dl>
                   <div className="site-emag-athlete__stat site-emag-athlete__stat--pb">
-                    <dt>Personal best</dt>
+                    <dt>Personal best{entry.pbYear ? ` · ${entry.pbYear}` : ""}</dt>
                     <dd>
                       {entry.pb || "—"}
                       {entry.record ? (
@@ -392,7 +418,7 @@ function AthletePage({ page, edition }) {
                   </div>
                   {entry.sb ? (
                     <div className="site-emag-athlete__stat">
-                      <dt>Season best</dt>
+                      <dt>Season best{entry.sbYear ? ` ${entry.sbYear}` : ""}</dt>
                       <dd>{entry.sb}</dd>
                     </div>
                   ) : null}

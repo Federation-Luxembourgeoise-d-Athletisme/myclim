@@ -46,19 +46,35 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
     },
   },
   highlightPages: [],
-  // One page per Luxembourg athlete, prefilled with the 2026 one.
+  // One page per Luxembourg athlete. Bests come from World Athletics and the
+  // meeting stats from the meeting results, both loaded in the admin.
   athletePages: [
     {
       id: "athlete-van-der-weken",
       firstName: "Patrizia",
       lastName: "Van der Weken",
       country: "Luxembourg",
+      waid: "14621598",
       photoUrl: vanDerWekenPhoto,
       text: "",
       events: [
-        { id: "event-1", event: "60m", pb: "7.06", sb: "7.06", record: "NR" },
-        { id: "event-2", event: "200m", pb: "23.17", sb: "23.17", record: "NR" },
+        { id: "wa-60", disciplineCode: "60", event: "60m", pb: "7.01", pbYear: "2026", record: "NR", sb: "7.01", sbYear: "2026", shown: true },
+        { id: "wa-200", disciplineCode: "200", event: "200m", pb: "23.09", pbYear: "2026", record: "NR", sb: "23.09", sbYear: "2026", shown: true },
+        { id: "wa-50", disciplineCode: "50", event: "50m", pb: "6.12", pbYear: "2025", record: "NR", sb: "", sbYear: "", shown: false },
+        { id: "wa-300", disciplineCode: "300", event: "300m", pb: "39.55", pbYear: "2021", record: "", sb: "", sbYear: "", shown: false },
       ],
+      waUpdatedAt: "2026-11-03",
+      meetingStats: {
+        editions: 10,
+        firstYear: 2015,
+        wins: 7,
+        bests: [
+          { event: "60m", mark: "7.07", year: 2025 },
+          { event: "200m", mark: "23.17", year: 2025 },
+          { event: "50m", mark: "6.37", year: 2019 },
+        ],
+      },
+      showMeetingStats: true,
     },
   ],
   partnerPages: [],
@@ -238,15 +254,23 @@ function normalizeAthletePage(page, index) {
     firstName: normalizeText(page?.firstName),
     lastName: normalizeText(page?.lastName),
     country: normalizeText(page?.country),
+    waid: normalizeText(page?.waid),
     photoUrl: normalizeText(page?.photoUrl),
     text: normalizeText(page?.text),
     events: (Array.isArray(page?.events) ? page.events : []).map((entry, eventIndex) => ({
       id: entry?.id || makeStableId("event", eventIndex),
+      disciplineCode: normalizeText(entry?.disciplineCode),
       event: normalizeText(entry?.event),
       pb: normalizeText(entry?.pb),
-      sb: normalizeText(entry?.sb),
+      pbYear: normalizeText(entry?.pbYear),
       record: normalizeText(entry?.record),
+      sb: normalizeText(entry?.sb),
+      sbYear: normalizeText(entry?.sbYear),
+      shown: entry?.shown !== false,
     })),
+    waUpdatedAt: normalizeText(page?.waUpdatedAt),
+    meetingStats: page?.meetingStats && typeof page.meetingStats === "object" ? page.meetingStats : null,
+    showMeetingStats: page?.showMeetingStats !== false,
   };
 }
 
