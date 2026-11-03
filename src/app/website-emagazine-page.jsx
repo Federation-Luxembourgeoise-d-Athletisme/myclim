@@ -9,6 +9,7 @@ import "./website-emagazine-page.css";
 import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emagazine-stats";
 import {
   buildMeetingStats,
+  CUTOUT_SHIFT,
   DEFAULT_CUTOUT_FRAME,
   DEFAULT_PHOTO_FRAME,
   fetchAthleteEventsFromWa,
@@ -231,7 +232,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
     const dy = event.clientY - drag.current.y;
     const { start } = drag.current;
     if (cutout) {
-      update({ x: start.x + dx / (4 * pageScale), y: start.y + dy / (6 * pageScale) });
+      update({ x: start.x + dx / (CUTOUT_SHIFT.x * pageScale), y: start.y + dy / (CUTOUT_SHIFT.y * pageScale) });
     } else {
       // Dragging the photo to the right shows more of its left side.
       update({ x: start.x - (dx * 100) / width, y: start.y - (dy * 100) / height });
@@ -249,7 +250,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
       bottom: 0,
       height: 1000 * pageScale,
       width: "auto",
-      transform: `translate(${(current.x - 50) * 4 * pageScale}px, ${(current.y - 50) * 6 * pageScale}px) scale(${current.zoom / 100})`,
+      transform: `translate(${(current.x - 50) * CUTOUT_SHIFT.x * pageScale}px, ${(current.y - 50) * CUTOUT_SHIFT.y * pageScale}px) scale(${current.zoom / 100})`,
       transformOrigin: "50% 100%",
     }
     : { width: "100%", height: "100%", objectFit: "cover", display: "block", ...photoFrameStyle(current) };
@@ -288,7 +289,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
             <EmptyButton onClick={() => update({ zoom: current.zoom - 10 })} aria-label="Zoom out">−</EmptyButton>
             <input
               type="range"
-              min="100"
+              min={defaults.minZoom}
               max="300"
               step="5"
               value={current.zoom}
@@ -299,7 +300,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
           </span>
         </label>
         <div>
-          <EmptyButton onClick={() => onChange({ ...defaults })}>Reset framing</EmptyButton>
+          <EmptyButton onClick={() => onChange(normalizePhotoFrame(defaults, defaults))}>Reset framing</EmptyButton>
         </div>
       </div>
     </div>
