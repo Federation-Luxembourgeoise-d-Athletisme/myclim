@@ -18,7 +18,7 @@ import {
   useU14ProtectedSettings,
   useU14RequestsList,
 } from "./u14-hooks";
-import { U14_STAGE_ORDER, U14_STAGE_TONES, getU14ChildStage } from "./u14-stage";
+import { U14_STAGE_ORDER, getU14ChildStage } from "./u14-stage";
 import { U14ProtectedTab } from "./u14-protected-tab";
 import { useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
@@ -53,7 +53,16 @@ function getTabFromPath(pathname) {
 }
 
 function StagePill({ stage }) {
-  return <span className={U14_STAGE_TONES[stage.tone] || "status-pill"}>{stage.label}</span>;
+  return (
+    <span className={`u14m-status u14m-status--${stage.tone}`}>
+      <span aria-hidden="true" className="u14m-status__dot" />
+      {stage.label}
+    </span>
+  );
+}
+
+function initialsOf(request) {
+  return `${(request.childFirstName || request.childName || "?")[0] || ""}${(request.childLastName || "")[0] || ""}`.toUpperCase();
 }
 
 // Fiche d'un enfant : coordonnées et historique de sa demande.
@@ -68,7 +77,7 @@ function ChildDetail({ request, invite, onRelease, isBusy }) {
     [
       request.parentDecisionAt,
       normalizeComparableValue(request.parentDecisionStatus) === "declined"
-        ? `Désistement${request.withdrawalReason ? ` : ${request.withdrawalReason}` : ""}`
+        ? `Désistement${request.withdrawalReason ? ` — ${request.withdrawalReason}` : ""}`
         : "Participation confirmée par le parent",
     ],
   ]
@@ -76,41 +85,50 @@ function ChildDetail({ request, invite, onRelease, isBusy }) {
     .sort((left, right) => getTimestampMs(left[0]) - getTimestampMs(right[0]));
   const stage = getU14ChildStage(request);
   const canRelease = !["withdrawn", "rejected"].includes(stage.key);
+  const facts = [
+    ["Catégorie", request.category],
+    ["Naissance", child.birthDate ? formatDateForDisplay(child.birthDate) : ""],
+    ["Club", request.club],
+    ["Dossard", request.bibNumber],
+  ].filter(([, value]) => value);
 
   return (
     <div className="u14m-detail">
-      <div className="u14m-detail__grid">
-        <div>
-          <strong>Enfant</strong>
-          <span>{request.childName}</span>
-          <span className="parent-request-note">
-            {[request.category, child.birthDate ? `né(e) le ${formatDateForDisplay(child.birthDate)}` : "", request.club, request.bibNumber ? `dossard ${request.bibNumber}` : ""]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-          {request.notes ? <span className="parent-request-note">Note : {request.notes}</span> : null}
-        </div>
-        <div>
-          <strong>Parent</strong>
-          <span>{request.parentName}</span>
-          {request.parentEmail ? <a href={`mailto:${request.parentEmail}`}>{request.parentEmail}</a> : null}
-        </div>
-        <div>
-          <strong>Historique</strong>
-          {history.length ? (
-            history.map(([value, label]) => (
-              <span key={label}>
-                <span className="parent-request-note">{formatDateTimeForDisplay(value)}</span> — {label}
-              </span>
-            ))
-          ) : (
-            <span className="parent-request-note">Aucun événement</span>
-          )}
-        </div>
-      </div>
+      <section>
+        <h4>Enfant</h4>
+        <dl className="u14m-facts">
+          {facts.map(([label, value]) => (
+            <Fragment key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </Fragment>
+          ))}
+        </dl>
+        {request.notes ? <p className="u14m-note">« {request.notes} »</p> : null}
+      </section>
+      <section>
+        <h4>Parent</h4>
+        <p className="u14m-strong">{request.parentName}</p>
+        {request.parentEmail ? <a href={`mailto:${request.parentEmail}`}>{request.parentEmail}</a> : null}
+      </section>
+      <section>
+        <h4>Historique</h4>
+        {history.length ? (
+          <ol className="u14m-timeline">
+            {history.map(([value, label]) => (
+              <li key={label}>
+                <span className="u14m-timeline__date">{formatDateTimeForDisplay(value)}</span>
+                <span>{label}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="u14m-muted">Aucun événement</p>
+        )}
+      </section>
       {canRelease ? (
-        <div className="table-actions table-actions--inline">
-          <button className="button button--ghost-danger button--small" disabled={isBusy} type="button" onClick={() => onRelease(request)}>
+        <div className="u14m-detail__footer">
+          <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => onRelease(request)}>
             Retirer cet enfant et libérer la place
           </button>
         </div>
@@ -119,47 +137,65 @@ function ChildDetail({ request, invite, onRelease, isBusy }) {
   );
 }
 
-// Tableau d'enfants (une course ou le porte-panier) : un statut, une action.
-function ChildrenTable({ rows, invitesByRequestId, renderAction, onRelease, isBusy, now, extraRows = [] }) {
+// Tableau d'enfants (une course, le porte-panier ou « À faire ») : une ligne
+// par enfant, un statut, une action. Les groupes donnent les sous-titres
+// (Retenus, Places réservées, Liste d'attente, Désistés…).
+function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, isBusy, now, emptyLabel = "Aucun enfant pour l'instant." }) {
   const [openId, setOpenId] = useState("");
+  const visibleGroups = groups.filter((group) => group.rows.length || group.placeholder);
 
   return (
-    <div className="u14m-table">
-      <div className="u14m-row u14m-row--head">
+    <div className="u14m-table" role="table">
+      <div className="u14m-row u14m-row--head" role="row">
         <span>#</span>
         <span>Enfant</span>
         <span>Où il en est</span>
-        <span />
+        <span className="u14m-actions">Action</span>
       </div>
-      {rows.length || extraRows.length ? null : <p className="parent-request-note u14m-empty">Aucun enfant pour l'instant.</p>}
-      {rows.map(({ request, position }) => {
-        const stage = getU14ChildStage(request, now);
-        const isOpen = openId === request.id;
-        const invite = invitesByRequestId.get(request.id);
-        return (
-          <Fragment key={request.id}>
-            <div className={`u14m-row${stage.key === "withdrawn" || stage.key === "rejected" ? " u14m-row--muted" : ""}`}>
-              <span className="u14m-position">{position}</span>
-              <span>
-                <button className="u14m-name" type="button" onClick={() => setOpenId(isOpen ? "" : request.id)}>
-                  {request.childName} <span aria-hidden="true">{isOpen ? "▴" : "▾"}</span>
-                </button>
-                <span className="parent-request-note"> {request.club || ""}</span>
-                <span className="u14m-badges">
-                  {invite ? <span className="status-pill status-pill--accent">Invité(e)</span> : null}
-                  {request.requestType === "preprogram_ou_porte_panier" ? <span className="status-pill">accepte aussi porte-panier</span> : null}
-                </span>
-              </span>
-              <span>
-                <StagePill stage={stage} /> <span className="parent-request-note">{stage.detail}</span>
-              </span>
-              <span className="table-actions table-actions--inline">{renderAction(request, stage)}</span>
+      {visibleGroups.length ? null : <p className="u14m-empty">{emptyLabel}</p>}
+      {visibleGroups.map((group) => (
+        <Fragment key={group.key}>
+          {group.title ? (
+            <div className="u14m-group" role="row">
+              <span>{group.title}</span>
+              <span className="u14m-group__count">{group.count ?? group.rows.length}</span>
             </div>
-            {isOpen ? <ChildDetail invite={invite} isBusy={isBusy} request={request} onRelease={onRelease} /> : null}
-          </Fragment>
-        );
-      })}
-      {extraRows}
+          ) : null}
+          {group.placeholder}
+          {group.rows.map(({ request, position, tag }) => {
+            const stage = getU14ChildStage(request, now);
+            const isOpen = openId === request.id;
+            const invite = invitesByRequestId.get(request.id);
+            const isInactive = stage.key === "withdrawn" || stage.key === "rejected";
+            return (
+              <Fragment key={request.id}>
+                <div className={`u14m-row${isInactive ? " u14m-row--muted" : ""}${isOpen ? " u14m-row--open" : ""}`} role="row">
+                  <span className="u14m-position">{position}</span>
+                  <button aria-expanded={isOpen} className="u14m-child" type="button" onClick={() => setOpenId(isOpen ? "" : request.id)}>
+                    <span aria-hidden="true" className="u14m-avatar">{initialsOf(request)}</span>
+                    <span className="u14m-child__text">
+                      <span className="u14m-child__name">
+                        {request.childName}
+                        {invite ? <span className="u14m-tag u14m-tag--accent">Invité(e)</span> : null}
+                        {request.requestType === "preprogram_ou_porte_panier" ? <span className="u14m-tag">aussi porte-panier</span> : null}
+                      </span>
+                      <span className="u14m-child__meta">
+                        {[tag, request.club, request.bibNumber ? `dossard ${request.bibNumber}` : ""].filter(Boolean).join(" · ")}
+                      </span>
+                    </span>
+                  </button>
+                  <span className="u14m-stage">
+                    <StagePill stage={stage} />
+                    {stage.detail ? <span className="u14m-stage__detail">{stage.detail}</span> : null}
+                  </span>
+                  <span className="u14m-actions">{renderAction(request, stage)}</span>
+                </div>
+                {isOpen ? <ChildDetail invite={invite} isBusy={isBusy} request={request} onRelease={onRelease} /> : null}
+              </Fragment>
+            );
+          })}
+        </Fragment>
+      ))}
     </div>
   );
 }
@@ -362,14 +398,14 @@ function U14Page(props) {
   function renderAction(request, stage) {
     if (stage.key === "to-retain") {
       return (
-        <button className="button button--primary button--small" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
+        <button className="u14m-btn u14m-btn--primary" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
           Retenir et envoyer le mail
         </button>
       );
     }
     if (stage.key === "to-decide") {
       return (
-        <button className="button button--primary button--small" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
+        <button className="u14m-btn u14m-btn--primary" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
           Retenir en porte-panier
         </button>
       );
@@ -377,10 +413,10 @@ function U14Page(props) {
     if (stage.key === "overdue") {
       return (
         <>
-          <button className="button button--secondary button--small" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
+          <button className="u14m-btn" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
             Relancer
           </button>
-          <button className="button button--ghost-danger button--small" disabled={isBusy} type="button" onClick={() => handleRelease(request)}>
+          <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => handleRelease(request)}>
             Libérer
           </button>
         </>
@@ -388,7 +424,7 @@ function U14Page(props) {
     }
     if (stage.key === "waiting-parent") {
       return (
-        <button className="button button--secondary button--small" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
+        <button className="u14m-btn" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
           Relancer
         </button>
       );
@@ -399,45 +435,109 @@ function U14Page(props) {
   // ── Tableau d'une course ──
   const normalizedSearch = normalizeComparableValue(search);
   const selectedRace = raceSummaries.find((race) => race.code === selectedRaceCode) || raceSummaries[0];
-  const raceRows = raceRequests
+  const RETAINED_STAGES = ["confirmed", "waiting-parent", "overdue", "to-retain", "received"];
+  const byStageThenPosition = (left, right) => {
+    const order = (U14_STAGE_ORDER[left.stage.key] ?? 9) - (U14_STAGE_ORDER[right.stage.key] ?? 9);
+    if (order) return order;
+    const leftPosition = Number(left.request.acceptedPosition || left.request.waitlistPosition || 0);
+    const rightPosition = Number(right.request.acceptedPosition || right.request.waitlistPosition || 0);
+    return leftPosition - rightPosition || left.request.submittedAtMs - right.request.submittedAtMs;
+  };
+  const raceEntries = raceRequests
     .filter((request) =>
       normalizedSearch
         ? normalizeComparableValue([request.childName, request.club, request.bibNumber, request.parentName].join(" ")).includes(normalizedSearch)
         : request.raceCode === selectedRace.code,
     )
     .map(withStage)
-    .sort((left, right) => {
-      const order = (U14_STAGE_ORDER[left.stage.key] ?? 9) - (U14_STAGE_ORDER[right.stage.key] ?? 9);
-      if (order) return order;
-      const leftPosition = Number(left.request.acceptedPosition || left.request.waitlistPosition || 0);
-      const rightPosition = Number(right.request.acceptedPosition || right.request.waitlistPosition || 0);
-      return leftPosition - rightPosition || left.request.submittedAtMs - right.request.submittedAtMs;
-    })
-    .map(({ request, stage }) => ({
-      request,
-      position:
-        stage.key === "waitlist"
-          ? `A${request.waitlistPosition || "?"}`
-          : ["withdrawn", "rejected"].includes(stage.key)
-            ? "—"
-            : request.acceptedPosition || "—",
-    }));
-  const reserveRows =
-    !normalizedSearch && selectedRace.blockedPlaces
-      ? [
-          <div key="reserve" className="u14m-row u14m-row--reserve">
+    .sort(byStageThenPosition);
+  const retainedEntries = raceEntries.filter(({ stage }) => RETAINED_STAGES.includes(stage.key));
+  const raceGroups = [
+    {
+      key: "retained",
+      title: "Retenus",
+      rows: retainedEntries.map(({ request }, index) => ({
+        request,
+        position: index + 1,
+        tag: normalizedSearch ? request.raceLabel : "",
+      })),
+    },
+    {
+      key: "reserve",
+      title: "Places réservées aux enfants invités",
+      count: !normalizedSearch ? selectedRace.blockedPlaces : 0,
+      rows: [],
+      placeholder:
+        !normalizedSearch && selectedRace.blockedPlaces ? (
+          <div className="u14m-row u14m-row--reserve" role="row">
             <span className="u14m-position">—</span>
-            <span>{selectedRace.blockedPlaces} place(s) réservée(s) aux enfants invités</span>
-            <span className="parent-request-note">
+            <span className="u14m-reserve-text">
+              {selectedRace.blockedPlaces} place{selectedRace.blockedPlaces > 1 ? "s" : ""} gardée{selectedRace.blockedPlaces > 1 ? "s" : ""} pour les enfants invités
+            </span>
+            <span className="u14m-stage__detail">
               {protectedSettings.deadline ? `jusqu'au ${formatDateForDisplay(protectedSettings.deadline)}, puis rendues aux inscriptions` : "jusqu'à la date limite des places protégées"}
             </span>
             <span />
-          </div>,
-        ]
-      : [];
+          </div>
+        ) : null,
+    },
+    {
+      key: "waitlist",
+      title: "Liste d'attente",
+      rows: raceEntries
+        .filter(({ stage }) => stage.key === "waitlist")
+        .map(({ request }) => ({ request, position: `A${request.waitlistPosition || "?"}`, tag: normalizedSearch ? request.raceLabel : "" })),
+    },
+    {
+      key: "inactive",
+      title: "Désistés et non retenus",
+      rows: raceEntries
+        .filter(({ stage }) => ["withdrawn", "rejected"].includes(stage.key))
+        .map(({ request }) => ({ request, position: "—", tag: normalizedSearch ? request.raceLabel : "" })),
+    },
+  ];
+
+  const todoGroups = [
+    {
+      key: "overdue",
+      title: "Sans réponse — délai de 10 jours dépassé",
+      rows: overdue.map(({ request }) => ({ request, position: "!", tag: request.requestType === "porte_panier" ? "Porte-panier" : request.raceLabel })),
+    },
+    {
+      key: "retain",
+      title: "À retenir — une place est disponible",
+      rows: toRetain.map(({ request }, index) => ({ request, position: index + 1, tag: request.raceLabel })),
+    },
+    {
+      key: "basket",
+      title: "Porte-panier à décider",
+      rows: basketToDecide.map(({ request }, index) => ({ request, position: index + 1, tag: "Porte-panier" })),
+    },
+  ];
+
+  const basketEntries = basketRequests.map(withStage).sort(byStageThenPosition);
+  const basketGroups = [
+    {
+      key: "active",
+      title: "",
+      rows: basketEntries
+        .filter(({ stage }) => !["withdrawn", "rejected"].includes(stage.key))
+        .map(({ request }, index) => ({ request, position: index + 1 })),
+    },
+    {
+      key: "inactive",
+      title: "Désistés",
+      rows: basketEntries.filter(({ stage }) => ["withdrawn", "rejected"].includes(stage.key)).map(({ request }) => ({ request, position: "—" })),
+    },
+  ];
+  const basketAlternatives = raceRequests.filter(
+    (request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted",
+  );
+
+  const tableProps = { invitesByRequestId, isBusy, now, renderAction, onRelease: handleRelease };
 
   return (
-    <div className="page">
+    <div className="page u14m-page">
       <section className="page-header">
         <div>
           <p className="eyebrow">Pré-programme</p>
@@ -451,114 +551,103 @@ function U14Page(props) {
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
       {dataLoading ? <p className="status-note">Chargement du module U12 / U14…</p> : null}
 
-      <div className="admin-subtabs" role="tablist" aria-label="Navigation du module U12 / U14">
+      <nav aria-label="Navigation du module U12 / U14" className="u14m-tabs" role="tablist">
         {U14_TABS.map((tab) => (
           <button
             key={tab.id}
             aria-selected={activeTab === tab.id}
-            className={`admin-subtab ${activeTab === tab.id ? "admin-subtab--active" : ""}`}
+            className={`u14m-tab${activeTab === tab.id ? " u14m-tab--active" : ""}`}
             role="tab"
             type="button"
             onClick={() => navigate(tab.path)}
           >
             {tab.label}
-            {tab.id === "todo" && todoCount ? ` · ${todoCount}` : ""}
-            {tab.id === "basket" && basketRequests.length ? ` (${basketRequests.length})` : ""}
+            {tab.id === "todo" && todoCount ? <span className="u14m-tab__badge">{todoCount}</span> : null}
+            {tab.id === "basket" && basketRequests.length ? <span className="u14m-tab__count">{basketRequests.length}</span> : null}
           </button>
         ))}
-      </div>
+      </nav>
 
       {activeTab === "todo" ? (
         <>
-          <section className="metric-grid">
-            <article className="metric-card"><span>Enfants à retenir</span><strong>{toRetain.length}</strong></article>
-            <article className="metric-card metric-card--accent"><span>dont montés de l'attente</span><strong>{promotedCount}</strong></article>
-            <article className="metric-card metric-card--warn"><span>Sans réponse (délai dépassé)</span><strong>{overdue.length}</strong></article>
-            <article className="metric-card"><span>Porte-panier à décider</span><strong>{basketToDecide.length}</strong></article>
+          <section className="u14m-kpis">
+            <div className="u14m-kpi">
+              <span>À retenir</span>
+              <strong>{toRetain.length}</strong>
+              <small>{promotedCount ? `dont ${promotedCount} monté(s) de l'attente` : "places disponibles"}</small>
+            </div>
+            <div className={`u14m-kpi${overdue.length ? " u14m-kpi--alert" : ""}`}>
+              <span>Sans réponse</span>
+              <strong>{overdue.length}</strong>
+              <small>délai de 10 jours dépassé</small>
+            </div>
+            <div className="u14m-kpi">
+              <span>Porte-panier</span>
+              <strong>{basketToDecide.length}</strong>
+              <small>demandes à décider</small>
+            </div>
+            <div className="u14m-kpi">
+              <span>Confirmés</span>
+              <strong>{requestRecords.filter((request) => getU14ChildStage(request, now).key === "confirmed").length}</strong>
+              <small>courses et porte-panier</small>
+            </div>
           </section>
-          <Panel title="À faire" subtitle="Tout ce qui attend une décision de l'équipe. Retenir envoie le mail d'acceptation ; le parent a ensuite 10 jours pour confirmer.">
-            {todoCount ? (
-              <ChildrenTable
-                invitesByRequestId={invitesByRequestId}
-                isBusy={isBusy}
-                now={now}
-                renderAction={renderAction}
-                rows={[...overdue, ...toRetain, ...basketToDecide].map(({ request }) => ({
-                  request,
-                  position: request.requestType === "porte_panier" ? "PP" : request.raceCode ? request.raceLabel.replace(" - ", " ") : "—",
-                }))}
-                onRelease={handleRelease}
-              />
-            ) : (
-              <p className="parent-request-note">Rien à faire pour l'instant : toutes les demandes sont traitées.</p>
-            )}
+          <Panel title="À faire" subtitle="Ce qui attend une décision de l'équipe. Retenir envoie le mail d'acceptation ; le parent a ensuite 10 jours pour confirmer.">
+            <ChildrenTable {...tableProps} emptyLabel="Rien à faire pour l'instant : toutes les demandes sont traitées." groups={todoGroups} />
           </Panel>
         </>
       ) : null}
 
       {activeTab === "races" ? (
-        <Panel title="Courses" subtitle="Un tableau par course : les enfants retenus, les places réservées aux invités, puis la liste d'attente. Cliquez sur un nom pour voir sa fiche.">
-          <div className="u14m-toolbar">
-            <div className="u14m-race-chips">
-              {raceSummaries.map((race) => {
-                const filled = raceRequests.filter((request) => request.raceCode === race.code && ["confirmed", "waiting-parent", "overdue", "to-retain"].includes(getU14ChildStage(request, now).key)).length;
-                return (
-                  <button
-                    key={race.code}
-                    className={`u14m-chip${!normalizedSearch && selectedRace.code === race.code ? " u14m-chip--active" : ""}`}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRaceCode(race.code);
-                      setSearch("");
-                    }}
-                  >
-                    {race.label.replace(" - ", " · ")} <span className="parent-request-note">{filled}/{race.totalPlaces}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <input aria-label="Rechercher un enfant" className="u14m-search" placeholder="Rechercher un enfant, un club, un dossard…" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <Panel title="Courses" subtitle="Choisissez une course. Cliquez sur un enfant pour ouvrir sa fiche.">
+          <div className="u14m-race-grid">
+            {raceSummaries.map((race) => {
+              const filled = raceRequests.filter((request) => request.raceCode === race.code && RETAINED_STAGES.includes(getU14ChildStage(request, now).key)).length;
+              const total = race.totalPlaces || 14;
+              const isActive = !normalizedSearch && selectedRace.code === race.code;
+              return (
+                <button
+                  key={race.code}
+                  aria-pressed={isActive}
+                  className={`u14m-race${isActive ? " u14m-race--active" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRaceCode(race.code);
+                    setSearch("");
+                  }}
+                >
+                  <span className="u14m-race__head">
+                    <span className="u14m-race__name">{race.label.replace(" - ", " · ")}</span>
+                    <span className="u14m-race__count">
+                      {filled}<span>/{total}</span>
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className="u14m-bar">
+                    <span className="u14m-bar__filled" style={{ width: `${Math.min((filled / total) * 100, 100)}%` }} />
+                    <span className="u14m-bar__reserved" style={{ width: `${Math.min((race.blockedPlaces / total) * 100, 100)}%` }} />
+                  </span>
+                  <span className="u14m-race__meta">
+                    {race.blockedPlaces ? `${race.blockedPlaces} réservée(s) · ` : ""}
+                    {race.waitlistedRequests.length ? `${race.waitlistedRequests.length} en attente` : `${race.remainingPlaces} libre(s)`}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          {normalizedSearch ? null : (
-            <p className="parent-request-note">
-              {selectedRace.label} : {selectedRace.totalPlaces} places · {selectedRace.protectedPlaces + selectedRace.confirmedGeneralRequests.length} prises
-              {selectedRace.blockedPlaces ? ` · ${selectedRace.blockedPlaces} réservée(s) aux invités` : ""} · {selectedRace.remainingPlaces} libre(s) ·{" "}
-              {selectedRace.waitlistedRequests.length} en attente
-            </p>
-          )}
-          <ChildrenTable
-            extraRows={reserveRows}
-            invitesByRequestId={invitesByRequestId}
-            isBusy={isBusy}
-            now={now}
-            renderAction={renderAction}
-            rows={raceRows}
-            onRelease={handleRelease}
-          />
+          <div className="u14m-toolbar">
+            <h3 className="u14m-toolbar__title">{normalizedSearch ? "Résultats de la recherche" : selectedRace.label}</h3>
+            <input aria-label="Rechercher un enfant" className="u14m-search" placeholder="Rechercher un enfant, un club, un dossard…" type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </div>
+          <ChildrenTable {...tableProps} emptyLabel={normalizedSearch ? "Aucun enfant ne correspond à cette recherche." : "Aucune inscription pour cette course pour l'instant."} groups={raceGroups} />
         </Panel>
       ) : null}
 
       {activeTab === "basket" ? (
-        <Panel title="Porte-panier" subtitle="Les demandes porte-panier, sans limite de places automatique : vous retenez au cas par cas.">
-          <ChildrenTable
-            invitesByRequestId={invitesByRequestId}
-            isBusy={isBusy}
-            now={now}
-            renderAction={renderAction}
-            rows={basketRequests
-              .map(withStage)
-              .sort((left, right) => (U14_STAGE_ORDER[left.stage.key] ?? 9) - (U14_STAGE_ORDER[right.stage.key] ?? 9) || left.request.submittedAtMs - right.request.submittedAtMs)
-              .map(({ request }, index) => ({ request, position: index + 1 }))}
-            onRelease={handleRelease}
-          />
-          {raceRequests.some((request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted") ? (
-            <p className="parent-request-note">
-              Accepteraient aussi le porte-panier (actuellement en liste d'attente d'une course) :{" "}
-              {raceRequests
-                .filter((request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted")
-                .map((request) => request.childName)
-                .join(", ")}
-              .
+        <Panel title="Porte-panier" subtitle="Pas de limite de places automatique : vous retenez au cas par cas.">
+          <ChildrenTable {...tableProps} emptyLabel="Aucune demande porte-panier pour l'instant." groups={basketGroups} />
+          {basketAlternatives.length ? (
+            <p className="u14m-footnote">
+              Accepteraient aussi le porte-panier (en liste d'attente d'une course) : {basketAlternatives.map((request) => request.childName).join(", ")}.
             </p>
           ) : null}
         </Panel>
