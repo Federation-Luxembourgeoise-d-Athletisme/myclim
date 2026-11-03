@@ -2,6 +2,7 @@ import {
   buildAthleteIdentityKeys,
   resolveAthleteBirthYear,
 } from "../app/athlete-portal-hooks";
+import { DEFAULT_CUTOUT_FRAME, normalizePhotoFrame } from "./emagazine-athlete-data";
 // Cut-out portrait of the 2026 magazine: photo of the prefilled athlete page.
 import vanDerWekenPhoto from "../assets/emag-athlete-van-der-weken.png";
 // Photos of the 2026 duel pages: sample highlight pages to try the layouts.
@@ -306,6 +307,7 @@ function normalizeHighlightPage(page, index) {
       pb: normalizeText(athlete?.pb),
       record: normalizeText(athlete?.record),
       photoUrl: normalizeText(athlete?.photoUrl),
+      photoFrame: normalizePhotoFrame(athlete?.photoFrame),
     })),
     athleteIds,
     athletePhotos,
@@ -320,6 +322,7 @@ function normalizeAthletePage(page, index) {
     country: normalizeText(page?.country),
     waid: normalizeText(page?.waid),
     photoUrl: normalizeText(page?.photoUrl),
+    photoFrame: normalizePhotoFrame(page?.photoFrame, DEFAULT_CUTOUT_FRAME),
     text: normalizeText(page?.text),
     events: (Array.isArray(page?.events) ? page.events : []).map((entry, eventIndex) => ({
       id: entry?.id || makeStableId("event", eventIndex),

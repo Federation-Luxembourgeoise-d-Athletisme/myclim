@@ -134,3 +134,42 @@ export async function fetchAthleteEventsFromWa(waid) {
   if (!response.ok) throw new Error(data.detail || data.error || `HTTP ${response.status}`);
   return buildAthleteEventsFromWa(data);
 }
+
+// Framing of an athlete photo, set in the admin: zoom in % and the point of
+// the photo kept in view (x, y in %, from the left and the top).
+export const DEFAULT_PHOTO_FRAME = { zoom: 100, x: 50, y: 0 };
+// Cut-out portrait of the Luxembourg athlete page: x and y move it around.
+export const DEFAULT_CUTOUT_FRAME = { zoom: 100, x: 50, y: 50 };
+
+const clamp = (value, min, max, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+};
+
+export function normalizePhotoFrame(raw, defaults = DEFAULT_PHOTO_FRAME) {
+  return {
+    zoom: clamp(raw?.zoom, 100, 300, defaults.zoom),
+    x: clamp(raw?.x, 0, 100, defaults.x),
+    y: clamp(raw?.y, 0, 100, defaults.y),
+  };
+}
+
+// Photo filling its column (object-fit: cover), zoomed on the chosen point.
+export function photoFrameStyle(frame) {
+  const { zoom, x, y } = normalizePhotoFrame(frame);
+  return {
+    objectPosition: `${x}% ${y}%`,
+    transform: zoom !== 100 ? `scale(${zoom / 100})` : undefined,
+    transformOrigin: `${x}% ${y}%`,
+  };
+}
+
+// Cut-out portrait standing at the bottom of the page: 50/50 leaves it in place.
+export function cutoutFrameStyle(frame) {
+  const { zoom, x, y } = normalizePhotoFrame(frame, DEFAULT_CUTOUT_FRAME);
+  if (zoom === 100 && x === 50 && y === 50) return undefined;
+  return {
+    transform: `translate(${(x - 50) * 4}px, ${(y - 50) * 6}px) scale(${zoom / 100})`,
+    transformOrigin: "50% 100%",
+  };
+}

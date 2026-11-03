@@ -9,7 +9,11 @@ import "./website-emagazine-page.css";
 import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emagazine-stats";
 import {
   buildMeetingStats,
+  DEFAULT_CUTOUT_FRAME,
+  DEFAULT_PHOTO_FRAME,
   fetchAthleteEventsFromWa,
+  normalizePhotoFrame,
+  photoFrameStyle,
   sameAthlete,
   searchWaAthletes,
   waCodeForEvent,
@@ -196,6 +200,107 @@ function SpecialRaceEditor({ title, race, onChange }) {
             <input style={inputStyle} value={participant.description} onChange={(event) => updateParticipant(participant.id, "description", event.target.value)} placeholder="Profile / what they do" />
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Framing of an athlete photo: drag the photo inside the frame, zoom with the
+// slider. `cutout` frames the Luxembourg athlete portrait on its whole page.
+function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
+  const defaults = cutout ? DEFAULT_CUTOUT_FRAME : DEFAULT_PHOTO_FRAME;
+  const current = normalizePhotoFrame(frame, defaults);
+  const drag = useRef(null);
+  const height = 300;
+  // Same proportions as the photo on the A4 page (794 × 1123).
+  const width = Math.round(height * (cutout ? 794 : 794 / columns) / 1123);
+  const pageScale = height / 1123;
+
+  function update(patch) {
+    onChange(normalizePhotoFrame({ ...current, ...patch }, defaults));
+  }
+
+  function handlePointerDown(event) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { x: event.clientX, y: event.clientY, start: current };
+  }
+
+  function handlePointerMove(event) {
+    if (!drag.current) return;
+    const dx = event.clientX - drag.current.x;
+    const dy = event.clientY - drag.current.y;
+    const { start } = drag.current;
+    if (cutout) {
+      update({ x: start.x + dx / (4 * pageScale), y: start.y + dy / (6 * pageScale) });
+    } else {
+      // Dragging the photo to the right shows more of its left side.
+      update({ x: start.x - (dx * 100) / width, y: start.y - (dy * 100) / height });
+    }
+  }
+
+  function handlePointerUp() {
+    drag.current = null;
+  }
+
+  const imageStyle = cutout
+    ? {
+      position: "absolute",
+      left: 34 * pageScale,
+      bottom: 0,
+      height: 1000 * pageScale,
+      width: "auto",
+      transform: `translate(${(current.x - 50) * 4 * pageScale}px, ${(current.y - 50) * 6 * pageScale}px) scale(${current.zoom / 100})`,
+      transformOrigin: "50% 100%",
+    }
+    : { width: "100%", height: "100%", objectFit: "cover", display: "block", ...photoFrameStyle(current) };
+
+  if (!url) return null;
+
+  return (
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+      <div
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        title="Drag the photo to frame it"
+        style={{
+          position: "relative",
+          width,
+          height,
+          flex: "none",
+          overflow: "hidden",
+          borderRadius: 8,
+          border: "2px solid #10253d",
+          background: cutout ? "#13253d" : "#e5e7eb",
+          cursor: "grab",
+          touchAction: "none",
+          userSelect: "none",
+        }}
+      >
+        <img src={url} alt="" draggable={false} style={{ ...imageStyle, pointerEvents: "none" }} />
+      </div>
+      <div style={{ display: "grid", gap: 8, minWidth: 160, flex: "1 1 160px" }}>
+        <span style={{ fontSize: "0.8rem", color: "#546770" }}>Drag the photo in the frame to place it.</span>
+        <label style={{ fontSize: "0.78rem", color: "#546770" }}>
+          Zoom {current.zoom}%
+          <span style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+            <EmptyButton onClick={() => update({ zoom: current.zoom - 10 })} aria-label="Zoom out">−</EmptyButton>
+            <input
+              type="range"
+              min="100"
+              max="300"
+              step="5"
+              value={current.zoom}
+              onChange={(event) => update({ zoom: Number(event.target.value) })}
+              style={{ flex: 1 }}
+            />
+            <EmptyButton onClick={() => update({ zoom: current.zoom + 10 })} aria-label="Zoom in">+</EmptyButton>
+          </span>
+        </label>
+        <div>
+          <EmptyButton onClick={() => onChange({ ...defaults })}>Reset framing</EmptyButton>
+        </div>
       </div>
     </div>
   );
@@ -397,13 +502,21 @@ function HighlightEditor({ page, athleteCards, onChange }) {
                 />
               ) : null}
               {athlete ? (
-                <FileUpload
-                  value={athlete.photoUrl}
-                  onChange={(url) => setAthleteAt(index, { ...athlete, photoUrl: url })}
-                  accept="image/*"
-                  storagePath="emagazine-athlete-photos"
-                  label="Photo (portrait, full height of the page)"
-                />
+                <>
+                  <FileUpload
+                    value={athlete.photoUrl}
+                    onChange={(url) => setAthleteAt(index, { ...athlete, photoUrl: url, photoFrame: { ...DEFAULT_PHOTO_FRAME } })}
+                    accept="image/*"
+                    storagePath="emagazine-athlete-photos"
+                    label="Photo (portrait, full height of the page)"
+                  />
+                  <PhotoFramer
+                    url={athlete.photoUrl}
+                    frame={athlete.photoFrame}
+                    columns={athleteSlotCount}
+                    onChange={(photoFrame) => setAthleteAt(index, { ...athlete, photoFrame })}
+                  />
+                </>
               ) : null}
             </div>
           );
@@ -575,11 +688,12 @@ function AthletePageEditor({ page, athleteCards, onChange }) {
 
       <FileUpload
         value={page.photoUrl}
-        onChange={(url) => set({ photoUrl: url })}
+        onChange={(url) => set({ photoUrl: url, photoFrame: { ...DEFAULT_CUTOUT_FRAME } })}
         accept="image/*"
         storagePath="emagazine-athletes"
         label="Photo (portrait, cut-out PNG, full body)"
       />
+      <PhotoFramer url={page.photoUrl} frame={page.photoFrame} cutout onChange={(photoFrame) => set({ photoFrame })} />
 
       <div style={{ display: "grid", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

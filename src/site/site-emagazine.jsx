@@ -25,6 +25,7 @@ import thanksPhoto from "../assets/site-gallery/gallery-volunteers.jpg";
 import flaClubsQr from "../assets/fla-clubs-qr.png";
 import flaClubs from "../data/flaClubs.json";
 import { SponsorLogo } from "./sponsor-logo";
+import { cutoutFrameStyle, photoFrameStyle } from "./emagazine-athlete-data";
 import {
   athleteDisplayName,
   buildAthleteLookup,
@@ -367,7 +368,7 @@ function AthletePage({ page, edition }) {
     <section className="site-emag-page site-emag-athlete">
       <div className="site-emag-athlete__flag" aria-hidden="true" />
       {page.photoUrl ? (
-        <img className="site-emag-athlete__photo" src={page.photoUrl} alt={athleteDisplayName(page)} />
+        <img className="site-emag-athlete__photo" src={page.photoUrl} alt={athleteDisplayName(page)} style={cutoutFrameStyle(page.photoFrame)} />
       ) : null}
       <div className="site-emag-athlete__content">
         <p className="site-emag-athlete__kicker">
@@ -649,7 +650,7 @@ function HighlightPage({ page, athletes }) {
           const photo = page.athletePhotos?.[athlete._docId] || athlete.photoUrl || (count === 1 ? page.imageUrl : "");
           return (
             <div key={athlete._docId} className="site-emag-duel__photo" data-side={index % 2 === 0 ? "red" : "blue"}>
-              {photo ? <img src={photo} alt={athleteDisplayName(athlete)} /> : null}
+              {photo ? <img src={photo} alt={athleteDisplayName(athlete)} style={athlete.photoFrame ? photoFrameStyle(athlete.photoFrame) : undefined} /> : null}
             </div>
           );
         })}
