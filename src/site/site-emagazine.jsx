@@ -364,6 +364,15 @@ function AthletePage({ page, edition }) {
   const events = page.events.filter((entry) => entry.shown && (entry.event || entry.pb)).slice(0, 3);
   const stats = page.showMeetingStats ? page.meetingStats : null;
   const meetingBest = stats?.bests?.[0];
+  // Season bests printed: the last indoor season before the meeting (2026
+  // for 2027), and the meeting year as well once the athlete raced in it.
+  const meetingYear = Number(edition?.year) || 0;
+  const seasonBestsFor = (entry) => {
+    const bests = entry.seasonBests?.length ? entry.seasonBests : (entry.sb ? [{ year: entry.sbYear, mark: entry.sb }] : []);
+    return [meetingYear - 1, meetingYear]
+      .map((year) => bests.find((best) => best.year === String(year)))
+      .filter(Boolean);
+  };
   return (
     <section className="site-emag-page site-emag-athlete">
       <div className="site-emag-athlete__flag" aria-hidden="true" />
@@ -417,12 +426,12 @@ function AthletePage({ page, edition }) {
                       ) : null}
                     </dd>
                   </div>
-                  {entry.sb ? (
-                    <div className="site-emag-athlete__stat">
-                      <dt>Season best{entry.sbYear ? ` ${entry.sbYear}` : ""}</dt>
-                      <dd>{entry.sb}</dd>
+                  {seasonBestsFor(entry).map((best) => (
+                    <div key={best.year} className="site-emag-athlete__stat">
+                      <dt>Season best {best.year}</dt>
+                      <dd>{best.mark}</dd>
                     </div>
-                  ) : null}
+                  ))}
                 </dl>
                 {entry.record && RECORD_LABELS[entry.record.toUpperCase()] ? (
                   <p className="site-emag-athlete__record">{RECORD_LABELS[entry.record.toUpperCase()]}</p>

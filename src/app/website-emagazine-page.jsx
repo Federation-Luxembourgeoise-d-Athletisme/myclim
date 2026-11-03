@@ -801,7 +801,11 @@ function AthletePageEditor({ page, athleteCards, onChange }) {
                   <td style={{ padding: "6px", fontWeight: 700 }}>{entry.event}</td>
                   <td style={{ padding: "6px" }}>{entry.pb}{entry.pbYear ? ` (${entry.pbYear})` : ""}</td>
                   <td style={{ padding: "6px" }}>{entry.record || "—"}</td>
-                  <td style={{ padding: "6px" }}>{entry.sb ? `${entry.sb} (${entry.sbYear})` : "—"}</td>
+                  <td style={{ padding: "6px" }}>
+                    {entry.seasonBests?.length
+                      ? entry.seasonBests.map((best) => `${best.mark} (${best.year})`).join(" · ")
+                      : entry.sb ? `${entry.sb} (${entry.sbYear})` : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -809,7 +813,7 @@ function AthletePageEditor({ page, athleteCards, onChange }) {
         ) : (
           <p style={{ margin: 0, fontSize: "0.84rem", color: "#6b7280" }}>Find the athlete above, or enter the World Athletics ID and update.</p>
         )}
-        <p style={{ margin: 0, fontSize: "0.78rem", color: "#6b7280" }}>Up to 3 events on the page.</p>
+        <p style={{ margin: 0, fontSize: "0.78rem", color: "#6b7280" }}>Up to 3 events on the page. Printed: the PB with its year, the SB of the season before the meeting, and the SB of the meeting year once the athlete raced in it.</p>
       </div>
 
       <div style={{ display: "grid", gap: 8 }}>

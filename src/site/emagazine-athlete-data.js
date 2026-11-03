@@ -37,6 +37,10 @@ export function buildAthleteEventsFromWa(data) {
       const own = results.filter((result) => result.disciplineCode === code && result.date);
       const sbYear = own.reduce((latest, result) => Math.max(latest, Number(result.date.slice(0, 4))), 0);
       const sb = sbYear ? bestOf(own.filter((result) => result.date.startsWith(String(sbYear)))) : null;
+      // Best of every indoor season on WA (current year and the two before).
+      const seasonBests = [...new Set(own.map((result) => result.date.slice(0, 4)))]
+        .sort((a, b) => Number(b) - Number(a))
+        .map((year) => ({ year, mark: bestOf(own.filter((result) => result.date.startsWith(year))).mark }));
       return {
         id: `wa-${code}`,
         disciplineCode: code,
@@ -46,6 +50,7 @@ export function buildAthleteEventsFromWa(data) {
         record: mainRecord(pb.records),
         sb: sb?.mark || "",
         sbYear: sb ? String(sbYear) : "",
+        seasonBests,
         score: pb.resultScore ?? 0,
       };
     })
