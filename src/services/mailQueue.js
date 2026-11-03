@@ -707,6 +707,7 @@ function buildU14AcceptanceMail({
   venue,
   editionYear,
   practicalInfo,
+  confirmationDeadline,
 }) {
   const appUrl = `${getAppBaseUrl()}/app/mes-enfants`;
   const isBasket = kind === "basket";
@@ -727,10 +728,10 @@ function buildU14AcceptanceMail({
   const introEn = isBasket
     ? `Good news: ${childName} has been selected as a basket carrier for the ${meetingName}.`
     : `Good news: ${childName} has been selected for the ${roleEn} of the ${meetingName} pre-programme.`;
-  const confirmFr =
-    "Merci de confirmer sa participation dès que possible dans votre espace MyCLIM, rubrique « Mes enfants » : la place lui est réservée, et d'autres enfants attendent sur liste d'attente. Si votre enfant ne peut finalement pas venir, indiquez-le au même endroit pour libérer la place.";
-  const confirmEn =
-    "Please confirm their participation as soon as possible in your MyCLIM space, under \"My children\": the place is reserved for your child, and other children are on the waiting list. If your child can no longer come, say so in the same place to free the place.";
+  const deadlineFr = formatMailDate(confirmationDeadline, "fr-LU");
+  const deadlineEn = formatMailDate(confirmationDeadline, "en-GB");
+  const confirmFr = `Merci de confirmer sa participation ${deadlineFr ? `avant le ${deadlineFr}` : "dès que possible"} dans votre espace MyCLIM, rubrique « Mes enfants » : la place lui est réservée jusqu'à cette date, et d'autres enfants attendent sur liste d'attente. Si votre enfant ne peut finalement pas venir, indiquez-le au même endroit pour libérer la place.`;
+  const confirmEn = `Please confirm their participation ${deadlineEn ? `by ${deadlineEn}` : "as soon as possible"} in your MyCLIM space, under "My children": the place is reserved for your child until then, and other children are on the waiting list. If your child can no longer come, say so in the same place to free the place.`;
   const entryFr = "L'adulte qui accompagne l'enfant a une entrée offerte pour le meeting, remise au moment où il dépose l'enfant.";
   const entryEn = "The adult accompanying the child gets a free entry to the meeting, handed over when the child is dropped off.";
 
@@ -739,12 +740,14 @@ function buildU14AcceptanceMail({
     [isBasket ? "Rôle" : "Course", roleFr],
     ["Date", dateFr || "communiquée prochainement"],
     ["Lieu", place],
+    ...(deadlineFr ? [["À confirmer avant le", deadlineFr]] : []),
   ];
   const detailRowsEn = [
     ["Child", childName],
     [isBasket ? "Role" : "Race", roleEn],
     ["Date", dateEn || "to be announced"],
     ["Venue", place],
+    ...(deadlineEn ? [["Confirm by", deadlineEn]] : []),
   ];
   const detailsText = (rows, separator) => rows.map(([label, value]) => `${label}${separator}${value}`).join("\n");
   const detailsHtml = (rows) =>

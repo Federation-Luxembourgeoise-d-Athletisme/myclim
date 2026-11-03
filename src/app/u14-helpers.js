@@ -3,6 +3,8 @@ import { db } from "../services/firebase";
 
 const U14_DEFAULT_RACE_CAPACITY = 14;
 const U14_RESERVED_SLOTS_PER_RACE = 3;
+// Délai laissé aux parents pour confirmer une place retenue (course ou porte-panier).
+const U14_CONFIRMATION_DELAY_DAYS = 10;
 const U14_RESERVED_SLOTS_COLLECTION = "u14ProtectedEntries";
 const U14_PRACTICAL_INFO_DOC_PATH = ["appSettings", "u14PracticalInfo"];
 const U14_RACE_DEFINITIONS = [
@@ -300,6 +302,15 @@ function isU14RequestInactive(status) {
   return ["declined", "cancelled", "rejected"].includes(normalizeComparableValue(status));
 }
 
+// Fin du délai de confirmation, fixée au moment où l'équipe retient l'enfant
+// (fin de journée, pour ne pas couper au milieu du dixième jour).
+function getU14ConfirmationDeadline(from = new Date()) {
+  const deadline = new Date(from);
+  deadline.setDate(deadline.getDate() + U14_CONFIRMATION_DELAY_DAYS);
+  deadline.setHours(23, 59, 0, 0);
+  return deadline;
+}
+
 function isProtectedSlotActive(slot) {
   return normalizeComparableValue(slot?.status) !== "released";
 }
@@ -534,6 +545,7 @@ export {
   U14_PRACTICAL_INFO_DOC_PATH,
   U14_RACE_DEFINITIONS,
   U14_RESERVED_SLOTS_COLLECTION,
+  U14_CONFIRMATION_DELAY_DAYS,
   U14_RESERVED_SLOTS_PER_RACE,
   buildU14AllocationSnapshot,
   buildU14RequestRecord,
@@ -551,6 +563,7 @@ export {
   getProtectedSlotStatusLabel,
   getTimestampMs,
   getU14AllowedEvents,
+  getU14ConfirmationDeadline,
   getU14ParentStatusLabel,
   getU14ParentStatusPillClass,
   getU14PracticalRoleKey,

@@ -4,6 +4,7 @@ import { AuthFormField } from "./form-components";
 import {
   U14_RESERVED_SLOTS_COLLECTION,
   createEmptyParentU14ChildForm,
+  formatDateForDisplay,
   formatParentRequestSchedule,
   formatParentRequestStatus,
   formatParentRequestType,
@@ -275,6 +276,14 @@ function MyChildrenPage(props) {
                         <strong>{formatParentRequestSchedule(row, t)}</strong>
                         {row.practicalInfoText ? (
                           <span className="parent-request-practical">{row.practicalInfoText}</span>
+                        ) : null}
+                        {row.adminApprovalStatus === "approved" &&
+                        row.parentDecisionStatus !== "confirmed" &&
+                        row.parentDecisionStatus !== "declined" &&
+                        row.confirmationDeadline ? (
+                          <span className="parent-request-note">
+                            {t("mcConfirmBefore").replace("{date}", formatDateForDisplay(row.confirmationDeadline))}
+                          </span>
                         ) : null}
                         {normalizeComparableValue(row.status) === "demande enregistree" &&
                         normalizeComparableValue(row.adminApprovalStatus) !== "approved" &&

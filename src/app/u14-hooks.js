@@ -282,6 +282,7 @@ function useParentU14Children(parentUserId) {
         adminApprovalStatus: request?.adminApprovalStatus || "",
         parentDecisionStatus: request?.parentDecisionStatus || "",
         parentDecisionRequired: Boolean(request?.parentDecisionRequired),
+        confirmationDeadline: request?.confirmationDeadline || null,
         adminApprovalLabel: getAdminApprovalLabel(request?.adminApprovalStatus),
         practicalInfoText:
           getU14ParentStatusLabel(request) === "Validé"

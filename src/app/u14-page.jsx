@@ -16,6 +16,7 @@ import {
   getParentDecisionLabel,
   getProtectedSlotStatusLabel,
   getTimestampMs,
+  getU14ConfirmationDeadline,
   getU14RaceLabel,
   getU14WorkflowStatusLabel,
   isProtectedSlotActive,
@@ -84,6 +85,25 @@ function getU14PageHeader(activeTab, basketRequestsCount) {
   }
 }
 
+// Décision du parent, avec la date limite de confirmation (10 jours après la
+// validation) tant qu'il n'a pas répondu ; en rouge une fois dépassée.
+function ParentDecisionCell({ request, now }) {
+  const label = getParentDecisionLabel(request.parentDecisionStatus);
+  const isPending = !["confirmed", "declined"].includes(normalizeComparableValue(request.parentDecisionStatus));
+  const deadlineMs = getTimestampMs(request.confirmationDeadline);
+  if (!isPending || !deadlineMs) return label;
+  const isOverdue = deadlineMs < now;
+  return (
+    <div className="table-stack">
+      <span>{label}</span>
+      <span className={isOverdue ? "status-pill status-pill--danger" : "parent-request-note"}>
+        {isOverdue ? "Délai dépassé le " : "Avant le "}
+        {formatDateForDisplay(request.confirmationDeadline)}
+      </span>
+    </div>
+  );
+}
+
 function U14Page(props) {
   const {
     AuthFormField,
@@ -118,6 +138,7 @@ function U14Page(props) {
   const { activeEditionId } = useActiveEdition();
   const { editions } = useMeetingEditions();
   const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
+  const [pageOpenedAt] = useState(() => Date.now());
   const acceptanceMailContext = {
     eventDate: activeEdition?.date || null,
     venue: activeEdition?.venue || "",
@@ -504,11 +525,13 @@ function U14Page(props) {
   }
 
   async function approvePreprogramRequest(request) {
+    const confirmationDeadline = getU14ConfirmationDeadline();
     await updateDoc(doc(db, "u14Requests", request.id), {
       adminApprovalStatus: "approved",
       parentDecisionRequired: true,
       parentDecisionStatus: "pending",
       adminApprovedAt: serverTimestamp(),
+      confirmationDeadline,
     });
 
     if (request.parentEmail) {
@@ -521,6 +544,7 @@ function U14Page(props) {
           childName: request.childName,
           raceLabel: request.raceLabel,
           practicalInfo: preprogramPracticalInfo,
+          confirmationDeadline,
         }),
       );
     }
@@ -604,6 +628,7 @@ function U14Page(props) {
     setIsSaving(true);
 
     try {
+      const confirmationDeadline = getU14ConfirmationDeadline();
       await updateDoc(doc(db, "u14Requests", request.id), {
         status: "confirmed",
         allocationMode: "porte_panier",
@@ -611,6 +636,7 @@ function U14Page(props) {
         parentDecisionRequired: true,
         parentDecisionStatus: "pending",
         adminApprovedAt: serverTimestamp(),
+        confirmationDeadline,
       });
 
       if (request.parentEmail) {
@@ -622,6 +648,7 @@ function U14Page(props) {
             parentFirstName: request.parentFirstName,
             childName: request.childName,
             practicalInfo: basketPracticalInfo,
+            confirmationDeadline,
           }),
         );
       }
@@ -864,7 +891,7 @@ function U14Page(props) {
                             : "Validation admin requise",
                         decision:
                           normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                            ? getParentDecisionLabel(request.parentDecisionStatus)
+                            ? <ParentDecisionCell now={pageOpenedAt} request={request} />
                             : "En attente validation admin",
                         __rowClass:
                           normalizeComparableValue(request.status) === "declined" ||
@@ -1073,7 +1100,7 @@ function U14Page(props) {
                         : "Validation admin requise",
                     decision:
                       normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                        ? getParentDecisionLabel(request.parentDecisionStatus)
+                        ? <ParentDecisionCell now={pageOpenedAt} request={request} />
                         : "En attente validation admin",
                     actions:
                       normalizeComparableValue(request.adminApprovalStatus) !== "approved" ? (
