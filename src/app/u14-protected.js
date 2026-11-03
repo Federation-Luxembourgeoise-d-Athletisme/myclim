@@ -69,6 +69,7 @@ const U14_PROTECTED_INVITE_STATUS_LABELS = {
 
 // Liste collée depuis Excel : Nom, Prénom, Club, Mail, Bib (tabulations,
 // points-virgules ou virgules). Une ligne d'en-tête éventuelle est ignorée.
+// Les erreurs sont des codes (name, email, bib), traduits par l'onglet.
 function parseU14ProtectedInvitesPaste(text) {
   return String(text || "")
     .split(/\r?\n/)
@@ -78,9 +79,9 @@ function parseU14ProtectedInvitesPaste(text) {
     .filter((cells) => !/^(nom|name)$/i.test(cells[0] || ""))
     .map(([lastName = "", firstName = "", club = "", parentEmail = "", bibNumber = ""]) => {
       const errors = [];
-      if (!lastName || !firstName) errors.push("nom ou prénom manquant");
-      if (!/^\S+@\S+\.\S+$/.test(parentEmail)) errors.push("mail invalide");
-      if (!bibNumber) errors.push("dossard manquant");
+      if (!lastName || !firstName) errors.push("name");
+      if (!/^\S+@\S+\.\S+$/.test(parentEmail)) errors.push("email");
+      if (!bibNumber) errors.push("bib");
       return { lastName, firstName, club, parentEmail: parentEmail.toLowerCase(), bibNumber, errors };
     });
 }

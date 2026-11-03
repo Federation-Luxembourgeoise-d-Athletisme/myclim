@@ -2,10 +2,9 @@ import { useMemo, useState } from "react";
 import { doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { formatDateForDisplay, getU14RaceLabel } from "./u14-helpers";
+import { useU14AdminCopy } from "./u14-admin-copy";
 import {
   U14_PROTECTED_INVITES_COLLECTION,
-  U14_PROTECTED_INVITE_STATUS_LABELS,
-  U14_PROTECTED_POOL_LABELS,
   U14_PROTECTED_SETTINGS_DOC_PATH,
   buildU14ProtectedInviteUrl,
   generateU14InviteToken,
@@ -44,6 +43,8 @@ function U14ProtectedTab(props) {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [now] = useState(() => Date.now());
+  const { copy, fill, raceLabel } = useU14AdminCopy();
+  const text = copy.protected;
   const pools = poolDraft || settings.pools;
   const deadline = deadlineDraft ?? settings.deadline;
   const requestsById = useMemo(() => new Map(requestRecords.map((request) => [request.id, request])), [requestRecords]);
@@ -72,9 +73,9 @@ function U14ProtectedTab(props) {
       );
       setPoolDraft(null);
       setDeadlineDraft(null);
-      flash("Réserves et date limite enregistrées.");
+      flash(text.saved);
     } catch {
-      setErrorMessage("Les réglages n'ont pas pu être enregistrés.");
+      setErrorMessage(text.saveFailed);
     } finally {
       setIsBusy(false);
     }
@@ -83,11 +84,11 @@ function U14ProtectedTab(props) {
   function handlePreview() {
     const rows = parseU14ProtectedInvitesPaste(pasteText).map((row) => ({
       ...row,
-      errors: knownBibs.has(String(row.bibNumber).trim()) ? [...row.errors, "déjà invité(e)"] : row.errors,
+      errors: knownBibs.has(String(row.bibNumber).trim()) ? [...row.errors, "duplicate"] : row.errors,
     }));
     setPreview(rows);
     setStatusMessage("");
-    setErrorMessage(rows.length ? "" : "Aucune ligne reconnue : collez Nom, Prénom, Club, Mail, Dossard.");
+    setErrorMessage(rows.length ? "" : text.noRows);
   }
 
   async function sendInviteMail(invite) {
@@ -106,10 +107,10 @@ function U14ProtectedTab(props) {
 
   async function handleCreateInvites() {
     if (!settings.deadline) {
-      setErrorMessage("Enregistrez d'abord la date limite des places protégées.");
+      setErrorMessage(text.deadlineFirst);
       return;
     }
-    if (!window.confirm(`Créer ${validPreview.length} invitation(s) et envoyer les mails maintenant ?`)) return;
+    if (!window.confirm(fill(text.createConfirm, { count: validPreview.length }))) return;
     setIsBusy(true);
     const failed = [];
     let created = 0;
@@ -139,8 +140,8 @@ function U14ProtectedTab(props) {
     setIsBusy(false);
     setPreview([]);
     setPasteText("");
-    if (failed.length) setErrorMessage(`Problème (création ou mail) pour : ${failed.join(", ")}.`);
-    flash(`${created} invitation(s) créée(s).`);
+    if (failed.length) setErrorMessage(fill(text.createProblems, { names: failed.join(", ") }));
+    flash(fill(text.created, { count: created }));
   }
 
   async function handleResend(invite) {
@@ -148,22 +149,22 @@ function U14ProtectedTab(props) {
     try {
       await sendInviteMail(invite);
       await updateDoc(doc(db, U14_PROTECTED_INVITES_COLLECTION, invite.id), { invitationSentAt: serverTimestamp() });
-      flash(`Invitation renvoyée à ${invite.parentEmail}.`);
+      flash(fill(text.resent, { email: invite.parentEmail }));
     } catch {
-      setErrorMessage("L'invitation n'a pas pu être renvoyée.");
+      setErrorMessage(text.resendFailed);
     } finally {
       setIsBusy(false);
     }
   }
 
   async function handleCancel(invite) {
-    if (!window.confirm(`Annuler l'invitation de ${invite.firstName} ${invite.lastName} ? Le lien ne fonctionnera plus.`)) return;
+    if (!window.confirm(fill(text.cancelConfirm, { name: `${invite.firstName} ${invite.lastName}` }))) return;
     setIsBusy(true);
     try {
       await updateDoc(doc(db, U14_PROTECTED_INVITES_COLLECTION, invite.id), { status: "cancelled", cancelledAt: serverTimestamp() });
-      flash("Invitation annulée.");
+      flash(text.cancelled);
     } catch {
-      setErrorMessage("L'invitation n'a pas pu être annulée.");
+      setErrorMessage(text.cancelFailed);
     } finally {
       setIsBusy(false);
     }
@@ -172,7 +173,7 @@ function U14ProtectedTab(props) {
   async function handleCopyLink(invite) {
     try {
       await navigator.clipboard.writeText(buildU14ProtectedInviteUrl(invite.id));
-      flash("Lien copié.");
+      flash(text.copied);
     } catch {
       setErrorMessage(buildU14ProtectedInviteUrl(invite.id));
     }
@@ -184,15 +185,15 @@ function U14ProtectedTab(props) {
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
 
       <Panel
-        title="Réserves par catégorie"
-        subtitle="Places bloquées dans chaque course de la catégorie tant que les enfants invités n'ont pas confirmé. Chaque confirmation réduit la réserve ; à la date limite, le reste est rendu aux places générales."
+        title={text.poolsTitle}
+        subtitle={text.poolsSubtitle}
       >
         <div className="u14-pool-grid">
           {Object.keys(pools).map((poolKey) => (
             <div key={poolKey} className="u14-pool-card">
-              <strong>{U14_PROTECTED_POOL_LABELS[poolKey]}</strong>
+              <strong>{text.poolLabels[poolKey]}</strong>
               <label className="field">
-                <span>Réserve</span>
+                <span>{text.reserve}</span>
                 <input
                   min="0"
                   type="number"
@@ -201,30 +202,30 @@ function U14ProtectedTab(props) {
                 />
               </label>
               <span className="parent-request-note">
-                {claimedByPool[poolKey] || 0} confirmé(s) · {reserveByPool[poolKey] || 0} place(s) encore bloquée(s)
+                {fill(text.poolStatus, { claimed: claimedByPool[poolKey] || 0, blocked: reserveByPool[poolKey] || 0 })}
               </span>
             </div>
           ))}
         </div>
         <div className="u14-protected-settings-row">
           <label className="field">
-            <span>Date limite d'inscription des enfants invités</span>
+            <span>{text.deadline}</span>
             <input type="date" value={deadline} onChange={(event) => setDeadlineDraft(event.target.value)} />
           </label>
           <span className="parent-request-note">
             {reserveReleased
-              ? "Date limite passée : la réserve est rendue aux places générales. Pensez à recalculer les statuts."
-              : "Rappel automatique aux familles 2 jours avant ; libération automatique le lendemain de la date limite."}
+              ? text.deadlinePassed
+              : text.deadlineHint}
           </span>
           <button className="button button--primary" disabled={isBusy || (!poolDraft && deadlineDraft === null)} type="button" onClick={handleSaveSettings}>
-            Enregistrer
+            {text.save}
           </button>
         </div>
       </Panel>
 
       <Panel
-        title="Importer la liste des enfants invités"
-        subtitle="Collez depuis Excel : Nom, Prénom, Club, Mail, Dossard (une ligne par enfant). La famille choisira la course et complétera ses coordonnées."
+        title={text.importTitle}
+        subtitle={text.importSubtitle}
       >
         <textarea
           className="u14-paste"
@@ -235,18 +236,18 @@ function U14ProtectedTab(props) {
         />
         <div className="table-actions table-actions--inline">
           <button className="button button--secondary" disabled={!pasteText.trim()} type="button" onClick={handlePreview}>
-            Vérifier la liste
+            {text.check}
           </button>
         </div>
         {preview.length ? (
           <>
             <DataTable
               columns={[
-                { key: "child", label: "Enfant" },
-                { key: "club", label: "Club" },
-                { key: "bib", label: "Dossard" },
-                { key: "email", label: "Mail" },
-                { key: "check", label: "Contrôle" },
+                { key: "child", label: text.colChild },
+                { key: "club", label: text.colClub },
+                { key: "bib", label: text.colBib },
+                { key: "email", label: text.colEmail },
+                { key: "check", label: text.colCheck },
               ]}
               rows={preview.map((row, index) => ({
                 id: `preview-${index}`,
@@ -255,7 +256,7 @@ function U14ProtectedTab(props) {
                 bib: row.bibNumber || "-",
                 email: row.parentEmail || "-",
                 check: row.errors.length ? (
-                  <span className="status-pill status-pill--danger">{row.errors.join(", ")}</span>
+                  <span className="status-pill status-pill--danger">{row.errors.map((code) => text.rowErrors[code] || code).join(", ")}</span>
                 ) : (
                   <span className="status-pill status-pill--ok">OK</span>
                 ),
@@ -263,24 +264,24 @@ function U14ProtectedTab(props) {
             />
             <div className="table-actions table-actions--inline">
               <button className="button button--primary" disabled={isBusy || !validPreview.length} type="button" onClick={handleCreateInvites}>
-                {isBusy ? "Envoi…" : `Créer ${validPreview.length} invitation(s) et envoyer les mails`}
+                {isBusy ? text.sending : fill(text.createButton, { count: validPreview.length })}
               </button>
               {preview.length !== validPreview.length ? (
-                <span className="parent-request-note">Les lignes en erreur ne seront pas créées.</span>
+                <span className="parent-request-note">{text.errorsSkipped}</span>
               ) : null}
             </div>
           </>
         ) : null}
       </Panel>
 
-      <Panel title={`Invitations (${invites.length})`} subtitle="La course apparaît quand la famille a confirmé avec son lien.">
+      <Panel title={fill(text.invitesTitle, { count: invites.length })} subtitle={text.invitesSubtitle}>
         <DataTable
           columns={[
-            { key: "child", label: "Enfant" },
-            { key: "email", label: "Mail" },
-            { key: "status", label: "Statut" },
-            { key: "race", label: "Course choisie" },
-            { key: "actions", label: "Actions" },
+            { key: "child", label: text.colChild },
+            { key: "email", label: text.colEmail },
+            { key: "status", label: text.colStatus },
+            { key: "race", label: text.colRace },
+            { key: "actions", label: text.colActions },
           ]}
           rows={
             sortedInvites.length
@@ -292,36 +293,36 @@ function U14ProtectedTab(props) {
                     child: (
                       <div className="table-stack">
                         <strong>{invite.firstName} {invite.lastName}</strong>
-                        <span className="parent-request-note">{invite.club || "-"} · dossard {invite.bibNumber || "-"}</span>
+                        <span className="parent-request-note">{invite.club || "-"} · {fill(copy.table.bib, { bib: invite.bibNumber || "-" })}</span>
                       </div>
                     ),
                     email: invite.parentEmail,
                     status: (
                       <div className="table-stack">
-                        <span className={STATUS_PILLS[status] || "status-pill"}>{U14_PROTECTED_INVITE_STATUS_LABELS[status] || status}</span>
+                        <span className={STATUS_PILLS[status] || "status-pill"}>{text.statuses[status] || status}</span>
                         {status === "invited" ? (
                           <span className="parent-request-note">
-                            avant le {formatDateForDisplay(invite.deadline)}
-                            {invite.reminderSentAt ? " · rappel envoyé" : ""}
+                            {fill(text.before, { date: formatDateForDisplay(invite.deadline) })}
+                            {invite.reminderSentAt ? text.reminderSent : ""}
                           </span>
                         ) : null}
                         {claimedRequest && claimedRequest.status === "declined" ? (
-                          <span className="status-pill status-pill--danger">Désisté ensuite</span>
+                          <span className="status-pill status-pill--danger">{text.withdrewLater}</span>
                         ) : null}
                       </div>
                     ),
-                    race: invite.claimedRaceCode ? getU14RaceLabel(invite.claimedRaceCode) : "-",
+                    race: invite.claimedRaceCode ? raceLabel(getU14RaceLabel(invite.claimedRaceCode)) : "-",
                     actions:
                       status === "invited" ? (
                         <div className="table-actions table-actions--inline">
                           <button className="button button--secondary button--small" type="button" onClick={() => handleCopyLink(invite)}>
-                            Copier le lien
+                            {text.copyLink}
                           </button>
                           <button className="button button--secondary button--small" disabled={isBusy} type="button" onClick={() => handleResend(invite)}>
-                            Renvoyer
+                            {text.resend}
                           </button>
                           <button className="button button--ghost-danger button--small" disabled={isBusy} type="button" onClick={() => handleCancel(invite)}>
-                            Annuler
+                            {text.cancel}
                           </button>
                         </div>
                       ) : (
@@ -329,7 +330,7 @@ function U14ProtectedTab(props) {
                       ),
                   };
                 })
-              : [{ id: "empty", child: "Aucune invitation pour l'instant", email: "-", status: "-", race: "-", actions: "-" }]
+              : [{ id: "empty", child: text.noInvites, email: "-", status: "-", race: "-", actions: "-" }]
           }
         />
       </Panel>

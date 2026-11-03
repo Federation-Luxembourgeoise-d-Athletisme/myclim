@@ -19,6 +19,7 @@ import {
   useU14RequestsList,
 } from "./u14-hooks";
 import { U14_STAGE_ORDER, getU14ChildStage } from "./u14-stage";
+import { useU14AdminCopy } from "./u14-admin-copy";
 import { U14ProtectedTab } from "./u14-protected-tab";
 import { useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
@@ -29,22 +30,13 @@ import { db } from "../services/firebase";
 // les places protégées et les textes envoyés aux familles. La répartition des
 // places est automatique (ici à l'ouverture, et côté serveur à chaque
 // nouvelle demande ou désistement) ; l'équipe ne fait que retenir, relancer
-// ou libérer.
+// ou libérer. Textes français / anglais : u14-admin-copy.js.
 const U14_TABS = [
-  { id: "todo", path: "/app/u14", label: "À faire" },
-  { id: "races", path: "/app/u14/courses", label: "Courses" },
-  { id: "basket", path: "/app/u14/porte-panier", label: "Porte-panier" },
-  { id: "protected", path: "/app/u14/places-protegees", label: "Places protégées" },
-  { id: "mails", path: "/app/u14/infos-pratiques", label: "Mails et infos pratiques" },
-];
-
-const U14_AUTOMATIC_MAILS = [
-  { when: "À l'inscription", what: "Confirmation de la demande, avec le récapitulatif des enfants inscrits." },
-  { when: "Quand vous retenez un enfant", what: "« Votre enfant est retenu » : course ou porte-panier, date, lieu, infos pratiques et délai de 10 jours pour confirmer." },
-  { when: "Quand vous relancez", what: "Le même mail, avec un nouveau délai de 10 jours." },
-  { when: "Quand le parent confirme", what: "« Merci, tout est ok » avec les infos pratiques et l'entrée offerte de l'accompagnant." },
-  { when: "Place protégée", what: "Invitation avec lien personnel, rappel automatique 2 jours avant la date limite, puis « Merci, tout est ok » à l'inscription." },
-  { when: "Désistement", what: "Accusé de réception au parent qui se désiste." },
+  { id: "todo", path: "/app/u14" },
+  { id: "races", path: "/app/u14/courses" },
+  { id: "basket", path: "/app/u14/porte-panier" },
+  { id: "protected", path: "/app/u14/places-protegees" },
+  { id: "mails", path: "/app/u14/infos-pratiques" },
 ];
 
 function getTabFromPath(pathname) {
@@ -66,36 +58,38 @@ function initialsOf(request) {
 }
 
 // Fiche d'un enfant : coordonnées et historique de sa demande.
-function ChildDetail({ request, invite, onRelease, isBusy }) {
+function ChildDetail({ request, invite, onRelease, isBusy, now }) {
+  const { copy, fill } = useU14AdminCopy();
+  const text = copy.detail;
   const child = request.child || {};
   const history = [
-    [request.submittedAt, "Demande envoyée"],
-    [invite?.claimedAt, "Place protégée confirmée avec le lien d'invitation"],
-    [request.promotedFromWaitlistAt, "Monté de la liste d'attente"],
-    [request.adminApprovedAt, "Retenu par l'équipe, mail envoyé au parent"],
-    [request.remindedAt, `Relance envoyée${request.reminderCount > 1 ? ` (${request.reminderCount} au total)` : ""}`],
+    [request.submittedAt, text.submitted],
+    [invite?.claimedAt, text.claimed],
+    [request.promotedFromWaitlistAt, text.promoted],
+    [request.adminApprovedAt, text.approved],
+    [request.remindedAt, request.reminderCount > 1 ? fill(text.remindedTotal, { count: request.reminderCount }) : text.reminded],
     [
       request.parentDecisionAt,
       normalizeComparableValue(request.parentDecisionStatus) === "declined"
-        ? `Désistement${request.withdrawalReason ? ` — ${request.withdrawalReason}` : ""}`
-        : "Participation confirmée par le parent",
+        ? `${text.declined}${request.withdrawalReason ? ` — ${request.withdrawalReason}` : ""}`
+        : text.confirmed,
     ],
   ]
     .filter(([value]) => getTimestampMs(value))
     .sort((left, right) => getTimestampMs(left[0]) - getTimestampMs(right[0]));
-  const stage = getU14ChildStage(request);
+  const stage = getU14ChildStage(request, now, copy.stages);
   const canRelease = !["withdrawn", "rejected"].includes(stage.key);
   const facts = [
-    ["Catégorie", request.category],
-    ["Naissance", child.birthDate ? formatDateForDisplay(child.birthDate) : ""],
-    ["Club", request.club],
-    ["Dossard", request.bibNumber],
+    [text.category, request.category],
+    [text.birth, child.birthDate ? formatDateForDisplay(child.birthDate) : ""],
+    [text.club, request.club],
+    [text.bib, request.bibNumber],
   ].filter(([, value]) => value);
 
   return (
     <div className="u14m-detail">
       <section>
-        <h4>Enfant</h4>
+        <h4>{text.child}</h4>
         <dl className="u14m-facts">
           {facts.map(([label, value]) => (
             <Fragment key={label}>
@@ -107,12 +101,12 @@ function ChildDetail({ request, invite, onRelease, isBusy }) {
         {request.notes ? <p className="u14m-note">« {request.notes} »</p> : null}
       </section>
       <section>
-        <h4>Parent</h4>
+        <h4>{text.parent}</h4>
         <p className="u14m-strong">{request.parentName}</p>
         {request.parentEmail ? <a href={`mailto:${request.parentEmail}`}>{request.parentEmail}</a> : null}
       </section>
       <section>
-        <h4>Historique</h4>
+        <h4>{text.history}</h4>
         {history.length ? (
           <ol className="u14m-timeline">
             {history.map(([value, label]) => (
@@ -123,13 +117,13 @@ function ChildDetail({ request, invite, onRelease, isBusy }) {
             ))}
           </ol>
         ) : (
-          <p className="u14m-muted">Aucun événement</p>
+          <p className="u14m-muted">{text.noEvent}</p>
         )}
       </section>
       {canRelease ? (
         <div className="u14m-detail__footer">
           <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => onRelease(request)}>
-            Retirer cet enfant et libérer la place
+            {text.release}
           </button>
         </div>
       ) : null}
@@ -140,19 +134,20 @@ function ChildDetail({ request, invite, onRelease, isBusy }) {
 // Tableau d'enfants (une course, le porte-panier ou « À faire ») : une ligne
 // par enfant, un statut, une action. Les groupes donnent les sous-titres
 // (Retenus, Places réservées, Liste d'attente, Désistés…).
-function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, isBusy, now, emptyLabel = "Aucun enfant pour l'instant." }) {
+function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, isBusy, now, emptyLabel }) {
+  const { copy, fill } = useU14AdminCopy();
   const [openId, setOpenId] = useState("");
   const visibleGroups = groups.filter((group) => group.rows.length || group.placeholder);
 
   return (
     <div className="u14m-table" role="table">
       <div className="u14m-row u14m-row--head" role="row">
-        <span>#</span>
-        <span>Enfant</span>
-        <span>Où il en est</span>
-        <span className="u14m-actions">Action</span>
+        <span>{copy.table.position}</span>
+        <span>{copy.table.child}</span>
+        <span>{copy.table.stage}</span>
+        <span className="u14m-actions">{copy.table.action}</span>
       </div>
-      {visibleGroups.length ? null : <p className="u14m-empty">{emptyLabel}</p>}
+      {visibleGroups.length ? null : <p className="u14m-empty">{emptyLabel || copy.table.empty}</p>}
       {visibleGroups.map((group) => (
         <Fragment key={group.key}>
           {group.title ? (
@@ -163,7 +158,7 @@ function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, is
           ) : null}
           {group.placeholder}
           {group.rows.map(({ request, position, tag }) => {
-            const stage = getU14ChildStage(request, now);
+            const stage = getU14ChildStage(request, now, copy.stages);
             const isOpen = openId === request.id;
             const invite = invitesByRequestId.get(request.id);
             const isInactive = stage.key === "withdrawn" || stage.key === "rejected";
@@ -176,11 +171,11 @@ function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, is
                     <span className="u14m-child__text">
                       <span className="u14m-child__name">
                         {request.childName}
-                        {invite ? <span className="u14m-tag u14m-tag--accent">Invité(e)</span> : null}
-                        {request.requestType === "preprogram_ou_porte_panier" ? <span className="u14m-tag">aussi porte-panier</span> : null}
+                        {invite ? <span className="u14m-tag u14m-tag--accent">{copy.table.invited}</span> : null}
+                        {request.requestType === "preprogram_ou_porte_panier" ? <span className="u14m-tag">{copy.table.alsoBasket}</span> : null}
                       </span>
                       <span className="u14m-child__meta">
-                        {[tag, request.club, request.bibNumber ? `dossard ${request.bibNumber}` : ""].filter(Boolean).join(" · ")}
+                        {[tag, request.club, request.bibNumber ? fill(copy.table.bib, { bib: request.bibNumber }) : ""].filter(Boolean).join(" · ")}
                       </span>
                     </span>
                   </button>
@@ -190,7 +185,7 @@ function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, is
                   </span>
                   <span className="u14m-actions">{renderAction(request, stage)}</span>
                 </div>
-                {isOpen ? <ChildDetail invite={invite} isBusy={isBusy} request={request} onRelease={onRelease} /> : null}
+                {isOpen ? <ChildDetail invite={invite} isBusy={isBusy} now={now} request={request} onRelease={onRelease} /> : null}
               </Fragment>
             );
           })}
@@ -202,6 +197,7 @@ function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, is
 
 function U14Page(props) {
   const { AuthFormField, Panel, DataTable, doc, loadMailQueueModule, serverTimestamp, setDoc, syncU14RaceAllocations, updateDoc } = props;
+  const { copy, fill, raceLabel } = useU14AdminCopy();
   const location = useLocation();
   const navigate = useNavigate();
   const { requests, loading: requestsLoading, error: requestsError } = useU14RequestsList(true);
@@ -257,15 +253,17 @@ function U14Page(props) {
   }, [requestRecords, requestStatusMap]);
   const lastSyncKey = useRef("");
   useEffect(() => {
-    if (dataLoading || !pendingSyncKey || lastSyncKey.current === pendingSyncKey) return;    lastSyncKey.current = pendingSyncKey;
+    if (dataLoading || !pendingSyncKey || lastSyncKey.current === pendingSyncKey) return;
+    lastSyncKey.current = pendingSyncKey;
     syncU14RaceAllocations({ requests, children, protectedInvites, protectedSettings }).catch((error) =>
       console.error("Automatic U14 allocation failed", error),
     );
   }, [children, dataLoading, pendingSyncKey, protectedInvites, protectedSettings, requests, syncU14RaceAllocations]);
 
+  const stageOf = (request) => getU14ChildStage(request, now, copy.stages);
   const raceRequests = requestRecords.filter((request) => request.requestType !== "porte_panier" && request.raceCode);
   const basketRequests = requestRecords.filter((request) => request.requestType === "porte_panier");
-  const withStage = (request) => ({ request, stage: getU14ChildStage(request, now) });
+  const withStage = (request) => ({ request, stage: stageOf(request) });
   const toRetain = raceRequests.map(withStage).filter(({ stage }) => stage.key === "to-retain");
   const overdue = requestRecords.map(withStage).filter(({ stage }) => stage.key === "overdue");
   const basketToDecide = basketRequests.map(withStage).filter(({ stage }) => stage.key === "to-decide");
@@ -326,8 +324,8 @@ function U14Page(props) {
         });
         await sendAcceptanceMail(request, confirmationDeadline);
       },
-      `${request.childName} est retenu(e) : mail envoyé au parent, réponse attendue sous 10 jours.`,
-      "Impossible de retenir cet enfant pour le moment.",
+      fill(copy.messages.retained, { name: request.childName }),
+      copy.messages.retainFailed,
     );
   }
 
@@ -342,15 +340,16 @@ function U14Page(props) {
         });
         await sendAcceptanceMail(request, confirmationDeadline);
       },
-      `Relance envoyée au parent de ${request.childName}, nouveau délai de 10 jours.`,
-      "Impossible d'envoyer la relance pour le moment.",
+      fill(copy.messages.reminded, { name: request.childName }),
+      copy.messages.remindFailed,
     );
   }
 
   // Retirer un enfant (délai dépassé, demande de la famille…) : même effet
-  // qu'un désistement ; la liste d'attente avance toute seule.
+  // qu'un désistement ; la liste d'attente avance toute seule. Le motif
+  // enregistré reste en français (historique de l'équipe).
   function handleRelease(request) {
-    if (!window.confirm(`Retirer ${request.childName} et libérer sa place ? L'enfant suivant de la liste d'attente montera (à retenir par vous).`)) {
+    if (!window.confirm(fill(copy.messages.releaseConfirm, { name: request.childName }))) {
       return undefined;
     }
     return runAction(
@@ -359,7 +358,7 @@ function U14Page(props) {
           status: "declined",
           parentDecisionStatus: "declined",
           withdrawalReason:
-            getU14ChildStage(request, now).key === "overdue" ? "Délai de confirmation dépassé (libéré par l'organisation)" : "Retiré par l'organisation",
+            stageOf(request).key === "overdue" ? "Délai de confirmation dépassé (libéré par l'organisation)" : "Retiré par l'organisation",
           declinedByAdmin: true,
           acceptedPosition: null,
           waitlistPosition: null,
@@ -373,8 +372,8 @@ function U14Page(props) {
           protectedSettings,
         });
       },
-      `Place de ${request.childName} libérée. Si un enfant monte de la liste d'attente, il apparaît dans « À faire ».`,
-      "Impossible de libérer cette place pour le moment.",
+      fill(copy.messages.released, { name: request.childName }),
+      copy.messages.releaseFailed,
     );
   }
 
@@ -390,8 +389,8 @@ function U14Page(props) {
         );
         setPracticalDraft(null);
       },
-      "Infos pratiques enregistrées.",
-      "Impossible d'enregistrer les infos pratiques pour le moment.",
+      copy.messages.practicalSaved,
+      copy.messages.practicalFailed,
     );
   }
 
@@ -399,14 +398,14 @@ function U14Page(props) {
     if (stage.key === "to-retain") {
       return (
         <button className="u14m-btn u14m-btn--primary" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
-          Retenir et envoyer le mail
+          {copy.actions.retain}
         </button>
       );
     }
     if (stage.key === "to-decide") {
       return (
         <button className="u14m-btn u14m-btn--primary" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
-          Retenir en porte-panier
+          {copy.actions.retainBasket}
         </button>
       );
     }
@@ -414,10 +413,10 @@ function U14Page(props) {
       return (
         <>
           <button className="u14m-btn" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
-            Relancer
+            {copy.actions.remind}
           </button>
           <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => handleRelease(request)}>
-            Libérer
+            {copy.actions.release}
           </button>
         </>
       );
@@ -425,7 +424,7 @@ function U14Page(props) {
     if (stage.key === "waiting-parent") {
       return (
         <button className="u14m-btn" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
-          Relancer
+          {copy.actions.remind}
         </button>
       );
     }
@@ -451,20 +450,18 @@ function U14Page(props) {
     )
     .map(withStage)
     .sort(byStageThenPosition);
-  const retainedEntries = raceEntries.filter(({ stage }) => RETAINED_STAGES.includes(stage.key));
+  const searchTag = (request) => (normalizedSearch ? raceLabel(request.raceLabel) : "");
   const raceGroups = [
     {
       key: "retained",
-      title: "Retenus",
-      rows: retainedEntries.map(({ request }, index) => ({
-        request,
-        position: index + 1,
-        tag: normalizedSearch ? request.raceLabel : "",
-      })),
+      title: copy.races.groupRetained,
+      rows: raceEntries
+        .filter(({ stage }) => RETAINED_STAGES.includes(stage.key))
+        .map(({ request }, index) => ({ request, position: index + 1, tag: searchTag(request) })),
     },
     {
       key: "reserve",
-      title: "Places réservées aux enfants invités",
+      title: copy.races.groupReserve,
       count: !normalizedSearch ? selectedRace.blockedPlaces : 0,
       rows: [],
       placeholder:
@@ -472,10 +469,10 @@ function U14Page(props) {
           <div className="u14m-row u14m-row--reserve" role="row">
             <span className="u14m-position">—</span>
             <span className="u14m-reserve-text">
-              {selectedRace.blockedPlaces} place{selectedRace.blockedPlaces > 1 ? "s" : ""} gardée{selectedRace.blockedPlaces > 1 ? "s" : ""} pour les enfants invités
+              {selectedRace.blockedPlaces > 1 ? fill(copy.races.reserveMany, { count: selectedRace.blockedPlaces }) : copy.races.reserveOne}
             </span>
             <span className="u14m-stage__detail">
-              {protectedSettings.deadline ? `jusqu'au ${formatDateForDisplay(protectedSettings.deadline)}, puis rendues aux inscriptions` : "jusqu'à la date limite des places protégées"}
+              {protectedSettings.deadline ? fill(copy.races.reserveUntil, { date: formatDateForDisplay(protectedSettings.deadline) }) : copy.races.reserveUntilDeadline}
             </span>
             <span />
           </div>
@@ -483,35 +480,39 @@ function U14Page(props) {
     },
     {
       key: "waitlist",
-      title: "Liste d'attente",
+      title: copy.races.groupWaitlist,
       rows: raceEntries
         .filter(({ stage }) => stage.key === "waitlist")
-        .map(({ request }) => ({ request, position: `A${request.waitlistPosition || "?"}`, tag: normalizedSearch ? request.raceLabel : "" })),
+        .map(({ request }) => ({ request, position: `A${request.waitlistPosition || "?"}`, tag: searchTag(request) })),
     },
     {
       key: "inactive",
-      title: "Désistés et non retenus",
+      title: copy.races.groupInactive,
       rows: raceEntries
         .filter(({ stage }) => ["withdrawn", "rejected"].includes(stage.key))
-        .map(({ request }) => ({ request, position: "—", tag: normalizedSearch ? request.raceLabel : "" })),
+        .map(({ request }) => ({ request, position: "—", tag: searchTag(request) })),
     },
   ];
 
   const todoGroups = [
     {
       key: "overdue",
-      title: "Sans réponse — délai de 10 jours dépassé",
-      rows: overdue.map(({ request }) => ({ request, position: "!", tag: request.requestType === "porte_panier" ? "Porte-panier" : request.raceLabel })),
+      title: copy.todo.groupOverdue,
+      rows: overdue.map(({ request }, index) => ({
+        request,
+        position: index + 1,
+        tag: request.requestType === "porte_panier" ? copy.todo.basketTag : raceLabel(request.raceLabel),
+      })),
     },
     {
       key: "retain",
-      title: "À retenir — une place est disponible",
-      rows: toRetain.map(({ request }, index) => ({ request, position: index + 1, tag: request.raceLabel })),
+      title: copy.todo.groupRetain,
+      rows: toRetain.map(({ request }, index) => ({ request, position: index + 1, tag: raceLabel(request.raceLabel) })),
     },
     {
       key: "basket",
-      title: "Porte-panier à décider",
-      rows: basketToDecide.map(({ request }, index) => ({ request, position: index + 1, tag: "Porte-panier" })),
+      title: copy.todo.groupBasket,
+      rows: basketToDecide.map(({ request }, index) => ({ request, position: index + 1, tag: copy.todo.basketTag })),
     },
   ];
 
@@ -526,7 +527,7 @@ function U14Page(props) {
     },
     {
       key: "inactive",
-      title: "Désistés",
+      title: copy.basket.groupInactive,
       rows: basketEntries.filter(({ stage }) => ["withdrawn", "rejected"].includes(stage.key)).map(({ request }) => ({ request, position: "—" })),
     },
   ];
@@ -540,18 +541,18 @@ function U14Page(props) {
     <div className="page u14m-page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Pré-programme</p>
-          <h1>U12 / U14</h1>
-          <p>Courses jeunes et porte-panier. Les places se répartissent toutes seules par ordre d'arrivée ; vous retenez les enfants, relancez les familles et suivez les confirmations.</p>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.intro}</p>
         </div>
       </section>
 
       {requestsError || childrenError || invitesError ? <p className="status-note">{requestsError || childrenError || invitesError}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
-      {dataLoading ? <p className="status-note">Chargement du module U12 / U14…</p> : null}
+      {dataLoading ? <p className="status-note">{copy.loading}</p> : null}
 
-      <nav aria-label="Navigation du module U12 / U14" className="u14m-tabs" role="tablist">
+      <nav aria-label={copy.navLabel} className="u14m-tabs" role="tablist">
         {U14_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -561,7 +562,7 @@ function U14Page(props) {
             type="button"
             onClick={() => navigate(tab.path)}
           >
-            {tab.label}
+            {copy.tabs[tab.id]}
             {tab.id === "todo" && todoCount ? <span className="u14m-tab__badge">{todoCount}</span> : null}
             {tab.id === "basket" && basketRequests.length ? <span className="u14m-tab__count">{basketRequests.length}</span> : null}
           </button>
@@ -572,37 +573,37 @@ function U14Page(props) {
         <>
           <section className="u14m-kpis">
             <div className="u14m-kpi">
-              <span>À retenir</span>
+              <span>{copy.todo.kpiRetain}</span>
               <strong>{toRetain.length}</strong>
-              <small>{promotedCount ? `dont ${promotedCount} monté(s) de l'attente` : "places disponibles"}</small>
+              <small>{promotedCount ? fill(copy.todo.kpiRetainPromoted, { count: promotedCount }) : copy.todo.kpiRetainNone}</small>
             </div>
             <div className={`u14m-kpi${overdue.length ? " u14m-kpi--alert" : ""}`}>
-              <span>Sans réponse</span>
+              <span>{copy.todo.kpiOverdue}</span>
               <strong>{overdue.length}</strong>
-              <small>délai de 10 jours dépassé</small>
+              <small>{copy.todo.kpiOverdueDetail}</small>
             </div>
             <div className="u14m-kpi">
-              <span>Porte-panier</span>
+              <span>{copy.todo.kpiBasket}</span>
               <strong>{basketToDecide.length}</strong>
-              <small>demandes à décider</small>
+              <small>{copy.todo.kpiBasketDetail}</small>
             </div>
             <div className="u14m-kpi">
-              <span>Confirmés</span>
-              <strong>{requestRecords.filter((request) => getU14ChildStage(request, now).key === "confirmed").length}</strong>
-              <small>courses et porte-panier</small>
+              <span>{copy.todo.kpiConfirmed}</span>
+              <strong>{requestRecords.filter((request) => stageOf(request).key === "confirmed").length}</strong>
+              <small>{copy.todo.kpiConfirmedDetail}</small>
             </div>
           </section>
-          <Panel title="À faire" subtitle="Ce qui attend une décision de l'équipe. Retenir envoie le mail d'acceptation ; le parent a ensuite 10 jours pour confirmer.">
-            <ChildrenTable {...tableProps} emptyLabel="Rien à faire pour l'instant : toutes les demandes sont traitées." groups={todoGroups} />
+          <Panel title={copy.todo.title} subtitle={copy.todo.subtitle}>
+            <ChildrenTable {...tableProps} emptyLabel={copy.todo.empty} groups={todoGroups} />
           </Panel>
         </>
       ) : null}
 
       {activeTab === "races" ? (
-        <Panel title="Courses" subtitle="Choisissez une course. Cliquez sur un enfant pour ouvrir sa fiche.">
+        <Panel title={copy.races.title} subtitle={copy.races.subtitle}>
           <div className="u14m-race-grid">
             {raceSummaries.map((race) => {
-              const filled = raceRequests.filter((request) => request.raceCode === race.code && RETAINED_STAGES.includes(getU14ChildStage(request, now).key)).length;
+              const filled = raceRequests.filter((request) => request.raceCode === race.code && RETAINED_STAGES.includes(stageOf(request).key)).length;
               const total = race.totalPlaces || 14;
               const isActive = !normalizedSearch && selectedRace.code === race.code;
               return (
@@ -617,7 +618,7 @@ function U14Page(props) {
                   }}
                 >
                   <span className="u14m-race__head">
-                    <span className="u14m-race__name">{race.label.replace(" - ", " · ")}</span>
+                    <span className="u14m-race__name">{raceLabel(race.label).replace(" - ", " · ")}</span>
                     <span className="u14m-race__count">
                       {filled}<span>/{total}</span>
                     </span>
@@ -627,28 +628,35 @@ function U14Page(props) {
                     <span className="u14m-bar__reserved" style={{ width: `${Math.min((race.blockedPlaces / total) * 100, 100)}%` }} />
                   </span>
                   <span className="u14m-race__meta">
-                    {race.blockedPlaces ? `${race.blockedPlaces} réservée(s) · ` : ""}
-                    {race.waitlistedRequests.length ? `${race.waitlistedRequests.length} en attente` : `${race.remainingPlaces} libre(s)`}
+                    {race.blockedPlaces ? fill(copy.races.reservedShort, { count: race.blockedPlaces }) : ""}
+                    {race.waitlistedRequests.length
+                      ? fill(copy.races.waiting, { count: race.waitlistedRequests.length })
+                      : fill(copy.races.free, { count: race.remainingPlaces })}
                   </span>
                 </button>
               );
             })}
           </div>
           <div className="u14m-toolbar">
-            <h3 className="u14m-toolbar__title">{normalizedSearch ? "Résultats de la recherche" : selectedRace.label}</h3>
-            <input aria-label="Rechercher un enfant" className="u14m-search" placeholder="Rechercher un enfant, un club, un dossard…" type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <h3 className="u14m-toolbar__title">{normalizedSearch ? copy.races.searchResults : raceLabel(selectedRace.label)}</h3>
+            <input
+              aria-label={copy.races.searchLabel}
+              className="u14m-search"
+              placeholder={copy.races.searchPlaceholder}
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
           </div>
-          <ChildrenTable {...tableProps} emptyLabel={normalizedSearch ? "Aucun enfant ne correspond à cette recherche." : "Aucune inscription pour cette course pour l'instant."} groups={raceGroups} />
+          <ChildrenTable {...tableProps} emptyLabel={normalizedSearch ? copy.races.emptySearch : copy.races.emptyRace} groups={raceGroups} />
         </Panel>
       ) : null}
 
       {activeTab === "basket" ? (
-        <Panel title="Porte-panier" subtitle="Pas de limite de places automatique : vous retenez au cas par cas.">
-          <ChildrenTable {...tableProps} emptyLabel="Aucune demande porte-panier pour l'instant." groups={basketGroups} />
+        <Panel title={copy.basket.title} subtitle={copy.basket.subtitle}>
+          <ChildrenTable {...tableProps} emptyLabel={copy.basket.empty} groups={basketGroups} />
           {basketAlternatives.length ? (
-            <p className="u14m-footnote">
-              Accepteraient aussi le porte-panier (en liste d'attente d'une course) : {basketAlternatives.map((request) => request.childName).join(", ")}.
-            </p>
+            <p className="u14m-footnote">{fill(copy.basket.alternatives, { names: basketAlternatives.map((request) => request.childName).join(", ") })}</p>
           ) : null}
         </Panel>
       ) : null}
@@ -671,18 +679,18 @@ function U14Page(props) {
 
       {activeTab === "mails" ? (
         <>
-          <Panel title="Infos pratiques" subtitle="Ajoutées aux mails « retenu » et « tout est ok », et visibles par le parent dans « Mes enfants » une fois la place confirmée.">
+          <Panel title={copy.mails.practicalTitle} subtitle={copy.mails.practicalSubtitle}>
             {practicalInfoError ? <p className="form-error">{practicalInfoError}</p> : null}
-            {practicalInfoLoading ? <p className="panel-note">Chargement…</p> : null}
+            {practicalInfoLoading ? <p className="panel-note">{copy.mails.loading}</p> : null}
             <form className="profile-form" onSubmit={handleSavePracticalInfo}>
-              <AuthFormField label="Courses U12 / U14">
+              <AuthFormField label={copy.mails.practicalRaces}>
                 <textarea
                   rows="5"
                   value={(practicalDraft || { preprogram: preprogramPracticalInfo }).preprogram}
                   onChange={(event) => setPracticalDraft((current) => ({ porte_panier: basketPracticalInfo, ...current, preprogram: event.target.value }))}
                 />
               </AuthFormField>
-              <AuthFormField label="Porte-panier">
+              <AuthFormField label={copy.mails.practicalBasket}>
                 <textarea
                   rows="5"
                   value={(practicalDraft || { porte_panier: basketPracticalInfo }).porte_panier}
@@ -691,17 +699,17 @@ function U14Page(props) {
               </AuthFormField>
               <div className="profile-form__actions">
                 <button className="button button--primary" disabled={isBusy || !practicalDraft} type="submit">
-                  Enregistrer les infos pratiques
+                  {copy.mails.save}
                 </button>
               </div>
             </form>
           </Panel>
-          <Panel title="Mails envoyés aux familles" subtitle="Ce qui part, et quand. Tous les mails sont en français et en anglais.">
+          <Panel title={copy.mails.listTitle} subtitle={copy.mails.listSubtitle}>
             <div className="u14m-mail-list">
-              {U14_AUTOMATIC_MAILS.map((mail) => (
-                <div key={mail.when} className="u14m-mail-row">
-                  <strong>{mail.when}</strong>
-                  <span>{mail.what}</span>
+              {copy.mails.list.map(([when, what]) => (
+                <div key={when} className="u14m-mail-row">
+                  <strong>{when}</strong>
+                  <span>{what}</span>
                 </div>
               ))}
             </div>
