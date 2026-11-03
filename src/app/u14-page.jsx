@@ -1,20 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { collection } from "firebase/firestore";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   U14_PRACTICAL_INFO_DOC_PATH,
   U14_RACE_DEFINITIONS,
   buildU14AllocationSnapshot,
-  buildU14RequestRecord,
   formatDateForDisplay,
   formatDateTimeForDisplay,
-  formatU14RequestStatusLabel,
-  getAdminApprovalLabel,
-  getParentDecisionLabel,
   getTimestampMs,
   getU14ConfirmationDeadline,
   getU14PracticalRoleKey,
-  getU14WorkflowStatusLabel,
   normalizeComparableValue,
 } from "./u14-helpers";
 import {
@@ -24,102 +18,159 @@ import {
   useU14ProtectedSettings,
   useU14RequestsList,
 } from "./u14-hooks";
-import { U14_PROTECTED_INVITES_COLLECTION } from "./u14-protected";
+import { U14_STAGE_ORDER, U14_STAGE_TONES, getU14ChildStage } from "./u14-stage";
 import { U14ProtectedTab } from "./u14-protected-tab";
 import { useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
 
-const U14_TAB_PATHS = {
-  preprogram: "/app/u14",
-  protected: "/app/u14/places-protegees",
-  basket: "/app/u14/porte-panier",
-  timeline: "/app/u14/chronologie",
-  practical: "/app/u14/infos-pratiques",
-};
+// Module Pré-programme U12 / U14 (équipe) : une page « À faire », un tableau
+// par course avec un seul statut lisible, le porte-panier sur le même modèle,
+// les places protégées et les textes envoyés aux familles. La répartition des
+// places est automatique (ici à l'ouverture, et côté serveur à chaque
+// nouvelle demande ou désistement) ; l'équipe ne fait que retenir, relancer
+// ou libérer.
+const U14_TABS = [
+  { id: "todo", path: "/app/u14", label: "À faire" },
+  { id: "races", path: "/app/u14/courses", label: "Courses" },
+  { id: "basket", path: "/app/u14/porte-panier", label: "Porte-panier" },
+  { id: "protected", path: "/app/u14/places-protegees", label: "Places protégées" },
+  { id: "mails", path: "/app/u14/infos-pratiques", label: "Mails et infos pratiques" },
+];
 
-function getU14TabFromPath(pathname) {
-  const normalizedPath = String(pathname || "").replace(/\/+$/, "") || "/app/u14";
+const U14_AUTOMATIC_MAILS = [
+  { when: "À l'inscription", what: "Confirmation de la demande, avec le récapitulatif des enfants inscrits." },
+  { when: "Quand vous retenez un enfant", what: "« Votre enfant est retenu » : course ou porte-panier, date, lieu, infos pratiques et délai de 10 jours pour confirmer." },
+  { when: "Quand vous relancez", what: "Le même mail, avec un nouveau délai de 10 jours." },
+  { when: "Quand le parent confirme", what: "« Merci, tout est ok » avec les infos pratiques et l'entrée offerte de l'accompagnant." },
+  { when: "Place protégée", what: "Invitation avec lien personnel, rappel automatique 2 jours avant la date limite, puis « Merci, tout est ok » à l'inscription." },
+  { when: "Désistement", what: "Accusé de réception au parent qui se désiste." },
+];
 
-  if (normalizedPath.endsWith("/porte-panier")) return "basket";
-  if (normalizedPath.endsWith("/places-protegees")) return "protected";
-  if (normalizedPath.endsWith("/chronologie")) return "timeline";
-  if (normalizedPath.endsWith("/infos-pratiques")) return "practical";
-  return "preprogram";
+function getTabFromPath(pathname) {
+  const path = String(pathname || "").replace(/\/+$/, "");
+  return U14_TABS.find((tab) => tab.id !== "todo" && path.endsWith(tab.path))?.id || "todo";
 }
 
-function getU14PageHeader(activeTab, basketRequestsCount) {
-  switch (activeTab) {
-    case "basket":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Porte-panier",
-        description: `Gestion séparée des demandes porte-panier et du suivi parent (${basketRequestsCount} demande(s)).`,
-      };
-    case "protected":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Places protégées",
-        description: "Réserves par catégorie, invitations des enfants protégés et suivi de leurs inscriptions.",
-      };
-    case "timeline":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Chronologie",
-        description: "Vue chronologique de toutes les demandes pré-programme et porte-panier.",
-      };
-    case "practical":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Infos pratiques",
-        description: "Messages pratiques envoyés aux familles pour le pré-programme et le porte-panier.",
-      };
-    default:
-      return {
-        eyebrow: "Module U12 / U14",
-        title: "U12 / U14",
-        description: "Gestion des demandes U12 / U14, des places protégées et du suivi parent.",
-      };
-  }
+function StagePill({ stage }) {
+  return <span className={U14_STAGE_TONES[stage.tone] || "status-pill"}>{stage.label}</span>;
 }
 
-// Décision du parent, avec la date limite de confirmation (10 jours après la
-// validation) tant qu'il n'a pas répondu ; en rouge une fois dépassée.
-function ParentDecisionCell({ request, now }) {
-  const label = getParentDecisionLabel(request.parentDecisionStatus);
-  const isPending = !["confirmed", "declined"].includes(normalizeComparableValue(request.parentDecisionStatus));
-  const deadlineMs = getTimestampMs(request.confirmationDeadline);
-  if (!isPending || !deadlineMs) return label;
-  const isOverdue = deadlineMs < now;
+// Fiche d'un enfant : coordonnées et historique de sa demande.
+function ChildDetail({ request, invite, onRelease, isBusy }) {
+  const child = request.child || {};
+  const history = [
+    [request.submittedAt, "Demande envoyée"],
+    [invite?.claimedAt, "Place protégée confirmée avec le lien d'invitation"],
+    [request.promotedFromWaitlistAt, "Monté de la liste d'attente"],
+    [request.adminApprovedAt, "Retenu par l'équipe, mail envoyé au parent"],
+    [request.remindedAt, `Relance envoyée${request.reminderCount > 1 ? ` (${request.reminderCount} au total)` : ""}`],
+    [
+      request.parentDecisionAt,
+      normalizeComparableValue(request.parentDecisionStatus) === "declined"
+        ? `Désistement${request.withdrawalReason ? ` : ${request.withdrawalReason}` : ""}`
+        : "Participation confirmée par le parent",
+    ],
+  ]
+    .filter(([value]) => getTimestampMs(value))
+    .sort((left, right) => getTimestampMs(left[0]) - getTimestampMs(right[0]));
+  const stage = getU14ChildStage(request);
+  const canRelease = !["withdrawn", "rejected"].includes(stage.key);
+
   return (
-    <div className="table-stack">
-      <span>{label}</span>
-      <span className={isOverdue ? "status-pill status-pill--danger" : "parent-request-note"}>
-        {isOverdue ? "Délai dépassé le " : "Avant le "}
-        {formatDateForDisplay(request.confirmationDeadline)}
-      </span>
+    <div className="u14m-detail">
+      <div className="u14m-detail__grid">
+        <div>
+          <strong>Enfant</strong>
+          <span>{request.childName}</span>
+          <span className="parent-request-note">
+            {[request.category, child.birthDate ? `né(e) le ${formatDateForDisplay(child.birthDate)}` : "", request.club, request.bibNumber ? `dossard ${request.bibNumber}` : ""]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+          {request.notes ? <span className="parent-request-note">Note : {request.notes}</span> : null}
+        </div>
+        <div>
+          <strong>Parent</strong>
+          <span>{request.parentName}</span>
+          {request.parentEmail ? <a href={`mailto:${request.parentEmail}`}>{request.parentEmail}</a> : null}
+        </div>
+        <div>
+          <strong>Historique</strong>
+          {history.length ? (
+            history.map(([value, label]) => (
+              <span key={label}>
+                <span className="parent-request-note">{formatDateTimeForDisplay(value)}</span> — {label}
+              </span>
+            ))
+          ) : (
+            <span className="parent-request-note">Aucun événement</span>
+          )}
+        </div>
+      </div>
+      {canRelease ? (
+        <div className="table-actions table-actions--inline">
+          <button className="button button--ghost-danger button--small" disabled={isBusy} type="button" onClick={() => onRelease(request)}>
+            Retirer cet enfant et libérer la place
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Tableau d'enfants (une course ou le porte-panier) : un statut, une action.
+function ChildrenTable({ rows, invitesByRequestId, renderAction, onRelease, isBusy, now, extraRows = [] }) {
+  const [openId, setOpenId] = useState("");
+
+  return (
+    <div className="u14m-table">
+      <div className="u14m-row u14m-row--head">
+        <span>#</span>
+        <span>Enfant</span>
+        <span>Où il en est</span>
+        <span />
+      </div>
+      {rows.length || extraRows.length ? null : <p className="parent-request-note u14m-empty">Aucun enfant pour l'instant.</p>}
+      {rows.map(({ request, position }) => {
+        const stage = getU14ChildStage(request, now);
+        const isOpen = openId === request.id;
+        const invite = invitesByRequestId.get(request.id);
+        return (
+          <Fragment key={request.id}>
+            <div className={`u14m-row${stage.key === "withdrawn" || stage.key === "rejected" ? " u14m-row--muted" : ""}`}>
+              <span className="u14m-position">{position}</span>
+              <span>
+                <button className="u14m-name" type="button" onClick={() => setOpenId(isOpen ? "" : request.id)}>
+                  {request.childName} <span aria-hidden="true">{isOpen ? "▴" : "▾"}</span>
+                </button>
+                <span className="parent-request-note"> {request.club || ""}</span>
+                <span className="u14m-badges">
+                  {invite ? <span className="status-pill status-pill--accent">Invité(e)</span> : null}
+                  {request.requestType === "preprogram_ou_porte_panier" ? <span className="status-pill">accepte aussi porte-panier</span> : null}
+                </span>
+              </span>
+              <span>
+                <StagePill stage={stage} /> <span className="parent-request-note">{stage.detail}</span>
+              </span>
+              <span className="table-actions table-actions--inline">{renderAction(request, stage)}</span>
+            </div>
+            {isOpen ? <ChildDetail invite={invite} isBusy={isBusy} request={request} onRelease={onRelease} /> : null}
+          </Fragment>
+        );
+      })}
+      {extraRows}
     </div>
   );
 }
 
 function U14Page(props) {
-  const {
-    AuthFormField,
-    DataTable,
-    Panel,
-    doc,
-    getDocs,
-    loadMailQueueModule,
-    serverTimestamp,
-    setDoc,
-    syncU14RaceAllocations,
-    updateDoc,
-  } = props;
+  const { AuthFormField, Panel, DataTable, doc, loadMailQueueModule, serverTimestamp, setDoc, syncU14RaceAllocations, updateDoc } = props;
   const location = useLocation();
   const navigate = useNavigate();
   const { requests, loading: requestsLoading, error: requestsError } = useU14RequestsList(true);
   const { children, loading: childrenLoading, error: childrenError } = useU14ChildrenList(true);
-  const { invites: protectedInvites, loading: protectedInvitesLoading, error: protectedInvitesError } = useU14ProtectedInvites(true);
+  const { invites: protectedInvites, loading: invitesLoading, error: invitesError } = useU14ProtectedInvites(true);
   const { settings: protectedSettings } = useU14ProtectedSettings(true);
   const {
     preprogram: preprogramPracticalInfo,
@@ -127,774 +178,393 @@ function U14Page(props) {
     loading: practicalInfoLoading,
     error: practicalInfoError,
   } = useU14PracticalInfoConfiguration(true);
-  // Date et lieu de l'édition active, repris dans les mails d'acceptation.
   const { activeEditionId } = useActiveEdition();
   const { editions } = useMeetingEditions();
   const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
-  const [pageOpenedAt] = useState(() => Date.now());
-  const acceptanceMailContext = {
+  const mailContext = {
     eventDate: activeEdition?.date || null,
     venue: activeEdition?.venue || "",
     editionYear: activeEdition?.year || activeEditionId,
   };
-  const [selectedRaceCode, setSelectedRaceCode] = useState(U14_RACE_DEFINITIONS[0]?.code || "");
-  const [activeU14Tab, setActiveU14Tab] = useState(() => getU14TabFromPath(location.pathname));
-  const [practicalInfoForm, setPracticalInfoForm] = useState({ preprogram: "", porte_panier: "" });
-  const [requestSearch, setRequestSearch] = useState("");
-  const [requestStatusFilter, setRequestStatusFilter] = useState("Tous");
-  const [requestRaceFilter, setRequestRaceFilter] = useState("Toutes");
+  const [now] = useState(() => Date.now());
+  const activeTab = getTabFromPath(location.pathname);
+  const [selectedRaceCode, setSelectedRaceCode] = useState(U14_RACE_DEFINITIONS[0].code);
+  const [search, setSearch] = useState("");
+  const [practicalDraft, setPracticalDraft] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setPracticalInfoForm({
-        preprogram: preprogramPracticalInfo,
-        porte_panier: basketPracticalInfo,
-      });
-    }, 0);
+  const [isBusy, setIsBusy] = useState(false);
+  const dataLoading = requestsLoading || childrenLoading || invitesLoading;
 
-    return () => window.clearTimeout(timeoutId);
-  }, [basketPracticalInfo, preprogramPracticalInfo]);
-
-  useEffect(() => {
-    const nextTab = getU14TabFromPath(location.pathname);
-    if (nextTab === activeU14Tab) return;
-    setActiveU14Tab(nextTab);
-  }, [activeU14Tab, location.pathname]);
-
-  function openU14Tab(tabId) {
-    const nextPath = U14_TAB_PATHS[tabId] || U14_TAB_PATHS.preprogram;
-    setActiveU14Tab(tabId);
-    if (location.pathname !== nextPath) {
-      navigate(nextPath);
-    }
-  }
-  const dataLoading = requestsLoading || childrenLoading || protectedInvitesLoading;
-  const { requestRecords, raceSummaries, reserveByPool, claimedByPool, reserveReleased } = useMemo(
-    () => buildU14AllocationSnapshot({ requests, children, protectedInvites, protectedSettings, now: pageOpenedAt }),
-    [children, pageOpenedAt, protectedInvites, protectedSettings, requests],
+  const { requestRecords, requestStatusMap, raceSummaries, reserveByPool, claimedByPool, reserveReleased } = useMemo(
+    () => buildU14AllocationSnapshot({ requests, children, protectedInvites, protectedSettings, now }),
+    [children, now, protectedInvites, protectedSettings, requests],
   );
-  // Tous les recalculs passent par ici, avec les invitations et réserves à jour.
-  function syncAllocations(overrides = {}) {
-    return syncU14RaceAllocations({ requests, children, protectedInvites, protectedSettings, ...overrides });
-  }
-  const selectedRaceSummary = raceSummaries.find((summary) => summary.code === selectedRaceCode) || raceSummaries[0] || null;
-  const selectedRaceRequests = useMemo(
-    () =>
-      requestRecords
-        .filter((request) => request.raceCode === selectedRaceCode && request.requestType !== "porte_panier")
-        .sort((left, right) => {
-          const leftStatus = normalizeComparableValue(left.status);
-          const rightStatus = normalizeComparableValue(right.status);
-          const statusPriority = {
-            confirmed: 0,
-            waitlisted: 1,
-            submitted: 2,
-            declined: 3,
-            rejected: 4,
-          };
-          const priorityDifference =
-            (statusPriority[leftStatus] ?? 99) - (statusPriority[rightStatus] ?? 99);
-          if (priorityDifference !== 0) return priorityDifference;
-          if (left.submittedAtMs !== right.submittedAtMs) return left.submittedAtMs - right.submittedAtMs;
-          return left.childName.localeCompare(right.childName, "fr");
-        }),
-    [requestRecords, selectedRaceCode],
+  const invitesByRequestId = useMemo(
+    () => new Map(protectedInvites.filter((invite) => invite.status === "claimed").map((invite) => [invite.claimedRequestId, invite])),
+    [protectedInvites],
   );
-  const basketRequests = useMemo(
-    () =>
-      requestRecords
-        .filter((request) => request.requestType === "porte_panier")
-        .sort((left, right) => left.submittedAtMs - right.submittedAtMs),
-    [requestRecords],
-  );
-  // Enfants montés tout seuls de la liste d'attente (recalcul serveur après un
-  // désistement) : retenus, mais le mail d'acceptation attend la validation.
-  const promotedToApprove = useMemo(
-    () =>
-      requestRecords
-        .filter(
-          (request) =>
-            request.promotedFromWaitlistAt &&
-            normalizeComparableValue(request.status) === "confirmed" &&
-            normalizeComparableValue(request.adminApprovalStatus) !== "approved",
-        )
-        .sort((left, right) => getTimestampMs(left.promotedFromWaitlistAt) - getTimestampMs(right.promotedFromWaitlistAt)),
-    [requestRecords],
-  );
-  // Alertes : parents retenus qui n'ont pas confirmé dans les 10 jours.
-  const overdueConfirmations = useMemo(
-    () =>
-      requestRecords
-        .filter(
-          (request) =>
-            request.adminApprovalStatus === "approved" &&
-            !["confirmed", "declined"].includes(normalizeComparableValue(request.parentDecisionStatus)) &&
-            normalizeComparableValue(request.status) !== "declined" &&
-            getTimestampMs(request.confirmationDeadline) &&
-            getTimestampMs(request.confirmationDeadline) < pageOpenedAt,
-        )
-        .sort((left, right) => getTimestampMs(left.confirmationDeadline) - getTimestampMs(right.confirmationDeadline)),
-    [pageOpenedAt, requestRecords],
-  );
-  const pageHeader = useMemo(
-    () => getU14PageHeader(activeU14Tab, basketRequests.length),
-    [activeU14Tab, basketRequests.length],
-  );
-  const chronologicalRequests = useMemo(
-    () =>
-      [...requestRecords]
-        .sort((left, right) => left.submittedAtMs - right.submittedAtMs)
-        .map((request) => ({
-          child: request.childName,
-          type:
-            request.requestType === "porte_panier"
-              ? "Porte-panier"
-              : request.requestType === "preprogram_ou_porte_panier"
-                ? "Pré-programme ou porte-panier"
-                : "Pré-programme",
-          race: request.requestType === "porte_panier" ? "-" : request.raceLabel,
-          parent: request.parentName,
-          submittedAt: request.submittedAtMs ? formatDateTimeForDisplay(request.submittedAtMs) : "-",
-          status: getU14WorkflowStatusLabel(request),
-          position:
-            normalizeComparableValue(request.status) === "confirmed"
-              ? `Accepté${request.acceptedPosition ? ` (${request.acceptedPosition})` : ""}`
-              : request.waitlistPosition
-                ? `Attente ${request.waitlistPosition}`
-                : "-",
-          admin:
-            normalizeComparableValue(request.adminApprovalStatus) === "approved"
-              ? getAdminApprovalLabel(request.adminApprovalStatus)
-              : "Validation admin requise",
-        })),
-    [requestRecords],
-  );
-  const filteredAdminRequests = useMemo(() => {
-    const normalizedSearch = normalizeComparableValue(requestSearch);
 
-    return requestRecords
-      .filter((request) => request.requestType !== "porte_panier")
-      .filter((request) => {
-        if (requestStatusFilter === "Tous") return true;
-        return getU14WorkflowStatusLabel(request) === requestStatusFilter;
-      })
-      .filter((request) => {
-        if (requestRaceFilter === "Toutes") return true;
-        return request.raceCode === requestRaceFilter;
-      })
-      .filter((request) => {
-        if (!normalizedSearch) return true;
-
-        const haystack = normalizeComparableValue(
-          [
-            request.childName,
-            request.parentName,
-            request.raceLabel,
-            request.club,
-            request.bibNumber,
-            getU14WorkflowStatusLabel(request),
-          ]
-            .filter(Boolean)
-            .join(" "),
-        );
-
-        return haystack.includes(normalizedSearch);
-      })
-      .sort((left, right) => left.raceCode.localeCompare(right.raceCode) || left.submittedAtMs - right.submittedAtMs);
-  }, [
-    requestRaceFilter,
-    requestRecords,
-    requestSearch,
-    requestStatusFilter,
-  ]);
-  const selectedRaceTableRows = useMemo(() => {
-    const blockedPlaces = selectedRaceSummary?.blockedPlaces || 0;
-    const protectedRows = Array.from({ length: blockedPlaces }, (_, index) => ({
-      id: `reserve-${index}`,
-      type: "Place protégée",
-      child: "Réservée — en attente d'un enfant invité",
-      club: "-",
-      bib: "-",
-      status: "Bloquée",
-      position: `Réserve ${index + 1}`,
-      parent: "-",
-      submittedAt: "-",
-    }));
-
-    const requestRows = selectedRaceRequests.map((request) => ({
-      type: "Demande",
-      child: request.childName,
-      club: request.club || "-",
-      bib: request.bibNumber || "-",
-      status: formatU14RequestStatusLabel(request.status),
-      position:
-        normalizeComparableValue(request.status) === "confirmed"
-          ? request.acceptedPosition
-            ? `Accepté (${request.acceptedPosition})`
-            : "Accepté"
-          : normalizeComparableValue(request.status) === "waitlisted"
-            ? `Attente ${request.waitlistPosition || request.queuePosition || "?"}`
-            : "-",
-      parent: request.parentName || "-",
-      submittedAt: request.submittedAtMs
-        ? formatDateTimeForDisplay(request.submittedAtMs)
-        : "-",
-    }));
-
-    return [...protectedRows, ...requestRows];
-  }, [selectedRaceRequests, selectedRaceSummary]);
-
-  // Relance d'un parent qui n'a pas confirmé à temps : nouveau délai de
-  // 10 jours et nouveau mail d'acceptation (course ou porte-panier).
-  async function handleRemindParent(request) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      const confirmationDeadline = getU14ConfirmationDeadline();
-      const isBasket = getU14PracticalRoleKey(request) === "porte_panier";
-      await updateDoc(doc(db, "u14Requests", request.id), {
-        confirmationDeadline,
-        remindedAt: serverTimestamp(),
-        reminderCount: Number(request.reminderCount || 0) + 1,
-      });
-
-      if (request.parentEmail) {
-        const mailQueue = await loadMailQueueModule();
-        const buildMail = isBasket ? mailQueue.buildU14BasketAcceptanceMail : mailQueue.buildU14PreprogramAcceptanceMail;
-        await mailQueue.enqueueTransactionalMail(
-          buildMail({
-            ...acceptanceMailContext,
-            parentEmail: request.parentEmail,
-            parentFirstName: request.parentFirstName,
-            childName: request.childName,
-            raceLabel: request.raceLabel,
-            practicalInfo: isBasket ? basketPracticalInfo : preprogramPracticalInfo,
-            confirmationDeadline,
-          }),
-        );
-      }
-
-      setStatusMessage(`Relance envoyée au parent de ${request.childName}, nouveau délai : ${formatDateForDisplay(confirmationDeadline)}.`);
-    } catch {
-      setErrorMessage("Impossible d'envoyer la relance pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  // Libération décidée par l'équipe après un délai dépassé : même effet qu'un
-  // désistement du parent, puis recalcul pour faire monter la liste d'attente.
-  async function handleReleaseOverdueRequest(request) {
-    if (!window.confirm(`Libérer la place de ${request.childName} ? La demande passe en « Désisté » et la liste d'attente est recalculée.`)) {
-      return;
-    }
-
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      const declinedFields = {
-        status: "declined",
-        parentDecisionStatus: "declined",
-        withdrawalReason: "Délai de confirmation dépassé (libéré par l'organisation)",
-        declinedByAdmin: true,
-        acceptedPosition: null,
-        waitlistPosition: null,
-        queuePosition: null,
-      };
-      await updateDoc(doc(db, "u14Requests", request.id), { ...declinedFields, parentDecisionAt: serverTimestamp() });
-
-      await syncAllocations({
-        requests: requests.map((current) => (current.id === request.id ? { ...current, ...declinedFields } : current)),
-      });
-      setStatusMessage(`Place de ${request.childName} libérée. Pensez à valider l'enfant qui monte de la liste d'attente.`);
-    } catch {
-      setErrorMessage("Impossible de libérer cette place pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleRecalculateAllocations() {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await syncAllocations();
-      setStatusMessage("Les statuts, places acceptées et listes d'attente ont été recalculés.");
-    } catch {
-      setErrorMessage("Le recalcul automatique a échoué.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function approvePreprogramRequest(request) {
-    const confirmationDeadline = getU14ConfirmationDeadline();
-    await updateDoc(doc(db, "u14Requests", request.id), {
-      adminApprovalStatus: "approved",
-      parentDecisionRequired: true,
-      parentDecisionStatus: "pending",
-      adminApprovedAt: serverTimestamp(),
-      confirmationDeadline,
+  // Répartition automatique : si l'état enregistré d'une demande ne correspond
+  // plus au calcul (nouvelle demande, place libérée…), on l'écrit sans clic.
+  const pendingSyncKey = useMemo(() => {
+    const outdated = requestRecords.filter((request) => {
+      const next = requestStatusMap.get(request.id);
+      if (!next || request.requestType === "porte_panier") return false;
+      return (
+        normalizeComparableValue(request.status) !== next.status ||
+        normalizeComparableValue(request.allocationMode) !== next.allocationMode ||
+        (Number(request.waitlistPosition || 0) || null) !== next.waitlistPosition
+      );
     });
+    return outdated.map((request) => request.id).sort().join(",");
+  }, [requestRecords, requestStatusMap]);
+  const lastSyncKey = useRef("");
+  useEffect(() => {
+    if (dataLoading || !pendingSyncKey || lastSyncKey.current === pendingSyncKey) return;    lastSyncKey.current = pendingSyncKey;
+    syncU14RaceAllocations({ requests, children, protectedInvites, protectedSettings }).catch((error) =>
+      console.error("Automatic U14 allocation failed", error),
+    );
+  }, [children, dataLoading, pendingSyncKey, protectedInvites, protectedSettings, requests, syncU14RaceAllocations]);
 
-    if (request.parentEmail) {
-      const { buildU14PreprogramAcceptanceMail, enqueueTransactionalMail } = await loadMailQueueModule();
-      await enqueueTransactionalMail(
-        buildU14PreprogramAcceptanceMail({
-          ...acceptanceMailContext,
-          parentEmail: request.parentEmail,
-          parentFirstName: request.parentFirstName,
-          childName: request.childName,
-          raceLabel: request.raceLabel,
-          practicalInfo: preprogramPracticalInfo,
-          confirmationDeadline,
-        }),
-      );
-    }
+  const raceRequests = requestRecords.filter((request) => request.requestType !== "porte_panier" && request.raceCode);
+  const basketRequests = requestRecords.filter((request) => request.requestType === "porte_panier");
+  const withStage = (request) => ({ request, stage: getU14ChildStage(request, now) });
+  const toRetain = raceRequests.map(withStage).filter(({ stage }) => stage.key === "to-retain");
+  const overdue = requestRecords.map(withStage).filter(({ stage }) => stage.key === "overdue");
+  const basketToDecide = basketRequests.map(withStage).filter(({ stage }) => stage.key === "to-decide");
+  const promotedCount = toRetain.filter(({ request }) => request.promotedFromWaitlistAt).length;
+  const todoCount = toRetain.length + overdue.length + basketToDecide.length;
+
+  function flash(message) {
+    setStatusMessage(message);
+    setErrorMessage("");
   }
 
-  async function handleApproveRequest(request) {
-    setErrorMessage("");
+  async function runAction(action, successMessage, failureMessage) {
+    setIsBusy(true);
     setStatusMessage("");
-    setIsSaving(true);
-
+    setErrorMessage("");
     try {
-      await approvePreprogramRequest(request);
-      setStatusMessage(`Validation envoyée au parent de ${request.childName}.`);
-    } catch {
-      setErrorMessage("Impossible de valider cette demande pour le moment.");
+      await action();
+      flash(successMessage);
+    } catch (error) {
+      console.error(failureMessage, error);
+      setErrorMessage(failureMessage);
     } finally {
-      setIsSaving(false);
+      setIsBusy(false);
     }
   }
 
-  async function handleProcessRequest(request) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      const [requestsSnapshot, childrenSnapshot, protectedSnapshot] = await Promise.all([
-        getDocs(collection(db, "u14Requests")),
-        getDocs(collection(db, "u14Children")),
-        getDocs(collection(db, U14_PROTECTED_INVITES_COLLECTION)),
-      ]);
-
-      const latestRequests = requestsSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      const latestChildren = childrenSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      const latestProtectedInvites = protectedSnapshot.docs
-        .map((entry) => ({ id: entry.id, ...entry.data() }))
-        .filter((entry) => !entry.editionId || String(entry.editionId) === String(activeEditionId));
-
-      await syncAllocations({
-        requests: latestRequests,
-        children: latestChildren,
-        protectedInvites: latestProtectedInvites,
-      });
-
-      const refreshedRequestsSnapshot = await getDocs(collection(db, "u14Requests"));
-      const refreshedRequests = refreshedRequestsSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      const refreshedRequest = refreshedRequests.find((entry) => entry.id === request.id);
-
-      if (!refreshedRequest) {
-        setErrorMessage("Impossible de retrouver cette demande après recalcul.");
-        return;
-      }
-
-      const refreshedChild = latestChildren.find((child) => child.id === refreshedRequest.childId);
-      const refreshedRecord = buildU14RequestRecord(refreshedRequest, refreshedChild);
-      const refreshedStatus = normalizeComparableValue(refreshedRecord.status);
-      const refreshedApproval = normalizeComparableValue(refreshedRecord.adminApprovalStatus);
-
-      if (refreshedStatus === "confirmed" && refreshedApproval !== "approved") {
-        await approvePreprogramRequest(refreshedRecord);
-        setStatusMessage(`Validation envoyée au parent de ${refreshedRecord.childName}.`);
-        return;
-      }
-
-      if (refreshedStatus === "waitlisted") {
-        setStatusMessage(`${refreshedRecord.childName} est actuellement en liste d'attente. Aucune validation admin à envoyer pour le moment.`);
-        return;
-      }
-
-      setStatusMessage(
-        `${refreshedRecord.childName} est actuellement au statut "${formatU14RequestStatusLabel(refreshedRecord.status)}".`,
-      );
-    } catch {
-      setErrorMessage("Impossible de traiter cette demande pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleApproveBasketRequest(request) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      const confirmationDeadline = getU14ConfirmationDeadline();
-      await updateDoc(doc(db, "u14Requests", request.id), {
-        status: "confirmed",
-        allocationMode: "porte_panier",
-        adminApprovalStatus: "approved",
-        parentDecisionRequired: true,
-        parentDecisionStatus: "pending",
-        adminApprovedAt: serverTimestamp(),
+  async function sendAcceptanceMail(request, confirmationDeadline) {
+    if (!request.parentEmail) return;
+    const isBasket = getU14PracticalRoleKey(request) === "porte_panier";
+    const mailQueue = await loadMailQueueModule();
+    const buildMail = isBasket ? mailQueue.buildU14BasketAcceptanceMail : mailQueue.buildU14PreprogramAcceptanceMail;
+    await mailQueue.enqueueTransactionalMail(
+      buildMail({
+        ...mailContext,
+        parentEmail: request.parentEmail,
+        parentFirstName: request.parentFirstName,
+        childName: request.childName,
+        raceLabel: request.raceLabel,
+        practicalInfo: isBasket ? basketPracticalInfo : preprogramPracticalInfo,
         confirmationDeadline,
-      });
-
-      if (request.parentEmail) {
-        const { buildU14BasketAcceptanceMail, enqueueTransactionalMail } = await loadMailQueueModule();
-        await enqueueTransactionalMail(
-          buildU14BasketAcceptanceMail({
-            ...acceptanceMailContext,
-            parentEmail: request.parentEmail,
-            parentFirstName: request.parentFirstName,
-            childName: request.childName,
-            practicalInfo: basketPracticalInfo,
-            confirmationDeadline,
-          }),
-        );
-      }
-
-      setStatusMessage(`Acceptation porte-panier envoyée au parent de ${request.childName}.`);
-    } catch {
-      setErrorMessage("Impossible de valider cette demande porte-panier pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
+      }),
+    );
   }
 
-  async function handleSavePracticalInfo(event) {
+  // Retenir : le parent reçoit le mail d'acceptation et a 10 jours pour confirmer.
+  function handleRetain(request) {
+    const isBasket = request.requestType === "porte_panier";
+    return runAction(
+      async () => {
+        const confirmationDeadline = getU14ConfirmationDeadline();
+        await updateDoc(doc(db, "u14Requests", request.id), {
+          ...(isBasket ? { status: "confirmed", allocationMode: "porte_panier" } : {}),
+          adminApprovalStatus: "approved",
+          parentDecisionRequired: true,
+          parentDecisionStatus: "pending",
+          adminApprovedAt: serverTimestamp(),
+          confirmationDeadline,
+        });
+        await sendAcceptanceMail(request, confirmationDeadline);
+      },
+      `${request.childName} est retenu(e) : mail envoyé au parent, réponse attendue sous 10 jours.`,
+      "Impossible de retenir cet enfant pour le moment.",
+    );
+  }
+
+  function handleRemind(request) {
+    return runAction(
+      async () => {
+        const confirmationDeadline = getU14ConfirmationDeadline();
+        await updateDoc(doc(db, "u14Requests", request.id), {
+          confirmationDeadline,
+          remindedAt: serverTimestamp(),
+          reminderCount: Number(request.reminderCount || 0) + 1,
+        });
+        await sendAcceptanceMail(request, confirmationDeadline);
+      },
+      `Relance envoyée au parent de ${request.childName}, nouveau délai de 10 jours.`,
+      "Impossible d'envoyer la relance pour le moment.",
+    );
+  }
+
+  // Retirer un enfant (délai dépassé, demande de la famille…) : même effet
+  // qu'un désistement ; la liste d'attente avance toute seule.
+  function handleRelease(request) {
+    if (!window.confirm(`Retirer ${request.childName} et libérer sa place ? L'enfant suivant de la liste d'attente montera (à retenir par vous).`)) {
+      return undefined;
+    }
+    return runAction(
+      async () => {
+        const declinedFields = {
+          status: "declined",
+          parentDecisionStatus: "declined",
+          withdrawalReason:
+            getU14ChildStage(request, now).key === "overdue" ? "Délai de confirmation dépassé (libéré par l'organisation)" : "Retiré par l'organisation",
+          declinedByAdmin: true,
+          acceptedPosition: null,
+          waitlistPosition: null,
+          queuePosition: null,
+        };
+        await updateDoc(doc(db, "u14Requests", request.id), { ...declinedFields, parentDecisionAt: serverTimestamp() });
+        await syncU14RaceAllocations({
+          requests: requests.map((current) => (current.id === request.id ? { ...current, ...declinedFields } : current)),
+          children,
+          protectedInvites,
+          protectedSettings,
+        });
+      },
+      `Place de ${request.childName} libérée. Si un enfant monte de la liste d'attente, il apparaît dans « À faire ».`,
+      "Impossible de libérer cette place pour le moment.",
+    );
+  }
+
+  function handleSavePracticalInfo(event) {
     event.preventDefault();
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await setDoc(
-        doc(db, ...U14_PRACTICAL_INFO_DOC_PATH),
-        {
-          preprogram: practicalInfoForm.preprogram.trim(),
-          porte_panier: practicalInfoForm.porte_panier.trim(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      setStatusMessage("Les informations pratiques ont été enregistrées.");
-    } catch {
-      setErrorMessage("Impossible d'enregistrer les informations pratiques pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
+    const draft = practicalDraft || { preprogram: preprogramPracticalInfo, porte_panier: basketPracticalInfo };
+    return runAction(
+      async () => {
+        await setDoc(
+          doc(db, ...U14_PRACTICAL_INFO_DOC_PATH),
+          { preprogram: draft.preprogram.trim(), porte_panier: draft.porte_panier.trim(), updatedAt: serverTimestamp() },
+          { merge: true },
+        );
+        setPracticalDraft(null);
+      },
+      "Infos pratiques enregistrées.",
+      "Impossible d'enregistrer les infos pratiques pour le moment.",
+    );
   }
+
+  function renderAction(request, stage) {
+    if (stage.key === "to-retain") {
+      return (
+        <button className="button button--primary button--small" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
+          Retenir et envoyer le mail
+        </button>
+      );
+    }
+    if (stage.key === "to-decide") {
+      return (
+        <button className="button button--primary button--small" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
+          Retenir en porte-panier
+        </button>
+      );
+    }
+    if (stage.key === "overdue") {
+      return (
+        <>
+          <button className="button button--secondary button--small" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
+            Relancer
+          </button>
+          <button className="button button--ghost-danger button--small" disabled={isBusy} type="button" onClick={() => handleRelease(request)}>
+            Libérer
+          </button>
+        </>
+      );
+    }
+    if (stage.key === "waiting-parent") {
+      return (
+        <button className="button button--secondary button--small" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
+          Relancer
+        </button>
+      );
+    }
+    return null;
+  }
+
+  // ── Tableau d'une course ──
+  const normalizedSearch = normalizeComparableValue(search);
+  const selectedRace = raceSummaries.find((race) => race.code === selectedRaceCode) || raceSummaries[0];
+  const raceRows = raceRequests
+    .filter((request) =>
+      normalizedSearch
+        ? normalizeComparableValue([request.childName, request.club, request.bibNumber, request.parentName].join(" ")).includes(normalizedSearch)
+        : request.raceCode === selectedRace.code,
+    )
+    .map(withStage)
+    .sort((left, right) => {
+      const order = (U14_STAGE_ORDER[left.stage.key] ?? 9) - (U14_STAGE_ORDER[right.stage.key] ?? 9);
+      if (order) return order;
+      const leftPosition = Number(left.request.acceptedPosition || left.request.waitlistPosition || 0);
+      const rightPosition = Number(right.request.acceptedPosition || right.request.waitlistPosition || 0);
+      return leftPosition - rightPosition || left.request.submittedAtMs - right.request.submittedAtMs;
+    })
+    .map(({ request, stage }) => ({
+      request,
+      position:
+        stage.key === "waitlist"
+          ? `A${request.waitlistPosition || "?"}`
+          : ["withdrawn", "rejected"].includes(stage.key)
+            ? "—"
+            : request.acceptedPosition || "—",
+    }));
+  const reserveRows =
+    !normalizedSearch && selectedRace.blockedPlaces
+      ? [
+          <div key="reserve" className="u14m-row u14m-row--reserve">
+            <span className="u14m-position">—</span>
+            <span>{selectedRace.blockedPlaces} place(s) réservée(s) aux enfants invités</span>
+            <span className="parent-request-note">
+              {protectedSettings.deadline ? `jusqu'au ${formatDateForDisplay(protectedSettings.deadline)}, puis rendues aux inscriptions` : "jusqu'à la date limite des places protégées"}
+            </span>
+            <span />
+          </div>,
+        ]
+      : [];
 
   return (
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">{pageHeader.eyebrow}</p>
-          <h1>{pageHeader.title}</h1>
-          <p>{pageHeader.description}</p>
+          <p className="eyebrow">Pré-programme</p>
+          <h1>U12 / U14</h1>
+          <p>Courses jeunes et porte-panier. Les places se répartissent toutes seules par ordre d'arrivée ; vous retenez les enfants, relancez les familles et suivez les confirmations.</p>
         </div>
       </section>
 
-      {requestsError || childrenError || protectedInvitesError ? (
-        <p className="status-note">{requestsError || childrenError || protectedInvitesError}</p>
-      ) : null}
+      {requestsError || childrenError || invitesError ? <p className="status-note">{requestsError || childrenError || invitesError}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
-      {dataLoading ? <p className="status-note">Chargement du module U12 / U14...</p> : null}
+      {dataLoading ? <p className="status-note">Chargement du module U12 / U14…</p> : null}
 
-      {promotedToApprove.length ? (
-        <div className="notice-card notice-card--ok">
-          <strong>Montés de la liste d'attente — à valider</strong>
-          <p>Une place s'est libérée : ces enfants sont retenus. La validation envoie le mail d'acceptation et ouvre le délai de 10 jours.</p>
-          <div className="u14-overdue-list">
-            {promotedToApprove.map((request) => (
-              <div key={request.id} className="u14-overdue-row">
-                <span>
-                  <strong>{request.childName}</strong> · {request.raceLabel}
-                  <span className="parent-request-note"> — monté le {formatDateTimeForDisplay(request.promotedFromWaitlistAt)}</span>
-                </span>
-                <span className="table-actions table-actions--inline">
-                  <button className="button button--primary button--small" disabled={isSaving} type="button" onClick={() => handleApproveRequest(request)}>
-                    Valider et envoyer le mail
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {overdueConfirmations.length ? (
-        <div className="notice-card notice-card--warn">
-          <strong>Délais dépassés — à traiter</strong>
-          <p>Rien n'est libéré automatiquement : relancez la famille (nouveau délai de 10 jours) ou libérez la place.</p>
-          <div className="u14-overdue-list">
-            {overdueConfirmations.map((request) => (
-              <div key={request.id} className="u14-overdue-row">
-                <span>
-                  <strong>{request.childName}</strong> · {getU14PracticalRoleKey(request) === "porte_panier" ? "Porte-panier" : request.raceLabel}
-                  <span className="parent-request-note">
-                    {" "}— confirmation attendue le {formatDateForDisplay(request.confirmationDeadline)}
-                    {request.reminderCount ? ` · ${request.reminderCount} relance(s)` : ""}
-                  </span>
-                </span>
-                <span className="table-actions table-actions--inline">
-                  <button className="button button--secondary button--small" disabled={isSaving} type="button" onClick={() => handleRemindParent(request)}>
-                    Relancer
-                  </button>
-                  <button className="button button--ghost-danger button--small" disabled={isSaving} type="button" onClick={() => handleReleaseOverdueRequest(request)}>
-                    Libérer la place
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="admin-subtabs" role="tablist" aria-label="Navigation du module Pré-programme">
-        <button
-          className={`admin-subtab ${activeU14Tab === "preprogram" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("preprogram")}
-        >
-          Pré-programme
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "protected" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("protected")}
-        >
-          Places protégées
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "basket" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("basket")}
-        >
-          Porte-panier ({basketRequests.length})
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "timeline" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("timeline")}
-        >
-          Chronologie
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "practical" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("practical")}
-        >
-          Infos pratiques
-        </button>
+      <div className="admin-subtabs" role="tablist" aria-label="Navigation du module U12 / U14">
+        {U14_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            aria-selected={activeTab === tab.id}
+            className={`admin-subtab ${activeTab === tab.id ? "admin-subtab--active" : ""}`}
+            role="tab"
+            type="button"
+            onClick={() => navigate(tab.path)}
+          >
+            {tab.label}
+            {tab.id === "todo" && todoCount ? ` · ${todoCount}` : ""}
+            {tab.id === "basket" && basketRequests.length ? ` (${basketRequests.length})` : ""}
+          </button>
+        ))}
       </div>
 
-      {activeU14Tab === "preprogram" ? (
+      {activeTab === "todo" ? (
         <>
-          <section className="u14-overview-grid">
-            <Panel
-              title="Répartition par course"
-              subtitle="Choisissez une course. Le détail complet s'affiche à droite."
-              actions={
-                <button className="button button--secondary" disabled={isSaving || dataLoading} type="button" onClick={handleRecalculateAllocations}>
-                  {isSaving ? "Mise à jour..." : "Recalculer les statuts"}
-                </button>
-              }
-            >
-              <div className="u14-race-grid">
-                {raceSummaries.map((summary) => (
-                  <button
-                    key={summary.code}
-                    className={`selection-card u14-race-card ${selectedRaceCode === summary.code ? "u14-race-card--active" : ""}`}
-                    type="button"
-                    onClick={() => setSelectedRaceCode(summary.code)}
-                  >
-                    <div className="u14-race-card__head">
-                      <strong>{summary.label}</strong>
-                      <span className="u14-race-card__remaining">
-                        {summary.remainingPlaces} restante(s)
-                        {summary.blockedPlaces ? ` · ${summary.blockedPlaces} réservée(s)` : ""}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </Panel>
-
-            <Panel
-              title="Tableau de la course sélectionnée"
-              subtitle="Vue tableau avec les demandes et les places protégées en attente pour la course choisie."
-            >
-              <div className="notice-card notice-card--ok">
-                <strong>{selectedRaceSummary?.label || "Course non définie"}</strong>
-                <p>
-                  {selectedRaceSummary?.totalPlaces || 0} place(s) au total, {selectedRaceSummary?.protectedPlaces || 0} prise(s) par des enfants invités,{" "}
-                  {selectedRaceSummary?.blockedPlaces || 0} encore réservée(s) pour eux,{" "}
-                  {selectedRaceSummary?.takenPlaces || 0} prise(s), {selectedRaceSummary?.remainingPlaces || 0} restante(s).
-                </p>
-              </div>
-
-              <DataTable
-                columns={[
-                  { key: "type", label: "Type" },
-                  { key: "child", label: "Enfant" },
-                  { key: "club", label: "Club" },
-                  { key: "bib", label: "Dossard" },
-                  { key: "status", label: "Statut" },
-                  { key: "position", label: "Position" },
-                  { key: "parent", label: "Parent / contact" },
-                  { key: "submittedAt", label: "Date" },
-                ]}
-                rows={
-                  selectedRaceTableRows.length
-                    ? selectedRaceTableRows
-                    : [
-                        {
-                          type: "-",
-                          child: "Aucun enfant sur cette course",
-                          club: "-",
-                          bib: "-",
-                          status: "-",
-                          position: "-",
-                          parent: "-",
-                          submittedAt: "-",
-                        },
-                      ]
-                }
-              />
-            </Panel>
+          <section className="metric-grid">
+            <article className="metric-card"><span>Enfants à retenir</span><strong>{toRetain.length}</strong></article>
+            <article className="metric-card metric-card--accent"><span>dont montés de l'attente</span><strong>{promotedCount}</strong></article>
+            <article className="metric-card metric-card--warn"><span>Sans réponse (délai dépassé)</span><strong>{overdue.length}</strong></article>
+            <article className="metric-card"><span>Porte-panier à décider</span><strong>{basketToDecide.length}</strong></article>
           </section>
-
-          <Panel
-            title="Demandes reçues"
-            subtitle="Vue consolidée avec statut parent, position et mode d'attribution."
-            actions={
-              <button className="button button--secondary" disabled={isSaving || dataLoading} type="button" onClick={handleRecalculateAllocations}>
-                {isSaving ? "Mise à jour..." : "Recalculer les statuts"}
-              </button>
-            }
-          >
-            <div className="admin-toolbar">
-              <AuthFormField label="Rechercher une demande">
-                <input
-                  placeholder="Enfant, parent, course, club, dossard..."
-                  type="search"
-                  value={requestSearch}
-                  onChange={(event) => setRequestSearch(event.target.value)}
-                />
-              </AuthFormField>
-              <div className="team-toolbar-main">
-                <AuthFormField label="Statut">
-                  <select value={requestStatusFilter} onChange={(event) => setRequestStatusFilter(event.target.value)}>
-                    <option value="Tous">Tous</option>
-                    <option value="Demande enregistrée">Demande enregistrée</option>
-                    <option value="Retenu">Retenu</option>
-                    <option value="Validé">Validé</option>
-                    <option value="Liste d'attente">Liste d'attente</option>
-                    <option value="Désisté">Désisté</option>
-                    <option value="Non retenue">Non retenue</option>
-                  </select>
-                </AuthFormField>
-                <AuthFormField label="Course">
-                  <select value={requestRaceFilter} onChange={(event) => setRequestRaceFilter(event.target.value)}>
-                    <option value="Toutes">Toutes</option>
-                    {U14_RACE_DEFINITIONS.map((definition) => (
-                      <option key={definition.code} value={definition.code}>
-                        {definition.label}
-                      </option>
-                    ))}
-                  </select>
-                </AuthFormField>
-              </div>
-            </div>
-
-            <DataTable
-              columns={[
-                { key: "child", label: "Enfant" },
-                { key: "race", label: "Course" },
-                { key: "parent", label: "Responsable" },
-                { key: "submittedAt", label: "Date / heure" },
-                { key: "status", label: "Statut" },
-                { key: "position", label: "Position" },
-                { key: "admin", label: "Validation admin" },
-                { key: "decision", label: "Réponse parent" },
-                { key: "actions", label: "Action" },
-              ]}
-              rows={
-                filteredAdminRequests.length
-                  ? filteredAdminRequests.map((request) => ({
-                        child: request.childName,
-                        race: request.raceLabel,
-                        parent: request.parentName,
-                        submittedAt: request.submittedAtMs ? formatDateTimeForDisplay(request.submittedAtMs) : "-",
-                        status: getU14WorkflowStatusLabel(request),
-                        position:
-                          normalizeComparableValue(request.status) === "confirmed"
-                            ? `Accepté${request.acceptedPosition ? ` (${request.acceptedPosition})` : ""}`
-                            : request.waitlistPosition
-                              ? `Attente ${request.waitlistPosition}`
-                              : "-",
-                        admin:
-                          normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                            ? getAdminApprovalLabel(request.adminApprovalStatus)
-                            : "Validation admin requise",
-                        decision:
-                          normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                            ? <ParentDecisionCell now={pageOpenedAt} request={request} />
-                            : "En attente validation admin",
-                        __rowClass:
-                          normalizeComparableValue(request.status) === "declined" ||
-                          normalizeComparableValue(request.parentDecisionStatus) === "declined"
-                            ? "data-table__row--danger"
-                            : normalizeComparableValue(request.adminApprovalStatus) === "approved" &&
-                                normalizeComparableValue(request.parentDecisionStatus) === "confirmed"
-                              ? "data-table__row--success"
-                              : "",
-                        actions:
-                          normalizeComparableValue(request.adminApprovalStatus) !== "approved" &&
-                          normalizeComparableValue(request.status) !== "declined" &&
-                          normalizeComparableValue(request.status) !== "rejected" ? (
-                            <button
-                              className="button button--secondary"
-                              type="button"
-                              disabled={isSaving}
-                              onClick={() =>
-                                normalizeComparableValue(request.status) === "confirmed"
-                                  ? handleApproveRequest(request)
-                                  : handleProcessRequest(request)
-                              }
-                            >
-                              {normalizeComparableValue(request.status) === "confirmed"
-                                ? "Valider et envoyer"
-                                : "Traiter la demande"}
-                            </button>
-                          ) : (
-                            "-"
-                          ),
-                      }))
-                  : [{ child: "Aucune demande", race: "-", parent: "-", submittedAt: "-", status: "-", position: "-", admin: "-", decision: "-", actions: "-" }]
-              }
-            />
+          <Panel title="À faire" subtitle="Tout ce qui attend une décision de l'équipe. Retenir envoie le mail d'acceptation ; le parent a ensuite 10 jours pour confirmer.">
+            {todoCount ? (
+              <ChildrenTable
+                invitesByRequestId={invitesByRequestId}
+                isBusy={isBusy}
+                now={now}
+                renderAction={renderAction}
+                rows={[...overdue, ...toRetain, ...basketToDecide].map(({ request }) => ({
+                  request,
+                  position: request.requestType === "porte_panier" ? "PP" : request.raceCode ? request.raceLabel.replace(" - ", " ") : "—",
+                }))}
+                onRelease={handleRelease}
+              />
+            ) : (
+              <p className="parent-request-note">Rien à faire pour l'instant : toutes les demandes sont traitées.</p>
+            )}
           </Panel>
         </>
       ) : null}
 
-      {activeU14Tab === "protected" ? (
+      {activeTab === "races" ? (
+        <Panel title="Courses" subtitle="Un tableau par course : les enfants retenus, les places réservées aux invités, puis la liste d'attente. Cliquez sur un nom pour voir sa fiche.">
+          <div className="u14m-toolbar">
+            <div className="u14m-race-chips">
+              {raceSummaries.map((race) => {
+                const filled = raceRequests.filter((request) => request.raceCode === race.code && ["confirmed", "waiting-parent", "overdue", "to-retain"].includes(getU14ChildStage(request, now).key)).length;
+                return (
+                  <button
+                    key={race.code}
+                    className={`u14m-chip${!normalizedSearch && selectedRace.code === race.code ? " u14m-chip--active" : ""}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRaceCode(race.code);
+                      setSearch("");
+                    }}
+                  >
+                    {race.label.replace(" - ", " · ")} <span className="parent-request-note">{filled}/{race.totalPlaces}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <input aria-label="Rechercher un enfant" className="u14m-search" placeholder="Rechercher un enfant, un club, un dossard…" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </div>
+          {normalizedSearch ? null : (
+            <p className="parent-request-note">
+              {selectedRace.label} : {selectedRace.totalPlaces} places · {selectedRace.protectedPlaces + selectedRace.confirmedGeneralRequests.length} prises
+              {selectedRace.blockedPlaces ? ` · ${selectedRace.blockedPlaces} réservée(s) aux invités` : ""} · {selectedRace.remainingPlaces} libre(s) ·{" "}
+              {selectedRace.waitlistedRequests.length} en attente
+            </p>
+          )}
+          <ChildrenTable
+            extraRows={reserveRows}
+            invitesByRequestId={invitesByRequestId}
+            isBusy={isBusy}
+            now={now}
+            renderAction={renderAction}
+            rows={raceRows}
+            onRelease={handleRelease}
+          />
+        </Panel>
+      ) : null}
+
+      {activeTab === "basket" ? (
+        <Panel title="Porte-panier" subtitle="Les demandes porte-panier, sans limite de places automatique : vous retenez au cas par cas.">
+          <ChildrenTable
+            invitesByRequestId={invitesByRequestId}
+            isBusy={isBusy}
+            now={now}
+            renderAction={renderAction}
+            rows={basketRequests
+              .map(withStage)
+              .sort((left, right) => (U14_STAGE_ORDER[left.stage.key] ?? 9) - (U14_STAGE_ORDER[right.stage.key] ?? 9) || left.request.submittedAtMs - right.request.submittedAtMs)
+              .map(({ request }, index) => ({ request, position: index + 1 }))}
+            onRelease={handleRelease}
+          />
+          {raceRequests.some((request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted") ? (
+            <p className="parent-request-note">
+              Accepteraient aussi le porte-panier (actuellement en liste d'attente d'une course) :{" "}
+              {raceRequests
+                .filter((request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted")
+                .map((request) => request.childName)
+                .join(", ")}
+              .
+            </p>
+          ) : null}
+        </Panel>
+      ) : null}
+
+      {activeTab === "protected" ? (
         <U14ProtectedTab
           DataTable={DataTable}
           Panel={Panel}
@@ -902,7 +572,7 @@ function U14Page(props) {
           claimedByPool={claimedByPool}
           invites={protectedInvites}
           loadMailQueueModule={loadMailQueueModule}
-          mailContext={acceptanceMailContext}
+          mailContext={mailContext}
           requestRecords={requestRecords}
           reserveByPool={reserveByPool}
           reserveReleased={reserveReleased}
@@ -910,109 +580,44 @@ function U14Page(props) {
         />
       ) : null}
 
-      {activeU14Tab === "basket" ? (
-        <Panel title="Demandes porte-panier" subtitle="Validation manuelle avec envoi du mail parent depuis la même file transactionnelle.">
-          <DataTable
-            columns={[
-              { key: "child", label: "Enfant" },
-              { key: "parent", label: "Responsable" },
-              { key: "status", label: "Statut" },
-              { key: "admin", label: "Validation admin" },
-              { key: "decision", label: "Réponse parent" },
-              { key: "actions", label: "Action" },
-            ]}
-            rows={
-              basketRequests.length
-                ? basketRequests.map((request) => ({
-                    child: request.childName,
-                    parent: request.parentName,
-                    status: getU14WorkflowStatusLabel(request),
-                    admin:
-                      normalizeComparableValue(request.status) === "confirmed"
-                        ? getAdminApprovalLabel(request.adminApprovalStatus)
-                        : "Validation admin requise",
-                    decision:
-                      normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                        ? <ParentDecisionCell now={pageOpenedAt} request={request} />
-                        : "En attente validation admin",
-                    actions:
-                      normalizeComparableValue(request.adminApprovalStatus) !== "approved" ? (
-                        <button
-                          className="button button--secondary"
-                          type="button"
-                          disabled={isSaving}
-                          onClick={() => handleApproveBasketRequest(request)}
-                        >
-                          Valider porte-panier
-                        </button>
-                      ) : (
-                        "-"
-                      ),
-                  }))
-                : [{ child: "Aucune demande porte-panier", parent: "-", status: "-", admin: "-", decision: "-", actions: "-" }]
-            }
-          />
-        </Panel>
-      ) : null}
-
-      {activeU14Tab === "timeline" ? (
-        <Panel
-          title="Toutes les demandes par ordre chronologique"
-          subtitle="Vue globale de toutes les demandes avec date et heure de soumission."
-        >
-          <DataTable
-            columns={[
-              { key: "submittedAt", label: "Date / heure" },
-              { key: "child", label: "Enfant" },
-              { key: "type", label: "Type" },
-              { key: "race", label: "Course" },
-              { key: "parent", label: "Responsable" },
-              { key: "status", label: "Statut" },
-              { key: "position", label: "Position" },
-              { key: "admin", label: "Validation admin" },
-            ]}
-            rows={
-              chronologicalRequests.length
-                ? chronologicalRequests
-                : [{ submittedAt: "-", child: "Aucune demande", type: "-", race: "-", parent: "-", status: "-", position: "-", admin: "-" }]
-            }
-          />
-        </Panel>
-      ) : null}
-
-      {activeU14Tab === "practical" ? (
-        <Panel
-          title="Informations pratiques"
-          subtitle="Un texte par rôle. Il sera affiché dans l'espace parent une fois la demande validée."
-        >
-          {practicalInfoError ? <p className="form-error">{practicalInfoError}</p> : null}
-          {practicalInfoLoading ? <p className="panel-note">Chargement des informations pratiques...</p> : null}
-          <form className="profile-form" onSubmit={handleSavePracticalInfo}>
-            <AuthFormField label="Texte Pré-programme">
-              <textarea
-                rows="6"
-                value={practicalInfoForm.preprogram}
-                onChange={(event) =>
-                  setPracticalInfoForm((current) => ({ ...current, preprogram: event.target.value }))
-                }
-              />
-            </AuthFormField>
-            <AuthFormField label="Texte Porte-panier">
-              <textarea
-                rows="6"
-                value={practicalInfoForm.porte_panier}
-                onChange={(event) =>
-                  setPracticalInfoForm((current) => ({ ...current, porte_panier: event.target.value }))
-                }
-              />
-            </AuthFormField>
-            <div className="profile-form__actions">
-              <button className="button button--primary" disabled={isSaving} type="submit">
-                {isSaving ? "Enregistrement..." : "Enregistrer les infos pratiques"}
-              </button>
+      {activeTab === "mails" ? (
+        <>
+          <Panel title="Infos pratiques" subtitle="Ajoutées aux mails « retenu » et « tout est ok », et visibles par le parent dans « Mes enfants » une fois la place confirmée.">
+            {practicalInfoError ? <p className="form-error">{practicalInfoError}</p> : null}
+            {practicalInfoLoading ? <p className="panel-note">Chargement…</p> : null}
+            <form className="profile-form" onSubmit={handleSavePracticalInfo}>
+              <AuthFormField label="Courses U12 / U14">
+                <textarea
+                  rows="5"
+                  value={(practicalDraft || { preprogram: preprogramPracticalInfo }).preprogram}
+                  onChange={(event) => setPracticalDraft((current) => ({ porte_panier: basketPracticalInfo, ...current, preprogram: event.target.value }))}
+                />
+              </AuthFormField>
+              <AuthFormField label="Porte-panier">
+                <textarea
+                  rows="5"
+                  value={(practicalDraft || { porte_panier: basketPracticalInfo }).porte_panier}
+                  onChange={(event) => setPracticalDraft((current) => ({ preprogram: preprogramPracticalInfo, ...current, porte_panier: event.target.value }))}
+                />
+              </AuthFormField>
+              <div className="profile-form__actions">
+                <button className="button button--primary" disabled={isBusy || !practicalDraft} type="submit">
+                  Enregistrer les infos pratiques
+                </button>
+              </div>
+            </form>
+          </Panel>
+          <Panel title="Mails envoyés aux familles" subtitle="Ce qui part, et quand. Tous les mails sont en français et en anglais.">
+            <div className="u14m-mail-list">
+              {U14_AUTOMATIC_MAILS.map((mail) => (
+                <div key={mail.when} className="u14m-mail-row">
+                  <strong>{mail.when}</strong>
+                  <span>{mail.what}</span>
+                </div>
+              ))}
             </div>
-          </form>
-        </Panel>
+          </Panel>
+        </>
       ) : null}
     </div>
   );

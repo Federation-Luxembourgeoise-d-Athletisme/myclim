@@ -7,7 +7,7 @@
 // validation qui envoie le mail d'acceptation et ouvre le délai de 10 jours.
 
 import admin from "firebase-admin";
-import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
 import { notifyUsers, usersWithRoles } from "./notifications.js";
 
@@ -191,4 +191,12 @@ export const recalculateU14OnWithdrawal = onDocumentUpdated({ document: "u14Requ
   const becameInactive = !isInactive(before.status) && isInactive(after.status);
   if (!becameInactive || after.requestType === "porte_panier") return;
   await recalculateU14Edition(after.editionId, `désistement de ${childNameOf(after)}`);
+});
+
+// Nouvelle demande de course : elle reçoit tout de suite sa place (à retenir
+// par l'équipe) ou son numéro de liste d'attente, sans bouton « Recalculer ».
+export const recalculateU14OnCreate = onDocumentCreated({ document: "u14Requests/{requestId}", region: REGION }, async (event) => {
+  const entry = event.data?.data() || {};
+  if (entry.requestType === "porte_panier" || !entry.raceCode) return;
+  await recalculateU14Edition(entry.editionId);
 });
