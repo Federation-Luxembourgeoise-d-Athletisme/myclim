@@ -83,10 +83,30 @@ function getU14CategoryFromBirthYear(year) {
   return "";
 }
 
-// Liste collée depuis Excel : Nom, Prénom, Club, Mail, Dossard, Année
+// Sexe écrit F / G (ou M, H, fille, garçon, girl, boy), rangé comme dans
+// les fiches enfants : « fille » ou « garcon ».
+function parseU14Gender(value) {
+  const normalized = String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  if (["f", "fille", "girl", "w"].includes(normalized)) return "fille";
+  if (["g", "m", "h", "garcon", "boy"].includes(normalized)) return "garcon";
+  return "";
+}
+
+// Réserve d'une invitation (U12F, U14M…), d'après l'année et le sexe.
+function getU14InvitePoolKey(invite) {
+  const category = getU14CategoryFromBirthYear(invite?.birthYear);
+  if (!category || !invite?.gender) return "";
+  return `${category}${invite.gender === "fille" ? "F" : "M"}`;
+}
+
+// Liste collée depuis Excel : Nom, Prénom, Club, Mail, Dossard, Année, Sexe
 // (tabulations, points-virgules ou virgules). Une ligne d'en-tête éventuelle
-// est ignorée. Les erreurs sont des codes (name, email, bib, year), traduits
-// par l'onglet.
+// est ignorée. Les erreurs sont des codes (name, email, bib, year, gender),
+// traduits par l'onglet.
 function parseU14ProtectedInvitesPaste(text) {
   return String(text || "")
     .split(/\r?\n/)
@@ -94,14 +114,16 @@ function parseU14ProtectedInvitesPaste(text) {
     .filter(Boolean)
     .map((line) => line.split(line.includes("\t") ? "\t" : line.includes(";") ? ";" : ",").map((cell) => cell.trim()))
     .filter((cells) => !/^(nom|name)$/i.test(cells[0] || ""))
-    .map(([lastName = "", firstName = "", club = "", parentEmail = "", bibNumber = "", yearCell = ""]) => {
+    .map(([lastName = "", firstName = "", club = "", parentEmail = "", bibNumber = "", yearCell = "", genderCell = ""]) => {
       const birthYear = parseU14BirthYear(yearCell);
+      const gender = parseU14Gender(genderCell);
       const errors = [];
       if (!lastName || !firstName) errors.push("name");
       if (!/^\S+@\S+\.\S+$/.test(parentEmail)) errors.push("email");
       if (!bibNumber) errors.push("bib");
       if (!birthYear) errors.push("year");
-      return { lastName, firstName, club, parentEmail: parentEmail.toLowerCase(), bibNumber, birthYear, errors };
+      if (!gender) errors.push("gender");
+      return { lastName, firstName, club, parentEmail: parentEmail.toLowerCase(), bibNumber, birthYear, gender, errors };
     });
 }
 
@@ -117,6 +139,7 @@ function buildU14ProtectedInviteUrl(token) {
 
 export {
   getU14CategoryFromBirthYear,
+  getU14InvitePoolKey,
   DEFAULT_U14_PROTECTED_POOLS,
   U14_PROTECTED_INVITES_COLLECTION,
   U14_PROTECTED_INVITE_STATUS_LABELS,

@@ -67,7 +67,7 @@ function ProtectedInviteForm({ token, accountBar }) {
         }
         const data = { id: snapshot.id, ...snapshot.data() };
         setInvite(data);
-        setFormData((current) => ({ ...current, parentEmail: current.parentEmail || data.parentEmail || "" }));
+        setFormData((current) => ({ ...current, parentEmail: current.parentEmail || data.parentEmail || "", gender: data.gender || current.gender }));
         setLoadState("ready");
       })
       .catch(() => {
@@ -223,7 +223,7 @@ function ProtectedInviteForm({ token, accountBar }) {
             <input name="birthDate" required type="date" value={formData.birthDate} onChange={handleChange} />
           </AuthFormField>
           <AuthFormField label={t("fieldGender")} required>
-            <select name="gender" required value={formData.gender} onChange={handleChange}>
+            <select disabled={Boolean(invite.gender)} name="gender" required value={formData.gender} onChange={handleChange}>
               <option value="">{t("fieldSelectPlaceholder")}</option>
               <option value="fille">{t("u14GenderGirl")}</option>
               <option value="garcon">{t("u14GenderBoy")}</option>

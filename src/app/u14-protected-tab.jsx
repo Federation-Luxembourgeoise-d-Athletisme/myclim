@@ -8,7 +8,7 @@ import {
   U14_PROTECTED_SETTINGS_DOC_PATH,
   buildU14ProtectedInviteUrl,
   generateU14InviteToken,
-  getU14CategoryFromBirthYear,
+  getU14InvitePoolKey,
   getU14ProtectedInviteStatus,
   parseU14ProtectedInvitesPaste,
 } from "./u14-protected";
@@ -125,6 +125,7 @@ function U14ProtectedTab(props) {
         club: row.club,
         bibNumber: row.bibNumber,
         birthYear: row.birthYear,
+        gender: row.gender,
         parentEmail: row.parentEmail,
         deadline: settings.deadline,
         status: "invited",
@@ -231,7 +232,7 @@ function U14ProtectedTab(props) {
       >
         <textarea
           className="u14-paste"
-          placeholder={"Weber\tEmma\tCAB\tparent@example.lu\t245\t2016"}
+          placeholder={"Weber\tEmma\tCAB\tparent@example.lu\t245\t2016\tF"}
           rows="5"
           value={pasteText}
           onChange={(event) => setPasteText(event.target.value)}
@@ -248,7 +249,7 @@ function U14ProtectedTab(props) {
                 { key: "child", label: text.colChild },
                 { key: "club", label: text.colClub },
                 { key: "bib", label: text.colBib },
-                { key: "year", label: text.colYear },
+                { key: "pool", label: text.colPool },
                 { key: "email", label: text.colEmail },
                 { key: "check", label: text.colCheck },
               ]}
@@ -257,7 +258,7 @@ function U14ProtectedTab(props) {
                 child: `${row.firstName} ${row.lastName}`,
                 club: row.club || "-",
                 bib: row.bibNumber || "-",
-                year: row.birthYear ? `${row.birthYear} · ${getU14CategoryFromBirthYear(row.birthYear)}` : "-",
+                pool: getU14InvitePoolKey(row) ? `${row.birthYear} · ${text.poolLabels[getU14InvitePoolKey(row)]}` : "-",
                 email: row.parentEmail || "-",
                 check: row.errors.length ? (
                   <span className="status-pill status-pill--danger">{row.errors.map((code) => text.rowErrors[code] || code).join(", ")}</span>
@@ -299,7 +300,7 @@ function U14ProtectedTab(props) {
                         <strong>{invite.firstName} {invite.lastName}</strong>
                         <span className="parent-request-note">
                           {invite.club || "-"} · {fill(copy.table.bib, { bib: invite.bibNumber || "-" })}
-                          {invite.birthYear ? ` · ${invite.birthYear} · ${getU14CategoryFromBirthYear(invite.birthYear)}` : ""}
+                          {getU14InvitePoolKey(invite) ? ` · ${invite.birthYear} · ${text.poolLabels[getU14InvitePoolKey(invite)]}` : ""}
                         </span>
                       </div>
                     ),

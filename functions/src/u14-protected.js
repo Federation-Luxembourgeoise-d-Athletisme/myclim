@@ -131,6 +131,10 @@ export const claimU14ProtectedInvite = onCall({ region: REGION }, async (request
       throw new HttpsError("failed-precondition", `Cette place est réservée à un enfant né en ${invite.birthYear}.`);
     }
 
+    if (invite.gender && poolKeyFor("U12", entry.gender) !== poolKeyFor("U12", invite.gender)) {
+      throw new HttpsError("failed-precondition", "Le sexe de l'enfant ne correspond pas à l'invitation.");
+    }
+
     const poolKey = poolKeyFor(entry.category, entry.gender);
     if (!poolKey) throw new HttpsError("failed-precondition", "Catégorie U12 / U14 non reconnue pour cet enfant.");
 
