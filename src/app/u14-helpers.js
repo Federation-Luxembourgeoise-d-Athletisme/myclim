@@ -1,8 +1,11 @@
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
+import { getU14PoolKey, isU14ProtectedDeadlinePassed, normalizeU14ProtectedSettings } from "./u14-protected";
 
 const U14_DEFAULT_RACE_CAPACITY = 14;
 const U14_RESERVED_SLOTS_PER_RACE = 3;
+// Délai laissé aux parents pour confirmer une place retenue (course ou porte-panier).
+const U14_CONFIRMATION_DELAY_DAYS = 10;
 const U14_RESERVED_SLOTS_COLLECTION = "u14ProtectedEntries";
 const U14_PRACTICAL_INFO_DOC_PATH = ["appSettings", "u14PracticalInfo"];
 const U14_RACE_DEFINITIONS = [
@@ -300,6 +303,15 @@ function isU14RequestInactive(status) {
   return ["declined", "cancelled", "rejected"].includes(normalizeComparableValue(status));
 }
 
+// Fin du délai de confirmation, fixée au moment où l'équipe retient l'enfant
+// (fin de journée, pour ne pas couper au milieu du dixième jour).
+function getU14ConfirmationDeadline(from = new Date()) {
+  const deadline = new Date(from);
+  deadline.setDate(deadline.getDate() + U14_CONFIRMATION_DELAY_DAYS);
+  deadline.setHours(23, 59, 0, 0);
+  return deadline;
+}
+
 function isProtectedSlotActive(slot) {
   return normalizeComparableValue(slot?.status) !== "released";
 }
@@ -351,60 +363,81 @@ function doesProtectedSlotMatchRequest(slot, request) {
   );
 }
 
-function buildU14AllocationSnapshot({ requests, children, protectedEntries }) {
+// Répartition des places d'une course :
+//  1. les enfants invités (places protégées) qui ont confirmé, dans la course
+//     qu'ils ont choisie ;
+//  2. la réserve restante de leur catégorie (U12/U14, filles/garçons), bloquée
+//     dans chaque course de la catégorie jusqu'à la date limite ;
+//  3. les autres demandes par ordre d'arrivée, puis la liste d'attente.
+// Une demande n'est « protégée » que si une invitation la désigne
+// (claimedRequestId) : un champ posé par le parent ne suffit pas.
+function buildU14AllocationSnapshot({ requests, children, protectedInvites = [], protectedSettings, now = Date.now() }) {
   const childrenById = children.reduce((accumulator, child) => {
     accumulator.set(child.id, child);
     return accumulator;
   }, new Map());
+  const settings = normalizeU14ProtectedSettings(protectedSettings);
+  const reserveReleased = isU14ProtectedDeadlinePassed(settings.deadline, now);
 
   const requestRecords = requests.map((request) => buildU14RequestRecord(request, childrenById.get(request.childId)));
+  const claimedInviteByRequestId = new Map(
+    protectedInvites
+      .filter((invite) => invite.status === "claimed" && invite.claimedRequestId)
+      .map((invite) => [invite.claimedRequestId, invite]),
+  );
+  const protectedRequests = requestRecords.filter(
+    (request) =>
+      claimedInviteByRequestId.has(request.id) &&
+      request.requestType !== "porte_panier" &&
+      !isU14RequestInactive(request.status),
+  );
+  // Une invitation utilisée consomme définitivement sa place de réserve : si
+  // l'enfant se désiste ensuite, la place va aux inscriptions générales (on
+  // invite autant d'enfants que de places réservées, elle n'est plus utile).
+  const claimedByPool = requestRecords
+    .filter((request) => claimedInviteByRequestId.has(request.id) && request.requestType !== "porte_panier")
+    .reduce((accumulator, request) => {
+      const poolKey = getU14PoolKey(request.category, request.gender);
+      accumulator[poolKey] = (accumulator[poolKey] || 0) + 1;
+      return accumulator;
+    }, {});
+  const reserveByPool = Object.fromEntries(
+    Object.entries(settings.pools).map(([poolKey, size]) => [
+      poolKey,
+      reserveReleased ? 0 : Math.max(size - (claimedByPool[poolKey] || 0), 0),
+    ]),
+  );
+
   const requestStatusMap = new Map();
   const raceSummaries = U14_RACE_DEFINITIONS.map((definition) => {
-    const activeProtectedEntries = protectedEntries
-      .filter((entry) => entry.raceCode === definition.code && isProtectedSlotActive(entry))
-      .sort((left, right) => Number(left.slotNumber || 0) - Number(right.slotNumber || 0));
-    const matchedProtectedRequestIds = new Set(
-      activeProtectedEntries
-        .map((entry) => String(entry.matchedRequestId || "").trim())
-        .filter(Boolean),
-    );
-    const matchedProtectedRequests = requestRecords.filter((request) => matchedProtectedRequestIds.has(request.id));
+    const poolKey = getU14PoolKey(definition.category, definition.gender);
+    const protectedInRace = protectedRequests.filter((request) => request.raceCode === definition.code);
+    const blockedPlaces = reserveByPool[poolKey] || 0;
+    const totalPlaces = definition.totalCapacity || U14_DEFAULT_RACE_CAPACITY;
     const generalCandidates = requestRecords
       .filter(
         (request) =>
           request.raceCode === definition.code &&
           request.requestType !== "porte_panier" &&
           !isU14RequestInactive(request.status) &&
-          !matchedProtectedRequestIds.has(request.id),
+          !claimedInviteByRequestId.has(request.id),
       )
       .sort((left, right) => {
         if (left.submittedAtMs !== right.submittedAtMs) return left.submittedAtMs - right.submittedAtMs;
         return left.childName.localeCompare(right.childName, "fr");
       });
-
-    const generalCapacity = Math.max(
-      (definition.totalCapacity || U14_DEFAULT_RACE_CAPACITY) - activeProtectedEntries.length,
-      0,
-    );
+    const generalCapacity = Math.max(totalPlaces - protectedInRace.length - blockedPlaces, 0);
     const confirmedGeneralRequests = generalCandidates.slice(0, generalCapacity);
     const waitlistedRequests = generalCandidates.slice(generalCapacity);
-    const protectedPendingEntries = activeProtectedEntries.filter(
-      (entry) => normalizeComparableValue(entry.status) !== "matched",
-    );
-    const totalPlaces = definition.totalCapacity || U14_DEFAULT_RACE_CAPACITY;
-    const takenPlaces = activeProtectedEntries.length + confirmedGeneralRequests.length;
 
-    activeProtectedEntries.forEach((entry) => {
-      const matchedRequestId = String(entry.matchedRequestId || "").trim();
-      if (!matchedRequestId) return;
-
-      requestStatusMap.set(matchedRequestId, {
+    protectedInRace.forEach((request, index) => {
+      requestStatusMap.set(request.id, {
         status: "confirmed",
         allocationMode: "protected",
-        protectedSlotId: entry.id,
-        acceptedPosition: Number(entry.slotNumber || 0) || null,
+        protectedSlotId: claimedInviteByRequestId.get(request.id)?.id || null,
+        acceptedPosition: index + 1,
         waitlistPosition: null,
-        queuePosition: Number(entry.slotNumber || 0) || null,
+        queuePosition: index + 1,
         parentDecisionRequired: false,
       });
     });
@@ -414,9 +447,9 @@ function buildU14AllocationSnapshot({ requests, children, protectedEntries }) {
         status: "confirmed",
         allocationMode: "platform",
         protectedSlotId: null,
-        acceptedPosition: index + 1,
+        acceptedPosition: protectedInRace.length + index + 1,
         waitlistPosition: null,
-        queuePosition: index + 1,
+        queuePosition: protectedInRace.length + index + 1,
         parentDecisionRequired: false,
       });
     });
@@ -428,35 +461,45 @@ function buildU14AllocationSnapshot({ requests, children, protectedEntries }) {
         protectedSlotId: null,
         acceptedPosition: null,
         waitlistPosition: index + 1,
-        queuePosition: generalCapacity + index + 1,
+        queuePosition: protectedInRace.length + generalCapacity + index + 1,
         parentDecisionRequired: false,
       });
     });
 
+    const takenPlaces = protectedInRace.length + blockedPlaces + confirmedGeneralRequests.length;
+
     return {
       ...definition,
-      protectedEntries: activeProtectedEntries,
-      matchedProtectedRequests,
+      poolKey,
+      protectedRequests: protectedInRace,
       confirmedGeneralRequests,
       waitlistedRequests,
-      protectedPendingEntries,
+      blockedPlaces,
       generalCapacity,
       totalPlaces,
-      protectedPlaces: activeProtectedEntries.length,
+      protectedPlaces: protectedInRace.length,
       takenPlaces,
       remainingPlaces: Math.max(totalPlaces - takenPlaces, 0),
-      availableProtectedSlots: Math.max(U14_RESERVED_SLOTS_PER_RACE - activeProtectedEntries.length, 0),
     };
   });
 
-  return { requestRecords, requestStatusMap, raceSummaries };
+  return {
+    requestRecords,
+    requestStatusMap,
+    raceSummaries,
+    reserveByPool,
+    claimedByPool,
+    reserveReleased,
+    protectedSettings: settings,
+  };
 }
 
-async function syncU14RaceAllocations({ requests, children, protectedEntries }) {
+async function syncU14RaceAllocations({ requests, children, protectedInvites, protectedSettings }) {
   const { requestRecords, requestStatusMap } = buildU14AllocationSnapshot({
     requests,
     children,
-    protectedEntries,
+    protectedInvites,
+    protectedSettings,
   });
 
   for (const request of requestRecords) {
@@ -509,6 +552,8 @@ async function syncU14RaceAllocations({ requests, children, protectedEntries }) 
             ? "confirmed"
             : null
           : null,
+      // Montée depuis la liste d'attente : signalée « à valider » dans le module.
+      ...(currentStatus === "waitlisted" && nextStatus === "confirmed" ? { promotedFromWaitlistAt: serverTimestamp() } : {}),
       allocationUpdatedAt: serverTimestamp(),
     });
   }
@@ -534,6 +579,7 @@ export {
   U14_PRACTICAL_INFO_DOC_PATH,
   U14_RACE_DEFINITIONS,
   U14_RESERVED_SLOTS_COLLECTION,
+  U14_CONFIRMATION_DELAY_DAYS,
   U14_RESERVED_SLOTS_PER_RACE,
   buildU14AllocationSnapshot,
   buildU14RequestRecord,
@@ -551,6 +597,7 @@ export {
   getProtectedSlotStatusLabel,
   getTimestampMs,
   getU14AllowedEvents,
+  getU14ConfirmationDeadline,
   getU14ParentStatusLabel,
   getU14ParentStatusPillClass,
   getU14PracticalRoleKey,

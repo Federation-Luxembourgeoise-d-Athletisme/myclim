@@ -1,9 +1,7 @@
 import { Suspense, lazy } from "react";
 import {
-  addDoc,
   arrayRemove,
   arrayUnion,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -405,8 +403,6 @@ function U14Page() {
       AuthFormField={AuthFormField}
       DataTable={DataTable}
       Panel={Panel}
-      addDoc={addDoc}
-      deleteDoc={deleteDoc}
       doc={doc}
       getDocs={getDocs}
       loadMailQueueModule={loadMailQueueModule}

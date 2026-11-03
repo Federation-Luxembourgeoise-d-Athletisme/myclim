@@ -11,25 +11,19 @@ import {
   buildNationalRaceDecisionMail,
   compareNationalRaceRequests,
   getBestTimeSummary,
-  getNationalRaceDefinition,
   isNationalRaceMailPending,
 } from "./national-races-helpers";
 import { useNationalRaceMailTemplates, useNationalRaceRequests } from "./national-races-hooks";
+import { useNationalRacesAdminCopy } from "./national-races-admin-copy";
 import { formatDateForDisplay, formatDateTimeForDisplay, getTimestampMs } from "./u14-helpers";
 
+// Module Courses nationales (commission des athlètes). Textes français /
+// anglais : national-races-admin-copy.js.
 const DECISIONS = [
-  { status: "selected", label: "Retenu", className: "nat-seg__item--ok" },
-  { status: "waitlist", label: "Attente", className: "nat-seg__item--warn" },
-  { status: "not_selected", label: "Non", className: "nat-seg__item--danger" },
+  { status: "selected", className: "nat-seg__item--ok" },
+  { status: "waitlist", className: "nat-seg__item--warn" },
+  { status: "not_selected", className: "nat-seg__item--danger" },
 ];
-
-const STATUS_LABELS = {
-  submitted: "Pas de décision",
-  selected: "Retenu(e)",
-  waitlist: "Liste d'attente",
-  not_selected: "Non retenu(e)",
-  withdrawn: "Désisté(e)",
-};
 
 const STATUS_PILL_CLASSES = {
   selected: "status-pill status-pill--ok",
@@ -65,20 +59,19 @@ function downloadCsv(filename, rows) {
 }
 
 function MailStatus({ request }) {
+  const { copy, fill } = useNationalRacesAdminCopy();
   if (isNationalRaceMailPending(request)) {
-    return (
-      <span className="status-pill status-pill--warn">
-        {request.notifiedStatus ? "Décision modifiée, à renvoyer" : "À envoyer"}
-      </span>
-    );
+    return <span className="status-pill status-pill--warn">{request.notifiedStatus ? copy.mailStatus.resend : copy.mailStatus.toSend}</span>;
   }
   if (request.notifiedAt && request.notifiedStatus === request.status) {
-    return <span className="status-pill status-pill--ok">Envoyé {formatDateForDisplay(request.notifiedAt)}</span>;
+    return <span className="status-pill status-pill--ok">{fill(copy.mailStatus.sent, { date: formatDateForDisplay(request.notifiedAt) })}</span>;
   }
   return <span className="nat-muted">-</span>;
 }
 
 function TemplateEditor({ templates, onClose, onSave, isSaving }) {
+  const { copy } = useNationalRacesAdminCopy();
+  const text = copy.templates;
   const [draft, setDraft] = useState(templates);
   const [activeStatus, setActiveStatus] = useState("selected");
   const current = draft[activeStatus];
@@ -90,8 +83,8 @@ function TemplateEditor({ templates, onClose, onSave, isSaving }) {
   return (
     <div className="nat-card">
       <div className="nat-card__head">
-        <strong>Modèles de mails</strong>
-        <span className="nat-muted">Variables : {"{prenom}"}, {"{nom}"}, {"{course}"}, {"{message}"} (message personnel)</span>
+        <strong>{text.title}</strong>
+        <span className="nat-muted">{text.variables}</span>
       </div>
       <div className="nat-chip-row">
         {NATIONAL_RACE_NOTIFIABLE_STATUSES.map((status) => (
@@ -101,21 +94,21 @@ function TemplateEditor({ templates, onClose, onSave, isSaving }) {
             type="button"
             onClick={() => setActiveStatus(status)}
           >
-            {STATUS_LABELS[status]}
+            {copy.statuses[status]}
           </button>
         ))}
       </div>
       <label className="field">
-        <span>Objet</span>
+        <span>{text.subject}</span>
         <input value={current.subject} onChange={(event) => updateField("subject", event.target.value)} />
       </label>
       <div className="field-grid">
         <label className="field">
-          <span>Texte français</span>
+          <span>{text.bodyFr}</span>
           <textarea rows="9" value={current.bodyFr} onChange={(event) => updateField("bodyFr", event.target.value)} />
         </label>
         <label className="field">
-          <span>Texte anglais</span>
+          <span>{text.bodyEn}</span>
           <textarea rows="9" value={current.bodyEn} onChange={(event) => updateField("bodyEn", event.target.value)} />
         </label>
       </div>
@@ -125,12 +118,12 @@ function TemplateEditor({ templates, onClose, onSave, isSaving }) {
           type="button"
           onClick={() => setDraft((previous) => ({ ...previous, [activeStatus]: DEFAULT_NATIONAL_RACE_MAIL_TEMPLATES[activeStatus] }))}
         >
-          Revenir au texte par défaut
+          {text.reset}
         </button>
         <span className="nat-spacer" />
-        <button className="button button--secondary" type="button" onClick={onClose}>Annuler</button>
+        <button className="button button--secondary" type="button" onClick={onClose}>{text.cancel}</button>
         <button className="button button--primary" disabled={isSaving} type="button" onClick={() => onSave(draft)}>
-          {isSaving ? "Enregistrement..." : "Enregistrer les modèles"}
+          {isSaving ? text.saving : text.save}
         </button>
       </div>
     </div>
@@ -138,6 +131,8 @@ function TemplateEditor({ templates, onClose, onSave, isSaving }) {
 }
 
 function MailPanel({ pendingRequests, templates, onSend, onSendTest, onEditTemplates, isSending, lastSend }) {
+  const { copy, fill, raceLabel } = useNationalRacesAdminCopy();
+  const text = copy.mailPanel;
   const [checkedIds, setCheckedIds] = useState([]);
   const [previewId, setPreviewId] = useState("");
   const visibleChecked = checkedIds.filter((id) => pendingRequests.some((request) => request.id === id));
@@ -157,51 +152,52 @@ function MailPanel({ pendingRequests, templates, onSend, onSendTest, onEditTempl
   return (
     <div className="nat-card">
       <div className="nat-card__head">
-        <strong>Mails en attente · {pendingRequests.length}</strong>
-        <span className="nat-muted">Rien ne part sans validation. Cochez ceux à envoyer maintenant, les autres restent en attente.</span>
+        <strong>{fill(text.title, { count: pendingRequests.length })}</strong>
+        <span className="nat-muted">{text.hint}</span>
       </div>
       {pendingRequests.length ? (
         <div className="nat-table">
           {pendingRequests.map((request) => (
             <div key={request.id} className="nat-mail-row">
               <input
-                aria-label={`Sélectionner ${request.firstName} ${request.lastName}`}
+                aria-label={fill(copy.select, { name: `${request.firstName} ${request.lastName}` })}
                 checked={visibleChecked.includes(request.id)}
                 type="checkbox"
                 onChange={() => toggle(request.id)}
               />
               <span>
                 <strong>{request.firstName} {request.lastName}</strong>
-                {request.isMinor && request.guardianEmail ? <span className="nat-muted"> + copie parent</span> : null}
+                {request.isMinor && request.guardianEmail ? <span className="nat-muted">{text.parentCopy}</span> : null}
               </span>
-              <span><span className={STATUS_PILL_CLASSES[request.status]}>{STATUS_LABELS[request.status]}</span></span>
-              <span className="nat-muted">{getNationalRaceDefinition(request.raceCode)?.label || request.event}</span>
+              <span><span className={STATUS_PILL_CLASSES[request.status]}>{copy.statuses[request.status]}</span></span>
+              <span className="nat-muted">{raceLabel(request.raceCode, request.event)}</span>
               <button
                 className={`button button--secondary button--small${previewId === request.id ? " nat-button--active" : ""}`}
                 type="button"
                 onClick={() => setPreviewId(previewId === request.id ? "" : request.id)}
               >
-                Aperçu
+                {text.preview}
               </button>
             </div>
           ))}
         </div>
       ) : (
-        <p className="nat-muted">Aucun mail en attente. Les décisions prises apparaîtront ici avant d'être envoyées.</p>
+        <p className="nat-muted">{text.empty}</p>
       )}
 
       {previewMail ? (
         <div className="nat-preview">
           <div className="nat-muted">
-            À : {previewMail.to}{previewMail.cc ? ` · Copie : ${previewMail.cc}` : ""}
+            {fill(text.to, { to: previewMail.to })}
+            {previewMail.cc ? fill(text.cc, { cc: previewMail.cc }) : ""}
           </div>
           <strong>{previewMail.subject}</strong>
           <pre>{previewMail.body}</pre>
           <div className="nat-actions">
-            <span className="nat-muted">Le message personnel se modifie dans la liste, colonne « Message ».</span>
+            <span className="nat-muted">{text.messageHint}</span>
             <span className="nat-spacer" />
             <button className="button button--primary button--small" disabled={isSending} type="button" onClick={() => sendChecked([previewRequest.id])}>
-              Envoyer à {previewRequest.firstName} seulement
+              {fill(text.sendOnly, { name: previewRequest.firstName })}
             </button>
           </div>
         </div>
@@ -209,24 +205,26 @@ function MailPanel({ pendingRequests, templates, onSend, onSendTest, onEditTempl
 
       <div className="nat-actions">
         <span className="nat-muted">
-          {lastSend ? `Dernier envoi : ${formatDateTimeForDisplay(lastSend.at)}${lastSend.by ? ` par ${lastSend.by}` : ""}` : "Aucun envoi pour l'instant"}
+          {lastSend
+            ? `${fill(text.lastSend, { date: formatDateTimeForDisplay(lastSend.at) })}${lastSend.by ? fill(text.lastSendBy, { name: lastSend.by }) : ""}`
+            : text.noSend}
         </span>
         <span className="nat-spacer" />
-        <button className="button button--secondary" type="button" onClick={onEditTemplates}>Modifier les modèles</button>
+        <button className="button button--secondary" type="button" onClick={onEditTemplates}>{text.editTemplates}</button>
         <button
           className="button button--secondary"
           disabled={isSending || !pendingRequests.length}
           type="button"
           onClick={() => onSendTest(previewRequest || pendingRequests.find((request) => visibleChecked.includes(request.id)) || pendingRequests[0])}
         >
-          M'envoyer un test
+          {text.test}
         </button>
         <button
           className="button button--secondary"
           type="button"
           onClick={() => setCheckedIds(visibleChecked.length === pendingRequests.length ? [] : pendingRequests.map((request) => request.id))}
         >
-          {visibleChecked.length === pendingRequests.length && pendingRequests.length ? "Tout décocher" : "Tout cocher"}
+          {visibleChecked.length === pendingRequests.length && pendingRequests.length ? text.uncheckAll : text.checkAll}
         </button>
         <button
           className="button button--primary"
@@ -234,7 +232,7 @@ function MailPanel({ pendingRequests, templates, onSend, onSendTest, onEditTempl
           type="button"
           onClick={() => sendChecked(visibleChecked)}
         >
-          {isSending ? "Envoi..." : `Envoyer ${visibleChecked.length} mail${visibleChecked.length > 1 ? "s" : ""}`}
+          {isSending ? text.sending : visibleChecked.length === 1 ? text.sendOne : fill(text.sendMany, { count: visibleChecked.length })}
         </button>
       </div>
     </div>
@@ -243,6 +241,8 @@ function MailPanel({ pendingRequests, templates, onSend, onSendTest, onEditTempl
 
 function NationalRacesPage(props) {
   const { loadMailQueueModule } = props;
+  const { copy, fill, raceLabel } = useNationalRacesAdminCopy();
+  const text = copy.messages;
   const { currentUser, userProfile } = useAuth();
   const { requests, loading, error } = useNationalRaceRequests();
   const { templates, error: templatesError } = useNationalRaceMailTemplates();
@@ -279,6 +279,7 @@ function NationalRacesPage(props) {
     [requests],
   );
   const selectedRace = raceSummaries.find((race) => race.code === selectedRaceCode) || raceSummaries[0];
+  const selectedRaceLabel = raceLabel(selectedRace.code, selectedRace.label);
   const raceRequests = useMemo(
     () => requests.filter((request) => request.raceCode === selectedRace.code).sort(compareNationalRaceRequests),
     [requests, selectedRace.code],
@@ -318,11 +319,11 @@ function NationalRacesPage(props) {
       setCheckedIds([]);
       flash(
         targetRequests.length === 1
-          ? `${targetRequests[0].firstName} ${targetRequests[0].lastName} : ${STATUS_LABELS[status]}. Le mail attend dans « Mails en attente ».`
-          : `${targetRequests.length} athlètes passés en « ${STATUS_LABELS[status]} ». Les mails attendent dans « Mails en attente ».`,
+          ? fill(text.decidedOne, { name: `${targetRequests[0].firstName} ${targetRequests[0].lastName}`, status: copy.statuses[status] })
+          : fill(text.decidedMany, { count: targetRequests.length, status: copy.statuses[status] }),
       );
     } catch {
-      setErrorMessage("La décision n'a pas pu être enregistrée.");
+      setErrorMessage(text.decisionFailed);
     } finally {
       setIsBusy(false);
     }
@@ -332,10 +333,10 @@ function NationalRacesPage(props) {
     const candidates = raceRequests.filter((request) => request.status !== "withdrawn").slice(0, selectedRace.quota);
     const toUpdate = candidates.filter((request) => request.status !== "selected");
     if (!toUpdate.length) {
-      flash(`Les ${candidates.length} premiers du ${selectedRace.label} sont déjà retenus.`);
+      flash(fill(text.topAlready, { count: candidates.length, race: selectedRaceLabel }));
       return;
     }
-    if (!window.confirm(`Retenir les ${candidates.length} premiers du classement du ${selectedRace.label} (${toUpdate.length} changement(s)) ? Aucun mail n'est envoyé à cette étape.`)) return;
+    if (!window.confirm(fill(text.topConfirm, { count: candidates.length, race: selectedRaceLabel, changes: toUpdate.length }))) return;
     setStatuses(toUpdate, "selected");
   }
 
@@ -344,14 +345,17 @@ function NationalRacesPage(props) {
       await updateDoc(doc(db, NATIONAL_RACE_REQUESTS_COLLECTION, request.id), { ...changes, updatedAt: serverTimestamp() });
       if (successMessage) flash(successMessage);
     } catch {
-      setErrorMessage("La modification n'a pas pu être enregistrée.");
+      setErrorMessage(text.updateFailed);
     }
   }
 
   async function handleSend(targetRequests) {
     if (!targetRequests.length) return [];
-    const label = targetRequests.length === 1 ? `à ${targetRequests[0].firstName} ${targetRequests[0].lastName}` : `${targetRequests.length} mails`;
-    if (!window.confirm(`Envoyer ${label} maintenant ?`)) return [];
+    const question =
+      targetRequests.length === 1
+        ? fill(text.sendConfirmOne, { name: `${targetRequests[0].firstName} ${targetRequests[0].lastName}` })
+        : fill(text.sendConfirmMany, { count: targetRequests.length });
+    if (!window.confirm(question)) return [];
 
     setIsSending(true);
     setStatusMessage("");
@@ -379,12 +383,8 @@ function NationalRacesPage(props) {
       setIsSending(false);
     }
 
-    if (failed.length) {
-      setErrorMessage(`Envoi impossible pour : ${failed.join(", ")}. Ces mails restent en attente.`);
-    }
-    if (sentIds.length) {
-      setStatusMessage(`${sentIds.length} mail${sentIds.length > 1 ? "s envoyés" : " envoyé"}.`);
-    }
+    if (failed.length) setErrorMessage(fill(text.sendFailed, { names: failed.join(", ") }));
+    if (sentIds.length) setStatusMessage(sentIds.length === 1 ? text.sentOne : fill(text.sentMany, { count: sentIds.length }));
     return sentIds;
   }
 
@@ -395,9 +395,9 @@ function NationalRacesPage(props) {
       const { enqueueTransactionalMail } = await loadMailQueueModule();
       const mail = buildNationalRaceDecisionMail(request, templates);
       await enqueueTransactionalMail({ ...mail, to: currentUser.email, cc: undefined, subject: `[TEST] ${mail.subject}` });
-      flash(`Test envoyé à ${currentUser.email} (modèle « ${STATUS_LABELS[request.status]} », données de ${request.firstName}).`);
+      flash(fill(text.testSent, { email: currentUser.email, status: copy.statuses[request.status], name: request.firstName }));
     } catch {
-      setErrorMessage("Le mail de test n'a pas pu être envoyé.");
+      setErrorMessage(text.testFailed);
     } finally {
       setIsSending(false);
     }
@@ -408,9 +408,9 @@ function NationalRacesPage(props) {
     try {
       await setDoc(doc(db, ...NATIONAL_RACE_MAIL_TEMPLATES_DOC_PATH), { ...draft, updatedAt: serverTimestamp(), updatedBy: authorName });
       setIsEditingTemplates(false);
-      flash("Modèles enregistrés.");
+      flash(text.templatesSaved);
     } catch {
-      setErrorMessage("Les modèles n'ont pas pu être enregistrés.");
+      setErrorMessage(text.templatesFailed);
     } finally {
       setIsBusy(false);
     }
@@ -423,18 +423,19 @@ function NationalRacesPage(props) {
       return raceOrder || compareNationalRaceRequests(left, right);
     });
     if (!selected.length) {
-      flash("Aucun athlète retenu à exporter pour l'instant.");
+      flash(text.nothingToExport);
       return;
     }
-    downloadCsv(`courses-nationales-retenus-${new Date().toISOString().slice(0, 10)}.csv`, [
-      ["Course", "Nom", "Prénom", "Sexe", "Date de naissance", "Licence LUX", "Club", "Dossard FLA", "Pays", "Licence étrangère", "PB", "SB 2026", "Autre temps", "Email", "Téléphone", "Engagé SELTEC"],
+    const { csv } = copy;
+    downloadCsv(`${csv.file}-${new Date().toISOString().slice(0, 10)}.csv`, [
+      csv.headers,
       ...selected.map((request) => [
-        getNationalRaceDefinition(request.raceCode)?.label || request.event,
+        raceLabel(request.raceCode, request.event),
         request.lastName,
         request.firstName,
         request.gender === "femme" ? "F" : "M",
         request.birthDate,
-        request.isLuxLicensed ? "Oui" : "Non",
+        request.isLuxLicensed ? csv.yes : csv.no,
         request.isLuxLicensed ? request.club : request.foreignClub,
         request.bibNumber,
         request.isLuxLicensed ? "LUX" : request.foreignCountry,
@@ -444,7 +445,7 @@ function NationalRacesPage(props) {
         request.otherTime,
         request.email,
         request.phone,
-        request.seltecEntered ? "Oui" : "Non",
+        request.seltecEntered ? csv.yes : csv.no,
       ]),
     ]);
   }
@@ -453,15 +454,12 @@ function NationalRacesPage(props) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Commission des athlètes</p>
-          <h1>Courses nationales</h1>
-          <p>
-            Demandes 60 m et 800 m du pré-programme. Classement proposé : licenciés luxembourgeois d'abord, puis meilleur temps, puis ordre
-            d'arrivée. Une décision n'envoie aucun mail : vous choisissez quand prévenir chaque athlète.
-          </p>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.intro}</p>
         </div>
         <div className="nat-actions">
-          <button className="button button--secondary" type="button" onClick={handleExport}>Export SELTEC (CSV)</button>
+          <button className="button button--secondary" type="button" onClick={handleExport}>{copy.export}</button>
         </div>
       </section>
 
@@ -470,10 +468,10 @@ function NationalRacesPage(props) {
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
 
       <section className="metric-grid">
-        <article className="metric-card"><span>Demandes</span><strong>{metrics.total}</strong></article>
-        <article className="metric-card metric-card--accent"><span>Retenus / places</span><strong>{metrics.selected} / {metrics.places}</strong></article>
-        <article className="metric-card"><span>À décider</span><strong>{metrics.undecided}</strong></article>
-        <article className="metric-card metric-card--warn"><span>Mails à envoyer</span><strong>{metrics.pending}</strong></article>
+        <article className="metric-card"><span>{copy.metrics.total}</span><strong>{metrics.total}</strong></article>
+        <article className="metric-card metric-card--accent"><span>{copy.metrics.selected}</span><strong>{metrics.selected} / {metrics.places}</strong></article>
+        <article className="metric-card"><span>{copy.metrics.undecided}</span><strong>{metrics.undecided}</strong></article>
+        <article className="metric-card metric-card--warn"><span>{copy.metrics.pending}</span><strong>{metrics.pending}</strong></article>
       </section>
 
       <div className="nat-chip-row">
@@ -487,7 +485,7 @@ function NationalRacesPage(props) {
               setCheckedIds([]);
             }}
           >
-            {race.label} · {race.selected}/{race.quota}
+            {raceLabel(race.code, race.label)} · {race.selected}/{race.quota}
             <span className="nat-muted"> ({race.total})</span>
           </button>
         ))}
@@ -495,14 +493,14 @@ function NationalRacesPage(props) {
 
       {selectedRace.selected > selectedRace.quota ? (
         <div className="notice-card notice-card--warn">
-          <strong>Quota dépassé</strong>
-          <p>{selectedRace.selected} athlètes retenus pour {selectedRace.quota} places sur le {selectedRace.label}.</p>
+          <strong>{copy.quotaTitle}</strong>
+          <p>{fill(copy.quotaBody, { count: selectedRace.selected, quota: selectedRace.quota, race: selectedRaceLabel })}</p>
         </div>
       ) : null}
 
       <div className="nat-card nat-card--flush">
         <div className="nat-bulk">
-          <span className="nat-muted">{checkedInRace.length ? `${checkedInRace.length} sélectionné(s)` : "Cochez des athlètes pour décider en groupe"}</span>
+          <span className="nat-muted">{checkedInRace.length ? fill(copy.bulkSelected, { count: checkedInRace.length }) : copy.bulkHint}</span>
           {DECISIONS.map((decision) => (
             <button
               key={decision.status}
@@ -511,25 +509,25 @@ function NationalRacesPage(props) {
               type="button"
               onClick={() => setStatuses(raceRequests.filter((request) => checkedInRace.includes(request.id)), decision.status)}
             >
-              {STATUS_LABELS[decision.status]}
+              {copy.statuses[decision.status]}
             </button>
           ))}
           <span className="nat-spacer" />
           <button className="button button--secondary button--small" disabled={isBusy || !raceRequests.length} type="button" onClick={handleSelectTop}>
-            Retenir les {selectedRace.quota} premiers
+            {fill(copy.selectTop, { count: selectedRace.quota })}
           </button>
         </div>
         <div className="nat-row nat-row--head">
           <span />
-          <span>#</span>
-          <span>Athlète</span>
-          <span>Meilleur temps</span>
-          <span>Décision</span>
-          <span>Mail</span>
-          <span>Message personnel</span>
+          <span>{copy.columns.position}</span>
+          <span>{copy.columns.athlete}</span>
+          <span>{copy.columns.best}</span>
+          <span>{copy.columns.decision}</span>
+          <span>{copy.columns.mail}</span>
+          <span>{copy.columns.message}</span>
         </div>
-        {loading ? <p className="nat-muted nat-pad">Chargement...</p> : null}
-        {!loading && !raceRequests.length ? <p className="nat-muted nat-pad">Aucune demande pour cette course.</p> : null}
+        {loading ? <p className="nat-muted nat-pad">{copy.loading}</p> : null}
+        {!loading && !raceRequests.length ? <p className="nat-muted nat-pad">{copy.emptyRace}</p> : null}
         {raceRequests.map((request, index) => {
           const age = getAthleteAge(request.birthDate);
           const best = getBestTimeSummary(request);
@@ -538,7 +536,7 @@ function NationalRacesPage(props) {
           return (
             <div key={request.id} className={`nat-row${isWithdrawn ? " nat-row--withdrawn" : ""}`}>
               <input
-                aria-label={`Sélectionner ${request.firstName} ${request.lastName}`}
+                aria-label={fill(copy.select, { name: `${request.firstName} ${request.lastName}` })}
                 checked={checkedInRace.includes(request.id)}
                 disabled={isWithdrawn}
                 type="checkbox"
@@ -550,32 +548,36 @@ function NationalRacesPage(props) {
               <span className="table-stack">
                 <strong>{request.firstName} {request.lastName}</strong>
                 <span className="nat-muted">
-                  {request.birthYear || "-"}{age !== null ? ` · ${age} ans` : ""} · {request.isLuxLicensed ? `${request.club} · dossard ${request.bibNumber || "-"}` : `${request.foreignClub} · ${request.foreignCountry}`}
+                  {request.birthYear || "-"}
+                  {age !== null ? ` · ${fill(copy.age, { age })}` : ""} ·{" "}
+                  {request.isLuxLicensed
+                    ? `${request.club} · ${fill(copy.bib, { bib: request.bibNumber || "-" })}`
+                    : `${request.foreignClub} · ${request.foreignCountry}`}
                 </span>
                 <span className="nat-badges">
-                  {request.isLuxLicensed ? null : <span className="status-pill status-pill--warn">Étranger</span>}
+                  {request.isLuxLicensed ? null : <span className="status-pill status-pill--warn">{copy.foreign}</span>}
                   {request.isMinor ? (
                     <span
                       className={request.guardianConsent ? "status-pill status-pill--accent" : "status-pill status-pill--danger"}
                       title={`${request.guardianFirstName} ${request.guardianLastName} · ${request.guardianEmail}`}
                     >
-                      Mineur · accord parent
+                      {copy.minor}
                     </span>
                   ) : null}
-                  {isWithdrawn ? <span className="status-pill status-pill--danger">Désisté</span> : null}
+                  {isWithdrawn ? <span className="status-pill status-pill--danger">{copy.withdrawn}</span> : null}
                 </span>
               </span>
               <span className="table-stack">
                 {best ? (
                   <>
-                    <strong>{best.time} <span className="nat-muted">{best.label}</span></strong>
+                    <strong>{best.time} <span className="nat-muted">{copy.timeLabels[best.label] || best.label}</span></strong>
                     <span className="nat-muted">{[best.place, best.date ? formatDateForDisplay(best.date) : ""].filter(Boolean).join(" · ")}</span>
                   </>
                 ) : (
-                  <span className="nat-muted">Aucun temps</span>
+                  <span className="nat-muted">{copy.noTime}</span>
                 )}
                 <details className="nat-details">
-                  <summary>Détail</summary>
+                  <summary>{copy.detail}</summary>
                   {[
                     { label: "PB", prefix: "personalBest" },
                     { label: "SB 2026", prefix: "seasonBest" },
@@ -584,24 +586,24 @@ function NationalRacesPage(props) {
                     .filter((row) => request[row.prefix])
                     .map((row) => (
                       <span key={row.prefix}>
-                        {row.label} {request[row.prefix]}
+                        {copy.timeLabels[row.label]} {request[row.prefix]}
                         {request[`${row.prefix}Place`] ? ` · ${request[`${row.prefix}Place`]}` : ""}
                         {request[`${row.prefix}Date`] ? ` · ${formatDateForDisplay(request[`${row.prefix}Date`])}` : ""}
                       </span>
                     ))}
-                  {request.notes ? <span>Note : {request.notes}</span> : null}
+                  {request.notes ? <span>{fill(copy.note, { note: request.notes })}</span> : null}
                   <span>{request.email} · {request.phone}</span>
-                  <span>Reçue le {formatDateTimeForDisplay(request.submittedAt)}</span>
+                  <span>{fill(copy.receivedOn, { date: formatDateTimeForDisplay(request.submittedAt) })}</span>
                   {request.status === "selected" ? (
                     <label className="nat-inline-check">
                       <input
                         checked={Boolean(request.seltecEntered)}
                         type="checkbox"
                         onChange={(event) =>
-                          updateRequest(request, { seltecEntered: event.target.checked }, event.target.checked ? "Engagement SELTEC noté." : "Engagement SELTEC retiré.")
+                          updateRequest(request, { seltecEntered: event.target.checked }, event.target.checked ? copy.seltecOn : copy.seltecOff)
                         }
                       />
-                      Engagé sur SELTEC
+                      {copy.seltec}
                     </label>
                   ) : null}
                 </details>
@@ -610,7 +612,7 @@ function NationalRacesPage(props) {
                 {isWithdrawn ? (
                   <span className="nat-muted">-</span>
                 ) : (
-                  <span className="nat-seg" role="group" aria-label="Décision">
+                  <span className="nat-seg" role="group" aria-label={copy.decisionGroup}>
                     {DECISIONS.map((decision) => (
                       <button
                         key={decision.status}
@@ -620,7 +622,7 @@ function NationalRacesPage(props) {
                         type="button"
                         onClick={() => setStatuses([request], request.status === decision.status ? "submitted" : decision.status)}
                       >
-                        {decision.label}
+                        {copy.decisions[decision.status]}
                       </button>
                     ))}
                   </span>
@@ -629,13 +631,13 @@ function NationalRacesPage(props) {
               <span><MailStatus request={request} /></span>
               <span>
                 <input
-                  aria-label="Message personnel"
+                  aria-label={copy.messageLabel}
                   className="nat-message-input"
-                  placeholder="Ajouté au mail et visible par l'athlète"
+                  placeholder={copy.messagePlaceholder}
                   value={messageDraft}
                   onBlur={() => {
                     if (messageDraft.trim() === (request.athleteMessage || "")) return;
-                    updateRequest(request, { athleteMessage: messageDraft.trim() }, "Message enregistré.");
+                    updateRequest(request, { athleteMessage: messageDraft.trim() }, copy.messageSaved);
                   }}
                   onChange={(event) => setMessageDrafts((current) => ({ ...current, [request.id]: event.target.value }))}
                 />

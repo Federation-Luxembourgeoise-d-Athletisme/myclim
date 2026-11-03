@@ -20,6 +20,10 @@ export {
   sendTeamAnnouncement,
   sendTestNotification,
 } from "./notifications.js";
+// Places protégées U12 / U14 : inscription par lien, rappel J-2, libération (voir u14-protected.js).
+export { claimU14ProtectedInvite, u14ProtectedInvitesDaily } from "./u14-protected.js";
+// Liste d'attente U12 / U14 : avance toute seule après un désistement (voir u14-allocation.js).
+export { recalculateU14OnCreate, recalculateU14OnWithdrawal } from "./u14-allocation.js";
 
 
 admin.initializeApp();

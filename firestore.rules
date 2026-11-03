@@ -464,6 +464,28 @@ service cloud.firestore {
     // La lecture reste admin-only (les places non affectées ne concernent pas
     // les autres parents) ; seul le parent déjà lié à une place peut la modifier,
     // pour la libérer.
+    // Invitations des places protégées : l'identifiant du document est le
+    // jeton du lien envoyé à la famille. On peut lire une invitation dont on
+    // a le lien (get), jamais lister les autres. La confirmation passe par la
+    // fonction claimU14ProtectedInvite (droits serveur).
+    match /u14ProtectedInvites/{token} {
+      allow get: if true;
+      allow list, create, update, delete: if isAdminOrManager();
+    }
+
+    // Réserves et date limite des places protégées, et infos pratiques
+    // U12/U14 : lues par les parents (formulaire d'invitation, mail de
+    // confirmation, espace « Mes enfants »), modifiées par l'équipe.
+    match /appSettings/u14ProtectedSettings {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrManager();
+    }
+
+    match /appSettings/u14PracticalInfo {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrManager();
+    }
+
     match /u14ProtectedEntries/{entryId} {
       allow read:   if isAdminOrManager();
       allow create, delete: if isAdminOrManager();

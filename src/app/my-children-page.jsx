@@ -1,15 +1,20 @@
 import { useMemo, useState } from "react";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { AuthFormField } from "./form-components";
+import { useActiveEdition } from "./edition";
+import { useMeetingEditions } from "./meeting-history-hooks";
 import {
+  U14_PRACTICAL_INFO_DOC_PATH,
   U14_RESERVED_SLOTS_COLLECTION,
   createEmptyParentU14ChildForm,
+  formatDateForDisplay,
   formatParentRequestSchedule,
   formatParentRequestStatus,
   formatParentRequestType,
   getPreProgramSubmissionErrorMessage,
   getU14AllowedEvents,
   getU14ParentStatusPillClass,
+  getU14PracticalRoleKey,
   getU14RaceLabel,
   getValidRequestedEventForCategory,
 } from "./u14-helpers";
@@ -30,6 +35,9 @@ function MyChildrenPage(props) {
   const { addU14ChildRegistration, currentUser, userProfile } = useAuth();
   const { t } = useLanguage();
   const { rows: parentRows, loading, error } = useParentU14Children(currentUser?.uid);
+  const { activeEditionId } = useActiveEdition();
+  const { editions } = useMeetingEditions();
+  const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
   const [childForm, setChildForm] = useState(createEmptyParentU14ChildForm);
   const [isAddChildOpen, setIsAddChildOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -134,6 +142,32 @@ function MyChildrenPage(props) {
         parentDecisionAt: serverTimestamp(),
       });
       setStatusMessage(t("mcConfirmed").replace("{name}", row.name));
+
+      // « Merci, tout est ok » avec les infos pratiques du rôle.
+      if (currentUser?.email) {
+        try {
+          const isBasket = getU14PracticalRoleKey(row) === "porte_panier";
+          const practicalSnapshot = await getDoc(doc(db, ...U14_PRACTICAL_INFO_DOC_PATH)).catch(() => null);
+          const practical = practicalSnapshot?.exists?.() ? practicalSnapshot.data() || {} : {};
+          const { buildU14ParticipationConfirmedMail, enqueueTransactionalMail } = await loadMailQueueModule();
+          await enqueueTransactionalMail(
+            buildU14ParticipationConfirmedMail({
+              parentEmail: currentUser.email,
+              parentFirstName: userProfile?.firstName || "",
+              childName: row.name,
+              raceLabel: getU14RaceLabel(row.raceCode),
+              isBasket,
+              eventDate: activeEdition?.date || null,
+              venue: activeEdition?.venue || "",
+              editionYear: activeEdition?.year || activeEditionId,
+              practicalInfo: isBasket ? practical.porte_panier || "" : practical.preprogram || "",
+            }),
+          );
+        } catch (mailError) {
+          console.error("Participation confirmation email could not be sent", mailError);
+          setErrorMessage(t("mcConfirmMailError"));
+        }
+      }
     } catch {
       setErrorMessage(t("mcConfirmError"));
     } finally {
@@ -172,10 +206,10 @@ function MyChildrenPage(props) {
         });
       }
 
-      // Le recalcul de la liste d'attente (qui doit lire/écrire les demandes de
-      // tous les parents) ne peut pas se faire depuis la session du parent —
-      // seul l'admin y est autorisé, via "Recalculer les allocations" dans le
-      // module Pré-programme.
+      // Le recalcul de la liste d'attente (qui lit/écrit les demandes de tous
+      // les parents) se fait côté serveur dès ce désistement
+      // (functions/src/u14-allocation.js) : l'enfant suivant monte et reste à
+      // valider par l'équipe.
       const promotedRaceLabel = row.raceCode ? getU14RaceLabel(row.raceCode) : "sa course";
       if (currentUser?.email) {
         const { enqueueTransactionalMail } = await loadMailQueueModule();
@@ -275,6 +309,14 @@ function MyChildrenPage(props) {
                         <strong>{formatParentRequestSchedule(row, t)}</strong>
                         {row.practicalInfoText ? (
                           <span className="parent-request-practical">{row.practicalInfoText}</span>
+                        ) : null}
+                        {row.adminApprovalStatus === "approved" &&
+                        row.parentDecisionStatus !== "confirmed" &&
+                        row.parentDecisionStatus !== "declined" &&
+                        row.confirmationDeadline ? (
+                          <span className="parent-request-note">
+                            {t("mcConfirmBefore").replace("{date}", formatDateForDisplay(row.confirmationDeadline))}
+                          </span>
                         ) : null}
                         {normalizeComparableValue(row.status) === "demande enregistree" &&
                         normalizeComparableValue(row.adminApprovalStatus) !== "approved" &&

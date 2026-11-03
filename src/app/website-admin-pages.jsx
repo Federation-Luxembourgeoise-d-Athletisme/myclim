@@ -38,6 +38,7 @@ import {
 } from "./prize-money-utils";
 import { updateEdition, useMeetingEditions } from "./meeting-history-hooks";
 import { defaultTimetableNote, parseTimetablePaste } from "./timetable-import";
+import { PreprogrammeScheduleEditor } from "./preprogramme-schedule-editor";
 
 /* ── Shared helpers ──────────────────────────────────────── */
 function getDisplayHostname(url) {
@@ -1626,6 +1627,13 @@ export function WebsiteEditionPage({ Panel }) {
               </div>
             </div>
           </div>
+
+          {/* ── Pré-programme : déroulé public ── */}
+          <PreprogrammeScheduleEditor
+            key={effectiveYear}
+            schedule={selectedEdition.preprogrammeSchedule}
+            onSave={(lines) => updateEdition(effectiveYear, { preprogrammeSchedule: lines })}
+          />
 
           {/* ── Disciplines ── */}
           <div style={{ padding: "16px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>

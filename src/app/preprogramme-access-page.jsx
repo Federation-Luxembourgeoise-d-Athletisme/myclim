@@ -4,6 +4,7 @@ import { useAuth } from "../context/auth-context";
 import preprogrammeHomeImage from "../assets/preprogramme-home.jpg";
 import portePanierHomeImage from "../assets/porte-panier-home.jpg";
 import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
+import { ProtectedInviteForm } from "./protected-invite-form";
 import { isPreprogramOpenForEdition, useActiveEdition } from "./edition";
 import { useLanguage } from "./language-context";
 import { getAgeFromBirthDate, getU14CategoryFromBirthDate, readRememberMePreference } from "./utils";
@@ -738,6 +739,17 @@ function PreProgrammeAccessPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Lien d'invitation d'une place protégée : accessible avant l'ouverture
+  // générale des inscriptions.
+  const invitationToken = searchParams.get("invitation");
+  if (invitationToken) {
+    return (
+      <AuthLayout title={t("preprogramPageTitle")} subtitle={t("ppInvPageSubtitle")}>
+        <ProtectedInviteForm accountBar={<AccountBar loginEmailHint={loginEmailHint} />} token={invitationToken} />
+      </AuthLayout>
+    );
+  }
+
   if (!isPreprogramOpen) {
     return (
       <AuthLayout title={t("preprogramPageTitle")} subtitle={t("preprogramPageSubtitle")}>
@@ -746,7 +758,14 @@ function PreProgrammeAccessPage() {
             <div className="u14-closed-layout__content">
               <div className="u14-hero__copy">
                 <p className="eyebrow">{t("preprogramIntroEyebrow")}</p>
-                <h2>{t("preprogramClosedTitle")}</h2>
+                <h2>
+                  {t("preprogramClosedTitle").replace(
+                    "{date}",
+                    preprogramOpeningDate
+                      ? preprogramOpeningDate.toLocaleString(`${language}-LU`, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                      : "",
+                  )}
+                </h2>
                 <p>{t("preprogramClosedDescription")}</p>
                 <p className="panel-note">
                   {t("u14ActiveEditionNote").replace("{edition}", activeEditionId)}

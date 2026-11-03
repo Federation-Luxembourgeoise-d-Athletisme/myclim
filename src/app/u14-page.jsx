@@ -1,1141 +1,720 @@
-import { useEffect, useMemo, useState } from "react";
-import { collection } from "firebase/firestore";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   U14_PRACTICAL_INFO_DOC_PATH,
   U14_RACE_DEFINITIONS,
-  U14_RESERVED_SLOTS_COLLECTION,
-  U14_RESERVED_SLOTS_PER_RACE,
   buildU14AllocationSnapshot,
-  buildU14RequestRecord,
-  doesProtectedSlotMatchRequest,
   formatDateForDisplay,
   formatDateTimeForDisplay,
-  formatU14RequestStatusLabel,
-  getAdminApprovalLabel,
-  getParentDecisionLabel,
-  getProtectedSlotStatusLabel,
   getTimestampMs,
-  getU14RaceLabel,
-  getU14WorkflowStatusLabel,
-  isProtectedSlotActive,
+  getU14ConfirmationDeadline,
+  getU14PracticalRoleKey,
   normalizeComparableValue,
 } from "./u14-helpers";
 import {
-  useProtectedU14Entries,
   useU14ChildrenList,
   useU14PracticalInfoConfiguration,
+  useU14ProtectedInvites,
+  useU14ProtectedSettings,
   useU14RequestsList,
 } from "./u14-hooks";
+import { U14_STAGE_ORDER, getU14ChildStage } from "./u14-stage";
+import { useU14AdminCopy } from "./u14-admin-copy";
+import { U14ProtectedTab } from "./u14-protected-tab";
+import { useActiveEdition } from "./edition";
+import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
 
-const U14_TAB_PATHS = {
-  preprogram: "/app/u14",
-  protected: "/app/u14/places-protegees",
-  basket: "/app/u14/porte-panier",
-  timeline: "/app/u14/chronologie",
-  practical: "/app/u14/infos-pratiques",
-};
+// Module Pré-programme U12 / U14 (équipe) : une page « À faire », un tableau
+// par course avec un seul statut lisible, le porte-panier sur le même modèle,
+// les places protégées et les textes envoyés aux familles. La répartition des
+// places est automatique (ici à l'ouverture, et côté serveur à chaque
+// nouvelle demande ou désistement) ; l'équipe ne fait que retenir, relancer
+// ou libérer. Textes français / anglais : u14-admin-copy.js.
+const U14_TABS = [
+  { id: "todo", path: "/app/u14" },
+  { id: "races", path: "/app/u14/courses" },
+  { id: "basket", path: "/app/u14/porte-panier" },
+  { id: "protected", path: "/app/u14/places-protegees" },
+  { id: "mails", path: "/app/u14/infos-pratiques" },
+];
 
-function getU14TabFromPath(pathname) {
-  const normalizedPath = String(pathname || "").replace(/\/+$/, "") || "/app/u14";
-
-  if (normalizedPath.endsWith("/porte-panier")) return "basket";
-  if (normalizedPath.endsWith("/places-protegees")) return "protected";
-  if (normalizedPath.endsWith("/chronologie")) return "timeline";
-  if (normalizedPath.endsWith("/infos-pratiques")) return "practical";
-  return "preprogram";
+function getTabFromPath(pathname) {
+  const path = String(pathname || "").replace(/\/+$/, "");
+  return U14_TABS.find((tab) => tab.id !== "todo" && path.endsWith(tab.path))?.id || "todo";
 }
 
-function getU14PageHeader(activeTab, basketRequestsCount) {
-  switch (activeTab) {
-    case "basket":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Porte-panier",
-        description: `Gestion séparée des demandes porte-panier et du suivi parent (${basketRequestsCount} demande(s)).`,
-      };
-    case "protected":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Places protégées",
-        description: "Gestion des places réservées par course et des invitations parent associées.",
-      };
-    case "timeline":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Chronologie",
-        description: "Vue chronologique de toutes les demandes pré-programme et porte-panier.",
-      };
-    case "practical":
-      return {
-        eyebrow: "Module Pré-programme",
-        title: "Infos pratiques",
-        description: "Messages pratiques envoyés aux familles pour le pré-programme et le porte-panier.",
-      };
-    default:
-      return {
-        eyebrow: "Module U12 / U14",
-        title: "U12 / U14",
-        description: "Gestion des demandes U12 / U14, des places protégées et du suivi parent.",
-      };
-  }
+function StagePill({ stage }) {
+  return (
+    <span className={`u14m-status u14m-status--${stage.tone}`}>
+      <span aria-hidden="true" className="u14m-status__dot" />
+      {stage.label}
+    </span>
+  );
+}
+
+function initialsOf(request) {
+  return `${(request.childFirstName || request.childName || "?")[0] || ""}${(request.childLastName || "")[0] || ""}`.toUpperCase();
+}
+
+// Fiche d'un enfant : coordonnées et historique de sa demande.
+function ChildDetail({ request, invite, onRelease, isBusy, now }) {
+  const { copy, fill } = useU14AdminCopy();
+  const text = copy.detail;
+  const child = request.child || {};
+  const history = [
+    [request.submittedAt, text.submitted],
+    [invite?.claimedAt, text.claimed],
+    [request.promotedFromWaitlistAt, text.promoted],
+    [request.adminApprovedAt, text.approved],
+    [request.remindedAt, request.reminderCount > 1 ? fill(text.remindedTotal, { count: request.reminderCount }) : text.reminded],
+    [
+      request.parentDecisionAt,
+      normalizeComparableValue(request.parentDecisionStatus) === "declined"
+        ? `${text.declined}${request.withdrawalReason ? ` — ${request.withdrawalReason}` : ""}`
+        : text.confirmed,
+    ],
+  ]
+    .filter(([value]) => getTimestampMs(value))
+    .sort((left, right) => getTimestampMs(left[0]) - getTimestampMs(right[0]));
+  const stage = getU14ChildStage(request, now, copy.stages);
+  const canRelease = !["withdrawn", "rejected"].includes(stage.key);
+  const facts = [
+    [text.category, request.category],
+    [text.birth, child.birthDate ? formatDateForDisplay(child.birthDate) : ""],
+    [text.club, request.club],
+    [text.bib, request.bibNumber],
+  ].filter(([, value]) => value);
+
+  return (
+    <div className="u14m-detail">
+      <section>
+        <h4>{text.child}</h4>
+        <dl className="u14m-facts">
+          {facts.map(([label, value]) => (
+            <Fragment key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </Fragment>
+          ))}
+        </dl>
+        {request.notes ? <p className="u14m-note">« {request.notes} »</p> : null}
+      </section>
+      <section>
+        <h4>{text.parent}</h4>
+        <p className="u14m-strong">{request.parentName}</p>
+        {request.parentEmail ? <a href={`mailto:${request.parentEmail}`}>{request.parentEmail}</a> : null}
+      </section>
+      <section>
+        <h4>{text.history}</h4>
+        {history.length ? (
+          <ol className="u14m-timeline">
+            {history.map(([value, label]) => (
+              <li key={label}>
+                <span className="u14m-timeline__date">{formatDateTimeForDisplay(value)}</span>
+                <span>{label}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="u14m-muted">{text.noEvent}</p>
+        )}
+      </section>
+      {canRelease ? (
+        <div className="u14m-detail__footer">
+          <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => onRelease(request)}>
+            {text.release}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Tableau d'enfants (une course, le porte-panier ou « À faire ») : une ligne
+// par enfant, un statut, une action. Les groupes donnent les sous-titres
+// (Retenus, Places réservées, Liste d'attente, Désistés…).
+function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, isBusy, now, emptyLabel }) {
+  const { copy, fill } = useU14AdminCopy();
+  const [openId, setOpenId] = useState("");
+  const visibleGroups = groups.filter((group) => group.rows.length || group.placeholder);
+
+  return (
+    <div className="u14m-table" role="table">
+      <div className="u14m-row u14m-row--head" role="row">
+        <span>{copy.table.position}</span>
+        <span>{copy.table.child}</span>
+        <span>{copy.table.stage}</span>
+        <span className="u14m-actions">{copy.table.action}</span>
+      </div>
+      {visibleGroups.length ? null : <p className="u14m-empty">{emptyLabel || copy.table.empty}</p>}
+      {visibleGroups.map((group) => (
+        <Fragment key={group.key}>
+          {group.title ? (
+            <div className="u14m-group" role="row">
+              <span>{group.title}</span>
+              <span className="u14m-group__count">{group.count ?? group.rows.length}</span>
+            </div>
+          ) : null}
+          {group.placeholder}
+          {group.rows.map(({ request, position, tag }) => {
+            const stage = getU14ChildStage(request, now, copy.stages);
+            const isOpen = openId === request.id;
+            const invite = invitesByRequestId.get(request.id);
+            const isInactive = stage.key === "withdrawn" || stage.key === "rejected";
+            return (
+              <Fragment key={request.id}>
+                <div className={`u14m-row${isInactive ? " u14m-row--muted" : ""}${isOpen ? " u14m-row--open" : ""}`} role="row">
+                  <span className="u14m-position">{position}</span>
+                  <button aria-expanded={isOpen} className="u14m-child" type="button" onClick={() => setOpenId(isOpen ? "" : request.id)}>
+                    <span aria-hidden="true" className="u14m-avatar">{initialsOf(request)}</span>
+                    <span className="u14m-child__text">
+                      <span className="u14m-child__name">
+                        {request.childName}
+                        {invite ? <span className="u14m-tag u14m-tag--accent">{copy.table.invited}</span> : null}
+                        {request.requestType === "preprogram_ou_porte_panier" ? <span className="u14m-tag">{copy.table.alsoBasket}</span> : null}
+                      </span>
+                      <span className="u14m-child__meta">
+                        {[tag, request.club, request.bibNumber ? fill(copy.table.bib, { bib: request.bibNumber }) : ""].filter(Boolean).join(" · ")}
+                      </span>
+                    </span>
+                  </button>
+                  <span className="u14m-stage">
+                    <StagePill stage={stage} />
+                    {stage.detail ? <span className="u14m-stage__detail">{stage.detail}</span> : null}
+                  </span>
+                  <span className="u14m-actions">{renderAction(request, stage)}</span>
+                </div>
+                {isOpen ? <ChildDetail invite={invite} isBusy={isBusy} now={now} request={request} onRelease={onRelease} /> : null}
+              </Fragment>
+            );
+          })}
+        </Fragment>
+      ))}
+    </div>
+  );
 }
 
 function U14Page(props) {
-  const {
-    AuthFormField,
-    DataTable,
-    Panel,
-    addDoc,
-    deleteDoc,
-    doc,
-    getDocs,
-    loadMailQueueModule,
-    serverTimestamp,
-    setDoc,
-    syncU14RaceAllocations,
-    updateDoc,
-  } = props;
+  const { AuthFormField, Panel, DataTable, doc, loadMailQueueModule, serverTimestamp, setDoc, syncU14RaceAllocations, updateDoc } = props;
+  const { copy, fill, raceLabel } = useU14AdminCopy();
   const location = useLocation();
   const navigate = useNavigate();
   const { requests, loading: requestsLoading, error: requestsError } = useU14RequestsList(true);
   const { children, loading: childrenLoading, error: childrenError } = useU14ChildrenList(true);
-  const {
-    entries: protectedEntries,
-    loading: protectedEntriesLoading,
-    error: protectedEntriesError,
-  } = useProtectedU14Entries(true);
+  const { invites: protectedInvites, loading: invitesLoading, error: invitesError } = useU14ProtectedInvites(true);
+  const { settings: protectedSettings } = useU14ProtectedSettings(true);
   const {
     preprogram: preprogramPracticalInfo,
     porte_panier: basketPracticalInfo,
     loading: practicalInfoLoading,
     error: practicalInfoError,
   } = useU14PracticalInfoConfiguration(true);
-  const [selectedRaceCode, setSelectedRaceCode] = useState(U14_RACE_DEFINITIONS[0]?.code || "");
-  const [activeU14Tab, setActiveU14Tab] = useState(() => getU14TabFromPath(location.pathname));
-  const [practicalInfoForm, setPracticalInfoForm] = useState({ preprogram: "", porte_panier: "" });
-  const [requestSearch, setRequestSearch] = useState("");
-  const [requestStatusFilter, setRequestStatusFilter] = useState("Tous");
-  const [requestRaceFilter, setRequestRaceFilter] = useState("Toutes");
+  const { activeEditionId } = useActiveEdition();
+  const { editions } = useMeetingEditions();
+  const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
+  const mailContext = {
+    eventDate: activeEdition?.date || null,
+    venue: activeEdition?.venue || "",
+    editionYear: activeEdition?.year || activeEditionId,
+  };
+  const [now] = useState(() => Date.now());
+  const activeTab = getTabFromPath(location.pathname);
+  const [selectedRaceCode, setSelectedRaceCode] = useState(U14_RACE_DEFINITIONS[0].code);
+  const [search, setSearch] = useState("");
+  const [practicalDraft, setPracticalDraft] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [reservationForm, setReservationForm] = useState({
-    raceCode: U14_RACE_DEFINITIONS[0]?.code || "",
-    slotNumber: "1",
-    firstName: "",
-    lastName: "",
-    club: "",
-    bibNumber: "",
-    parentEmail: "",
-    inviteDeadline: "",
-  });
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setPracticalInfoForm({
-        preprogram: preprogramPracticalInfo,
-        porte_panier: basketPracticalInfo,
-      });
-    }, 0);
+  const [isBusy, setIsBusy] = useState(false);
+  const dataLoading = requestsLoading || childrenLoading || invitesLoading;
 
-    return () => window.clearTimeout(timeoutId);
-  }, [basketPracticalInfo, preprogramPracticalInfo]);
-
-  useEffect(() => {
-    const nextTab = getU14TabFromPath(location.pathname);
-    if (nextTab === activeU14Tab) return;
-    setActiveU14Tab(nextTab);
-  }, [activeU14Tab, location.pathname]);
-
-  function openU14Tab(tabId) {
-    const nextPath = U14_TAB_PATHS[tabId] || U14_TAB_PATHS.preprogram;
-    setActiveU14Tab(tabId);
-    if (location.pathname !== nextPath) {
-      navigate(nextPath);
-    }
-  }
-  const dataLoading = requestsLoading || childrenLoading || protectedEntriesLoading;
-  const { requestRecords, raceSummaries } = useMemo(
-    () => buildU14AllocationSnapshot({ requests, children, protectedEntries }),
-    [children, protectedEntries, requests],
+  const { requestRecords, requestStatusMap, raceSummaries, reserveByPool, claimedByPool, reserveReleased } = useMemo(
+    () => buildU14AllocationSnapshot({ requests, children, protectedInvites, protectedSettings, now }),
+    [children, now, protectedInvites, protectedSettings, requests],
   );
-  const selectedRaceSummary = raceSummaries.find((summary) => summary.code === selectedRaceCode) || raceSummaries[0] || null;
-  const selectedRaceRequests = useMemo(
-    () =>
-      requestRecords
-        .filter((request) => request.raceCode === selectedRaceCode && request.requestType !== "porte_panier")
-        .sort((left, right) => {
-          const leftStatus = normalizeComparableValue(left.status);
-          const rightStatus = normalizeComparableValue(right.status);
-          const statusPriority = {
-            confirmed: 0,
-            waitlisted: 1,
-            submitted: 2,
-            declined: 3,
-            rejected: 4,
-          };
-          const priorityDifference =
-            (statusPriority[leftStatus] ?? 99) - (statusPriority[rightStatus] ?? 99);
-          if (priorityDifference !== 0) return priorityDifference;
-          if (left.submittedAtMs !== right.submittedAtMs) return left.submittedAtMs - right.submittedAtMs;
-          return left.childName.localeCompare(right.childName, "fr");
-        }),
-    [requestRecords, selectedRaceCode],
+  const invitesByRequestId = useMemo(
+    () => new Map(protectedInvites.filter((invite) => invite.status === "claimed").map((invite) => [invite.claimedRequestId, invite])),
+    [protectedInvites],
   );
-  const filteredProtectedEntries = useMemo(
-    () =>
-      protectedEntries
-        .filter((entry) => !selectedRaceCode || entry.raceCode === selectedRaceCode)
-        .sort((left, right) => {
-          if (left.raceCode !== right.raceCode) return left.raceCode.localeCompare(right.raceCode);
-          return Number(left.slotNumber || 0) - Number(right.slotNumber || 0);
-        }),
-    [protectedEntries, selectedRaceCode],
-  );
-  const waitingRequests = useMemo(
-    () =>
-      requestRecords.filter(
-        (request) =>
-          request.raceCode === selectedRaceCode &&
-          request.requestType !== "porte_panier" &&
-          normalizeComparableValue(request.status) === "waitlisted",
-      ),
-    [requestRecords, selectedRaceCode],
-  );
-  const selectedRaceProtectedPendingEntries = useMemo(
-    () =>
-      filteredProtectedEntries.filter(
-        (entry) =>
-          !["matched", "released"].includes(normalizeComparableValue(entry.status)),
-      ),
-    [filteredProtectedEntries],
-  );
-  const basketRequests = useMemo(
-    () =>
-      requestRecords
-        .filter((request) => request.requestType === "porte_panier")
-        .sort((left, right) => left.submittedAtMs - right.submittedAtMs),
-    [requestRecords],
-  );
-  const pageHeader = useMemo(
-    () => getU14PageHeader(activeU14Tab, basketRequests.length),
-    [activeU14Tab, basketRequests.length],
-  );
-  const chronologicalRequests = useMemo(
-    () =>
-      [...requestRecords]
-        .sort((left, right) => left.submittedAtMs - right.submittedAtMs)
-        .map((request) => ({
-          child: request.childName,
-          type:
-            request.requestType === "porte_panier"
-              ? "Porte-panier"
-              : request.requestType === "preprogram_ou_porte_panier"
-                ? "Pré-programme ou porte-panier"
-                : "Pré-programme",
-          race: request.requestType === "porte_panier" ? "-" : request.raceLabel,
-          parent: request.parentName,
-          submittedAt: request.submittedAtMs ? formatDateTimeForDisplay(request.submittedAtMs) : "-",
-          status: getU14WorkflowStatusLabel(request),
-          position:
-            normalizeComparableValue(request.status) === "confirmed"
-              ? `Accepté${request.acceptedPosition ? ` (${request.acceptedPosition})` : ""}`
-              : request.waitlistPosition
-                ? `Attente ${request.waitlistPosition}`
-                : "-",
-          admin:
-            normalizeComparableValue(request.adminApprovalStatus) === "approved"
-              ? getAdminApprovalLabel(request.adminApprovalStatus)
-              : "Validation admin requise",
-        })),
-    [requestRecords],
-  );
-  const filteredAdminRequests = useMemo(() => {
-    const normalizedSearch = normalizeComparableValue(requestSearch);
 
-    return requestRecords
-      .filter((request) => request.requestType !== "porte_panier")
-      .filter((request) => {
-        if (requestStatusFilter === "Tous") return true;
-        return getU14WorkflowStatusLabel(request) === requestStatusFilter;
-      })
-      .filter((request) => {
-        if (requestRaceFilter === "Toutes") return true;
-        return request.raceCode === requestRaceFilter;
-      })
-      .filter((request) => {
-        if (!normalizedSearch) return true;
-
-        const haystack = normalizeComparableValue(
-          [
-            request.childName,
-            request.parentName,
-            request.raceLabel,
-            request.club,
-            request.bibNumber,
-            getU14WorkflowStatusLabel(request),
-          ]
-            .filter(Boolean)
-            .join(" "),
-        );
-
-        return haystack.includes(normalizedSearch);
-      })
-      .sort((left, right) => left.raceCode.localeCompare(right.raceCode) || left.submittedAtMs - right.submittedAtMs);
-  }, [
-    requestRaceFilter,
-    requestRecords,
-    requestSearch,
-    requestStatusFilter,
-  ]);
-  const slotSuggestionsById = useMemo(
-    () =>
-      filteredProtectedEntries.reduce((accumulator, entry) => {
-        accumulator[entry.id] = requestRecords.filter((request) => doesProtectedSlotMatchRequest(entry, request));
-        return accumulator;
-      }, {}),
-    [filteredProtectedEntries, requestRecords],
-  );
-  const selectedRaceTableRows = useMemo(() => {
-    const protectedRows = selectedRaceProtectedPendingEntries.map((entry) => ({
-      type: "Place protégée",
-      child: `${entry.firstName || ""} ${entry.lastName || ""}`.trim() || `Place protégée ${entry.slotNumber || "?"}`,
-      club: entry.club || "-",
-      bib: entry.bibNumber || "-",
-      status: getProtectedSlotStatusLabel(entry.status),
-      position: `Réservée (${entry.slotNumber || "?"})`,
-      parent: entry.parentEmail || "-",
-      submittedAt: entry.createdAt ? formatDateTimeForDisplay(getTimestampMs(entry.createdAt)) : "-",
-    }));
-
-    const requestRows = selectedRaceRequests.map((request) => ({
-      type: "Demande",
-      child: request.childName,
-      club: request.club || "-",
-      bib: request.bibNumber || "-",
-      status: formatU14RequestStatusLabel(request.status),
-      position:
-        normalizeComparableValue(request.status) === "confirmed"
-          ? request.acceptedPosition
-            ? `Accepté (${request.acceptedPosition})`
-            : "Accepté"
-          : normalizeComparableValue(request.status) === "waitlisted"
-            ? `Attente ${request.waitlistPosition || request.queuePosition || "?"}`
-            : "-",
-      parent: request.parentName || "-",
-      submittedAt: request.submittedAtMs
-        ? formatDateTimeForDisplay(request.submittedAtMs)
-        : "-",
-    }));
-
-    return [...protectedRows, ...requestRows];
-  }, [selectedRaceProtectedPendingEntries, selectedRaceRequests]);
-
-  function handleReservationFormChange(event) {
-    const { name, value } = event.target;
-    setReservationForm((current) => ({ ...current, [name]: value }));
-  }
-
-  async function handleCreateProtectedEntry(event) {
-    event.preventDefault();
-    setErrorMessage("");
-    setStatusMessage("");
-
-    const raceEntries = protectedEntries.filter(
-      (entry) => entry.raceCode === reservationForm.raceCode && isProtectedSlotActive(entry),
-    );
-    if (raceEntries.length >= U14_RESERVED_SLOTS_PER_RACE) {
-      setErrorMessage("Cette catégorie a déjà ses 3 places protégées actives.");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await addDoc(collection(db, U14_RESERVED_SLOTS_COLLECTION), {
-        raceCode: reservationForm.raceCode,
-        slotNumber: Number(reservationForm.slotNumber || 1),
-        firstName: reservationForm.firstName.trim(),
-        lastName: reservationForm.lastName.trim(),
-        club: reservationForm.club.trim(),
-        bibNumber: reservationForm.bibNumber.trim(),
-        parentEmail: reservationForm.parentEmail.trim(),
-        inviteDeadline: reservationForm.inviteDeadline || null,
-        status: "invited",
-        createdAt: serverTimestamp(),
-      });
-
-      if (reservationForm.parentEmail.trim()) {
-        const { enqueueTransactionalMail } = await loadMailQueueModule();
-        await enqueueTransactionalMail({
-          type: "u14-protected-invitation",
-          to: reservationForm.parentEmail.trim(),
-          subject: "Votre enfant est pré-sélectionné pour le CMCM Luxembourg Indoor Meeting 2027",
-          body: `Bonjour,\n\nVotre enfant ${reservationForm.firstName.trim()} ${reservationForm.lastName.trim()} est pré-sélectionné pour ${getU14RaceLabel(reservationForm.raceCode)}. Merci de compléter son inscription sur MyCLIM avant le ${formatDateForDisplay(reservationForm.inviteDeadline)}. Sans dossier complété avant cette date, nous ne pourrons pas garantir de conserver cette place protégée.\n`,
-          metadata: {
-            raceCode: reservationForm.raceCode,
-            slotNumber: Number(reservationForm.slotNumber || 1),
-            bibNumber: reservationForm.bibNumber.trim(),
-          },
-        });
-      }
-
-      setStatusMessage("Place protégée enregistrée et mail d'invitation placé dans la file d'envoi.");
-      setReservationForm((current) => ({
-        ...current,
-        firstName: "",
-        lastName: "",
-        club: "",
-        bibNumber: "",
-        parentEmail: "",
-        inviteDeadline: "",
-      }));
-    } catch {
-      setErrorMessage("Impossible d'enregistrer cette place protégée pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleMatchProtectedEntry(entry, request) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await updateDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, entry.id), {
-        status: "matched",
-        matchedRequestId: request.id,
-        matchedChildId: request.childId || "",
-        matchedParentUserId: request.parentUserId || "",
-        matchedAt: serverTimestamp(),
-      });
-
-      await syncU14RaceAllocations({
-        requests,
-        children,
-        protectedEntries: protectedEntries.map((current) =>
-          current.id === entry.id
-            ? { ...current, status: "matched", matchedRequestId: request.id }
-            : current,
-        ),
-      });
-      setStatusMessage(`La place protégée ${entry.slotNumber} a été matchée avec ${request.childName}.`);
-    } catch {
-      setErrorMessage("Le matching a échoué.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleReleaseProtectedEntry(entry) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await updateDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, entry.id), {
-        status: "released",
-        matchedRequestId: null,
-        matchedChildId: null,
-        matchedParentUserId: null,
-        releasedAt: serverTimestamp(),
-      });
-
-      const nextProtectedEntries = protectedEntries.map((current) =>
-        current.id === entry.id
-          ? { ...current, status: "released", matchedRequestId: null }
-          : current,
+  // Répartition automatique : si l'état enregistré d'une demande ne correspond
+  // plus au calcul (nouvelle demande, place libérée…), on l'écrit sans clic.
+  const pendingSyncKey = useMemo(() => {
+    const outdated = requestRecords.filter((request) => {
+      const next = requestStatusMap.get(request.id);
+      if (!next || request.requestType === "porte_panier") return false;
+      return (
+        normalizeComparableValue(request.status) !== next.status ||
+        normalizeComparableValue(request.allocationMode) !== next.allocationMode ||
+        (Number(request.waitlistPosition || 0) || null) !== next.waitlistPosition
       );
-      await syncU14RaceAllocations({ requests, children, protectedEntries: nextProtectedEntries });
-      setStatusMessage(`La place protégée ${entry.slotNumber} a été libérée.`);
-    } catch {
-      setErrorMessage("Impossible de libérer cette place protégée.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleDeleteProtectedEntry(entry) {
-    if (!window.confirm(`Supprimer définitivement la place protégée ${entry.slotNumber} pour ${entry.firstName || ""} ${entry.lastName || ""} ?`)) {
-      return;
-    }
-
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await deleteDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, entry.id));
-      const nextProtectedEntries = protectedEntries.filter((current) => current.id !== entry.id);
-      await syncU14RaceAllocations({ requests, children, protectedEntries: nextProtectedEntries });
-      setStatusMessage(`La place protégée ${entry.slotNumber} a été supprimée définitivement.`);
-    } catch {
-      setErrorMessage("Impossible de supprimer cette place protégée.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleRecalculateAllocations() {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await syncU14RaceAllocations({ requests, children, protectedEntries });
-      setStatusMessage("Les statuts, places acceptées et listes d'attente ont été recalculés.");
-    } catch {
-      setErrorMessage("Le recalcul automatique a échoué.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function approvePreprogramRequest(request) {
-    await updateDoc(doc(db, "u14Requests", request.id), {
-      adminApprovalStatus: "approved",
-      parentDecisionRequired: true,
-      parentDecisionStatus: "pending",
-      adminApprovedAt: serverTimestamp(),
     });
+    return outdated.map((request) => request.id).sort().join(",");
+  }, [requestRecords, requestStatusMap]);
+  const lastSyncKey = useRef("");
+  useEffect(() => {
+    if (dataLoading || !pendingSyncKey || lastSyncKey.current === pendingSyncKey) return;
+    lastSyncKey.current = pendingSyncKey;
+    syncU14RaceAllocations({ requests, children, protectedInvites, protectedSettings }).catch((error) =>
+      console.error("Automatic U14 allocation failed", error),
+    );
+  }, [children, dataLoading, pendingSyncKey, protectedInvites, protectedSettings, requests, syncU14RaceAllocations]);
 
-    if (request.parentEmail) {
-      const { buildU14PreprogramAcceptanceMail, enqueueTransactionalMail } = await loadMailQueueModule();
-      await enqueueTransactionalMail(
-        buildU14PreprogramAcceptanceMail({
-          parentEmail: request.parentEmail,
-          childName: request.childName,
-          raceLabel: request.raceLabel,
-        }),
-      );
-    }
-  }
+  const stageOf = (request) => getU14ChildStage(request, now, copy.stages);
+  const raceRequests = requestRecords.filter((request) => request.requestType !== "porte_panier" && request.raceCode);
+  const basketRequests = requestRecords.filter((request) => request.requestType === "porte_panier");
+  const withStage = (request) => ({ request, stage: stageOf(request) });
+  const toRetain = raceRequests.map(withStage).filter(({ stage }) => stage.key === "to-retain");
+  const overdue = requestRecords.map(withStage).filter(({ stage }) => stage.key === "overdue");
+  const basketToDecide = basketRequests.map(withStage).filter(({ stage }) => stage.key === "to-decide");
+  const promotedCount = toRetain.filter(({ request }) => request.promotedFromWaitlistAt).length;
+  const todoCount = toRetain.length + overdue.length + basketToDecide.length;
 
-  async function handleApproveRequest(request) {
+  function flash(message) {
+    setStatusMessage(message);
     setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await approvePreprogramRequest(request);
-      setStatusMessage(`Validation envoyée au parent de ${request.childName}.`);
-    } catch {
-      setErrorMessage("Impossible de valider cette demande pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
   }
 
-  async function handleProcessRequest(request) {
+  async function runAction(action, successMessage, failureMessage) {
+    setIsBusy(true);
+    setStatusMessage("");
     setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
     try {
-      const [requestsSnapshot, childrenSnapshot, protectedSnapshot] = await Promise.all([
-        getDocs(collection(db, "u14Requests")),
-        getDocs(collection(db, "u14Children")),
-        getDocs(collection(db, U14_RESERVED_SLOTS_COLLECTION)),
-      ]);
-
-      const latestRequests = requestsSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      const latestChildren = childrenSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      const latestProtectedEntries = protectedSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-
-      await syncU14RaceAllocations({
-        requests: latestRequests,
-        children: latestChildren,
-        protectedEntries: latestProtectedEntries,
-      });
-
-      const refreshedRequestsSnapshot = await getDocs(collection(db, "u14Requests"));
-      const refreshedRequests = refreshedRequestsSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      const refreshedRequest = refreshedRequests.find((entry) => entry.id === request.id);
-
-      if (!refreshedRequest) {
-        setErrorMessage("Impossible de retrouver cette demande après recalcul.");
-        return;
-      }
-
-      const refreshedChild = latestChildren.find((child) => child.id === refreshedRequest.childId);
-      const refreshedRecord = buildU14RequestRecord(refreshedRequest, refreshedChild);
-      const refreshedStatus = normalizeComparableValue(refreshedRecord.status);
-      const refreshedApproval = normalizeComparableValue(refreshedRecord.adminApprovalStatus);
-
-      if (refreshedStatus === "confirmed" && refreshedApproval !== "approved") {
-        await approvePreprogramRequest(refreshedRecord);
-        setStatusMessage(`Validation envoyée au parent de ${refreshedRecord.childName}.`);
-        return;
-      }
-
-      if (refreshedStatus === "waitlisted") {
-        setStatusMessage(`${refreshedRecord.childName} est actuellement en liste d'attente. Aucune validation admin à envoyer pour le moment.`);
-        return;
-      }
-
-      setStatusMessage(
-        `${refreshedRecord.childName} est actuellement au statut "${formatU14RequestStatusLabel(refreshedRecord.status)}".`,
-      );
-    } catch {
-      setErrorMessage("Impossible de traiter cette demande pour le moment.");
+      await action();
+      flash(successMessage);
+    } catch (error) {
+      console.error(failureMessage, error);
+      setErrorMessage(failureMessage);
     } finally {
-      setIsSaving(false);
+      setIsBusy(false);
     }
   }
 
-  async function handleApproveBasketRequest(request) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await updateDoc(doc(db, "u14Requests", request.id), {
-        status: "confirmed",
-        allocationMode: "porte_panier",
-        adminApprovalStatus: "approved",
-        parentDecisionRequired: true,
-        parentDecisionStatus: "pending",
-        adminApprovedAt: serverTimestamp(),
-      });
-
-      if (request.parentEmail) {
-        const { buildU14BasketAcceptanceMail, enqueueTransactionalMail } = await loadMailQueueModule();
-        await enqueueTransactionalMail(
-          buildU14BasketAcceptanceMail({
-            parentEmail: request.parentEmail,
-            childName: request.childName,
-          }),
-        );
-      }
-
-      setStatusMessage(`Acceptation porte-panier envoyée au parent de ${request.childName}.`);
-    } catch {
-      setErrorMessage("Impossible de valider cette demande porte-panier pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
+  async function sendAcceptanceMail(request, confirmationDeadline) {
+    if (!request.parentEmail) return;
+    const isBasket = getU14PracticalRoleKey(request) === "porte_panier";
+    const mailQueue = await loadMailQueueModule();
+    const buildMail = isBasket ? mailQueue.buildU14BasketAcceptanceMail : mailQueue.buildU14PreprogramAcceptanceMail;
+    await mailQueue.enqueueTransactionalMail(
+      buildMail({
+        ...mailContext,
+        parentEmail: request.parentEmail,
+        parentFirstName: request.parentFirstName,
+        childName: request.childName,
+        raceLabel: request.raceLabel,
+        practicalInfo: isBasket ? basketPracticalInfo : preprogramPracticalInfo,
+        confirmationDeadline,
+      }),
+    );
   }
 
-  async function handleSavePracticalInfo(event) {
+  // Retenir : le parent reçoit le mail d'acceptation et a 10 jours pour confirmer.
+  function handleRetain(request) {
+    const isBasket = request.requestType === "porte_panier";
+    return runAction(
+      async () => {
+        const confirmationDeadline = getU14ConfirmationDeadline();
+        await updateDoc(doc(db, "u14Requests", request.id), {
+          ...(isBasket ? { status: "confirmed", allocationMode: "porte_panier" } : {}),
+          adminApprovalStatus: "approved",
+          parentDecisionRequired: true,
+          parentDecisionStatus: "pending",
+          adminApprovedAt: serverTimestamp(),
+          confirmationDeadline,
+        });
+        await sendAcceptanceMail(request, confirmationDeadline);
+      },
+      fill(copy.messages.retained, { name: request.childName }),
+      copy.messages.retainFailed,
+    );
+  }
+
+  function handleRemind(request) {
+    return runAction(
+      async () => {
+        const confirmationDeadline = getU14ConfirmationDeadline();
+        await updateDoc(doc(db, "u14Requests", request.id), {
+          confirmationDeadline,
+          remindedAt: serverTimestamp(),
+          reminderCount: Number(request.reminderCount || 0) + 1,
+        });
+        await sendAcceptanceMail(request, confirmationDeadline);
+      },
+      fill(copy.messages.reminded, { name: request.childName }),
+      copy.messages.remindFailed,
+    );
+  }
+
+  // Retirer un enfant (délai dépassé, demande de la famille…) : même effet
+  // qu'un désistement ; la liste d'attente avance toute seule. Le motif
+  // enregistré reste en français (historique de l'équipe).
+  function handleRelease(request) {
+    if (!window.confirm(fill(copy.messages.releaseConfirm, { name: request.childName }))) {
+      return undefined;
+    }
+    return runAction(
+      async () => {
+        const declinedFields = {
+          status: "declined",
+          parentDecisionStatus: "declined",
+          withdrawalReason:
+            stageOf(request).key === "overdue" ? "Délai de confirmation dépassé (libéré par l'organisation)" : "Retiré par l'organisation",
+          declinedByAdmin: true,
+          acceptedPosition: null,
+          waitlistPosition: null,
+          queuePosition: null,
+        };
+        await updateDoc(doc(db, "u14Requests", request.id), { ...declinedFields, parentDecisionAt: serverTimestamp() });
+        await syncU14RaceAllocations({
+          requests: requests.map((current) => (current.id === request.id ? { ...current, ...declinedFields } : current)),
+          children,
+          protectedInvites,
+          protectedSettings,
+        });
+      },
+      fill(copy.messages.released, { name: request.childName }),
+      copy.messages.releaseFailed,
+    );
+  }
+
+  function handleSavePracticalInfo(event) {
     event.preventDefault();
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await setDoc(
-        doc(db, ...U14_PRACTICAL_INFO_DOC_PATH),
-        {
-          preprogram: practicalInfoForm.preprogram.trim(),
-          porte_panier: practicalInfoForm.porte_panier.trim(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      setStatusMessage("Les informations pratiques ont été enregistrées.");
-    } catch {
-      setErrorMessage("Impossible d'enregistrer les informations pratiques pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
+    const draft = practicalDraft || { preprogram: preprogramPracticalInfo, porte_panier: basketPracticalInfo };
+    return runAction(
+      async () => {
+        await setDoc(
+          doc(db, ...U14_PRACTICAL_INFO_DOC_PATH),
+          { preprogram: draft.preprogram.trim(), porte_panier: draft.porte_panier.trim(), updatedAt: serverTimestamp() },
+          { merge: true },
+        );
+        setPracticalDraft(null);
+      },
+      copy.messages.practicalSaved,
+      copy.messages.practicalFailed,
+    );
   }
+
+  function renderAction(request, stage) {
+    if (stage.key === "to-retain") {
+      return (
+        <button className="u14m-btn u14m-btn--primary" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
+          {copy.actions.retain}
+        </button>
+      );
+    }
+    if (stage.key === "to-decide") {
+      return (
+        <button className="u14m-btn u14m-btn--primary" disabled={isBusy} type="button" onClick={() => handleRetain(request)}>
+          {copy.actions.retainBasket}
+        </button>
+      );
+    }
+    if (stage.key === "overdue") {
+      return (
+        <>
+          <button className="u14m-btn" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
+            {copy.actions.remind}
+          </button>
+          <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => handleRelease(request)}>
+            {copy.actions.release}
+          </button>
+        </>
+      );
+    }
+    if (stage.key === "waiting-parent") {
+      return (
+        <button className="u14m-btn" disabled={isBusy} type="button" onClick={() => handleRemind(request)}>
+          {copy.actions.remind}
+        </button>
+      );
+    }
+    return null;
+  }
+
+  // ── Tableau d'une course ──
+  const normalizedSearch = normalizeComparableValue(search);
+  const selectedRace = raceSummaries.find((race) => race.code === selectedRaceCode) || raceSummaries[0];
+  const RETAINED_STAGES = ["confirmed", "waiting-parent", "overdue", "to-retain", "received"];
+  const byStageThenPosition = (left, right) => {
+    const order = (U14_STAGE_ORDER[left.stage.key] ?? 9) - (U14_STAGE_ORDER[right.stage.key] ?? 9);
+    if (order) return order;
+    const leftPosition = Number(left.request.acceptedPosition || left.request.waitlistPosition || 0);
+    const rightPosition = Number(right.request.acceptedPosition || right.request.waitlistPosition || 0);
+    return leftPosition - rightPosition || left.request.submittedAtMs - right.request.submittedAtMs;
+  };
+  const raceEntries = raceRequests
+    .filter((request) =>
+      normalizedSearch
+        ? normalizeComparableValue([request.childName, request.club, request.bibNumber, request.parentName].join(" ")).includes(normalizedSearch)
+        : request.raceCode === selectedRace.code,
+    )
+    .map(withStage)
+    .sort(byStageThenPosition);
+  const searchTag = (request) => (normalizedSearch ? raceLabel(request.raceLabel) : "");
+  const raceGroups = [
+    {
+      key: "retained",
+      title: copy.races.groupRetained,
+      rows: raceEntries
+        .filter(({ stage }) => RETAINED_STAGES.includes(stage.key))
+        .map(({ request }, index) => ({ request, position: index + 1, tag: searchTag(request) })),
+    },
+    {
+      key: "reserve",
+      title: copy.races.groupReserve,
+      count: !normalizedSearch ? selectedRace.blockedPlaces : 0,
+      rows: [],
+      placeholder:
+        !normalizedSearch && selectedRace.blockedPlaces ? (
+          <div className="u14m-row u14m-row--reserve" role="row">
+            <span className="u14m-position">—</span>
+            <span className="u14m-reserve-text">
+              {selectedRace.blockedPlaces > 1 ? fill(copy.races.reserveMany, { count: selectedRace.blockedPlaces }) : copy.races.reserveOne}
+            </span>
+            <span className="u14m-stage__detail">
+              {protectedSettings.deadline ? fill(copy.races.reserveUntil, { date: formatDateForDisplay(protectedSettings.deadline) }) : copy.races.reserveUntilDeadline}
+            </span>
+            <span />
+          </div>
+        ) : null,
+    },
+    {
+      key: "waitlist",
+      title: copy.races.groupWaitlist,
+      rows: raceEntries
+        .filter(({ stage }) => stage.key === "waitlist")
+        .map(({ request }) => ({ request, position: `A${request.waitlistPosition || "?"}`, tag: searchTag(request) })),
+    },
+    {
+      key: "inactive",
+      title: copy.races.groupInactive,
+      rows: raceEntries
+        .filter(({ stage }) => ["withdrawn", "rejected"].includes(stage.key))
+        .map(({ request }) => ({ request, position: "—", tag: searchTag(request) })),
+    },
+  ];
+
+  const todoGroups = [
+    {
+      key: "overdue",
+      title: copy.todo.groupOverdue,
+      rows: overdue.map(({ request }, index) => ({
+        request,
+        position: index + 1,
+        tag: request.requestType === "porte_panier" ? copy.todo.basketTag : raceLabel(request.raceLabel),
+      })),
+    },
+    {
+      key: "retain",
+      title: copy.todo.groupRetain,
+      rows: toRetain.map(({ request }, index) => ({ request, position: index + 1, tag: raceLabel(request.raceLabel) })),
+    },
+    {
+      key: "basket",
+      title: copy.todo.groupBasket,
+      rows: basketToDecide.map(({ request }, index) => ({ request, position: index + 1, tag: copy.todo.basketTag })),
+    },
+  ];
+
+  const basketEntries = basketRequests.map(withStage).sort(byStageThenPosition);
+  const basketGroups = [
+    {
+      key: "active",
+      title: "",
+      rows: basketEntries
+        .filter(({ stage }) => !["withdrawn", "rejected"].includes(stage.key))
+        .map(({ request }, index) => ({ request, position: index + 1 })),
+    },
+    {
+      key: "inactive",
+      title: copy.basket.groupInactive,
+      rows: basketEntries.filter(({ stage }) => ["withdrawn", "rejected"].includes(stage.key)).map(({ request }) => ({ request, position: "—" })),
+    },
+  ];
+  const basketAlternatives = raceRequests.filter(
+    (request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted",
+  );
+
+  const tableProps = { invitesByRequestId, isBusy, now, renderAction, onRelease: handleRelease };
 
   return (
-    <div className="page">
+    <div className="page u14m-page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">{pageHeader.eyebrow}</p>
-          <h1>{pageHeader.title}</h1>
-          <p>{pageHeader.description}</p>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.intro}</p>
         </div>
       </section>
 
-      {requestsError || childrenError || protectedEntriesError ? (
-        <p className="status-note">{requestsError || childrenError || protectedEntriesError}</p>
-      ) : null}
+      {requestsError || childrenError || invitesError ? <p className="status-note">{requestsError || childrenError || invitesError}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
-      {dataLoading ? <p className="status-note">Chargement du module U12 / U14...</p> : null}
+      {dataLoading ? <p className="status-note">{copy.loading}</p> : null}
 
-      <div className="admin-subtabs" role="tablist" aria-label="Navigation du module Pré-programme">
-        <button
-          className={`admin-subtab ${activeU14Tab === "preprogram" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("preprogram")}
-        >
-          Pré-programme
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "protected" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("protected")}
-        >
-          Places protégées
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "basket" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("basket")}
-        >
-          Porte-panier ({basketRequests.length})
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "timeline" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("timeline")}
-        >
-          Chronologie
-        </button>
-        <button
-          className={`admin-subtab ${activeU14Tab === "practical" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => openU14Tab("practical")}
-        >
-          Infos pratiques
-        </button>
-      </div>
-
-      {activeU14Tab === "preprogram" ? (
-        <>
-          <section className="u14-overview-grid">
-            <Panel
-              title="Répartition par course"
-              subtitle="Choisissez une course. Le détail complet s'affiche à droite."
-              actions={
-                <button className="button button--secondary" disabled={isSaving || dataLoading} type="button" onClick={handleRecalculateAllocations}>
-                  {isSaving ? "Mise à jour..." : "Recalculer les statuts"}
-                </button>
-              }
-            >
-              <div className="u14-race-grid">
-                {raceSummaries.map((summary) => (
-                  <button
-                    key={summary.code}
-                    className={`selection-card u14-race-card ${selectedRaceCode === summary.code ? "u14-race-card--active" : ""}`}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRaceCode(summary.code);
-                      setReservationForm((current) => ({ ...current, raceCode: summary.code }));
-                    }}
-                  >
-                    <div className="u14-race-card__head">
-                      <strong>{summary.label}</strong>
-                      <span className="u14-race-card__remaining">{summary.remainingPlaces} restante(s)</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </Panel>
-
-            <Panel
-              title="Tableau de la course sélectionnée"
-              subtitle="Vue tableau avec les demandes et les places protégées en attente pour la course choisie."
-            >
-              <div className="notice-card notice-card--ok">
-                <strong>{selectedRaceSummary?.label || "Course non définie"}</strong>
-                <p>
-                  {selectedRaceSummary?.totalPlaces || 0} place(s) au total, {selectedRaceSummary?.protectedPlaces || 0} protégée(s),{" "}
-                  {selectedRaceSummary?.takenPlaces || 0} prise(s), {selectedRaceSummary?.remainingPlaces || 0} restante(s).
-                </p>
-              </div>
-
-              <DataTable
-                columns={[
-                  { key: "type", label: "Type" },
-                  { key: "child", label: "Enfant" },
-                  { key: "club", label: "Club" },
-                  { key: "bib", label: "Dossard" },
-                  { key: "status", label: "Statut" },
-                  { key: "position", label: "Position" },
-                  { key: "parent", label: "Parent / contact" },
-                  { key: "submittedAt", label: "Date" },
-                ]}
-                rows={
-                  selectedRaceTableRows.length
-                    ? selectedRaceTableRows
-                    : [
-                        {
-                          type: "-",
-                          child: "Aucun enfant sur cette course",
-                          club: "-",
-                          bib: "-",
-                          status: "-",
-                          position: "-",
-                          parent: "-",
-                          submittedAt: "-",
-                        },
-                      ]
-                }
-              />
-            </Panel>
-          </section>
-
-          <Panel
-            title="Demandes reçues"
-            subtitle="Vue consolidée avec statut parent, position et mode d'attribution."
-            actions={
-              <button className="button button--secondary" disabled={isSaving || dataLoading} type="button" onClick={handleRecalculateAllocations}>
-                {isSaving ? "Mise à jour..." : "Recalculer les statuts"}
-              </button>
-            }
+      <nav aria-label={copy.navLabel} className="u14m-tabs" role="tablist">
+        {U14_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            aria-selected={activeTab === tab.id}
+            className={`u14m-tab${activeTab === tab.id ? " u14m-tab--active" : ""}`}
+            role="tab"
+            type="button"
+            onClick={() => navigate(tab.path)}
           >
-            <div className="admin-toolbar">
-              <AuthFormField label="Rechercher une demande">
-                <input
-                  placeholder="Enfant, parent, course, club, dossard..."
-                  type="search"
-                  value={requestSearch}
-                  onChange={(event) => setRequestSearch(event.target.value)}
-                />
-              </AuthFormField>
-              <div className="team-toolbar-main">
-                <AuthFormField label="Statut">
-                  <select value={requestStatusFilter} onChange={(event) => setRequestStatusFilter(event.target.value)}>
-                    <option value="Tous">Tous</option>
-                    <option value="Demande enregistrée">Demande enregistrée</option>
-                    <option value="Retenu">Retenu</option>
-                    <option value="Validé">Validé</option>
-                    <option value="Liste d'attente">Liste d'attente</option>
-                    <option value="Désisté">Désisté</option>
-                    <option value="Non retenue">Non retenue</option>
-                  </select>
-                </AuthFormField>
-                <AuthFormField label="Course">
-                  <select value={requestRaceFilter} onChange={(event) => setRequestRaceFilter(event.target.value)}>
-                    <option value="Toutes">Toutes</option>
-                    {U14_RACE_DEFINITIONS.map((definition) => (
-                      <option key={definition.code} value={definition.code}>
-                        {definition.label}
-                      </option>
-                    ))}
-                  </select>
-                </AuthFormField>
-              </div>
-            </div>
+            {copy.tabs[tab.id]}
+            {tab.id === "todo" && todoCount ? <span className="u14m-tab__badge">{todoCount}</span> : null}
+            {tab.id === "basket" && basketRequests.length ? <span className="u14m-tab__count">{basketRequests.length}</span> : null}
+          </button>
+        ))}
+      </nav>
 
-            <DataTable
-              columns={[
-                { key: "child", label: "Enfant" },
-                { key: "race", label: "Course" },
-                { key: "parent", label: "Responsable" },
-                { key: "submittedAt", label: "Date / heure" },
-                { key: "status", label: "Statut" },
-                { key: "position", label: "Position" },
-                { key: "admin", label: "Validation admin" },
-                { key: "decision", label: "Réponse parent" },
-                { key: "actions", label: "Action" },
-              ]}
-              rows={
-                filteredAdminRequests.length
-                  ? filteredAdminRequests.map((request) => ({
-                        child: request.childName,
-                        race: request.raceLabel,
-                        parent: request.parentName,
-                        submittedAt: request.submittedAtMs ? formatDateTimeForDisplay(request.submittedAtMs) : "-",
-                        status: getU14WorkflowStatusLabel(request),
-                        position:
-                          normalizeComparableValue(request.status) === "confirmed"
-                            ? `Accepté${request.acceptedPosition ? ` (${request.acceptedPosition})` : ""}`
-                            : request.waitlistPosition
-                              ? `Attente ${request.waitlistPosition}`
-                              : "-",
-                        admin:
-                          normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                            ? getAdminApprovalLabel(request.adminApprovalStatus)
-                            : "Validation admin requise",
-                        decision:
-                          normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                            ? getParentDecisionLabel(request.parentDecisionStatus)
-                            : "En attente validation admin",
-                        __rowClass:
-                          normalizeComparableValue(request.status) === "declined" ||
-                          normalizeComparableValue(request.parentDecisionStatus) === "declined"
-                            ? "data-table__row--danger"
-                            : normalizeComparableValue(request.adminApprovalStatus) === "approved" &&
-                                normalizeComparableValue(request.parentDecisionStatus) === "confirmed"
-                              ? "data-table__row--success"
-                              : "",
-                        actions:
-                          normalizeComparableValue(request.adminApprovalStatus) !== "approved" &&
-                          normalizeComparableValue(request.status) !== "declined" &&
-                          normalizeComparableValue(request.status) !== "rejected" ? (
-                            <button
-                              className="button button--secondary"
-                              type="button"
-                              disabled={isSaving}
-                              onClick={() =>
-                                normalizeComparableValue(request.status) === "confirmed"
-                                  ? handleApproveRequest(request)
-                                  : handleProcessRequest(request)
-                              }
-                            >
-                              {normalizeComparableValue(request.status) === "confirmed"
-                                ? "Valider et envoyer"
-                                : "Traiter la demande"}
-                            </button>
-                          ) : (
-                            "-"
-                          ),
-                      }))
-                  : [{ child: "Aucune demande", race: "-", parent: "-", submittedAt: "-", status: "-", position: "-", admin: "-", decision: "-", actions: "-" }]
-              }
-            />
+      {activeTab === "todo" ? (
+        <>
+          <section className="u14m-kpis">
+            <div className="u14m-kpi">
+              <span>{copy.todo.kpiRetain}</span>
+              <strong>{toRetain.length}</strong>
+              <small>{promotedCount ? fill(copy.todo.kpiRetainPromoted, { count: promotedCount }) : copy.todo.kpiRetainNone}</small>
+            </div>
+            <div className={`u14m-kpi${overdue.length ? " u14m-kpi--alert" : ""}`}>
+              <span>{copy.todo.kpiOverdue}</span>
+              <strong>{overdue.length}</strong>
+              <small>{copy.todo.kpiOverdueDetail}</small>
+            </div>
+            <div className="u14m-kpi">
+              <span>{copy.todo.kpiBasket}</span>
+              <strong>{basketToDecide.length}</strong>
+              <small>{copy.todo.kpiBasketDetail}</small>
+            </div>
+            <div className="u14m-kpi">
+              <span>{copy.todo.kpiConfirmed}</span>
+              <strong>{requestRecords.filter((request) => stageOf(request).key === "confirmed").length}</strong>
+              <small>{copy.todo.kpiConfirmedDetail}</small>
+            </div>
+          </section>
+          <Panel title={copy.todo.title} subtitle={copy.todo.subtitle}>
+            <ChildrenTable {...tableProps} emptyLabel={copy.todo.empty} groups={todoGroups} />
           </Panel>
         </>
       ) : null}
 
-      {activeU14Tab === "protected" ? (
-        <Panel
-          title="Gestion des places protégées"
-          subtitle="Création, matching et suivi des places protégées sur la course sélectionnée."
-        >
-          <div className="notice-card notice-card--ok">
-            <strong>{selectedRaceSummary?.label || "Course non définie"}</strong>
-            <p>
-              {filteredProtectedEntries.length} place(s) protégée(s) active(s), {waitingRequests.length} enfant(s)
-              actuellement en liste d'attente sur cette course.
-            </p>
+      {activeTab === "races" ? (
+        <Panel title={copy.races.title} subtitle={copy.races.subtitle}>
+          <div className="u14m-race-grid">
+            {raceSummaries.map((race) => {
+              const filled = raceRequests.filter((request) => request.raceCode === race.code && RETAINED_STAGES.includes(stageOf(request).key)).length;
+              const total = race.totalPlaces || 14;
+              const isActive = !normalizedSearch && selectedRace.code === race.code;
+              return (
+                <button
+                  key={race.code}
+                  aria-pressed={isActive}
+                  className={`u14m-race${isActive ? " u14m-race--active" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRaceCode(race.code);
+                    setSearch("");
+                  }}
+                >
+                  <span className="u14m-race__head">
+                    <span className="u14m-race__name">{raceLabel(race.label).replace(" - ", " · ")}</span>
+                    <span className="u14m-race__count">
+                      {filled}<span>/{total}</span>
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className="u14m-bar">
+                    <span className="u14m-bar__filled" style={{ width: `${Math.min((filled / total) * 100, 100)}%` }} />
+                    <span className="u14m-bar__reserved" style={{ width: `${Math.min((race.blockedPlaces / total) * 100, 100)}%` }} />
+                  </span>
+                  <span className="u14m-race__meta">
+                    {race.blockedPlaces ? fill(copy.races.reservedShort, { count: race.blockedPlaces }) : ""}
+                    {race.waitlistedRequests.length
+                      ? fill(copy.races.waiting, { count: race.waitlistedRequests.length })
+                      : fill(copy.races.free, { count: race.remainingPlaces })}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-
-          <form className="profile-form" onSubmit={handleCreateProtectedEntry}>
-            <div className="field-grid">
-              <AuthFormField label="Catégorie / course">
-                <select name="raceCode" value={reservationForm.raceCode} onChange={handleReservationFormChange}>
-                  {U14_RACE_DEFINITIONS.map((definition) => (
-                    <option key={definition.code} value={definition.code}>
-                      {definition.label}
-                    </option>
-                  ))}
-                </select>
-              </AuthFormField>
-              <AuthFormField label="Place protégée">
-                <select name="slotNumber" value={reservationForm.slotNumber} onChange={handleReservationFormChange}>
-                  {[1, 2, 3].map((slotNumber) => (
-                    <option key={slotNumber} value={slotNumber}>
-                      Place {slotNumber}
-                    </option>
-                  ))}
-                </select>
-              </AuthFormField>
-            </div>
-            <div className="field-grid">
-              <AuthFormField label="Prénom enfant">
-                <input name="firstName" required value={reservationForm.firstName} onChange={handleReservationFormChange} />
-              </AuthFormField>
-              <AuthFormField label="Nom enfant">
-                <input name="lastName" required value={reservationForm.lastName} onChange={handleReservationFormChange} />
-              </AuthFormField>
-            </div>
-            <div className="field-grid">
-              <AuthFormField label="Club">
-                <input name="club" required value={reservationForm.club} onChange={handleReservationFormChange} />
-              </AuthFormField>
-              <AuthFormField label="Dossard">
-                <input name="bibNumber" required value={reservationForm.bibNumber} onChange={handleReservationFormChange} />
-              </AuthFormField>
-            </div>
-            <div className="field-grid">
-              <AuthFormField label="Email parent">
-                <input name="parentEmail" required type="email" value={reservationForm.parentEmail} onChange={handleReservationFormChange} />
-              </AuthFormField>
-              <AuthFormField label="Date limite d'inscription">
-                <input name="inviteDeadline" required type="date" value={reservationForm.inviteDeadline} onChange={handleReservationFormChange} />
-              </AuthFormField>
-            </div>
-            <div className="profile-form__actions">
-              <button className="button button--primary" disabled={isSaving} type="submit">
-                {isSaving ? "Enregistrement..." : "Créer la place protégée"}
-              </button>
-            </div>
-          </form>
-
-          <DataTable
-            columns={[
-              { key: "slot", label: "Place" },
-              { key: "child", label: "Enfant protégé" },
-              { key: "status", label: "Statut" },
-              { key: "match", label: "Meilleur matching" },
-              { key: "actions", label: "Actions" },
-            ]}
-            rows={
-              filteredProtectedEntries.length
-                ? filteredProtectedEntries.map((entry) => {
-                    const suggestions = slotSuggestionsById[entry.id] || [];
-                    const firstSuggestion = suggestions[0] || null;
-
-                    return {
-                      slot: `Place ${entry.slotNumber}`,
-                      child: `${entry.firstName || ""} ${entry.lastName || ""}`.trim(),
-                      status: getProtectedSlotStatusLabel(entry.status),
-                      match: firstSuggestion ? (
-                        <div className="compact-list compact-list--actions">
-                          <span>
-                            {firstSuggestion.childName} - dossard {firstSuggestion.bibNumber || "?"}
-                          </span>
-                        </div>
-                      ) : (
-                        "Aucune inscription matchée"
-                      ),
-                      actions: (
-                        <div className="table-actions">
-                          {firstSuggestion && normalizeComparableValue(entry.status) !== "matched" ? (
-                            <button
-                              className="button button--secondary"
-                              type="button"
-                              onClick={() => handleMatchProtectedEntry(entry, firstSuggestion)}
-                            >
-                              Matcher
-                            </button>
-                          ) : null}
-                          {normalizeComparableValue(entry.status) !== "released" ? (
-                            <button
-                              className="button button--secondary"
-                              type="button"
-                              onClick={() => handleReleaseProtectedEntry(entry)}
-                            >
-                              Libérer
-                            </button>
-                          ) : null}
-                          <button
-                            className="button button--secondary"
-                            type="button"
-                            onClick={() => handleDeleteProtectedEntry(entry)}
-                            style={{ color: "#b91c1c", borderColor: "#fca5a5" }}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      ),
-                    };
-                  })
-                : [{ slot: "Aucune place protégée", child: "-", status: "-", match: "-", actions: "-" }]
-            }
-          />
-
-          <DataTable
-            columns={[
-              { key: "child", label: "Enfant en attente" },
-              { key: "parent", label: "Responsable" },
-              { key: "place", label: "Place attente" },
-            ]}
-            rows={
-              waitingRequests.length
-                ? waitingRequests.map((request) => ({
-                    child: request.childName,
-                    parent: request.parentName,
-                    place: request.waitlistPosition || "-",
-                  }))
-                : [{ child: "Aucune attente sur cette course", parent: "-", place: "-" }]
-            }
-          />
+          <div className="u14m-toolbar">
+            <h3 className="u14m-toolbar__title">{normalizedSearch ? copy.races.searchResults : raceLabel(selectedRace.label)}</h3>
+            <input
+              aria-label={copy.races.searchLabel}
+              className="u14m-search"
+              placeholder={copy.races.searchPlaceholder}
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+          <ChildrenTable {...tableProps} emptyLabel={normalizedSearch ? copy.races.emptySearch : copy.races.emptyRace} groups={raceGroups} />
         </Panel>
       ) : null}
 
-      {activeU14Tab === "basket" ? (
-        <Panel title="Demandes porte-panier" subtitle="Validation manuelle avec envoi du mail parent depuis la même file transactionnelle.">
-          <DataTable
-            columns={[
-              { key: "child", label: "Enfant" },
-              { key: "parent", label: "Responsable" },
-              { key: "status", label: "Statut" },
-              { key: "admin", label: "Validation admin" },
-              { key: "decision", label: "Réponse parent" },
-              { key: "actions", label: "Action" },
-            ]}
-            rows={
-              basketRequests.length
-                ? basketRequests.map((request) => ({
-                    child: request.childName,
-                    parent: request.parentName,
-                    status: getU14WorkflowStatusLabel(request),
-                    admin:
-                      normalizeComparableValue(request.status) === "confirmed"
-                        ? getAdminApprovalLabel(request.adminApprovalStatus)
-                        : "Validation admin requise",
-                    decision:
-                      normalizeComparableValue(request.adminApprovalStatus) === "approved"
-                        ? getParentDecisionLabel(request.parentDecisionStatus)
-                        : "En attente validation admin",
-                    actions:
-                      normalizeComparableValue(request.adminApprovalStatus) !== "approved" ? (
-                        <button
-                          className="button button--secondary"
-                          type="button"
-                          disabled={isSaving}
-                          onClick={() => handleApproveBasketRequest(request)}
-                        >
-                          Valider porte-panier
-                        </button>
-                      ) : (
-                        "-"
-                      ),
-                  }))
-                : [{ child: "Aucune demande porte-panier", parent: "-", status: "-", admin: "-", decision: "-", actions: "-" }]
-            }
-          />
+      {activeTab === "basket" ? (
+        <Panel title={copy.basket.title} subtitle={copy.basket.subtitle}>
+          <ChildrenTable {...tableProps} emptyLabel={copy.basket.empty} groups={basketGroups} />
+          {basketAlternatives.length ? (
+            <p className="u14m-footnote">{fill(copy.basket.alternatives, { names: basketAlternatives.map((request) => request.childName).join(", ") })}</p>
+          ) : null}
         </Panel>
       ) : null}
 
-      {activeU14Tab === "timeline" ? (
-        <Panel
-          title="Toutes les demandes par ordre chronologique"
-          subtitle="Vue globale de toutes les demandes avec date et heure de soumission."
-        >
-          <DataTable
-            columns={[
-              { key: "submittedAt", label: "Date / heure" },
-              { key: "child", label: "Enfant" },
-              { key: "type", label: "Type" },
-              { key: "race", label: "Course" },
-              { key: "parent", label: "Responsable" },
-              { key: "status", label: "Statut" },
-              { key: "position", label: "Position" },
-              { key: "admin", label: "Validation admin" },
-            ]}
-            rows={
-              chronologicalRequests.length
-                ? chronologicalRequests
-                : [{ submittedAt: "-", child: "Aucune demande", type: "-", race: "-", parent: "-", status: "-", position: "-", admin: "-" }]
-            }
-          />
-        </Panel>
+      {activeTab === "protected" ? (
+        <U14ProtectedTab
+          DataTable={DataTable}
+          Panel={Panel}
+          activeEditionId={activeEditionId}
+          claimedByPool={claimedByPool}
+          invites={protectedInvites}
+          loadMailQueueModule={loadMailQueueModule}
+          mailContext={mailContext}
+          requestRecords={requestRecords}
+          reserveByPool={reserveByPool}
+          reserveReleased={reserveReleased}
+          settings={protectedSettings}
+        />
       ) : null}
 
-      {activeU14Tab === "practical" ? (
-        <Panel
-          title="Informations pratiques"
-          subtitle="Un texte par rôle. Il sera affiché dans l'espace parent une fois la demande validée."
-        >
-          {practicalInfoError ? <p className="form-error">{practicalInfoError}</p> : null}
-          {practicalInfoLoading ? <p className="panel-note">Chargement des informations pratiques...</p> : null}
-          <form className="profile-form" onSubmit={handleSavePracticalInfo}>
-            <AuthFormField label="Texte Pré-programme">
-              <textarea
-                rows="6"
-                value={practicalInfoForm.preprogram}
-                onChange={(event) =>
-                  setPracticalInfoForm((current) => ({ ...current, preprogram: event.target.value }))
-                }
-              />
-            </AuthFormField>
-            <AuthFormField label="Texte Porte-panier">
-              <textarea
-                rows="6"
-                value={practicalInfoForm.porte_panier}
-                onChange={(event) =>
-                  setPracticalInfoForm((current) => ({ ...current, porte_panier: event.target.value }))
-                }
-              />
-            </AuthFormField>
-            <div className="profile-form__actions">
-              <button className="button button--primary" disabled={isSaving} type="submit">
-                {isSaving ? "Enregistrement..." : "Enregistrer les infos pratiques"}
-              </button>
+      {activeTab === "mails" ? (
+        <>
+          <Panel title={copy.mails.practicalTitle} subtitle={copy.mails.practicalSubtitle}>
+            {practicalInfoError ? <p className="form-error">{practicalInfoError}</p> : null}
+            {practicalInfoLoading ? <p className="panel-note">{copy.mails.loading}</p> : null}
+            <form className="profile-form" onSubmit={handleSavePracticalInfo}>
+              <AuthFormField label={copy.mails.practicalRaces}>
+                <textarea
+                  rows="5"
+                  value={(practicalDraft || { preprogram: preprogramPracticalInfo }).preprogram}
+                  onChange={(event) => setPracticalDraft((current) => ({ porte_panier: basketPracticalInfo, ...current, preprogram: event.target.value }))}
+                />
+              </AuthFormField>
+              <AuthFormField label={copy.mails.practicalBasket}>
+                <textarea
+                  rows="5"
+                  value={(practicalDraft || { porte_panier: basketPracticalInfo }).porte_panier}
+                  onChange={(event) => setPracticalDraft((current) => ({ preprogram: preprogramPracticalInfo, ...current, porte_panier: event.target.value }))}
+                />
+              </AuthFormField>
+              <div className="profile-form__actions">
+                <button className="button button--primary" disabled={isBusy || !practicalDraft} type="submit">
+                  {copy.mails.save}
+                </button>
+              </div>
+            </form>
+          </Panel>
+          <Panel title={copy.mails.listTitle} subtitle={copy.mails.listSubtitle}>
+            <div className="u14m-mail-list">
+              {copy.mails.list.map(([when, what]) => (
+                <div key={when} className="u14m-mail-row">
+                  <strong>{when}</strong>
+                  <span>{what}</span>
+                </div>
+              ))}
             </div>
-          </form>
-        </Panel>
+          </Panel>
+        </>
       ) : null}
     </div>
   );

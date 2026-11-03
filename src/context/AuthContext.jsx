@@ -527,6 +527,7 @@ export function AuthProvider({ children }) {
       );
     }
 
+    const requestIds = [];
     const children = formData.children.filter(
       (child) =>
         child.firstName &&
@@ -570,7 +571,7 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        await addDoc(collection(db, "u14Requests"), {
+        const requestRef = await addDoc(collection(db, "u14Requests"), {
           editionId: activeEditionId,
           childId: childRef.id,
           parentUserId: credential.user.uid,
@@ -595,6 +596,7 @@ export function AuthProvider({ children }) {
           notes: child.notes,
           submittedAt: serverTimestamp(),
         });
+        requestIds.push(requestRef.id);
       } catch (error) {
         const cleanupSucceeded = existingUser
           ? false
@@ -611,20 +613,24 @@ export function AuthProvider({ children }) {
       }
     }
 
-    try {
-      const { buildPreProgramAccountCreatedMail, enqueueTransactionalMail } = await loadMailQueueModule();
-      await enqueueTransactionalMail(
-        buildPreProgramAccountCreatedMail({
-          parentFirstName: formData.parentFirstName,
-          parentEmail: formData.parentEmail,
-          children,
-        }),
-      );
-    } catch (mailError) {
-      console.error("Pre-program account email could not be sent", mailError);
+    // Place protégée : la famille reçoit à la place le mail « participation
+    // confirmée » une fois l'invitation validée (preprogramme-access-page).
+    if (!formData.skipConfirmationMail) {
+      try {
+        const { buildPreProgramAccountCreatedMail, enqueueTransactionalMail } = await loadMailQueueModule();
+        await enqueueTransactionalMail(
+          buildPreProgramAccountCreatedMail({
+            parentFirstName: formData.parentFirstName,
+            parentEmail: formData.parentEmail,
+            children,
+          }),
+        );
+      } catch (mailError) {
+        console.error("Pre-program account email could not be sent", mailError);
+      }
     }
 
-    return credential;
+    return { credential, requestIds };
   }
 
   // Inscription aux courses nationales du pré-programme. Sans session, le
