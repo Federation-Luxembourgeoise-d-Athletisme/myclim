@@ -4,31 +4,28 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   U14_PRACTICAL_INFO_DOC_PATH,
   U14_RACE_DEFINITIONS,
-  U14_RESERVED_SLOTS_COLLECTION,
-  U14_RESERVED_SLOTS_PER_RACE,
   buildU14AllocationSnapshot,
   buildU14RequestRecord,
-  doesProtectedSlotMatchRequest,
   formatDateForDisplay,
   formatDateTimeForDisplay,
   formatU14RequestStatusLabel,
   getAdminApprovalLabel,
   getParentDecisionLabel,
-  getProtectedSlotStatusLabel,
   getTimestampMs,
   getU14ConfirmationDeadline,
   getU14PracticalRoleKey,
-  getU14RaceLabel,
   getU14WorkflowStatusLabel,
-  isProtectedSlotActive,
   normalizeComparableValue,
 } from "./u14-helpers";
 import {
-  useProtectedU14Entries,
   useU14ChildrenList,
   useU14PracticalInfoConfiguration,
+  useU14ProtectedInvites,
+  useU14ProtectedSettings,
   useU14RequestsList,
 } from "./u14-hooks";
+import { U14_PROTECTED_INVITES_COLLECTION } from "./u14-protected";
+import { U14ProtectedTab } from "./u14-protected-tab";
 import { useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
@@ -63,7 +60,7 @@ function getU14PageHeader(activeTab, basketRequestsCount) {
       return {
         eyebrow: "Module Pré-programme",
         title: "Places protégées",
-        description: "Gestion des places réservées par course et des invitations parent associées.",
+        description: "Réserves par catégorie, invitations des enfants protégés et suivi de leurs inscriptions.",
       };
     case "timeline":
       return {
@@ -110,8 +107,6 @@ function U14Page(props) {
     AuthFormField,
     DataTable,
     Panel,
-    addDoc,
-    deleteDoc,
     doc,
     getDocs,
     loadMailQueueModule,
@@ -124,11 +119,8 @@ function U14Page(props) {
   const navigate = useNavigate();
   const { requests, loading: requestsLoading, error: requestsError } = useU14RequestsList(true);
   const { children, loading: childrenLoading, error: childrenError } = useU14ChildrenList(true);
-  const {
-    entries: protectedEntries,
-    loading: protectedEntriesLoading,
-    error: protectedEntriesError,
-  } = useProtectedU14Entries(true);
+  const { invites: protectedInvites, loading: protectedInvitesLoading, error: protectedInvitesError } = useU14ProtectedInvites(true);
+  const { settings: protectedSettings } = useU14ProtectedSettings(true);
   const {
     preprogram: preprogramPracticalInfo,
     porte_panier: basketPracticalInfo,
@@ -154,16 +146,6 @@ function U14Page(props) {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [reservationForm, setReservationForm] = useState({
-    raceCode: U14_RACE_DEFINITIONS[0]?.code || "",
-    slotNumber: "1",
-    firstName: "",
-    lastName: "",
-    club: "",
-    bibNumber: "",
-    parentEmail: "",
-    inviteDeadline: "",
-  });
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setPracticalInfoForm({
@@ -188,11 +170,15 @@ function U14Page(props) {
       navigate(nextPath);
     }
   }
-  const dataLoading = requestsLoading || childrenLoading || protectedEntriesLoading;
-  const { requestRecords, raceSummaries } = useMemo(
-    () => buildU14AllocationSnapshot({ requests, children, protectedEntries }),
-    [children, protectedEntries, requests],
+  const dataLoading = requestsLoading || childrenLoading || protectedInvitesLoading;
+  const { requestRecords, raceSummaries, reserveByPool, claimedByPool, reserveReleased } = useMemo(
+    () => buildU14AllocationSnapshot({ requests, children, protectedInvites, protectedSettings, now: pageOpenedAt }),
+    [children, pageOpenedAt, protectedInvites, protectedSettings, requests],
   );
+  // Tous les recalculs passent par ici, avec les invitations et réserves à jour.
+  function syncAllocations(overrides = {}) {
+    return syncU14RaceAllocations({ requests, children, protectedInvites, protectedSettings, ...overrides });
+  }
   const selectedRaceSummary = raceSummaries.find((summary) => summary.code === selectedRaceCode) || raceSummaries[0] || null;
   const selectedRaceRequests = useMemo(
     () =>
@@ -216,34 +202,6 @@ function U14Page(props) {
         }),
     [requestRecords, selectedRaceCode],
   );
-  const filteredProtectedEntries = useMemo(
-    () =>
-      protectedEntries
-        .filter((entry) => !selectedRaceCode || entry.raceCode === selectedRaceCode)
-        .sort((left, right) => {
-          if (left.raceCode !== right.raceCode) return left.raceCode.localeCompare(right.raceCode);
-          return Number(left.slotNumber || 0) - Number(right.slotNumber || 0);
-        }),
-    [protectedEntries, selectedRaceCode],
-  );
-  const waitingRequests = useMemo(
-    () =>
-      requestRecords.filter(
-        (request) =>
-          request.raceCode === selectedRaceCode &&
-          request.requestType !== "porte_panier" &&
-          normalizeComparableValue(request.status) === "waitlisted",
-      ),
-    [requestRecords, selectedRaceCode],
-  );
-  const selectedRaceProtectedPendingEntries = useMemo(
-    () =>
-      filteredProtectedEntries.filter(
-        (entry) =>
-          !["matched", "released"].includes(normalizeComparableValue(entry.status)),
-      ),
-    [filteredProtectedEntries],
-  );
   const basketRequests = useMemo(
     () =>
       requestRecords
@@ -266,16 +224,6 @@ function U14Page(props) {
         )
         .sort((left, right) => getTimestampMs(left.confirmationDeadline) - getTimestampMs(right.confirmationDeadline)),
     [pageOpenedAt, requestRecords],
-  );
-  const expiredProtectedInvitations = useMemo(
-    () =>
-      protectedEntries.filter((entry) => {
-        if (normalizeComparableValue(entry.status) !== "invited" || !entry.inviteDeadline) return false;
-        const deadline = new Date(entry.inviteDeadline);
-        deadline.setHours(23, 59, 0, 0);
-        return deadline.getTime() < pageOpenedAt;
-      }),
-    [pageOpenedAt, protectedEntries],
   );
   const pageHeader = useMemo(
     () => getU14PageHeader(activeU14Tab, basketRequests.length),
@@ -348,24 +296,18 @@ function U14Page(props) {
     requestSearch,
     requestStatusFilter,
   ]);
-  const slotSuggestionsById = useMemo(
-    () =>
-      filteredProtectedEntries.reduce((accumulator, entry) => {
-        accumulator[entry.id] = requestRecords.filter((request) => doesProtectedSlotMatchRequest(entry, request));
-        return accumulator;
-      }, {}),
-    [filteredProtectedEntries, requestRecords],
-  );
   const selectedRaceTableRows = useMemo(() => {
-    const protectedRows = selectedRaceProtectedPendingEntries.map((entry) => ({
+    const blockedPlaces = selectedRaceSummary?.blockedPlaces || 0;
+    const protectedRows = Array.from({ length: blockedPlaces }, (_, index) => ({
+      id: `reserve-${index}`,
       type: "Place protégée",
-      child: `${entry.firstName || ""} ${entry.lastName || ""}`.trim() || `Place protégée ${entry.slotNumber || "?"}`,
-      club: entry.club || "-",
-      bib: entry.bibNumber || "-",
-      status: getProtectedSlotStatusLabel(entry.status),
-      position: `Réservée (${entry.slotNumber || "?"})`,
-      parent: entry.parentEmail || "-",
-      submittedAt: entry.createdAt ? formatDateTimeForDisplay(getTimestampMs(entry.createdAt)) : "-",
+      child: "Réservée — en attente d'un enfant invité",
+      club: "-",
+      bib: "-",
+      status: "Bloquée",
+      position: `Réserve ${index + 1}`,
+      parent: "-",
+      submittedAt: "-",
     }));
 
     const requestRows = selectedRaceRequests.map((request) => ({
@@ -389,152 +331,7 @@ function U14Page(props) {
     }));
 
     return [...protectedRows, ...requestRows];
-  }, [selectedRaceProtectedPendingEntries, selectedRaceRequests]);
-
-  function handleReservationFormChange(event) {
-    const { name, value } = event.target;
-    setReservationForm((current) => ({ ...current, [name]: value }));
-  }
-
-  async function handleCreateProtectedEntry(event) {
-    event.preventDefault();
-    setErrorMessage("");
-    setStatusMessage("");
-
-    const raceEntries = protectedEntries.filter(
-      (entry) => entry.raceCode === reservationForm.raceCode && isProtectedSlotActive(entry),
-    );
-    if (raceEntries.length >= U14_RESERVED_SLOTS_PER_RACE) {
-      setErrorMessage("Cette catégorie a déjà ses 3 places protégées actives.");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await addDoc(collection(db, U14_RESERVED_SLOTS_COLLECTION), {
-        raceCode: reservationForm.raceCode,
-        slotNumber: Number(reservationForm.slotNumber || 1),
-        firstName: reservationForm.firstName.trim(),
-        lastName: reservationForm.lastName.trim(),
-        club: reservationForm.club.trim(),
-        bibNumber: reservationForm.bibNumber.trim(),
-        parentEmail: reservationForm.parentEmail.trim(),
-        inviteDeadline: reservationForm.inviteDeadline || null,
-        status: "invited",
-        createdAt: serverTimestamp(),
-      });
-
-      if (reservationForm.parentEmail.trim()) {
-        const { enqueueTransactionalMail } = await loadMailQueueModule();
-        await enqueueTransactionalMail({
-          type: "u14-protected-invitation",
-          to: reservationForm.parentEmail.trim(),
-          subject: "Votre enfant est pré-sélectionné pour le CMCM Luxembourg Indoor Meeting 2027",
-          body: `Bonjour,\n\nVotre enfant ${reservationForm.firstName.trim()} ${reservationForm.lastName.trim()} est pré-sélectionné pour ${getU14RaceLabel(reservationForm.raceCode)}. Merci de compléter son inscription sur MyCLIM avant le ${formatDateForDisplay(reservationForm.inviteDeadline)}. Sans dossier complété avant cette date, nous ne pourrons pas garantir de conserver cette place protégée.\n`,
-          metadata: {
-            raceCode: reservationForm.raceCode,
-            slotNumber: Number(reservationForm.slotNumber || 1),
-            bibNumber: reservationForm.bibNumber.trim(),
-          },
-        });
-      }
-
-      setStatusMessage("Place protégée enregistrée et mail d'invitation placé dans la file d'envoi.");
-      setReservationForm((current) => ({
-        ...current,
-        firstName: "",
-        lastName: "",
-        club: "",
-        bibNumber: "",
-        parentEmail: "",
-        inviteDeadline: "",
-      }));
-    } catch {
-      setErrorMessage("Impossible d'enregistrer cette place protégée pour le moment.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleMatchProtectedEntry(entry, request) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await updateDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, entry.id), {
-        status: "matched",
-        matchedRequestId: request.id,
-        matchedChildId: request.childId || "",
-        matchedParentUserId: request.parentUserId || "",
-        matchedAt: serverTimestamp(),
-      });
-
-      await syncU14RaceAllocations({
-        requests,
-        children,
-        protectedEntries: protectedEntries.map((current) =>
-          current.id === entry.id
-            ? { ...current, status: "matched", matchedRequestId: request.id }
-            : current,
-        ),
-      });
-      setStatusMessage(`La place protégée ${entry.slotNumber} a été matchée avec ${request.childName}.`);
-    } catch {
-      setErrorMessage("Le matching a échoué.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleReleaseProtectedEntry(entry) {
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await updateDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, entry.id), {
-        status: "released",
-        matchedRequestId: null,
-        matchedChildId: null,
-        matchedParentUserId: null,
-        releasedAt: serverTimestamp(),
-      });
-
-      const nextProtectedEntries = protectedEntries.map((current) =>
-        current.id === entry.id
-          ? { ...current, status: "released", matchedRequestId: null }
-          : current,
-      );
-      await syncU14RaceAllocations({ requests, children, protectedEntries: nextProtectedEntries });
-      setStatusMessage(`La place protégée ${entry.slotNumber} a été libérée.`);
-    } catch {
-      setErrorMessage("Impossible de libérer cette place protégée.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleDeleteProtectedEntry(entry) {
-    if (!window.confirm(`Supprimer définitivement la place protégée ${entry.slotNumber} pour ${entry.firstName || ""} ${entry.lastName || ""} ?`)) {
-      return;
-    }
-
-    setErrorMessage("");
-    setStatusMessage("");
-    setIsSaving(true);
-
-    try {
-      await deleteDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, entry.id));
-      const nextProtectedEntries = protectedEntries.filter((current) => current.id !== entry.id);
-      await syncU14RaceAllocations({ requests, children, protectedEntries: nextProtectedEntries });
-      setStatusMessage(`La place protégée ${entry.slotNumber} a été supprimée définitivement.`);
-    } catch {
-      setErrorMessage("Impossible de supprimer cette place protégée.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
+  }, [selectedRaceRequests, selectedRaceSummary]);
 
   // Relance d'un parent qui n'a pas confirmé à temps : nouveau délai de
   // 10 jours et nouveau mail d'acceptation (course ou porte-panier).
@@ -599,22 +396,8 @@ function U14Page(props) {
       };
       await updateDoc(doc(db, "u14Requests", request.id), { ...declinedFields, parentDecisionAt: serverTimestamp() });
 
-      if (request.protectedSlotId) {
-        await updateDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, request.protectedSlotId), {
-          status: "released",
-          matchedRequestId: null,
-          matchedChildId: null,
-          matchedParentUserId: null,
-          releasedAt: serverTimestamp(),
-        });
-      }
-
-      await syncU14RaceAllocations({
+      await syncAllocations({
         requests: requests.map((current) => (current.id === request.id ? { ...current, ...declinedFields } : current)),
-        children,
-        protectedEntries: protectedEntries.map((current) =>
-          current.id === request.protectedSlotId ? { ...current, status: "released", matchedRequestId: null } : current,
-        ),
       });
       setStatusMessage(`Place de ${request.childName} libérée. Pensez à valider l'enfant qui monte de la liste d'attente.`);
     } catch {
@@ -630,7 +413,7 @@ function U14Page(props) {
     setIsSaving(true);
 
     try {
-      await syncU14RaceAllocations({ requests, children, protectedEntries });
+      await syncAllocations();
       setStatusMessage("Les statuts, places acceptées et listes d'attente ont été recalculés.");
     } catch {
       setErrorMessage("Le recalcul automatique a échoué.");
@@ -689,17 +472,19 @@ function U14Page(props) {
       const [requestsSnapshot, childrenSnapshot, protectedSnapshot] = await Promise.all([
         getDocs(collection(db, "u14Requests")),
         getDocs(collection(db, "u14Children")),
-        getDocs(collection(db, U14_RESERVED_SLOTS_COLLECTION)),
+        getDocs(collection(db, U14_PROTECTED_INVITES_COLLECTION)),
       ]);
 
       const latestRequests = requestsSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
       const latestChildren = childrenSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-      const latestProtectedEntries = protectedSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+      const latestProtectedInvites = protectedSnapshot.docs
+        .map((entry) => ({ id: entry.id, ...entry.data() }))
+        .filter((entry) => !entry.editionId || String(entry.editionId) === String(activeEditionId));
 
-      await syncU14RaceAllocations({
+      await syncAllocations({
         requests: latestRequests,
         children: latestChildren,
-        protectedEntries: latestProtectedEntries,
+        protectedInvites: latestProtectedInvites,
       });
 
       const refreshedRequestsSnapshot = await getDocs(collection(db, "u14Requests"));
@@ -811,14 +596,14 @@ function U14Page(props) {
         </div>
       </section>
 
-      {requestsError || childrenError || protectedEntriesError ? (
-        <p className="status-note">{requestsError || childrenError || protectedEntriesError}</p>
+      {requestsError || childrenError || protectedInvitesError ? (
+        <p className="status-note">{requestsError || childrenError || protectedInvitesError}</p>
       ) : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
       {dataLoading ? <p className="status-note">Chargement du module U12 / U14...</p> : null}
 
-      {overdueConfirmations.length || expiredProtectedInvitations.length ? (
+      {overdueConfirmations.length ? (
         <div className="notice-card notice-card--warn">
           <strong>Délais dépassés — à traiter</strong>
           <p>Rien n'est libéré automatiquement : relancez la famille (nouveau délai de 10 jours) ou libérez la place.</p>
@@ -837,19 +622,6 @@ function U14Page(props) {
                     Relancer
                   </button>
                   <button className="button button--ghost-danger button--small" disabled={isSaving} type="button" onClick={() => handleReleaseOverdueRequest(request)}>
-                    Libérer la place
-                  </button>
-                </span>
-              </div>
-            ))}
-            {expiredProtectedInvitations.map((entry) => (
-              <div key={entry.id} className="u14-overdue-row">
-                <span>
-                  <strong>{`${entry.firstName || ""} ${entry.lastName || ""}`.trim()}</strong> · place protégée {getU14RaceLabel(entry.raceCode)}
-                  <span className="parent-request-note"> — inscription attendue le {formatDateForDisplay(entry.inviteDeadline)}</span>
-                </span>
-                <span className="table-actions table-actions--inline">
-                  <button className="button button--ghost-danger button--small" disabled={isSaving} type="button" onClick={() => handleReleaseProtectedEntry(entry)}>
                     Libérer la place
                   </button>
                 </span>
@@ -915,14 +687,14 @@ function U14Page(props) {
                     key={summary.code}
                     className={`selection-card u14-race-card ${selectedRaceCode === summary.code ? "u14-race-card--active" : ""}`}
                     type="button"
-                    onClick={() => {
-                      setSelectedRaceCode(summary.code);
-                      setReservationForm((current) => ({ ...current, raceCode: summary.code }));
-                    }}
+                    onClick={() => setSelectedRaceCode(summary.code)}
                   >
                     <div className="u14-race-card__head">
                       <strong>{summary.label}</strong>
-                      <span className="u14-race-card__remaining">{summary.remainingPlaces} restante(s)</span>
+                      <span className="u14-race-card__remaining">
+                        {summary.remainingPlaces} restante(s)
+                        {summary.blockedPlaces ? ` · ${summary.blockedPlaces} réservée(s)` : ""}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -936,7 +708,8 @@ function U14Page(props) {
               <div className="notice-card notice-card--ok">
                 <strong>{selectedRaceSummary?.label || "Course non définie"}</strong>
                 <p>
-                  {selectedRaceSummary?.totalPlaces || 0} place(s) au total, {selectedRaceSummary?.protectedPlaces || 0} protégée(s),{" "}
+                  {selectedRaceSummary?.totalPlaces || 0} place(s) au total, {selectedRaceSummary?.protectedPlaces || 0} prise(s) par des enfants invités,{" "}
+                  {selectedRaceSummary?.blockedPlaces || 0} encore réservée(s) pour eux,{" "}
                   {selectedRaceSummary?.takenPlaces || 0} prise(s), {selectedRaceSummary?.remainingPlaces || 0} restante(s).
                 </p>
               </div>
@@ -1087,150 +860,19 @@ function U14Page(props) {
       ) : null}
 
       {activeU14Tab === "protected" ? (
-        <Panel
-          title="Gestion des places protégées"
-          subtitle="Création, matching et suivi des places protégées sur la course sélectionnée."
-        >
-          <div className="notice-card notice-card--ok">
-            <strong>{selectedRaceSummary?.label || "Course non définie"}</strong>
-            <p>
-              {filteredProtectedEntries.length} place(s) protégée(s) active(s), {waitingRequests.length} enfant(s)
-              actuellement en liste d'attente sur cette course.
-            </p>
-          </div>
-
-          <form className="profile-form" onSubmit={handleCreateProtectedEntry}>
-            <div className="field-grid">
-              <AuthFormField label="Catégorie / course">
-                <select name="raceCode" value={reservationForm.raceCode} onChange={handleReservationFormChange}>
-                  {U14_RACE_DEFINITIONS.map((definition) => (
-                    <option key={definition.code} value={definition.code}>
-                      {definition.label}
-                    </option>
-                  ))}
-                </select>
-              </AuthFormField>
-              <AuthFormField label="Place protégée">
-                <select name="slotNumber" value={reservationForm.slotNumber} onChange={handleReservationFormChange}>
-                  {[1, 2, 3].map((slotNumber) => (
-                    <option key={slotNumber} value={slotNumber}>
-                      Place {slotNumber}
-                    </option>
-                  ))}
-                </select>
-              </AuthFormField>
-            </div>
-            <div className="field-grid">
-              <AuthFormField label="Prénom enfant">
-                <input name="firstName" required value={reservationForm.firstName} onChange={handleReservationFormChange} />
-              </AuthFormField>
-              <AuthFormField label="Nom enfant">
-                <input name="lastName" required value={reservationForm.lastName} onChange={handleReservationFormChange} />
-              </AuthFormField>
-            </div>
-            <div className="field-grid">
-              <AuthFormField label="Club">
-                <input name="club" required value={reservationForm.club} onChange={handleReservationFormChange} />
-              </AuthFormField>
-              <AuthFormField label="Dossard">
-                <input name="bibNumber" required value={reservationForm.bibNumber} onChange={handleReservationFormChange} />
-              </AuthFormField>
-            </div>
-            <div className="field-grid">
-              <AuthFormField label="Email parent">
-                <input name="parentEmail" required type="email" value={reservationForm.parentEmail} onChange={handleReservationFormChange} />
-              </AuthFormField>
-              <AuthFormField label="Date limite d'inscription">
-                <input name="inviteDeadline" required type="date" value={reservationForm.inviteDeadline} onChange={handleReservationFormChange} />
-              </AuthFormField>
-            </div>
-            <div className="profile-form__actions">
-              <button className="button button--primary" disabled={isSaving} type="submit">
-                {isSaving ? "Enregistrement..." : "Créer la place protégée"}
-              </button>
-            </div>
-          </form>
-
-          <DataTable
-            columns={[
-              { key: "slot", label: "Place" },
-              { key: "child", label: "Enfant protégé" },
-              { key: "status", label: "Statut" },
-              { key: "match", label: "Meilleur matching" },
-              { key: "actions", label: "Actions" },
-            ]}
-            rows={
-              filteredProtectedEntries.length
-                ? filteredProtectedEntries.map((entry) => {
-                    const suggestions = slotSuggestionsById[entry.id] || [];
-                    const firstSuggestion = suggestions[0] || null;
-
-                    return {
-                      slot: `Place ${entry.slotNumber}`,
-                      child: `${entry.firstName || ""} ${entry.lastName || ""}`.trim(),
-                      status: getProtectedSlotStatusLabel(entry.status),
-                      match: firstSuggestion ? (
-                        <div className="compact-list compact-list--actions">
-                          <span>
-                            {firstSuggestion.childName} - dossard {firstSuggestion.bibNumber || "?"}
-                          </span>
-                        </div>
-                      ) : (
-                        "Aucune inscription matchée"
-                      ),
-                      actions: (
-                        <div className="table-actions">
-                          {firstSuggestion && normalizeComparableValue(entry.status) !== "matched" ? (
-                            <button
-                              className="button button--secondary"
-                              type="button"
-                              onClick={() => handleMatchProtectedEntry(entry, firstSuggestion)}
-                            >
-                              Matcher
-                            </button>
-                          ) : null}
-                          {normalizeComparableValue(entry.status) !== "released" ? (
-                            <button
-                              className="button button--secondary"
-                              type="button"
-                              onClick={() => handleReleaseProtectedEntry(entry)}
-                            >
-                              Libérer
-                            </button>
-                          ) : null}
-                          <button
-                            className="button button--secondary"
-                            type="button"
-                            onClick={() => handleDeleteProtectedEntry(entry)}
-                            style={{ color: "#b91c1c", borderColor: "#fca5a5" }}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      ),
-                    };
-                  })
-                : [{ slot: "Aucune place protégée", child: "-", status: "-", match: "-", actions: "-" }]
-            }
-          />
-
-          <DataTable
-            columns={[
-              { key: "child", label: "Enfant en attente" },
-              { key: "parent", label: "Responsable" },
-              { key: "place", label: "Place attente" },
-            ]}
-            rows={
-              waitingRequests.length
-                ? waitingRequests.map((request) => ({
-                    child: request.childName,
-                    parent: request.parentName,
-                    place: request.waitlistPosition || "-",
-                  }))
-                : [{ child: "Aucune attente sur cette course", parent: "-", place: "-" }]
-            }
-          />
-        </Panel>
+        <U14ProtectedTab
+          DataTable={DataTable}
+          Panel={Panel}
+          activeEditionId={activeEditionId}
+          claimedByPool={claimedByPool}
+          invites={protectedInvites}
+          loadMailQueueModule={loadMailQueueModule}
+          mailContext={acceptanceMailContext}
+          requestRecords={requestRecords}
+          reserveByPool={reserveByPool}
+          reserveReleased={reserveReleased}
+          settings={protectedSettings}
+        />
       ) : null}
 
       {activeU14Tab === "basket" ? (

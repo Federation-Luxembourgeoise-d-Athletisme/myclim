@@ -20,6 +20,8 @@ export {
   sendTeamAnnouncement,
   sendTestNotification,
 } from "./notifications.js";
+// Places protégées U12 / U14 : inscription par lien, rappel J-2, libération (voir u14-protected.js).
+export { claimU14ProtectedInvite, u14ProtectedInvitesDaily } from "./u14-protected.js";
 
 
 admin.initializeApp();

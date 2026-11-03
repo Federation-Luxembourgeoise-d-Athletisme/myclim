@@ -10,6 +10,7 @@ import {
   getU14RaceCode,
 } from "./u14-helpers";
 import { recordMatchesEdition, useActiveEdition } from "./edition";
+import { U14_PROTECTED_INVITES_COLLECTION, U14_PROTECTED_SETTINGS_DOC_PATH, normalizeU14ProtectedSettings } from "./u14-protected";
 import { db } from "../services/firebase";
 
 function normalizeU14PracticalInfoPayload(data) {
@@ -305,10 +306,67 @@ function useParentU14Children(parentUserId) {
       };
 }
 
+// Invitations des places protégées de l'édition active (admin).
+function useU14ProtectedInvites(enabled = true) {
+  const [invites, setInvites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const { activeEditionId, loading: editionLoading } = useActiveEdition(enabled);
+
+  useEffect(() => {
+    if (!enabled || editionLoading) return undefined;
+
+    const unsubscribe = onSnapshot(
+      collection(db, U14_PROTECTED_INVITES_COLLECTION),
+      (snapshot) => {
+        setInvites(
+          snapshot.docs
+            .map((entry) => ({ id: entry.id, ...entry.data() }))
+            .filter((entry) => recordMatchesEdition(entry, activeEditionId)),
+        );
+        setLoading(false);
+        setError("");
+      },
+      () => {
+        setInvites([]);
+        setLoading(false);
+        setError("Impossible de charger les places protégées.");
+      },
+    );
+
+    return unsubscribe;
+  }, [activeEditionId, editionLoading, enabled]);
+
+  return enabled ? { invites, loading: loading || editionLoading, error } : { invites: [], loading: false, error: "" };
+}
+
+// Réserves par catégorie et date limite des places protégées.
+function useU14ProtectedSettings(enabled = true) {
+  const [settings, setSettings] = useState(() => normalizeU14ProtectedSettings(null));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    return onSnapshot(
+      doc(db, ...U14_PROTECTED_SETTINGS_DOC_PATH),
+      (snapshot) => {
+        setSettings(normalizeU14ProtectedSettings(snapshot.exists() ? snapshot.data() : null));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+  }, [enabled]);
+
+  return { settings, loading: enabled && loading };
+}
+
 export {
   useParentU14Children,
   useProtectedU14Entries,
   useU14ChildrenList,
   useU14PracticalInfoConfiguration,
+  useU14ProtectedInvites,
+  useU14ProtectedSettings,
   useU14RequestsList,
 };

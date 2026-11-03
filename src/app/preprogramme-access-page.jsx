@@ -4,6 +4,7 @@ import { useAuth } from "../context/auth-context";
 import preprogrammeHomeImage from "../assets/preprogramme-home.jpg";
 import portePanierHomeImage from "../assets/porte-panier-home.jpg";
 import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
+import { ProtectedInviteForm } from "./protected-invite-form";
 import { isPreprogramOpenForEdition, useActiveEdition } from "./edition";
 import { useLanguage } from "./language-context";
 import { getAgeFromBirthDate, getU14CategoryFromBirthDate, readRememberMePreference } from "./utils";
@@ -736,6 +737,17 @@ function PreProgrammeAccessPage() {
   function handleEmailInUse(email) {
     setLoginEmailHint(email);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Lien d'invitation d'une place protégée : accessible avant l'ouverture
+  // générale des inscriptions.
+  const invitationToken = searchParams.get("invitation");
+  if (invitationToken) {
+    return (
+      <AuthLayout title={t("preprogramPageTitle")} subtitle={t("ppInvPageSubtitle")}>
+        <ProtectedInviteForm accountBar={<AccountBar loginEmailHint={loginEmailHint} />} token={invitationToken} />
+      </AuthLayout>
+    );
   }
 
   if (!isPreprogramOpen) {
