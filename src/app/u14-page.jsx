@@ -27,6 +27,8 @@ import {
   useU14PracticalInfoConfiguration,
   useU14RequestsList,
 } from "./u14-hooks";
+import { useActiveEdition } from "./edition";
+import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
 
 const U14_TAB_PATHS = {
@@ -112,6 +114,15 @@ function U14Page(props) {
     loading: practicalInfoLoading,
     error: practicalInfoError,
   } = useU14PracticalInfoConfiguration(true);
+  // Date et lieu de l'édition active, repris dans les mails d'acceptation.
+  const { activeEditionId } = useActiveEdition();
+  const { editions } = useMeetingEditions();
+  const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
+  const acceptanceMailContext = {
+    eventDate: activeEdition?.date || null,
+    venue: activeEdition?.venue || "",
+    editionYear: activeEdition?.year || activeEditionId,
+  };
   const [selectedRaceCode, setSelectedRaceCode] = useState(U14_RACE_DEFINITIONS[0]?.code || "");
   const [activeU14Tab, setActiveU14Tab] = useState(() => getU14TabFromPath(location.pathname));
   const [practicalInfoForm, setPracticalInfoForm] = useState({ preprogram: "", porte_panier: "" });
@@ -504,9 +515,12 @@ function U14Page(props) {
       const { buildU14PreprogramAcceptanceMail, enqueueTransactionalMail } = await loadMailQueueModule();
       await enqueueTransactionalMail(
         buildU14PreprogramAcceptanceMail({
+          ...acceptanceMailContext,
           parentEmail: request.parentEmail,
+          parentFirstName: request.parentFirstName,
           childName: request.childName,
           raceLabel: request.raceLabel,
+          practicalInfo: preprogramPracticalInfo,
         }),
       );
     }
@@ -603,8 +617,11 @@ function U14Page(props) {
         const { buildU14BasketAcceptanceMail, enqueueTransactionalMail } = await loadMailQueueModule();
         await enqueueTransactionalMail(
           buildU14BasketAcceptanceMail({
+            ...acceptanceMailContext,
             parentEmail: request.parentEmail,
+            parentFirstName: request.parentFirstName,
             childName: request.childName,
+            practicalInfo: basketPracticalInfo,
           }),
         );
       }

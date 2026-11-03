@@ -675,76 +675,161 @@ The CMCM Luxembourg Indoor Meeting team`,
 
 // ─── Pré-programme U14 ───────────────────────────────────────────────────────
 
-export function buildU14PreprogramAcceptanceMail({ parentEmail, childName, raceLabel }) {
-  const appUrl = `${getAppBaseUrl()}/app`;
+function formatMailDate(value, locale) {
+  const date = value?.toDate?.() || (value ? new Date(value) : null);
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+// Libellés des courses U12/U14 (« U14 Filles - 60 m ») pour la partie anglaise.
+function translateU14RaceLabel(raceLabel) {
+  return String(raceLabel || "").replace(/Filles/g, "Girls").replace(/Garçons/g, "Boys");
+}
+
+function escapeMailHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Mail envoyé au parent quand l'équipe U12/U14 retient son enfant (course ou
+// porte-panier) : il doit confirmer dans « Mes enfants ». Le message rappelle
+// le jour, le lieu, l'entrée offerte de l'accompagnant et les infos
+// pratiques saisies dans le module (onglet Infos pratiques).
+function buildU14AcceptanceMail({
+  kind,
+  parentEmail,
+  parentFirstName,
+  childName,
+  raceLabel,
+  eventDate,
+  venue,
+  editionYear,
+  practicalInfo,
+}) {
+  const appUrl = `${getAppBaseUrl()}/app/mes-enfants`;
+  const isBasket = kind === "basket";
+  const year = editionYear || "2027";
+  const meetingName = `CMCM Luxembourg Indoor Meeting ${year}`;
+  const greetingFr = parentFirstName ? `Bonjour ${parentFirstName},` : "Bonjour,";
+  const greetingEn = parentFirstName ? `Hello ${parentFirstName},` : "Hello,";
+  const roleFr = isBasket ? "Porte-panier" : raceLabel;
+  const roleEn = isBasket ? "Basket carrier" : translateU14RaceLabel(raceLabel);
+  const dateFr = formatMailDate(eventDate, "fr-LU");
+  const dateEn = formatMailDate(eventDate, "en-GB");
+  const place = venue || "Coque, Luxembourg";
+  const practical = String(practicalInfo || "").trim();
+
+  const introFr = isBasket
+    ? `Bonne nouvelle : ${childName} est retenu(e) comme porte-panier pour le ${meetingName}.`
+    : `Bonne nouvelle : ${childName} est retenu(e) pour le ${roleFr} du pré-programme du ${meetingName}.`;
+  const introEn = isBasket
+    ? `Good news: ${childName} has been selected as a basket carrier for the ${meetingName}.`
+    : `Good news: ${childName} has been selected for the ${roleEn} of the ${meetingName} pre-programme.`;
+  const confirmFr =
+    "Merci de confirmer sa participation dès que possible dans votre espace MyCLIM, rubrique « Mes enfants » : la place lui est réservée, et d'autres enfants attendent sur liste d'attente. Si votre enfant ne peut finalement pas venir, indiquez-le au même endroit pour libérer la place.";
+  const confirmEn =
+    "Please confirm their participation as soon as possible in your MyCLIM space, under \"My children\": the place is reserved for your child, and other children are on the waiting list. If your child can no longer come, say so in the same place to free the place.";
+  const entryFr = "L'adulte qui accompagne l'enfant a une entrée offerte pour le meeting, remise au moment où il dépose l'enfant.";
+  const entryEn = "The adult accompanying the child gets a free entry to the meeting, handed over when the child is dropped off.";
+
+  const detailRowsFr = [
+    ["Enfant", childName],
+    [isBasket ? "Rôle" : "Course", roleFr],
+    ["Date", dateFr || "communiquée prochainement"],
+    ["Lieu", place],
+  ];
+  const detailRowsEn = [
+    ["Child", childName],
+    [isBasket ? "Role" : "Race", roleEn],
+    ["Date", dateEn || "to be announced"],
+    ["Venue", place],
+  ];
+  const detailsText = (rows, separator) => rows.map(([label, value]) => `${label}${separator}${value}`).join("\n");
+  const detailsHtml = (rows) =>
+    rows
+      .map(
+        ([label, value]) => `<tr>
+          <td style="padding:6px 0;font-size:14px;color:#5d6b82;width:90px;vertical-align:top;">${label}</td>
+          <td style="padding:6px 0;font-size:16px;font-weight:700;">${escapeMailHtml(value)}</td>
+        </tr>`,
+      )
+      .join("");
 
   return {
-    type: "u14-confirmation-request",
+    type: isBasket ? "u14-basket-accepted" : "u14-confirmation-request",
     to: parentEmail,
-    subject: "Votre enfant est retenu pour le pré-programme / Your child has been selected for the pre-programme",
-    body: `Bonjour,
+    subject: isBasket
+      ? `${childName} est retenu(e) comme porte-panier – à confirmer / Selected as basket carrier – please confirm`
+      : `${childName} est retenu(e) pour le ${roleFr} – à confirmer / Selected for the pre-programme – please confirm`,
+    body: `${greetingFr}
 
-Votre enfant ${childName} est retenu(e) pour ${raceLabel}.
+${introFr}
 
-Merci de confirmer sa participation dans votre espace parent MyCLIM.
+${detailsText(detailRowsFr, " : ")}
 
+${confirmFr}
 ${appUrl}
 
+${entryFr}
+${practical ? `\nInformations pratiques :\n${practical}\n` : ""}
 À bientôt,
 L'équipe CMCM Luxembourg Indoor Meeting
 
 ---
 
-Hello,
+${greetingEn}
 
-Your child ${childName} has been selected for ${raceLabel}.
+${introEn}
 
-Please confirm their participation in your MyCLIM parent space.
+${detailsText(detailRowsEn, ": ")}
 
+${confirmEn}
 ${appUrl}
+
+${entryEn}
 
 See you soon,
 The CMCM Luxembourg Indoor Meeting team`,
     html: buildBrandedEmailShell({
-      title: "Place retenue — pré-programme",
-      preheader: `${childName} est retenu(e) pour ${raceLabel} / ${childName} has been selected for ${raceLabel}.`,
+      title: isBasket ? "Place retenue — porte-panier" : "Place retenue — pré-programme",
+      preheader: `${introFr} / ${introEn}`,
       content: `
-        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">Bonjour,</p>
-        <p style="margin:0 0 22px 0;font-size:16px;line-height:1.7;">
-          Votre enfant <strong>${childName}</strong> est retenu(e) pour participer au pré-programme du
-          <strong>CMCM Luxembourg Indoor Meeting 2027</strong>.
-        </p>
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 28px 0;border-collapse:collapse;">
+        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(greetingFr)}</p>
+        <p style="margin:0 0 20px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(introFr)}</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px 0;border-collapse:collapse;">
           <tr>
-            <td style="padding:20px;background:#f6f9fc;border:1px solid #dbe4f0;border-radius:16px;">
-              <p style="margin:0 0 6px 0;font-size:14px;"><strong>Enfant</strong></p>
-              <p style="margin:0 0 16px 0;font-size:16px;">${childName}</p>
-              <p style="margin:0 0 6px 0;font-size:14px;"><strong>Épreuve</strong></p>
-              <p style="margin:0;font-size:16px;">${raceLabel}</p>
+            <td style="padding:16px 20px;background:#f6f9fc;border:1px solid #dbe4f0;border-radius:16px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${detailsHtml(detailRowsFr)}</table>
             </td>
           </tr>
         </table>
-        <p style="margin:0 0 28px 0;font-size:16px;line-height:1.7;">
-          Merci de confirmer sa participation dans votre espace parent MyCLIM.
-        </p>
-        <p style="margin:0 0 28px 0;">
+        <p style="margin:0 0 20px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(confirmFr)}</p>
+        <p style="margin:0 0 24px 0;">
           <a href="${appUrl}" style="display:inline-block;background:#e30d25;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;">
             Confirmer la participation
           </a>
         </p>
+        <p style="margin:0 0 18px 0;font-size:15px;line-height:1.7;color:#1d6b38;">${escapeMailHtml(entryFr)}</p>
+        ${
+          practical
+            ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px 0;border-collapse:collapse;">
+          <tr>
+            <td style="padding:16px 20px;background:#fff8e6;border:1px solid #f3dfa8;border-radius:16px;">
+              <p style="margin:0 0 8px 0;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:#8a5a00;">Informations pratiques</p>
+              <p style="margin:0;font-size:15px;line-height:1.7;white-space:pre-line;">${escapeMailHtml(practical)}</p>
+            </td>
+          </tr>
+        </table>`
+            : ""
+        }
         ${englishBox(`
-          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">Hello,</p>
-          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">
-            Your child <strong>${childName}</strong> has been selected to participate in the pre-programme of the
-            <strong>CMCM Luxembourg Indoor Meeting 2027</strong>.
-          </p>
-          <p style="margin:0 0 6px 0;font-size:14px;"><strong>Child</strong></p>
-          <p style="margin:0 0 12px 0;font-size:16px;">${childName}</p>
-          <p style="margin:0 0 6px 0;font-size:14px;"><strong>Event</strong></p>
-          <p style="margin:0 0 12px 0;font-size:16px;">${raceLabel}</p>
-          <p style="margin:0;font-size:16px;line-height:1.7;">
-            Please confirm their participation in your MyCLIM parent space.
-          </p>
+          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(greetingEn)}</p>
+          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(introEn)}</p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 12px 0;">${detailsHtml(detailRowsEn)}</table>
+          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(confirmEn)}</p>
+          <p style="margin:0;font-size:15px;line-height:1.7;color:#1d6b38;">${escapeMailHtml(entryEn)}</p>
         `)}
         <p style="margin:0;font-size:15px;line-height:1.7;">
           À bientôt,<br />
@@ -755,85 +840,14 @@ The CMCM Luxembourg Indoor Meeting team`,
   };
 }
 
-export function buildU14BasketAcceptanceMail({ parentEmail, childName }) {
-  const appUrl = `${getAppBaseUrl()}/app`;
-
-  return {
-    type: "u14-basket-accepted",
-    to: parentEmail,
-    subject: "Votre enfant est retenu comme porte-panier / Your child has been selected as basket carrier",
-    body: `Bonjour,
-
-Votre enfant ${childName} est retenu(e) comme porte-panier pour le CMCM Luxembourg Indoor Meeting 2027.
-
-Merci de confirmer sa participation dans votre espace parent MyCLIM.
-
-${appUrl}
-
-À bientôt,
-L'équipe CMCM Luxembourg Indoor Meeting
-
----
-
-Hello,
-
-Your child ${childName} has been selected as a basket carrier for the CMCM Luxembourg Indoor Meeting 2027.
-
-Please confirm their participation in your MyCLIM parent space.
-
-${appUrl}
-
-See you soon,
-The CMCM Luxembourg Indoor Meeting team`,
-    html: buildBrandedEmailShell({
-      title: "Place retenue — porte-panier",
-      preheader: `${childName} est retenu(e) comme porte-panier / ${childName} has been selected as basket carrier.`,
-      content: `
-        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">Bonjour,</p>
-        <p style="margin:0 0 22px 0;font-size:16px;line-height:1.7;">
-          Votre enfant <strong>${childName}</strong> est retenu(e) comme
-          <strong>porte-panier</strong> pour le <strong>CMCM Luxembourg Indoor Meeting 2027</strong>.
-        </p>
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 28px 0;border-collapse:collapse;">
-          <tr>
-            <td style="padding:20px;background:#f6f9fc;border:1px solid #dbe4f0;border-radius:16px;">
-              <p style="margin:0 0 6px 0;font-size:14px;"><strong>Enfant</strong></p>
-              <p style="margin:0 0 16px 0;font-size:16px;">${childName}</p>
-              <p style="margin:0 0 6px 0;font-size:14px;"><strong>Rôle</strong></p>
-              <p style="margin:0;font-size:16px;">Porte-panier</p>
-            </td>
-          </tr>
-        </table>
-        <p style="margin:0 0 28px 0;font-size:16px;line-height:1.7;">
-          Merci de confirmer sa participation dans votre espace parent MyCLIM.
-        </p>
-        <p style="margin:0 0 28px 0;">
-          <a href="${appUrl}" style="display:inline-block;background:#e30d25;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;">
-            Confirmer la participation
-          </a>
-        </p>
-        ${englishBox(`
-          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">Hello,</p>
-          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">
-            Your child <strong>${childName}</strong> has been selected as a
-            <strong>basket carrier</strong> for the <strong>CMCM Luxembourg Indoor Meeting 2027</strong>.
-          </p>
-          <p style="margin:0 0 6px 0;font-size:14px;"><strong>Child</strong></p>
-          <p style="margin:0 0 12px 0;font-size:16px;">${childName}</p>
-          <p style="margin:0 0 6px 0;font-size:14px;"><strong>Role</strong></p>
-          <p style="margin:0 0 12px 0;font-size:16px;">Basket carrier</p>
-          <p style="margin:0;font-size:16px;line-height:1.7;">
-            Please confirm their participation in your MyCLIM parent space.
-          </p>
-        `)}
-        <p style="margin:0;font-size:15px;line-height:1.7;">
-          À bientôt,<br />
-          <strong>L'équipe CMCM Luxembourg Indoor Meeting</strong>
-        </p>
-      `,
-    }),
-  };
+export function buildU14PreprogramAcceptanceMail(params) {
+  return buildU14AcceptanceMail({ ...params, kind: "race" });
 }
+
+export function buildU14BasketAcceptanceMail(params) {
+  return buildU14AcceptanceMail({ ...params, kind: "basket" });
+}
+
 
 export function buildVipInvitationMail({
   category,
