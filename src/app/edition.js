@@ -6,7 +6,7 @@ const DEFAULT_ACTIVE_EDITION = "test";
 const ACTIVE_EDITION_DOC_PATH = ["appSettings", "platform"];
 const DEFAULT_SITE_EDITION_YEAR = null;
 const DEFAULT_PREPROGRAM_OPENING_BY_EDITION = {
-  "2027": "2026-11-10T10:00:00+01:00",
+  "2027": "2026-11-16T12:30:00+01:00",
 };
 
 function normalizeEditionId(value) {

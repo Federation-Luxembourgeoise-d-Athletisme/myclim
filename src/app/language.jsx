@@ -53,7 +53,7 @@ const messages = {
     preprogramIntroTitle: "Register my child for the pre-program or as a basket carrier",
     preprogramIntroDescription:
       "The parent account is created during registration. For each child, you can indicate whether they would like to join the pre-program, be a basket carrier, or be considered for either option depending on availability.",
-    preprogramClosedTitle: "Registrations open on November 10, 2026 at 10:00 AM",
+    preprogramClosedTitle: "Registrations open on {date}",
     preprogramClosedDescription:
       "Registrations are not open yet. Until then, here is how selection works for each path.",
     preprogramClosedCardTitle: "How selections work for the 2027 edition",
@@ -64,7 +64,7 @@ const messages = {
       "Each child can only be confirmed in one activity on the day of the meeting. If a request is submitted for both the pre-program and basket carrier role, the final confirmation will only be given for one of them.",
     preprogramClosedTimingTitle: "What happens on opening day",
     preprogramClosedTimingBody:
-      "On November 10, 2026 at 10:00 AM, the form will automatically become available on this same page. You will then be able to create the parent account and submit the request.",
+      "On {date}, the form will automatically become available on this same page. You will then be able to create the parent account and submit the request.",
     fieldFirstName: "First name",
     fieldLastName: "Last name",
     fieldGender: "Gender",
@@ -1026,7 +1026,7 @@ const messages = {
     preprogramIntroTitle: "Inscrire mon enfant au Pré-programme ou comme porte-panier",
     preprogramIntroDescription:
       "Le compte parent est créé en même temps que l'inscription. Pour chaque enfant, vous pouvez indiquer s'il souhaite participer au Pré-programme, au porte-panier, ou si vous acceptez l'une ou l'autre des deux possibilités selon les places disponibles.",
-    preprogramClosedTitle: "Les inscriptions ouvriront le 10 novembre 2026 à 10h00",
+    preprogramClosedTitle: "Les inscriptions ouvriront le {date}",
     preprogramClosedDescription:
       "Les inscriptions ne sont pas encore ouvertes. En attendant, voici comment se passe la sélection pour chaque parcours.",
     preprogramClosedCardTitle: "Fonctionnement des acceptations pour l'édition 2027",
@@ -1037,7 +1037,7 @@ const messages = {
       "Chaque enfant ne pourra être confirmé que dans une seule activité le jour du meeting. Si une demande porte à la fois sur le Pré-programme et sur le porte-panier, la confirmation finale ne sera donnée que pour une seule des deux options.",
     preprogramClosedTimingTitle: "Ce qui se passera à l'ouverture",
     preprogramClosedTimingBody:
-      "Le 10 novembre 2026 à 10h00, le formulaire deviendra automatiquement accessible sur cette même page. Vous pourrez alors créer le compte parent et envoyer la demande.",
+      "Le {date}, le formulaire deviendra automatiquement accessible sur cette même page. Vous pourrez alors créer le compte parent et envoyer la demande.",
     fieldFirstName: "Prénom",
     fieldLastName: "Nom",
     fieldGender: "Genre",
@@ -1999,7 +1999,7 @@ const messages = {
     preprogramIntroTitle: "Mein Kind für das Vorprogramm oder als Korbträger anmelden",
     preprogramIntroDescription:
       "Das Elternkonto wird während der Anmeldung erstellt. Für jedes Kind können Sie angeben, ob es am Vorprogramm teilnehmen, Korbträger sein oder je nach Verfügbarkeit für beide Optionen berücksichtigt werden soll.",
-    preprogramClosedTitle: "Die Anmeldungen öffnen am 10. November 2026 um 10:00 Uhr",
+    preprogramClosedTitle: "Die Anmeldungen öffnen am {date}",
     preprogramClosedDescription:
       "Das Formular für Vorprogramm und Korbträger ist noch nicht geöffnet. Bis dahin erklärt diese Seite, wie Auswahl und Bestätigung funktionieren.",
     preprogramClosedCardTitle: "So laufen die Zusagen für die Ausgabe 2027 ab",
@@ -2010,7 +2010,7 @@ const messages = {
       "Jedes Kind kann am Tag des Meetings nur für eine Aktivität bestätigt werden. Wenn eine Anfrage sowohl Vorprogramm als auch Korbträger betrifft, wird die endgültige Bestätigung nur für eine der beiden Optionen erteilt.",
     preprogramClosedTimingTitle: "Was am Eröffnungstag passiert",
     preprogramClosedTimingBody:
-      "Am 10. November 2026 um 10:00 Uhr wird das Formular automatisch auf dieser Seite freigeschaltet. Dann können Sie das Elternkonto erstellen und die Anfrage absenden.",
+      "Am {date} wird das Formular automatisch auf dieser Seite freigeschaltet. Dann können Sie das Elternkonto erstellen und die Anfrage absenden.",
     fieldFirstName: "Vorname",
     fieldLastName: "Nachname",
     fieldGender: "Geschlecht",

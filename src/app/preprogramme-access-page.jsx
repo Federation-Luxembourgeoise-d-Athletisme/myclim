@@ -758,7 +758,14 @@ function PreProgrammeAccessPage() {
             <div className="u14-closed-layout__content">
               <div className="u14-hero__copy">
                 <p className="eyebrow">{t("preprogramIntroEyebrow")}</p>
-                <h2>{t("preprogramClosedTitle")}</h2>
+                <h2>
+                  {t("preprogramClosedTitle").replace(
+                    "{date}",
+                    preprogramOpeningDate
+                      ? preprogramOpeningDate.toLocaleString(`${language}-LU`, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                      : "",
+                  )}
+                </h2>
                 <p>{t("preprogramClosedDescription")}</p>
                 <p className="panel-note">
                   {t("u14ActiveEditionNote").replace("{edition}", activeEditionId)}
