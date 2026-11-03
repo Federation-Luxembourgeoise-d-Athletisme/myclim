@@ -180,6 +180,8 @@ function AppShell(props) {
       chef_equipe: "/app/equipe",
       benevole: "/app/mes-affectations",
       parent_u14: "/app/mes-enfants",
+      athlete_preprogram: "/app/mon-inscription",
+      commission_athletes: "/app/courses-nationales",
     };
 
     navigate(defaultRouteByRole[nextRole] || "/app");
@@ -355,6 +357,7 @@ function AppShell(props) {
                 {roles.includes("chef_equipe") ? <option value="chef_equipe">{t("roleLabelTeamLead")}</option> : null}
                 {roles.includes("benevole") ? <option value="benevole">{t("roleLabelVolunteer")}</option> : null}
                 {roles.includes("parent_u14") ? <option value="parent_u14">{t("roleLabelParentU14")}</option> : null}
+                {roles.includes("athlete_preprogram") ? <option value="athlete_preprogram">{t("roleLabelAthletePreprogram")}</option> : null}
               </select>
             </label>
             {viewAsRole === "admin" ? (

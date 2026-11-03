@@ -460,6 +460,121 @@ The CMCM Luxembourg Indoor Meeting team`,
   };
 }
 
+// ─── Courses nationales pré-programme ───────────────────────────────────────
+
+export function buildNationalRaceRegistrationMail({ firstName, email, events }) {
+  const displayName = String(firstName || "").trim() || "bonjour";
+  const appUrl = `${getAppBaseUrl()}/app/mon-inscription`;
+  const eventList = Array.isArray(events) && events.length ? events.join(" + ") : "-";
+
+  return {
+    type: "national-race-registration",
+    to: email,
+    subject: "Votre inscription aux courses nationales a été reçue / Your national race entry has been received",
+    body: `Bonjour ${displayName},
+
+Votre demande pour les courses nationales du pré-programme a bien été reçue (${eventList}).
+
+Les courses nationales sont pilotées par la commission des athlètes : la sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois. Vous verrez la décision dans votre espace MyCLIM. Si vous êtes retenu(e), l'organisation se charge de votre engagement et vous recontactera.
+
+À bientôt,
+L'équipe CMCM Luxembourg Indoor Meeting
+
+---
+
+Hello ${displayName},
+
+Your entry request for the pre-programme national races has been received (${eventList}).
+
+The national races are run by the athletes' commission: selection is based on performance, with priority given to Luxembourg licence holders. You will see the decision in your MyCLIM space. If selected, the organisers handle your entry and will contact you.
+
+See you soon,
+The CMCM Luxembourg Indoor Meeting team`,
+    html: buildBrandedEmailShell({
+      title: "Demande reçue",
+      preheader: "Courses nationales du pré-programme / Pre-programme national races",
+      content: `
+        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">Bonjour ${displayName},</p>
+        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">
+          Votre demande pour les <strong>courses nationales du pré-programme</strong> a bien été reçue : <strong>${eventList}</strong>.
+        </p>
+        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">
+          Les courses nationales sont pilotées par la <strong>commission des athlètes</strong> : la sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois.
+          Si vous êtes retenu(e), l'organisation se charge de votre engagement et vous recontactera.
+        </p>
+        <p style="margin:0 0 28px 0;">
+          <a href="${appUrl}" style="display:inline-block;background:#e30d25;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;">
+            Suivre ma demande
+          </a>
+        </p>
+        ${englishBox(`
+          <p style="margin:0 0 12px 0;font-size:16px;line-height:1.7;">Hello ${displayName},</p>
+          <p style="margin:0;font-size:16px;line-height:1.7;">
+            Your entry request for the <strong>pre-programme national races</strong> has been received: <strong>${eventList}</strong>.
+            The national races are run by the <strong>athletes' commission</strong>: selection is based on performance, with priority given to Luxembourg licence holders.
+            If selected, the organisers handle your entry and will contact you.
+          </p>
+        `)}
+        <p style="margin:0;font-size:15px;line-height:1.7;">
+          À bientôt,<br />
+          <strong>L'équipe CMCM Luxembourg Indoor Meeting</strong>
+        </p>
+      `,
+    }),
+  };
+}
+
+export function buildNationalRaceGuardianMail({ guardianFirstName, guardianEmail, athleteName, events }) {
+  const displayName = String(guardianFirstName || "").trim() || "bonjour";
+  const eventList = Array.isArray(events) && events.length ? events.join(" + ") : "-";
+
+  return {
+    type: "national-race-guardian-info",
+    to: guardianEmail,
+    subject: `Inscription de ${athleteName} aux courses nationales / ${athleteName}'s national race entry`,
+    body: `Bonjour ${displayName},
+
+${athleteName} s'est inscrit(e) aux courses nationales du pré-programme du CMCM Luxembourg Indoor Meeting (${eventList}) et vous a indiqué(e) comme représentant légal ayant donné son accord.
+
+Si vous n'avez pas donné cet accord, merci de répondre à ce message : la demande sera annulée.
+
+L'équipe CMCM Luxembourg Indoor Meeting
+
+---
+
+Hello ${displayName},
+
+${athleteName} has entered the pre-programme national races of the CMCM Luxembourg Indoor Meeting (${eventList}) and named you as the legal guardian who gave consent.
+
+If you did not give this consent, please reply to this email and the request will be cancelled.
+
+The CMCM Luxembourg Indoor Meeting team`,
+    html: buildBrandedEmailShell({
+      title: "Accord parental",
+      preheader: `${athleteName} — courses nationales / national races`,
+      content: `
+        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">Bonjour ${displayName},</p>
+        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">
+          <strong>${athleteName}</strong> s'est inscrit(e) aux courses nationales du pré-programme (<strong>${eventList}</strong>)
+          et vous a indiqué(e) comme représentant légal ayant donné son accord.
+        </p>
+        <p style="margin:0 0 24px 0;font-size:16px;line-height:1.7;">
+          Si vous n'avez pas donné cet accord, merci de répondre à ce message : la demande sera annulée.
+        </p>
+        ${englishBox(`
+          <p style="margin:0;font-size:16px;line-height:1.7;">
+            <strong>${athleteName}</strong> has entered the pre-programme national races (<strong>${eventList}</strong>)
+            and named you as the legal guardian who gave consent. If you did not, please reply to this email and the request will be cancelled.
+          </p>
+        `)}
+        <p style="margin:0;font-size:15px;line-height:1.7;">
+          <strong>L'équipe CMCM Luxembourg Indoor Meeting</strong>
+        </p>
+      `,
+    }),
+  };
+}
+
 // ─── Affectation bénévole ────────────────────────────────────────────────────
 
 export function buildVolunteerRoleAssignmentMail({ email, firstName, assignedRole, teamRole }) {
