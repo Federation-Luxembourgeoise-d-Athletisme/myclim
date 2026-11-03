@@ -6993,3 +6993,21 @@ tr.row--warning > td {
     display: none;
   }
 }
+
+/* ── U12/U14 : alertes de délais dépassés ── */
+.u14-overdue-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.u14-overdue-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+}

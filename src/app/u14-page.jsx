@@ -17,6 +17,7 @@ import {
   getProtectedSlotStatusLabel,
   getTimestampMs,
   getU14ConfirmationDeadline,
+  getU14PracticalRoleKey,
   getU14RaceLabel,
   getU14WorkflowStatusLabel,
   isProtectedSlotActive,
@@ -249,6 +250,32 @@ function U14Page(props) {
         .filter((request) => request.requestType === "porte_panier")
         .sort((left, right) => left.submittedAtMs - right.submittedAtMs),
     [requestRecords],
+  );
+  // Alertes : parents retenus qui n'ont pas confirmé dans les 10 jours, et
+  // places protégées dont l'invitation a expiré sans inscription.
+  const overdueConfirmations = useMemo(
+    () =>
+      requestRecords
+        .filter(
+          (request) =>
+            request.adminApprovalStatus === "approved" &&
+            !["confirmed", "declined"].includes(normalizeComparableValue(request.parentDecisionStatus)) &&
+            normalizeComparableValue(request.status) !== "declined" &&
+            getTimestampMs(request.confirmationDeadline) &&
+            getTimestampMs(request.confirmationDeadline) < pageOpenedAt,
+        )
+        .sort((left, right) => getTimestampMs(left.confirmationDeadline) - getTimestampMs(right.confirmationDeadline)),
+    [pageOpenedAt, requestRecords],
+  );
+  const expiredProtectedInvitations = useMemo(
+    () =>
+      protectedEntries.filter((entry) => {
+        if (normalizeComparableValue(entry.status) !== "invited" || !entry.inviteDeadline) return false;
+        const deadline = new Date(entry.inviteDeadline);
+        deadline.setHours(23, 59, 0, 0);
+        return deadline.getTime() < pageOpenedAt;
+      }),
+    [pageOpenedAt, protectedEntries],
   );
   const pageHeader = useMemo(
     () => getU14PageHeader(activeU14Tab, basketRequests.length),
@@ -509,6 +536,94 @@ function U14Page(props) {
     }
   }
 
+  // Relance d'un parent qui n'a pas confirmé à temps : nouveau délai de
+  // 10 jours et nouveau mail d'acceptation (course ou porte-panier).
+  async function handleRemindParent(request) {
+    setErrorMessage("");
+    setStatusMessage("");
+    setIsSaving(true);
+
+    try {
+      const confirmationDeadline = getU14ConfirmationDeadline();
+      const isBasket = getU14PracticalRoleKey(request) === "porte_panier";
+      await updateDoc(doc(db, "u14Requests", request.id), {
+        confirmationDeadline,
+        remindedAt: serverTimestamp(),
+        reminderCount: Number(request.reminderCount || 0) + 1,
+      });
+
+      if (request.parentEmail) {
+        const mailQueue = await loadMailQueueModule();
+        const buildMail = isBasket ? mailQueue.buildU14BasketAcceptanceMail : mailQueue.buildU14PreprogramAcceptanceMail;
+        await mailQueue.enqueueTransactionalMail(
+          buildMail({
+            ...acceptanceMailContext,
+            parentEmail: request.parentEmail,
+            parentFirstName: request.parentFirstName,
+            childName: request.childName,
+            raceLabel: request.raceLabel,
+            practicalInfo: isBasket ? basketPracticalInfo : preprogramPracticalInfo,
+            confirmationDeadline,
+          }),
+        );
+      }
+
+      setStatusMessage(`Relance envoyée au parent de ${request.childName}, nouveau délai : ${formatDateForDisplay(confirmationDeadline)}.`);
+    } catch {
+      setErrorMessage("Impossible d'envoyer la relance pour le moment.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  // Libération décidée par l'équipe après un délai dépassé : même effet qu'un
+  // désistement du parent, puis recalcul pour faire monter la liste d'attente.
+  async function handleReleaseOverdueRequest(request) {
+    if (!window.confirm(`Libérer la place de ${request.childName} ? La demande passe en « Désisté » et la liste d'attente est recalculée.`)) {
+      return;
+    }
+
+    setErrorMessage("");
+    setStatusMessage("");
+    setIsSaving(true);
+
+    try {
+      const declinedFields = {
+        status: "declined",
+        parentDecisionStatus: "declined",
+        withdrawalReason: "Délai de confirmation dépassé (libéré par l'organisation)",
+        declinedByAdmin: true,
+        acceptedPosition: null,
+        waitlistPosition: null,
+        queuePosition: null,
+      };
+      await updateDoc(doc(db, "u14Requests", request.id), { ...declinedFields, parentDecisionAt: serverTimestamp() });
+
+      if (request.protectedSlotId) {
+        await updateDoc(doc(db, U14_RESERVED_SLOTS_COLLECTION, request.protectedSlotId), {
+          status: "released",
+          matchedRequestId: null,
+          matchedChildId: null,
+          matchedParentUserId: null,
+          releasedAt: serverTimestamp(),
+        });
+      }
+
+      await syncU14RaceAllocations({
+        requests: requests.map((current) => (current.id === request.id ? { ...current, ...declinedFields } : current)),
+        children,
+        protectedEntries: protectedEntries.map((current) =>
+          current.id === request.protectedSlotId ? { ...current, status: "released", matchedRequestId: null } : current,
+        ),
+      });
+      setStatusMessage(`Place de ${request.childName} libérée. Pensez à valider l'enfant qui monte de la liste d'attente.`);
+    } catch {
+      setErrorMessage("Impossible de libérer cette place pour le moment.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function handleRecalculateAllocations() {
     setErrorMessage("");
     setStatusMessage("");
@@ -702,6 +817,47 @@ function U14Page(props) {
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
       {dataLoading ? <p className="status-note">Chargement du module U12 / U14...</p> : null}
+
+      {overdueConfirmations.length || expiredProtectedInvitations.length ? (
+        <div className="notice-card notice-card--warn">
+          <strong>Délais dépassés — à traiter</strong>
+          <p>Rien n'est libéré automatiquement : relancez la famille (nouveau délai de 10 jours) ou libérez la place.</p>
+          <div className="u14-overdue-list">
+            {overdueConfirmations.map((request) => (
+              <div key={request.id} className="u14-overdue-row">
+                <span>
+                  <strong>{request.childName}</strong> · {getU14PracticalRoleKey(request) === "porte_panier" ? "Porte-panier" : request.raceLabel}
+                  <span className="parent-request-note">
+                    {" "}— confirmation attendue le {formatDateForDisplay(request.confirmationDeadline)}
+                    {request.reminderCount ? ` · ${request.reminderCount} relance(s)` : ""}
+                  </span>
+                </span>
+                <span className="table-actions table-actions--inline">
+                  <button className="button button--secondary button--small" disabled={isSaving} type="button" onClick={() => handleRemindParent(request)}>
+                    Relancer
+                  </button>
+                  <button className="button button--ghost-danger button--small" disabled={isSaving} type="button" onClick={() => handleReleaseOverdueRequest(request)}>
+                    Libérer la place
+                  </button>
+                </span>
+              </div>
+            ))}
+            {expiredProtectedInvitations.map((entry) => (
+              <div key={entry.id} className="u14-overdue-row">
+                <span>
+                  <strong>{`${entry.firstName || ""} ${entry.lastName || ""}`.trim()}</strong> · place protégée {getU14RaceLabel(entry.raceCode)}
+                  <span className="parent-request-note"> — inscription attendue le {formatDateForDisplay(entry.inviteDeadline)}</span>
+                </span>
+                <span className="table-actions table-actions--inline">
+                  <button className="button button--ghost-danger button--small" disabled={isSaving} type="button" onClick={() => handleReleaseProtectedEntry(entry)}>
+                    Libérer la place
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="admin-subtabs" role="tablist" aria-label="Navigation du module Pré-programme">
         <button
