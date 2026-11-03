@@ -344,6 +344,7 @@ const PAGE_SECTIONS = {
   highlight: "Highlights",
   partner: "Partners",
   auto: "Start lists",
+  closing: "Closing",
 };
 
 const STATUS_COLORS = {
@@ -367,6 +368,9 @@ function pageReadiness(page, draft, startlistById) {
     if (!draft.welcome.body.trim()) missing.push("the message");
     if (!draft.welcome.personName.trim()) missing.push("the signatory's name");
     if (!draft.welcome.photoUrl) missing.push("the portrait");
+  } else if (page.id === "thanks") {
+    if (!draft.thanks.names.length) missing.push("the people to thank");
+    if (!draft.thanks.closing.trim()) missing.push("the closing words");
   } else if (page.kind === "special") {
     const race = draft.specialRaces[page.id.replace("special:", "")];
     if (!race?.enabled) return { state: "off", missing: [] };
@@ -699,6 +703,47 @@ export function WebsiteEmagazinePage({ Panel }) {
             </p>
           </div>
         </EditorSection>
+      );
+    }
+
+    if (page.id === "thanks") {
+      const setThanks = (field, value) => setDraft((current) => ({ ...current, thanks: { ...current.thanks, [field]: value } }));
+      return (
+        <EditorSection title="Thank you" description="Closing page of the magazine. The partner logos at the bottom come from the partners database.">
+          <div>
+            <label style={labelStyle}>Title</label>
+            <input style={inputStyle} value={draft.thanks.title} onChange={(event) => setThanks("title", event.target.value)} />
+          </div>
+          <FileUpload
+            value={draft.thanks.photoUrl}
+            onChange={(url) => setThanks("photoUrl", url)}
+            accept="image/*"
+            storagePath="emagazine-imported-pages"
+            label="Photo (landscape) — empty = the volunteers photo of the website"
+          />
+          <div>
+            <label style={labelStyle}>Intro</label>
+            <textarea style={{ ...inputStyle, minHeight: 70, resize: "vertical" }} value={draft.thanks.intro} onChange={(event) => setThanks("intro", event.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>People and institutions thanked — one per line</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 220, resize: "vertical" }}
+              value={draft.thanks.names.join("\n")}
+              onChange={(event) => setThanks("names", event.target.value.split("\n"))}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Closing words</label>
+            <textarea style={{ ...inputStyle, minHeight: 100, resize: "vertical" }} value={draft.thanks.closing} onChange={(event) => setThanks("closing", event.target.value)} />
+          </div>
+        </EditorSection>
+      );
+    }
+
+    if (page.id === "clubs") {
+      return (
+        <EditorSection title="Athletics clubs" description="&quot;Want to discover athletics?&quot;: the FLA clubs with email, website and phone, and the QR code of the 2026 magazine. The list is kept in the app's code (src/data/flaClubs.json): ask for an update when a club changes." />
       );
     }
 

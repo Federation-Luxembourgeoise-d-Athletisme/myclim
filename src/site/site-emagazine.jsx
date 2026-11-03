@@ -20,6 +20,8 @@ import preprogBusiness2 from "../assets/site-gallery/preprog-business-2.jpg";
 // Photo booth in front of the partners' wall: banner of the sponsor page.
 import sponsorsPhoto from "../assets/site-gallery/gallery-memories.jpg";
 import flaLogo from "../assets/fla-logo.png";
+// Volunteers on the track: default photo of the closing "Thank you" page.
+import thanksPhoto from "../assets/site-gallery/gallery-volunteers.jpg";
 import flaClubsQr from "../assets/fla-clubs-qr.png";
 import flaClubs from "../data/flaClubs.json";
 import { SponsorLogo } from "./sponsor-logo";
@@ -343,6 +345,37 @@ function ClubsPage() {
         </tbody>
       </table>
       </div>
+    </section>
+  );
+}
+
+// Closing page: everything is edited in Admin → E-magazine → Thank you.
+function ThanksPage({ edition, config, sponsors }) {
+  const logos = sponsors.filter((sponsor) => sponsor.logoUrl);
+  return (
+    <section className="site-emag-page site-emag-thanks">
+      <div className="site-emag-thanks__hero" style={{ backgroundImage: `url(${config.photoUrl || thanksPhoto})` }}>
+        <p>CMCM Luxembourg Indoor Meeting {edition?.year || ""}</p>
+        <h2>{config.title}</h2>
+      </div>
+      <div className="site-emag-thanks__body">
+        {config.intro ? <p className="site-emag-thanks__intro">{config.intro}</p> : null}
+        {config.names.length ? (
+          <ul className="site-emag-thanks__names">
+            {config.names.map((name) => <li key={name}>{name}</li>)}
+          </ul>
+        ) : null}
+        {config.closing ? <blockquote className="site-emag-thanks__closing">{config.closing}</blockquote> : null}
+      </div>
+      {logos.length ? (
+        <div className="site-emag-thanks__logos">
+          {logos.map((sponsor) => (
+            <span key={sponsor.id} className="site-emag-thanks__logo">
+              <SponsorLogo sponsor={sponsor} />
+            </span>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -784,6 +817,14 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
           pageId,
           title: emagazine.welcome.title || `Welcome to the ${currentEdition?.year || ""} edition`,
           element: <WelcomePage edition={currentEdition} config={emagazine.welcome} />,
+        }];
+      }
+      if (pageId === "thanks") {
+        return [{
+          key: "thanks",
+          pageId,
+          title: emagazine.thanks.title,
+          element: <ThanksPage edition={currentEdition} config={emagazine.thanks} sponsors={sponsors} />,
         }];
       }
       if (pageId === "clubs") {

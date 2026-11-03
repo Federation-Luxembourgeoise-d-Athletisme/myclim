@@ -47,6 +47,25 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
   partnerPages: [],
   // Header photo of each official start list page, by group id ("60m-W").
   startlistPhotos: {},
+  // Closing "Thank you" page, prefilled with the 2026 text.
+  thanks: {
+    title: "Thank you",
+    intro: "To all the people and institutions without whom this magnificent event could not have taken place.",
+    names: [
+      "CMCM",
+      "Ville de Luxembourg",
+      "Luxembourg Let’s Make It Happen",
+      "The Ministry of Sports",
+      "Institutional partners: the Coque, European Athletics, LUNEX",
+      "The judges",
+      "The volunteers",
+      "LUNEX students",
+      "FLA staff",
+      "The meeting director",
+    ],
+    closing: "Without the 250 people who have worked on this project over the last 6 months, the event would not have been possible. Thank you all for your commitment — see you next year!",
+    photoUrl: "",
+  },
   pageOrder: [],
 };
 
@@ -67,6 +86,7 @@ function buildDefaultPageOrder(config, edition) {
     ...config.partnerPages.map((page) => `partner:${page.id}`),
     ...buildOfficialStartlistPageIds(edition),
     "clubs",
+    "thanks",
   ];
 }
 
@@ -138,7 +158,8 @@ export function buildEmagazinePageRegistry(config, edition) {
       sourcePath: "/app/athlete-portal/athletes",
     })),
     // FLA clubs and how to join them (list in src/data/flaClubs.json).
-    { id: "clubs", kind: "core", title: "Athletics clubs", editorAnchor: null, sourcePath: "/e-magazine" },
+    { id: "clubs", kind: "closing", title: "Athletics clubs", editorAnchor: null, sourcePath: "/e-magazine" },
+    { id: "thanks", kind: "closing", title: "Thank you", editorAnchor: null, sourcePath: "/app/website/emagazine" },
   ];
 }
 
@@ -199,6 +220,18 @@ function normalizeImportedPage(page, index, prefix) {
   };
 }
 
+function normalizeThanks(raw) {
+  const defaults = DEFAULT_EMAGAZINE_CONFIG.thanks;
+  if (!raw || typeof raw !== "object") return { ...defaults, names: [...defaults.names] };
+  return {
+    title: normalizeText(raw.title) || defaults.title,
+    intro: normalizeText(raw.intro),
+    names: Array.isArray(raw.names) ? raw.names.map(normalizeText).filter(Boolean) : [...defaults.names],
+    closing: normalizeText(raw.closing),
+    photoUrl: normalizeText(raw.photoUrl),
+  };
+}
+
 export function normalizeEmagazineConfig(rawConfig, edition) {
   const currentYear = edition?.year || edition?.id || "";
   const welcomeDefaults = {
@@ -243,6 +276,7 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
       if (normalizedUrl) accumulator[groupId] = normalizedUrl;
       return accumulator;
     }, {}),
+    thanks: normalizeThanks(rawConfig?.thanks),
     pageOrder: [],
   };
 

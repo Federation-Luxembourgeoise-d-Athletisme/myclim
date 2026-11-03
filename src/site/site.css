@@ -4777,6 +4777,135 @@
   display: block;
 }
 
+/* Closing "Thank you" page: photo with the big title, the people thanked in
+   two columns, the closing words, then every partner logo. */
+.site-emag-thanks {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: #ffffff;
+}
+
+.site-emag-thanks__hero {
+  position: relative;
+  min-height: 430px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 48px 26px;
+  background-size: cover;
+  background-position: center 40%;
+}
+
+.site-emag-thanks__hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(16, 37, 61, 0) 35%, rgba(16, 37, 61, 0.85) 100%);
+}
+
+.site-emag-thanks__hero > * {
+  position: relative;
+}
+
+.site-emag-thanks__hero p {
+  margin: 0 0 6px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.site-emag-page .site-emag-thanks__hero h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 5.2rem;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.site-emag-thanks__body {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 26px 48px 0;
+}
+
+.site-emag-thanks__intro {
+  margin: 0;
+  color: #10253d;
+  font-size: 1.25rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.site-emag-thanks__names {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 28px;
+}
+
+.site-emag-thanks__names li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid #e3eaf2;
+  color: #163c6b;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.site-emag-thanks__names li::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e30613;
+  transform: translateY(-1px);
+}
+
+.site-emag-thanks__closing {
+  margin: 0;
+  padding: 18px 22px;
+  border-left: 5px solid #e30613;
+  background: #f3f7fb;
+  color: #10253d;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  font-weight: 600;
+}
+
+.site-emag-thanks__logos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  padding: 14px 36px 24px;
+}
+
+.site-emag-thanks__logo {
+  width: 76px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Until SponsorLogo has measured its box, keep the raw image inside it. */
+.site-emag-thanks__logo img,
+.site-emag-sponsors__logo img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
 /* FLA clubs page (2026 e-magazine): red fading to white, then a red table. */
 .site-emag-clubs {
   display: flex;
