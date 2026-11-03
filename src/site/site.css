@@ -4906,6 +4906,15 @@
   max-height: 100%;
 }
 
+/* Start lists: season best of the meeting year, next to the SB of the season before. */
+.site-emag-table__sb-current {
+  margin-left: 6px;
+  color: #e52a3a;
+  font-size: 0.74em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* Luxembourg athlete: cut-out portrait on a flag ribbon, records on the right. */
 .site-emag-athlete {
   background:

@@ -117,10 +117,12 @@ function NationCell({ noc }) {
   );
 }
 
-function StartlistEntryRow({ entry }) {
+function StartlistEntryRow({ entry, sbSeason }) {
   // SB = previous indoor season (2026 for the 2027 meeting): World Athletics
   // value when the profile is linked ("7.21 @ Venue" → "7.21"), else the Excel.
   const sb = String(entry.waIndoorSb || entry.sb || "").split(" @ ")[0];
+  // Under it, the best of the meeting year once the athlete raced in it.
+  const currentSb = String(entry.waIndoorSbCurrent || "").split(" @ ")[0];
   const pb = entry.waPbIndoor || entry.pbIndoor || entry.pb || "";
   return (
     <tr>
@@ -129,7 +131,10 @@ function StartlistEntryRow({ entry }) {
         <strong>{athleteDisplayName(entry)}</strong>
       </td>
       <td><NationCell noc={entry.nationality} /></td>
-      <td>{sb || "—"}</td>
+      <td>
+        {sb || "—"}
+        {currentSb && sbSeason ? <span className="site-emag-table__sb-current">{sbSeason + 1}: {currentSb}</span> : null}
+      </td>
       <td>{pb || "—"}</td>
     </tr>
   );
@@ -799,7 +804,7 @@ function OfficialStartlistPage({ group, sbSeason, photoUrl }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry) => <StartlistEntryRow key={entry.id} entry={entry} />)}
+                  {entries.map((entry) => <StartlistEntryRow key={entry.id} entry={entry} sbSeason={sbSeason} />)}
                 </tbody>
               </table>
             </div>
@@ -1288,4 +1293,4 @@ export function SiteEmagazineFrame() {
       )}
     </div>
   );
-}
+}export { OfficialStartlistPage as __StartlistForTest };
