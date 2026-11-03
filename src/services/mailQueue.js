@@ -395,6 +395,8 @@ ${childSummaryFr}
 
 Vous retrouverez toutes les informations vous concernant durant le CMCM Luxembourg Indoor Meeting 2027 directement sur votre espace MyCLIM.
 
+Bon à savoir : chaque athlète du pré-programme bénéficie d'une entrée adulte offerte pour le meeting.
+
 À bientôt,
 L'équipe CMCM Luxembourg Indoor Meeting
 
@@ -409,6 +411,8 @@ Requests received:
 ${childSummaryEn}
 
 You will find all information about your participation in the CMCM Luxembourg Indoor Meeting 2027 directly in your MyCLIM space.
+
+Good to know: every pre-programme athlete gets a free adult entry to the meeting.
 
 See you soon,
 The CMCM Luxembourg Indoor Meeting team`,
@@ -431,6 +435,7 @@ The CMCM Luxembourg Indoor Meeting team`,
             </td>
           </tr>
         </table>
+        <p style="margin:0 0 18px 0;font-size:15px;line-height:1.7;color:#1d6b38;">Bon à savoir : chaque athlète du pré-programme bénéficie d'une entrée adulte offerte pour le meeting.</p>
         <p style="margin:0 0 28px 0;">
           <a href="${appUrl}" style="display:inline-block;background:#e30d25;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;">
             Accéder à MyCLIM
@@ -477,6 +482,8 @@ Votre demande pour les courses nationales du pré-programme a bien été reçue 
 
 Les courses nationales sont pilotées par la commission des athlètes : la sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois. Vous verrez la décision dans votre espace MyCLIM. Si vous êtes retenu(e), l'organisation se charge de votre engagement et vous recontactera.
 
+Bon à savoir : chaque athlète du pré-programme bénéficie d'une entrée adulte offerte pour le meeting.
+
 À bientôt,
 L'équipe CMCM Luxembourg Indoor Meeting
 
@@ -487,6 +494,8 @@ Hello ${displayName},
 Your entry request for the pre-programme national races has been received (${eventList}).
 
 The national races are run by the athletes' commission: selection is based on performance, with priority given to Luxembourg licence holders. You will see the decision in your MyCLIM space. If selected, the organisers handle your entry and will contact you.
+
+Good to know: every pre-programme athlete gets a free adult entry to the meeting.
 
 See you soon,
 The CMCM Luxembourg Indoor Meeting team`,
@@ -502,6 +511,7 @@ The CMCM Luxembourg Indoor Meeting team`,
           Les courses nationales sont pilotées par la <strong>commission des athlètes</strong> : la sélection se fait sur base des performances, avec priorité aux licenciés luxembourgeois.
           Si vous êtes retenu(e), l'organisation se charge de votre engagement et vous recontactera.
         </p>
+        <p style="margin:0 0 18px 0;font-size:15px;line-height:1.7;color:#1d6b38;">Bon à savoir : chaque athlète du pré-programme bénéficie d'une entrée adulte offerte pour le meeting.</p>
         <p style="margin:0 0 28px 0;">
           <a href="${appUrl}" style="display:inline-block;background:#e30d25;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;">
             Suivre ma demande

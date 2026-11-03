@@ -1,525 +1,331 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { isPreprogramOpenForEdition, useActiveEdition, useSiteEditionYear } from "../app/edition";
+import { useLanguage } from "../app/language-context";
+import { useMeetingEditions } from "../app/meeting-history-hooks";
 import business1 from "../assets/site-gallery/preprog-business-1.jpg";
 import business2 from "../assets/site-gallery/preprog-business-2.jpg";
 import influencer from "../assets/site-gallery/preprog-influencer.jpg";
-import influencerGodart from "../assets/site-gallery/preprog-gforster.jpg";
 import specialOlympics1 from "../assets/site-gallery/preprog-specialolympics-1.jpg";
-import specialOlympics2 from "../assets/site-gallery/preprog-specialolympics-2.jpg";
 import kids1 from "../assets/site-gallery/preprog-kids-1.jpg";
-import kids2 from "../assets/site-gallery/preprog-kids-2.jpg";
-import kids3 from "../assets/site-gallery/preprog-kids-3.jpg";
 import national60m from "../assets/site-gallery/preprog-national-60m.jpg";
-import national800mMen from "../assets/site-gallery/preprog-national-800m-men.jpg";
-import national800mWomen from "../assets/site-gallery/preprog-national-800m-women.jpg";
+import { getSitePreprogrammeCopy } from "./site-preprogramme-copy";
 
-function SectionTitle({ eyebrow, title, lead, center }) {
+const INSTAGRAM_URL = "https://www.instagram.com/cmcm_lux_indoor_meet/";
+const BUSINESS_EMAIL = "communication@fla.lu";
+const YOUTH_REGISTRATION_PATH = "/pre-programme?parcours=jeunes";
+const NATIONAL_REGISTRATION_PATH = "/pre-programme?parcours=courses-nationales";
+
+function fill(text, values) {
+  return Object.entries(values).reduce((result, [key, value]) => result.split(`{${key}}`).join(value ?? ""), String(text || ""));
+}
+
+function toDate(value) {
+  const date = value?.toDate?.() || (value ? new Date(value) : null);
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+// Catégories du meeting : âge atteint au 31 décembre de l'année de l'édition
+// (U12 = 10-11 ans, U14 = 12-13 ans).
+function getYouthBirthYears(editionYear) {
+  const year = Number(editionYear);
+  if (!year) return { u12: "", u14: "" };
+  return { u12: `${year - 11}/${year - 10}`, u14: `${year - 13}/${year - 12}` };
+}
+
+function useCurrentEdition() {
+  const { siteEditionYear } = useSiteEditionYear();
+  const { editions } = useMeetingEditions();
+  const edition =
+    (siteEditionYear && editions.find((entry) => Number(entry.year || entry.id) === Number(siteEditionYear))) ||
+    editions[0] ||
+    null;
+  return { edition, year: edition?.year || siteEditionYear };
+}
+
+function StatusPill({ tone = "neutral", children }) {
+  return <span className={`pp-pill pp-pill--${tone}`}>{children}</span>;
+}
+
+function ProfileCard({ title, body, status, extra, cta }) {
   return (
-    <div className={`site-section-header${center ? " site-section-header--center" : ""}`}>
-      <span className="site-eyebrow">{eyebrow}</span>
-      <h2 className="site-heading site-heading--sm">{title}</h2>
-      {lead && <p className="site-lead">{lead}</p>}
-    </div>
+    <article className="pp-profile">
+      <h3>{title}</h3>
+      <p>{body}</p>
+      <div className="pp-profile__status">
+        {status}
+        {extra}
+      </div>
+      {cta}
+    </article>
   );
 }
 
-function CheckItem({ children, color = "var(--site-red)" }) {
+function EventCard({ id, image, title, body, facts, cta }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-      <span style={{ color, fontWeight: 700, marginTop: 1, flexShrink: 0 }}>✓</span>
-      <span style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", lineHeight: 1.5 }}>{children}</span>
-    </div>
+    <article className="pp-event" id={id}>
+      <div className="pp-event__media">
+        <img alt="" src={image} />
+      </div>
+      <div className="pp-event__body">
+        <h3>{title}</h3>
+        <p>{body}</p>
+        <ul>
+          {facts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ul>
+        {cta}
+      </div>
+    </article>
   );
 }
 
-function PhotoGrid({ photos }) {
+function BusinessRequestForm({ copy, year }) {
+  const packs = [copy.pack2Title, copy.pack1Title];
+  const [company, setCompany] = useState("");
+  const [contact, setContact] = useState("");
+  const [pack, setPack] = useState(packs[0]);
+  const [error, setError] = useState("");
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (!company.trim() || !contact.trim()) {
+      setError(copy.formError);
+      return;
+    }
+    const values = { year, company: company.trim(), contact: contact.trim(), pack };
+    const subject = encodeURIComponent(fill(copy.mailSubject, values));
+    const body = encodeURIComponent(fill(copy.mailBody, values));
+    window.location.href = `mailto:${BUSINESS_EMAIL}?subject=${subject}&body=${body}`;
+  }
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      {photos.map((src, i) => (
-        <div
-          key={i}
-          style={{
-            overflow: "hidden",
-            borderRadius: "var(--site-radius-sm)",
-            aspectRatio: i === 0 && photos.length > 2 ? "16/9" : "4/3",
-            gridColumn: i === 0 && photos.length > 2 ? "1 / 3" : "auto",
-          }}
-        >
-          <img
-            src={src}
-            alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform 0.4s ease" }}
-            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.04)"}
-            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-          />
-        </div>
-      ))}
-    </div>
+    <form className="pp-business-form" noValidate onSubmit={handleSubmit}>
+      <strong>{copy.formTitle}</strong>
+      <div className="pp-business-form__fields">
+        <label>
+          <span>{copy.formCompany}</span>
+          <input value={company} onChange={(event) => { setCompany(event.target.value); setError(""); }} />
+        </label>
+        <label>
+          <span>{copy.formContact}</span>
+          <input value={contact} onChange={(event) => { setContact(event.target.value); setError(""); }} />
+        </label>
+        <label>
+          <span>{copy.formPack}</span>
+          <select value={pack} onChange={(event) => setPack(event.target.value)}>
+            {packs.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+        <button className="site-btn site-btn--primary site-btn--sm" type="submit">{copy.formSubmit} →</button>
+      </div>
+      {error ? <p className="pp-business-form__error">{error}</p> : <p className="pp-muted">{copy.formHint}</p>}
+    </form>
   );
 }
 
 export function SitePreProgramme() {
-  const nationalRaces = [
-    { event: "60m Women", icon: "⚡" },
-    { event: "60m Men", icon: "⚡" },
-    { event: "800m Women", icon: "🏃" },
-    { event: "800m Men", icon: "🏃" },
-  ];
-  const programmeHighlights = [
-    { id: "influencer-race", label: "Influencer Race", image: influencer },
-    { id: "business-race", label: "Business Race", image: business1 },
-    { id: "national-races", label: "National Races", image: national60m },
-    { id: "youth", label: "Youth Programme", image: kids1 },
-  ];
+  const { language } = useLanguage();
+  const copy = getSitePreprogrammeCopy(language);
+  const locale = language === "fr" ? "fr-LU" : "en-GB";
+  const { edition, year } = useCurrentEdition();
+  const { activeEditionId, preprogramOpeningByEdition, preprogramOpeningDate } = useActiveEdition();
+  const [now] = useState(() => Date.now());
+  const isRegistrationOpen = isPreprogramOpenForEdition(
+    activeEditionId,
+    now,
+    typeof window !== "undefined" ? window.location.hostname : "",
+    preprogramOpeningByEdition,
+  );
+  const birthYears = getYouthBirthYears(year);
+  const eventDate = toDate(edition?.date);
+  const venue = edition?.venue || "Coque, Luxembourg";
+  const schedule = (Array.isArray(edition?.preprogrammeSchedule) ? edition.preprogrammeSchedule : [])
+    .filter((line) => line?.visible !== false && (line.labelEn || line.labelFr))
+    .map((line) => ({ time: line.time, label: (language === "fr" ? line.labelFr : line.labelEn) || line.labelEn || line.labelFr }));
+  const firstTime = schedule.find((line) => line.time)?.time;
+  const openingLabel = preprogramOpeningDate
+    ? preprogramOpeningDate.toLocaleString(locale, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+    : "";
+  const registrationStatus = isRegistrationOpen ? (
+    <StatusPill tone="ok">{copy.statusOpen}</StatusPill>
+  ) : (
+    <StatusPill tone="warn">{fill(copy.statusOpensOn, { date: openingLabel })}</StatusPill>
+  );
+  const freeEntry = <StatusPill tone="ok">+ {copy.freeAdultEntry}</StatusPill>;
 
   return (
     <>
-      {/* ── Hero ─────────────────────────────────────────── */}
-      <section
-        style={{
-          background: "linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 60%, #0d0d2b 100%)",
-          paddingTop: "calc(var(--site-nav-h) + 80px)",
-          paddingBottom: 80,
-          color: "#fff",
-        }}
-      >
+      {/* ── En-tête ─────────────────────────────────────── */}
+      <section className="pp-hero">
         <div className="site-container">
-          <span className="site-eyebrow" style={{ color: "var(--site-red)" }}>Before the main show</span>
-          <h1 className="site-heading" style={{ color: "#fff" }}>Pre-Programme</h1>
-          <p className="site-lead" style={{ color: "rgba(255,255,255,0.7)", maxWidth: 640 }}>
-            Before the elite programme kicks off, the CMCM Luxembourg Indoor Meeting offers a dynamic and entertaining pre-programme open to the public — featuring corporate relay races, youth athletics, influencer challenges and an inclusive Special Olympics race.
-          </p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 32 }}>
-            <NavLink to="/pre-programme" className="site-btn site-btn--primary">
-              Register for the pre-programme →
-            </NavLink>
-            <a href="#business-race" className="site-btn site-btn--secondary">
-              Business Race
-            </a>
-            <a href="#youth" className="site-btn site-btn--secondary">
-              Youth & national races
-            </a>
+          <span className="site-eyebrow" style={{ color: "var(--site-red)" }}>{copy.heroEyebrow}</span>
+          <h1 className="site-heading" style={{ color: "#fff" }}>{copy.heroTitle}</h1>
+          <div className="pp-hero__facts">
+            <span>{eventDate ? eventDate.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : copy.dateTbc}</span>
+            {firstTime ? <span>{fill(copy.heroFrom, { time: firstTime })}</span> : null}
+            <span>{venue}</span>
+          </div>
+          <p className="site-lead" style={{ color: "rgba(255,255,255,0.75)", maxWidth: 640 }}>{copy.heroLead}</p>
+          <div className="pp-actions">
+            <a href="#participer" className="site-btn site-btn--primary">{copy.heroRegister} →</a>
+            {schedule.length ? <a href="#deroule" className="site-btn site-btn--secondary">{copy.heroSchedule}</a> : null}
           </div>
         </div>
       </section>
 
-      {/* ── Photo strip ─────────────────────────────────── */}
-      <div className="site-programme-highlights">
-        {programmeHighlights.map(({ id, label, image }) => (
-          <div key={id} style={{ display: "grid", gap: 10 }}>
-            <div style={{ height: 250, overflow: "hidden", borderRadius: "var(--site-radius-sm)" }}>
-              <img
-                src={image}
-                alt={label}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform 0.5s ease" }}
-                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.04)"}
-                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-              />
-            </div>
-            <a
-              href={`#${id}`}
-              className="site-btn site-btn--secondary site-btn--sm"
-              style={{ justifyContent: "center", width: "100%" }}
-            >
-              {label} ↓
-            </a>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Influencer Race ────────────────────────────── */}
-      <section className="site-section" id="influencer-race">
+      {/* ── Je veux participer ──────────────────────────── */}
+      <section className="site-section" id="participer">
         <div className="site-container">
-          <div className="site-split" style={{ alignItems: "center" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[influencer, influencerGodart].map((src, i) => (
-                <div key={i} style={{ overflow: "hidden", borderRadius: "var(--site-radius-sm)", aspectRatio: "4/3" }}>
-                  <img
-                    src={src}
-                    alt=""
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform 0.4s ease" }}
-                    onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
-                    onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                  />
-                </div>
+          <h2 className="site-heading site-heading--sm">{copy.profilesTitle}</h2>
+          <div className="pp-profiles">
+            <ProfileCard
+              title={copy.youthTitle}
+              body={fill(copy.youthBody, birthYears)}
+              status={registrationStatus}
+              extra={freeEntry}
+              cta={<NavLink to={YOUTH_REGISTRATION_PATH} className="site-btn site-btn--primary site-btn--sm">{copy.youthCta}</NavLink>}
+            />
+            <ProfileCard
+              title={copy.athleteTitle}
+              body={copy.athleteBody}
+              status={registrationStatus}
+              extra={freeEntry}
+              cta={<NavLink to={NATIONAL_REGISTRATION_PATH} className="site-btn site-btn--primary site-btn--sm">{copy.athleteCta}</NavLink>}
+            />
+            <ProfileCard
+              title={copy.companyTitle}
+              body={copy.companyBody}
+              status={<StatusPill>{copy.companyStatus}</StatusPill>}
+              cta={<a href="#business-race" className="site-btn site-btn--secondary site-btn--sm">{copy.companyCta}</a>}
+            />
+            <ProfileCard
+              title={copy.spectatorTitle}
+              body={copy.spectatorBody}
+              status={<StatusPill tone="ok">{copy.spectatorStatus}</StatusPill>}
+              cta={<NavLink to="/event#tickets" className="site-btn site-btn--secondary site-btn--sm">{copy.spectatorCta}</NavLink>}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Déroulé (lignes visibles, réglées dans l'admin) ── */}
+      {schedule.length ? (
+        <section className="site-section site-section--alt" id="deroule">
+          <div className="site-container">
+            <h2 className="site-heading site-heading--sm">{copy.scheduleTitle}</h2>
+            <ol className="pp-schedule">
+              {schedule.map((line, index) => (
+                <li key={`${line.time}-${index}`}>
+                  <span className="pp-schedule__time">{line.time || "·"}</span>
+                  <span>{line.label}</span>
+                </li>
               ))}
-            </div>
-            <div>
-              <span className="site-eyebrow">Opening act</span>
-              <h2 className="site-heading site-heading--sm">
-                🔥 Influencer Race<br />
-                <span style={{ fontSize: "1.1rem", fontWeight: 500, color: "var(--site-text-muted)" }}>against Lux Stars</span>
-              </h2>
-              <p style={{ color: "var(--site-text-muted)", lineHeight: 1.75, marginBottom: 20 }}>
-                Two spectacular 60m races set the stage — one for women, one for men. Luxembourg influencers will go head-to-head against local sports stars in an explosive duel at the heart of La Coque.
-              </p>
-              <p style={{ color: "var(--site-text-muted)", lineHeight: 1.75, marginBottom: 28 }}>
-                The concept blends elite sport, social media and pure entertainment, putting Luxembourg athletes in the spotlight in a fun, competitive atmosphere that's made to be shared.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {[
-                  { icon: "👩", label: "Women's race", value: "60m — influencers vs. Lux stars" },
-                  { icon: "👨", label: "Men's race", value: "60m — influencers vs. Lux stars" },
-                ].map(({ icon, label, value }) => (
-                  <div
-                    key={label}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 16,
-                      padding: "14px 20px",
-                      background: "var(--site-card)",
-                      border: "1px solid var(--site-border)",
-                      borderRadius: "var(--site-radius-sm)",
-                    }}
-                  >
-                    <span style={{ fontSize: "1.4rem" }}>{icon}</span>
-                    <div>
-                      <strong style={{ fontSize: "0.85rem", display: "block", color: "var(--site-text)" }}>{label}</strong>
-                      <span style={{ fontSize: "0.8rem", color: "var(--site-text-muted)" }}>{value}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </ol>
+            <p className="pp-muted">{copy.scheduleNote}</p>
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── Les courses ─────────────────────────────────── */}
+      <section className="site-section">
+        <div className="site-container">
+          <h2 className="site-heading site-heading--sm">{copy.eventsTitle}</h2>
+          <div className="pp-events">
+            <EventCard
+              id="youth"
+              image={kids1}
+              title={copy.youthEventTitle}
+              body={copy.youthEventBody}
+              facts={[fill(copy.youthEventAges, birthYears), ...copy.youthEventFacts]}
+              cta={<NavLink to={YOUTH_REGISTRATION_PATH} className="pp-link">{copy.youthCta} →</NavLink>}
+            />
+            <EventCard
+              id="national-races"
+              image={national60m}
+              title={copy.nationalEventTitle}
+              body={copy.nationalEventBody}
+              facts={copy.nationalEventFacts}
+              cta={<NavLink to={NATIONAL_REGISTRATION_PATH} className="pp-link">{copy.athleteCta} →</NavLink>}
+            />
+            <EventCard
+              id="special-olympics"
+              image={specialOlympics1}
+              title={copy.specialOlympicsTitle}
+              body={copy.specialOlympicsBody}
+              facts={copy.specialOlympicsFacts}
+            />
+            <EventCard
+              id="influencer-race"
+              image={influencer}
+              title={copy.influencerTitle}
+              body={copy.influencerBody}
+              facts={copy.influencerFacts}
+              cta={<a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" className="pp-link">{copy.influencerCta} →</a>}
+            />
           </div>
         </div>
       </section>
 
-      {/* ── Business Race ─────────────────────────────── */}
+      {/* ── Business Race ───────────────────────────────── */}
       <section className="site-section site-section--alt" id="business-race">
         <div className="site-container">
-          <SectionTitle
-            eyebrow="Corporate experience"
-            title="💼 Business Race"
-            lead="Six Luxembourg companies compete side by side on the track at La Coque, in front of the meeting's audience. A unique opportunity to combine team spirit, sport and a premium brand experience."
-          />
-
-          {/* Format */}
-          <div className="site-split" style={{ alignItems: "start", marginBottom: 64 }}>
+          <span className="site-eyebrow">{copy.businessEyebrow}</span>
+          <h2 className="site-heading site-heading--sm">{copy.businessTitle}</h2>
+          <p className="site-lead">{copy.businessLead}</p>
+          <div className="pp-business">
+            <div className="pp-business__media">
+              <img alt="" src={business1} />
+              <img alt="" src={business2} />
+            </div>
             <div>
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: 20, color: "var(--site-text)" }}>
-                🏃 Race Format — Mixed 4 × 200m Relay
-              </h3>
-              <p style={{ color: "var(--site-text-muted)", lineHeight: 1.75, marginBottom: 20 }}>
-                Each team must include 2 women and 2 men. Teams compete in a relay format with an official presentation, baton passing, final ranking and a podium ceremony.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-                  "Official team presentation in the arena",
-                  "Relay race on the track (4 × 200m)",
-                  "Final ranking and Business Race podium",
-                  "Speaker announcement and crowd atmosphere",
-                ].map(item => <CheckItem key={item}>{item}</CheckItem>)}
+              <p className="pp-business__format">{copy.businessFormat}</p>
+              <p className="pp-muted">{copy.businessWinner}</p>
+              <div className="pp-packs">
+                <article className="pp-pack">
+                  <h3>{copy.pack1Title}</h3>
+                  <strong className="pp-pack__price">{copy.pack1Price}</strong>
+                  <ul>{copy.pack1Items.map((item) => <li key={item}>{item}</li>)}</ul>
+                </article>
+                <article className="pp-pack pp-pack--featured">
+                  <h3>{copy.pack2Title}</h3>
+                  <strong className="pp-pack__price">{copy.pack2Price}</strong>
+                  <span className="pp-muted">{copy.pack2Note}</span>
+                  <ul>{copy.pack2Items.map((item) => <li key={item}>{item}</li>)}</ul>
+                </article>
               </div>
-              <div style={{
-                marginTop: 24,
-                padding: "16px 20px",
-                background: "rgba(16,102,204,0.07)",
-                border: "1px solid rgba(16,102,204,0.2)",
-                borderRadius: "var(--site-radius-sm)",
-              }}>
-                <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--site-text)", marginBottom: 4 }}>🏆 Winning company bonus</strong>
-                <p style={{ fontSize: "0.825rem", color: "var(--site-text-muted)", margin: 0, lineHeight: 1.6 }}>
-                  The winning company's representative will hand out a <em>Winner Card</em> during the main programme — your brand on the international stage.
-                </p>
-              </div>
-            </div>
-
-            <PhotoGrid photos={[business1, business2, influencerGodart]} />
-          </div>
-
-          {/* Packs */}
-          <h3 style={{ fontSize: "1rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--site-text-muted)", marginBottom: 28 }}>
-            Company Packages
-          </h3>
-          <div className="site-split site-split--tight">
-            {/* Pack 1 */}
-            <div className="site-card" style={{ padding: 36 }}>
-              <div style={{ width: 48, height: 4, background: "var(--site-red)", borderRadius: 2, marginBottom: 24 }} />
-              <h3 style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--site-text)", marginBottom: 6 }}>Pack 1 — Business Race Experience</h3>
-              <div style={{ fontSize: "2.2rem", fontWeight: 900, color: "var(--site-red)", marginBottom: 20, lineHeight: 1 }}>
-                €250
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                <CheckItem>1 team in the mixed 4 × 200m relay</CheckItem>
-                <CheckItem>Baton-passing training (week before, Saturday or morning of the event)</CheckItem>
-                <CheckItem>Option to organise a lunch before the event</CheckItem>
-                <CheckItem>4 VIP places</CheckItem>
-                <CheckItem>8 standard places for participants</CheckItem>
-              </div>
-              <a href="mailto:communication@fla.lu" className="site-btn site-btn--secondary site-btn--sm">
-                Register your team →
-              </a>
-            </div>
-
-            {/* Pack 2 */}
-            <div
-              className="site-card"
-              style={{
-                padding: 36,
-                background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
-                border: "1px solid rgba(255,255,255,0.1)",
-              }}
-            >
-              <div style={{ width: 48, height: 4, background: "#c9a227", borderRadius: 2, marginBottom: 24 }} />
-              <h3 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#fff", marginBottom: 6 }}>Pack 2 — Business Team Building Experience</h3>
-              <div style={{ fontSize: "2.2rem", fontWeight: 900, color: "#c9a227", marginBottom: 4, lineHeight: 1 }}>
-                From €1,500
-              </div>
-              <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.5)", marginBottom: 20 }}>From 15 participants · ~15 days before the meeting</p>
-              <div style={{ marginBottom: 24 }}>
-                {[
-                  "1 team in the mixed 4 × 200m relay",
-                  "Team-building session with a FLA elite athlete",
-                  "Interactive conference: performance, motivation, leadership, stress management, cohesion or personal challenge",
-                  "10 VIP places during the meeting",
-                  "Immersive 'inside athletics' experience",
-                ].map(item => (
-                  <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                    <span style={{ color: "#c9a227", fontWeight: 700, marginTop: 1, flexShrink: 0 }}>✓</span>
-                    <span style={{ fontSize: "0.875rem", color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>{item}</span>
-                  </div>
-                ))}
-              </div>
-              <a
-                href="mailto:communication@fla.lu"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: "#c9a227",
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: "0.8rem",
-                  padding: "10px 20px",
-                  borderRadius: "var(--site-radius-sm)",
-                  textDecoration: "none",
-                }}
-              >
-                Request a quote →
-              </a>
             </div>
           </div>
+          <BusinessRequestForm copy={copy} year={year} />
         </div>
       </section>
 
-      {/* ── Youth Programme ────────────────────────────── */}
-      <section className="site-section" id="youth">
+      {/* ── FAQ ─────────────────────────────────────────── */}
+      <section className="site-section">
         <div className="site-container">
-          <SectionTitle
-            eyebrow="Young athletes"
-            title="👧 Youth Pre-Programme"
-            lead="Luxembourg's youngest licensed athletes compete on the same track as the elite — a memorable experience for young runners."
-          />
-
-          {/* Photo strip */}
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 48, height: 280, overflow: "hidden" }}>
-            {[kids1, kids2, kids3].map((src, i) => (
-              <div key={i} style={{ overflow: "hidden", borderRadius: "var(--site-radius-sm)" }}>
-                <img
-                  src={src}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform 0.4s ease" }}
-                  onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
-                  onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                />
-              </div>
+          <h2 className="site-heading site-heading--sm">{copy.faqTitle}</h2>
+          <div className="pp-faq">
+            {copy.faq.map((item) => (
+              <details key={item.q}>
+                <summary>{item.q}</summary>
+                <p>{fill(item.a, birthYears)}</p>
+              </details>
             ))}
           </div>
-
-          <div className="site-split" style={{ alignItems: "start" }}>
-            <div>
-              <div style={{ marginBottom: 32 }}>
-                {[
-                  { event: "60m U12", icon: "⚡" },
-                  { event: "60m U14", icon: "⚡" },
-                  { event: "1000m U14", icon: "🏃" },
-                ].map(({ event, icon }) => (
-                  <div
-                    key={event}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 16,
-                      padding: "14px 20px",
-                      background: "var(--site-card)",
-                      border: "1px solid var(--site-border)",
-                      borderRadius: "var(--site-radius-sm)",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <span style={{ fontSize: "1.4rem" }}>{icon}</span>
-                    <strong style={{ color: "var(--site-text)", fontSize: "0.9rem" }}>{event}</strong>
-                  </div>
-                ))}
-              </div>
-              <div style={{
-                padding: "20px 24px",
-                background: "rgba(16,102,204,0.06)",
-                border: "1px solid rgba(16,102,204,0.2)",
-                borderRadius: "var(--site-radius-sm)",
-                marginBottom: 24,
-              }}>
-                <p style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", margin: 0, lineHeight: 1.7 }}>
-                  <strong style={{ color: "var(--site-text)", display: "block", marginBottom: 4 }}>Participation conditions</strong>
-                  Reserved for licensed athletes from Luxembourg clubs · One race per child · Limited places · First come, first served
-                </p>
-              </div>
-              <div style={{
-                padding: "20px 24px",
-                background: "var(--site-card)",
-                border: "1px solid var(--site-border)",
-                borderRadius: "var(--site-radius-sm)",
-                marginBottom: 16,
-              }}>
-                <p style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", margin: 0, lineHeight: 1.7 }}>
-                  <strong style={{ color: "var(--site-text)", display: "block", marginBottom: 4 }}>Also possible: basket carrier</strong>
-                  Young athletes can also apply to be a basket carrier during the meeting. This option is available in the same form as the youth races.
-                </p>
-              </div>
-              <div style={{
-                padding: "20px 24px",
-                background: "var(--site-card)",
-                border: "1px solid var(--site-border)",
-                borderRadius: "var(--site-radius-sm)",
-                marginBottom: 24,
-              }}>
-                <strong style={{ color: "var(--site-text)", display: "block", marginBottom: 10 }}>How registration works</strong>
-                <div style={{ display: "grid", gap: 10 }}>
-                  {[
-                    "One registration page for the whole pre-programme: youth races, basket carriers and national races.",
-                    "Youth: a parent registers as many children as needed (birth date, club, FLA bib number) and chooses a race, basket carrier, or either.",
-                    "National races: athletes register themselves; under 18, with the explicit consent of a parent.",
-                    "Everything is then tracked in MyCLIM: status, decision and practical information.",
-                  ].map((item) => (
-                    <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <span style={{ color: "var(--site-red)", fontWeight: 700, marginTop: 1, flexShrink: 0 }}>•</span>
-                      <span style={{ fontSize: "0.86rem", color: "var(--site-text-muted)", lineHeight: 1.6 }}>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <NavLink to="/pre-programme?parcours=jeunes" className="site-btn site-btn--primary site-btn--sm">
-                Register a child →
-              </NavLink>
-
-              <div
-                id="national-races"
-                style={{
-                marginTop: 24,
-                padding: "20px 24px",
-                background: "var(--site-card)",
-                border: "1px solid var(--site-border)",
-                borderRadius: "var(--site-radius-sm)",
-              }}>
-                <div style={{ marginBottom: 16 }}>
-                  <span className="site-eyebrow" style={{ marginBottom: 8, display: "block" }}>National races</span>
-                  <h3 style={{ margin: 0, fontSize: "2rem", lineHeight: 1.05, color: "var(--site-text)", fontWeight: 800 }}>
-                    🏁 National Races
-                  </h3>
-                  <p style={{ margin: "8px 0 0", fontSize: "1rem", color: "var(--site-text-muted)" }}>
-                    60m & 800m · apply on MyCLIM
-                  </p>
-                </div>
-                <p style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", lineHeight: 1.7, marginTop: 0, marginBottom: 16 }}>
-                  Women's and men's 60m and 800m races are held before the main programme: 8 places per 60m race, 6 per 800m race. The national races are run by the athletes' commission: athletes apply on MyCLIM, selection is based on performance with priority to Luxembourg licence holders, and the organisers then handle the entries of selected athletes.
-                </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {nationalRaces.map(({ event, icon }) => (
-                    <div
-                      key={event}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "12px 14px",
-                        borderRadius: "var(--site-radius-sm)",
-                        background: "#f8fafc",
-                        border: "1px solid #e2e8f0",
-                      }}
-                    >
-                      <span style={{ fontSize: "1.2rem" }}>{icon}</span>
-                      <strong style={{ color: "var(--site-text)", fontSize: "0.84rem" }}>{event}</strong>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {[national60m, national800mMen, national800mWomen].map((src, index) => (
-                    <div key={src} style={{ overflow: "hidden", borderRadius: "var(--site-radius-sm)", aspectRatio: index === 0 ? "16/10" : "4/5" }}>
-                      <img
-                        src={src}
-                        alt=""
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform 0.4s ease" }}
-                        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
-                        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <NavLink to="/pre-programme?parcours=courses-nationales" className="site-btn site-btn--primary site-btn--sm">
-                  Apply for a national race →
-                </NavLink>
-              </div>
-            </div>
-
-            {/* Special Olympics */}
-            <div>
-              <SectionTitle
-                center={false}
-                eyebrow="Inclusive sport"
-                title="❤️ Special Olympics Race"
-              />
-              <p style={{ color: "var(--site-text-muted)", lineHeight: 1.75, marginBottom: 24 }}>
-                The pre-programme also features a dedicated race for Special Olympics athletes, celebrating inclusion, personal achievement and the values of sport for all — in front of the full meeting audience.
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24 }}>
-                {[specialOlympics1, specialOlympics2].map((src, i) => (
-                  <div key={i} style={{ overflow: "hidden", borderRadius: "var(--site-radius-sm)", aspectRatio: "4/3" }}>
-                    <img
-                      src={src}
-                      alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform 0.4s ease" }}
-                      onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
-                      onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  ["🤝", "Promoting inclusion in high-level sport"],
-                  ["🌟", "Celebrating every athlete's achievement"],
-                  ["💪", "Sport for all — at the heart of the meeting"],
-                ].map(([icon, label]) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: "1.2rem" }}>{icon}</span>
-                    <span style={{ fontSize: "0.875rem", color: "var(--site-text-muted)" }}>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* ── Contact CTA ───────────────────────────────── */}
+      {/* ── Appels à l'action finaux ────────────────────── */}
       <section className="site-section site-section--alt">
-        <div className="site-container">
-          <div style={{ textAlign: "center" }}>
-            <h2 className="site-heading site-heading--sm" style={{ marginBottom: 16 }}>
-              Interested in the Business Race?
-            </h2>
-            <p className="site-lead" style={{ margin: "0 auto 32px" }}>
-              Contact our team to secure your company's spot and choose your package. Places are limited to 6 companies.
-            </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <a href="mailto:communication@fla.lu" className="site-btn site-btn--primary">
-                Contact us →
-              </a>
-              <NavLink to="/event" className="site-btn site-btn--secondary">
-                Back to Event info
-              </NavLink>
-            </div>
+        <div className="site-container" style={{ textAlign: "center" }}>
+          <h2 className="site-heading site-heading--sm">{copy.finalTitle}</h2>
+          <div className="pp-actions pp-actions--center">
+            <NavLink to={YOUTH_REGISTRATION_PATH} className="site-btn site-btn--primary">{copy.finalYouth}</NavLink>
+            <NavLink to={NATIONAL_REGISTRATION_PATH} className="site-btn site-btn--primary">{copy.finalNational}</NavLink>
+            <a href="#business-race" className="site-btn site-btn--secondary">{copy.finalBusiness}</a>
           </div>
         </div>
       </section>

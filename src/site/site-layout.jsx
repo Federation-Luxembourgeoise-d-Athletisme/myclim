@@ -5,7 +5,27 @@ import waLogo from "../assets/wa-indoor-tour-silver.png";
 import { useAuth } from "../context/auth-context";
 import { useSiteEditionYear } from "../app/edition";
 import { useMeetingEditions } from "../app/meeting-history-hooks";
+import { useLanguage } from "../app/language-context";
 import "./site.css";
+
+// FR / EN du site public : même préférence que l'espace MyCLIM. Les pages pas
+// encore traduites restent en anglais quel que soit le choix. Un seul bouton
+// (la langue proposée) : le menu est déjà serré sur les écrans moyens.
+function SiteLanguageToggle() {
+  const { language, setLanguage } = useLanguage();
+  const nextLanguage = language === "fr" ? "en" : "fr";
+  return (
+    <button
+      aria-label={nextLanguage === "fr" ? "Afficher en français" : "Show in English"}
+      className="site-lang"
+      lang={nextLanguage}
+      type="button"
+      onClick={() => setLanguage(nextLanguage)}
+    >
+      {nextLanguage.toUpperCase()}
+    </button>
+  );
+}
 
 const BASE_NAV_LINKS = [
   { to: "/", label: "Home", end: true },
@@ -113,6 +133,7 @@ export function SiteLayout() {
           </ul>
 
           <div className="site-nav__actions">
+            <SiteLanguageToggle />
             <NavLink to="/become-a-partner" className="site-nav__partner">
               Partner with us
             </NavLink>
