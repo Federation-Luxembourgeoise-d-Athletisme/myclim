@@ -15,7 +15,8 @@ const SITE_PREPROGRAMME_COPY = {
     profilesTitle: "I want to take part",
     statusOpen: "Registration open",
     statusOpensOn: "Opens {date}",
-    freeAdultEntry: "Free adult entry",
+    freeEntryYouth: "Free entry for the accompanying adult",
+    freeEntryAthlete: "Free adult entry",
     youthTitle: "My child",
     youthBody: "U12 born {u12} · U14 born {u14} · licensed in a Luxembourg club · or basket carrier",
     youthCta: "Register a child",
@@ -28,7 +29,7 @@ const SITE_PREPROGRAMME_COPY = {
     companyCta: "See the packs",
     spectatorTitle: "Spectator",
     spectatorBody: "One ticket for the whole meeting: come early, the pre-programme starts before the elite.",
-    spectatorStatus: "Free adult entry for pre-programme athletes",
+    spectatorStatus: "Free entry for pre-programme athletes and the adult accompanying each child",
     spectatorCta: "Get tickets",
 
     scheduleTitle: "Schedule",
@@ -99,7 +100,7 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Do participants need a ticket?",
-        a: "One ticket gives access to the whole meeting. Pre-programme athletes get a free adult entry.",
+        a: "One ticket gives access to the whole meeting. For U12 / U14, the adult accompanying the child gets a free entry, handed over when the child is dropped off. National race athletes get a free adult entry when they arrive.",
       },
       {
         q: "Can I register more than one child?",
@@ -125,7 +126,8 @@ const SITE_PREPROGRAMME_COPY = {
     profilesTitle: "Je veux participer",
     statusOpen: "Inscriptions ouvertes",
     statusOpensOn: "Ouverture le {date}",
-    freeAdultEntry: "Entrée adulte offerte",
+    freeEntryYouth: "Entrée offerte pour l'accompagnant",
+    freeEntryAthlete: "Entrée adulte offerte",
     youthTitle: "Mon enfant",
     youthBody: "U12 nés en {u12} · U14 nés en {u14} · licenciés dans un club luxembourgeois · ou porte-panier",
     youthCta: "Inscrire un enfant",
@@ -138,7 +140,7 @@ const SITE_PREPROGRAMME_COPY = {
     companyCta: "Voir les packs",
     spectatorTitle: "Spectateur",
     spectatorBody: "Un seul billet pour tout le meeting : venez tôt, le pré-programme commence avant l'élite.",
-    spectatorStatus: "Entrée adulte offerte aux athlètes du pré-programme",
+    spectatorStatus: "Entrée offerte aux athlètes du pré-programme et à l'adulte qui accompagne chaque enfant",
     spectatorCta: "Billetterie",
 
     scheduleTitle: "Déroulé",
@@ -209,7 +211,7 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Les participants ont-ils besoin d'un billet ?",
-        a: "Un seul billet donne accès à tout le meeting. Les athlètes du pré-programme ont une entrée adulte offerte.",
+        a: "Un seul billet donne accès à tout le meeting. Pour les U12 / U14, l'adulte qui accompagne l'enfant a une entrée offerte, remise au moment où il dépose l'enfant. Les athlètes des courses nationales reçoivent une entrée adulte offerte à leur arrivée.",
       },
       {
         q: "Puis-je inscrire plusieurs enfants ?",

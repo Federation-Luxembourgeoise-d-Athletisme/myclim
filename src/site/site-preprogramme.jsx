@@ -155,7 +155,6 @@ export function SitePreProgramme() {
   ) : (
     <StatusPill tone="warn">{fill(copy.statusOpensOn, { date: openingLabel })}</StatusPill>
   );
-  const freeEntry = <StatusPill tone="ok">+ {copy.freeAdultEntry}</StatusPill>;
 
   return (
     <>
@@ -186,14 +185,14 @@ export function SitePreProgramme() {
               title={copy.youthTitle}
               body={fill(copy.youthBody, birthYears)}
               status={registrationStatus}
-              extra={freeEntry}
+              extra={<StatusPill tone="ok">+ {copy.freeEntryYouth}</StatusPill>}
               cta={<NavLink to={YOUTH_REGISTRATION_PATH} className="site-btn site-btn--primary site-btn--sm">{copy.youthCta}</NavLink>}
             />
             <ProfileCard
               title={copy.athleteTitle}
               body={copy.athleteBody}
               status={registrationStatus}
-              extra={freeEntry}
+              extra={<StatusPill tone="ok">+ {copy.freeEntryAthlete}</StatusPill>}
               cta={<NavLink to={NATIONAL_REGISTRATION_PATH} className="site-btn site-btn--primary site-btn--sm">{copy.athleteCta}</NavLink>}
             />
             <ProfileCard
