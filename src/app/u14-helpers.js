@@ -391,11 +391,16 @@ function buildU14AllocationSnapshot({ requests, children, protectedInvites = [],
       request.requestType !== "porte_panier" &&
       !isU14RequestInactive(request.status),
   );
-  const claimedByPool = protectedRequests.reduce((accumulator, request) => {
-    const poolKey = getU14PoolKey(request.category, request.gender);
-    accumulator[poolKey] = (accumulator[poolKey] || 0) + 1;
-    return accumulator;
-  }, {});
+  // Une invitation utilisée consomme définitivement sa place de réserve : si
+  // l'enfant se désiste ensuite, la place va aux inscriptions générales (on
+  // invite autant d'enfants que de places réservées, elle n'est plus utile).
+  const claimedByPool = requestRecords
+    .filter((request) => claimedInviteByRequestId.has(request.id) && request.requestType !== "porte_panier")
+    .reduce((accumulator, request) => {
+      const poolKey = getU14PoolKey(request.category, request.gender);
+      accumulator[poolKey] = (accumulator[poolKey] || 0) + 1;
+      return accumulator;
+    }, {});
   const reserveByPool = Object.fromEntries(
     Object.entries(settings.pools).map(([poolKey, size]) => [
       poolKey,

@@ -126,18 +126,12 @@ export const claimU14ProtectedInvite = onCall({ region: REGION }, async (request
     const poolKey = poolKeyFor(entry.category, entry.gender);
     if (!poolKey) throw new HttpsError("failed-precondition", "Catégorie U12 / U14 non reconnue pour cet enfant.");
 
-    // Places de la réserve déjà prises dans la catégorie (hors désistements).
+    // Places de la réserve déjà utilisées dans la catégorie. Un désistement ne
+    // rend pas la place à la réserve : elle va aux inscriptions générales.
     const claimedSnapshot = await transaction.get(
       db.collection(INVITES).where("status", "==", "claimed").where("claimedPool", "==", poolKey),
     );
-    const claimedRequests = await Promise.all(
-      claimedSnapshot.docs
-        .filter((entrySnapshot) => entrySnapshot.data().editionId === invite.editionId)
-        .map((entrySnapshot) => transaction.get(db.collection("u14Requests").doc(entrySnapshot.data().claimedRequestId))),
-    );
-    const usedPlaces = claimedRequests.filter(
-      (snapshot) => snapshot.exists && !["declined", "cancelled", "rejected"].includes(normalize(snapshot.data().status)),
-    ).length;
+    const usedPlaces = claimedSnapshot.docs.filter((entrySnapshot) => entrySnapshot.data().editionId === invite.editionId).length;
     if (usedPlaces >= (pools[poolKey] ?? 0)) {
       throw new HttpsError("resource-exhausted", "Toutes les places protégées de cette catégorie sont déjà prises.");
     }
