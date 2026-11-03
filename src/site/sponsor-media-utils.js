@@ -62,6 +62,50 @@ export function computeLogoSize({ boxWidth, boxHeight, ratio, scale = 100 }) {
   return { width: Math.round(width), height: Math.round(height) };
 }
 
+// Manual mode: the admin sets the logo size herself, as a share of its box
+// (100 % = the whole logo fits the box edge to edge; above 100 % the empty
+// margins of the file are cropped), and can shift it inside the box.
+export const DEFAULT_MANUAL_LOGO = { logoBoxScale: 100, logoOffsetX: 0, logoOffsetY: 0 };
+
+export function getManualLogoSettings(sponsor = {}) {
+  if (sponsor.logoMode !== "manual") return null;
+  return {
+    logoBoxScale: clamp(normalizeNumber(sponsor.logoBoxScale, DEFAULT_MANUAL_LOGO.logoBoxScale), 20, 300),
+    logoOffsetX: clamp(normalizeNumber(sponsor.logoOffsetX, 0), -50, 50),
+    logoOffsetY: clamp(normalizeNumber(sponsor.logoOffsetY, 0), -50, 50),
+  };
+}
+
+/**
+ * Style of a manually sized logo. The image keeps the exact size of its box
+ * (so no layout ever moves); it is scaled and shifted with a transform, and a
+ * clip-path keeps only what falls inside the box, whatever the parent's
+ * overflow.
+ */
+export function computeManualLogoStyle({ boxWidth, boxHeight, logoBoxScale, logoOffsetX, logoOffsetY }) {
+  if (!(boxWidth > 0) || !(boxHeight > 0)) return null;
+  const scale = logoBoxScale / 100;
+  const dx = (logoOffsetX / 100) * boxWidth;
+  const dy = (logoOffsetY / 100) * boxHeight;
+  // Box window [0, W] × [0, H] expressed in the image's own coordinates.
+  const toLocal = (value, size, shift) => size / 2 + (value - size / 2 - shift) / scale;
+  const left = Math.max(0, toLocal(0, boxWidth, dx));
+  const right = Math.max(0, boxWidth - toLocal(boxWidth, boxWidth, dx));
+  const top = Math.max(0, toLocal(0, boxHeight, dy));
+  const bottom = Math.max(0, boxHeight - toLocal(boxHeight, boxHeight, dy));
+
+  return {
+    width: boxWidth,
+    height: boxHeight,
+    maxWidth: "none",
+    maxHeight: "none",
+    objectFit: "contain",
+    transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
+    transformOrigin: "50% 50%",
+    clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px)`,
+  };
+}
+
 export function getSponsorMediaStyle(sponsor = {}) {
   const { logoFit, logoPositionX, logoPositionY, logoScale } = getSponsorMediaSettings(sponsor);
 

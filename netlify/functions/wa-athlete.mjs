@@ -56,6 +56,7 @@ function normalizePerformance(p) {
     date: p.date || null,
     resultScore: p.resultScore ?? null,
     indoor: Boolean(p.location?.indoor),
+    records: Array.isArray(p.records) ? p.records : [],
   };
 }
 
@@ -98,6 +99,26 @@ export default async function handler(req) {
   if (req.method !== "GET") return json(405, { error: "Method not allowed." });
 
   const url = new URL(req.url);
+
+  // Name search (e-magazine athlete pages): GET /api/wa/search?name=…
+  const searchName = url.searchParams.get("name");
+  if (searchName) {
+    try {
+      const found = await waGet(`/athletes/search?name=${encodeURIComponent(searchName.slice(0, 80))}`);
+      const athletes = (Array.isArray(found) ? found : []).slice(0, 8).map((entry) => ({
+        waid: entry.id,
+        firstName: entry.firstname || "",
+        lastName: entry.lastname || "",
+        country: entry.country || "",
+        birthYear: entry.birthdate ? Number(String(entry.birthdate).slice(0, 4)) : null,
+      }));
+      return json(200, { athletes });
+    } catch (err) {
+      console.error(`[wa-athlete] Search error for "${searchName}":`, err.message);
+      return json(502, { error: "Could not search World Athletics.", detail: err.message });
+    }
+  }
+
   let waid = url.searchParams.get("waid");
   if (!waid) {
     const m = url.pathname.match(/\/(\d{7,10})(?:\/|$)/);

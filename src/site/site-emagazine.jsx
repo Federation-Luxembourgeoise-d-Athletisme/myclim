@@ -10,6 +10,22 @@ import coverVisual from "../assets/hero-banner.jpg";
 import meetingLogo from "../assets/cmcm-logo.png";
 import waSilverLogo from "../assets/wa-indoor-tour-silver.png";
 import venueImage from "../assets/site-gallery/Coque2026.jpg";
+// Race in front of a full stand (website gallery): banner of the timetable page.
+import timetablePhoto from "../assets/site-gallery/ambiance-1.jpg";
+import preprogInfluencer from "../assets/site-gallery/preprog-influencer.jpg";
+import preprogGforster from "../assets/site-gallery/preprog-gforster.jpg";
+import preprogNational60m from "../assets/site-gallery/preprog-national-60m.jpg";
+import preprogBusiness1 from "../assets/site-gallery/preprog-business-1.jpg";
+import preprogBusiness2 from "../assets/site-gallery/preprog-business-2.jpg";
+// Photo booth in front of the partners' wall: banner of the sponsor page.
+import sponsorsPhoto from "../assets/site-gallery/gallery-memories.jpg";
+import flaLogo from "../assets/fla-logo.png";
+// Volunteers on the track: default photo of the closing "Thank you" page.
+import thanksPhoto from "../assets/site-gallery/gallery-volunteers.jpg";
+import flaClubsQr from "../assets/fla-clubs-qr.png";
+import flaClubs from "../data/flaClubs.json";
+import { SponsorLogo } from "./sponsor-logo";
+import { cutoutFrameStyle, photoFrameStyle } from "./emagazine-athlete-data";
 import {
   athleteDisplayName,
   buildAthleteLookup,
@@ -256,12 +272,15 @@ function TimetablePage({ edition }) {
       eyebrow="Competition day"
       title="Timetable"
       subtitle={edition?.timetableNote || "Times are indicative and subject to change."}
+      headerImage={timetablePhoto}
+      className="site-emag-page--timetable"
     >
       <div className="site-emag-timetable">
         {rows.length === 0 ? (
           <p className="site-emag-empty">The timetable has not been configured yet.</p>
         ) : (
-          <table className="site-emag-table site-emag-table--timetable">
+          // A full meeting day (25+ rows) only fits on one A4 page with tighter rows.
+          <table className={`site-emag-table site-emag-table--timetable${rows.length > 16 ? " site-emag-table--timetable-compact" : ""}`}>
             <tbody>
               {rows.map((row) => (
                 row.type === "header" ? (
@@ -290,6 +309,164 @@ function TimetablePage({ edition }) {
   );
 }
 
+// "Want to discover athletics?" — the FLA clubs page of the 2026 e-magazine.
+function ClubsPage() {
+  return (
+    <section className="site-emag-page site-emag-clubs">
+      <div className="site-emag-clubs__head">
+        <h2>Want to discover athletics?</h2>
+        <img src={flaLogo} alt="Fédération Luxembourgeoise d'Athlétisme" />
+      </div>
+      <div className="site-emag-clubs__join">
+        <p>Join one of our competitive athletics clubs!</p>
+        <figure>
+          <img src={flaClubsQr} alt="QR code to the list of FLA clubs" />
+          <figcaption>Scan me!</figcaption>
+        </figure>
+      </div>
+      <div className="site-emag-clubs__list">
+      <table className="site-emag-clubs__table">
+        <thead>
+          <tr>
+            <th>Club</th>
+            <th>Email address</th>
+            <th>Website</th>
+            <th>Telephone</th>
+          </tr>
+        </thead>
+        <tbody>
+          {flaClubs.clubs.map((club) => (
+            <tr key={club.name}>
+              <td>{club.name}</td>
+              <td>{club.email}</td>
+              <td>{club.website ? <a href={`https://${club.website}`} target="_blank" rel="noopener noreferrer">{club.website}</a> : null}</td>
+              <td>{club.phone}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      </div>
+    </section>
+  );
+}
+
+const RECORD_LABELS = {
+  NR: "National record",
+  MR: "Meeting record",
+  ER: "European record",
+  WR: "World record",
+  WL: "World lead",
+};
+
+// One Luxembourg athlete per page, edited in Admin → E-magazine: bests from
+// World Athletics, history from the meeting results (saved with the page).
+function AthletePage({ page, edition }) {
+  const events = page.events.filter((entry) => entry.shown && (entry.event || entry.pb)).slice(0, 3);
+  const stats = page.showMeetingStats ? page.meetingStats : null;
+  const meetingBest = stats?.bests?.[0];
+  return (
+    <section className="site-emag-page site-emag-athlete">
+      <div className="site-emag-athlete__flag" aria-hidden="true" />
+      {page.photoUrl ? (
+        <img className="site-emag-athlete__photo" src={page.photoUrl} alt={athleteDisplayName(page)} style={cutoutFrameStyle(page.photoFrame)} />
+      ) : null}
+      <div className="site-emag-athlete__content">
+        <p className="site-emag-athlete__kicker">
+          {page.country || "Luxembourg"} · CMCM Luxembourg Indoor Meeting {edition?.year || ""}
+        </p>
+        <h2 className="site-emag-athlete__name">
+          <span>{page.firstName}</span>
+          <strong>{page.lastName}</strong>
+        </h2>
+        {page.text ? <p className="site-emag-athlete__text">{page.text}</p> : null}
+        {stats ? (
+          <div className="site-emag-athlete__meeting">
+            <p className="site-emag-athlete__meeting-title">At the CMCM Luxembourg Indoor Meeting</p>
+            <dl>
+              <div>
+                <dt>{stats.editions > 1 ? `editions since ${stats.firstYear}` : `edition (${stats.firstYear})`}</dt>
+                <dd>{stats.editions}</dd>
+              </div>
+              {stats.wins ? (
+                <div>
+                  <dt>{stats.wins > 1 ? "wins" : "win"}</dt>
+                  <dd>{stats.wins}</dd>
+                </div>
+              ) : null}
+              {meetingBest ? (
+                <div>
+                  <dt>best {meetingBest.event} ({meetingBest.year})</dt>
+                  <dd>{meetingBest.mark}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+        ) : null}
+        {events.length ? (
+          <div className="site-emag-athlete__events">
+            {events.map((entry) => (
+              <article key={entry.id} className="site-emag-athlete__event">
+                <h3>{entry.event}</h3>
+                <dl>
+                  <div className="site-emag-athlete__stat site-emag-athlete__stat--pb">
+                    <dt>Personal best{entry.pbYear ? ` · ${entry.pbYear}` : ""}</dt>
+                    <dd>
+                      {entry.pb || "—"}
+                      {entry.record ? (
+                        <abbr title={RECORD_LABELS[entry.record.toUpperCase()] || entry.record}>{entry.record}</abbr>
+                      ) : null}
+                    </dd>
+                  </div>
+                  {entry.sb ? (
+                    <div className="site-emag-athlete__stat">
+                      <dt>Season best{entry.sbYear ? ` ${entry.sbYear}` : ""}</dt>
+                      <dd>{entry.sb}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {entry.record && RECORD_LABELS[entry.record.toUpperCase()] ? (
+                  <p className="site-emag-athlete__record">{RECORD_LABELS[entry.record.toUpperCase()]}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+// Closing page: everything is edited in Admin → E-magazine → Thank you.
+function ThanksPage({ edition, config, sponsors }) {
+  const logos = sponsors.filter((sponsor) => sponsor.logoUrl);
+  return (
+    <section className="site-emag-page site-emag-thanks">
+      <div className="site-emag-thanks__hero" style={{ backgroundImage: `url(${config.photoUrl || thanksPhoto})` }}>
+        <p>CMCM Luxembourg Indoor Meeting {edition?.year || ""}</p>
+        <h2>{config.title}</h2>
+      </div>
+      <div className="site-emag-thanks__body">
+        {config.intro ? <p className="site-emag-thanks__intro">{config.intro}</p> : null}
+        {config.names.length ? (
+          <ul className="site-emag-thanks__names">
+            {config.names.map((name) => <li key={name}>{name}</li>)}
+          </ul>
+        ) : null}
+        {config.closing ? <blockquote className="site-emag-thanks__closing">{config.closing}</blockquote> : null}
+      </div>
+      {logos.length ? (
+        <div className="site-emag-thanks__logos">
+          {logos.map((sponsor) => (
+            <span key={sponsor.id} className="site-emag-thanks__logo">
+              <SponsorLogo sponsor={sponsor} />
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function SponsorsPage({ sponsors }) {
   const groups = useMemo(() => groupSponsorsByCategory(sponsors), [sponsors]);
 
@@ -297,7 +474,9 @@ function SponsorsPage({ sponsors }) {
     <MagazinePage
       eyebrow="Partners"
       title="The brands behind the meeting"
-      subtitle="A live selection of active sponsors configured on the public site."
+      subtitle="Thank you to the partners who make the meeting possible."
+      headerImage={sponsorsPhoto}
+      className="site-emag-page--sponsors"
     >
       <div className="site-emag-sponsors">
         {groups.map((group) => (
@@ -313,7 +492,7 @@ function SponsorsPage({ sponsors }) {
                   className="site-emag-sponsors__logo"
                 >
                   {sponsor.logoUrl ? (
-                    <img src={sponsor.logoUrl} alt={sponsor.name || "Sponsor"} />
+                    <SponsorLogo sponsor={sponsor} alt={sponsor.name || "Sponsor"} />
                   ) : (
                     <span>{sponsor.name || "Sponsor"}</span>
                   )}
@@ -327,21 +506,69 @@ function SponsorsPage({ sponsors }) {
   );
 }
 
+// What each pre-programme race is, told with the photos and words of the
+// website's Pre-Programme page.
+const SPECIAL_RACE_STORIES = {
+  influencerRace: {
+    eyebrow: "Opening act",
+    banner: preprogInfluencer,
+    photos: [preprogGforster, preprogNational60m],
+    text: "Two spectacular 60m races set the stage — one for women, one for men. Luxembourg influencers go head-to-head against local sports stars in an explosive duel at the heart of the Coque.",
+    facts: [
+      ["Women's race", "60m — influencers vs. Lux stars"],
+      ["Men's race", "60m — influencers vs. Lux stars"],
+      ["When", "Pre-programme, before the elite session"],
+    ],
+  },
+  businessRace: {
+    eyebrow: "Corporate experience",
+    banner: preprogBusiness2,
+    photos: [preprogBusiness1],
+    text: "Luxembourg companies compete side by side on the track, in front of the meeting's audience: a unique mix of team spirit, sport and a premium brand experience.",
+    facts: [
+      ["Format", "Relay race on the track (4 × 200m)"],
+      ["On stage", "Official team presentation in the arena"],
+      ["At the finish", "Final ranking and Business Race podium"],
+    ],
+  },
+};
+
 function SpecialRacePage({ race }) {
+  const story = SPECIAL_RACE_STORIES[race.id];
   return (
     <MagazinePage
       theme="accent"
-      eyebrow="Pre-programme"
+      eyebrow={story?.eyebrow || "Pre-programme"}
       title={race.title}
       subtitle={race.subtitle || `${race.entries.length} participants`}
+      headerImage={story?.banner}
+      className="site-emag-page--special"
     >
       <div className="site-emag-special-race">
+        {story ? (
+          <div className="site-emag-special-race__story">
+            <div className="site-emag-special-race__about">
+              <p>{story.text}</p>
+              <dl>
+                {story.facts.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            <div className="site-emag-special-race__photos">
+              {story.photos.map((src) => <img key={src} src={src} alt="" />)}
+            </div>
+          </div>
+        ) : null}
         <div className="site-emag-special-race__intro">
           <span>{race.discipline}</span>
-          <strong>{race.entries.length} participants</strong>
+          <strong>{race.entries.length ? `${race.entries.length} participants` : "Line-up"}</strong>
         </div>
         {race.entries.length === 0 ? (
-          <p className="site-emag-empty">Participants have not been entered yet.</p>
+          <p className="site-emag-empty">The line-up will be announced closer to the meeting.</p>
         ) : (
           <table className="site-emag-table">
             <thead>
@@ -423,14 +650,16 @@ function HighlightPage({ page, athletes }) {
           const photo = page.athletePhotos?.[athlete._docId] || athlete.photoUrl || (count === 1 ? page.imageUrl : "");
           return (
             <div key={athlete._docId} className="site-emag-duel__photo" data-side={index % 2 === 0 ? "red" : "blue"}>
-              {photo ? <img src={photo} alt={athleteDisplayName(athlete)} /> : null}
+              {photo ? <img src={photo} alt={athleteDisplayName(athlete)} style={athlete.photoFrame ? photoFrameStyle(athlete.photoFrame) : undefined} /> : null}
             </div>
           );
         })}
       </div>
 
-      <h2 className="site-emag-duel__title">{title}</h2>
-      {page.subtitle ? <p className="site-emag-duel__subtitle">{page.subtitle}</p> : null}
+      <div className="site-emag-duel__head">
+        <h2 className="site-emag-duel__title">{title}</h2>
+        {page.subtitle ? <p className="site-emag-duel__subtitle">{page.subtitle}</p> : null}
+      </div>
       {count === 2 ? <span className="site-emag-duel__vs" aria-hidden="true">VS</span> : null}
 
       <div className="site-emag-duel__footer">
@@ -446,7 +675,7 @@ function HighlightPage({ page, athletes }) {
                   <span>{athlete.lastName}</span>
                 </strong>
                 {flagUrl ? <img src={flagUrl} alt={athlete.nationality} className="site-emag-duel__flag" /> : null}
-                {pb ? <span className="site-emag-duel__pb">PB: {pb}</span> : null}
+                {pb ? <span className="site-emag-duel__pb">PB: {pb}{athlete.record ? ` ${athlete.record}` : ""}</span> : null}
               </div>
             );
           })}
@@ -625,7 +854,9 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
   const highlightPages = useMemo(
     () => emagazine.highlightPages.map((page) => ({
       ...page,
-      athletes: page.athleteIds.map((id) => athleteLookup.get(id)).filter(Boolean),
+      athletes: page.athletes.length
+        ? page.athletes.map((athlete) => ({ ...athlete, _docId: athlete.id }))
+        : page.athleteIds.map((id) => athleteLookup.get(id)).filter(Boolean),
     })),
     [emagazine.highlightPages, athleteLookup],
   );
@@ -679,6 +910,22 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
           element: <WelcomePage edition={currentEdition} config={emagazine.welcome} />,
         }];
       }
+      if (pageId === "thanks") {
+        return [{
+          key: "thanks",
+          pageId,
+          title: emagazine.thanks.title,
+          element: <ThanksPage edition={currentEdition} config={emagazine.thanks} sponsors={sponsors} />,
+        }];
+      }
+      if (pageId === "clubs") {
+        return [{
+          key: "clubs",
+          pageId,
+          title: "Athletics clubs",
+          element: <ClubsPage />,
+        }];
+      }
       if (pageId === "timetable") {
         return [{
           key: "timetable",
@@ -727,6 +974,10 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
       if (pageId.startsWith("special:")) {
         const page = specialById.get(pageId.replace("special:", ""));
         return page ? [{ key: `special-${page.id}`, pageId, title: page.title, element: <SpecialRacePage race={page} /> }] : [];
+      }
+      if (pageId.startsWith("athlete:")) {
+        const page = emagazine.athletePages.find((entry) => `athlete:${entry.id}` === pageId);
+        return page ? [{ key: `athlete-${page.id}`, pageId, title: athleteDisplayName(page) || "Athlete", element: <AthletePage page={page} edition={currentEdition} /> }] : [];
       }
       if (pageId.startsWith("highlight:")) {
         const page = highlightById.get(pageId.replace("highlight:", ""));

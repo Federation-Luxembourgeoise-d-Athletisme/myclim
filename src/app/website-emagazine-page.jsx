@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useActiveEdition, useSiteEditionYear } from "./edition";
-import { useMeetingEditions, updateEdition } from "./meeting-history-hooks";
+import { fetchAllMeetingResults, useMeetingEditions, updateEdition } from "./meeting-history-hooks";
 import { useAthleteRegistry, useAthletes } from "./athlete-portal-hooks";
 import { useSponsors } from "../site/site-hooks";
 import { FileUpload } from "./file-upload";
@@ -8,7 +8,19 @@ import { EmagazineStatsPanel } from "./website-emagazine-stats";
 import "./website-emagazine-page.css";
 import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emagazine-stats";
 import {
-  buildAthleteOptions,
+  buildMeetingStats,
+  DEFAULT_CUTOUT_FRAME,
+  DEFAULT_PHOTO_FRAME,
+  fetchAthleteEventsFromWa,
+  normalizePhotoFrame,
+  photoFrameStyle,
+  sameAthlete,
+  searchWaAthletes,
+  waCodeForEvent,
+} from "../site/emagazine-athlete-data";
+import {
+  athleteDisplayName,
+  buildAthleteLookup,
   buildEmagazinePageRegistry,
   buildOfficialStartlistGroups,
   normalizeEmagazineConfig,
@@ -193,7 +205,176 @@ function SpecialRaceEditor({ title, race, onChange }) {
   );
 }
 
-function HighlightEditor({ page, athleteOptions, onChange }) {
+// Framing of an athlete photo: drag the photo inside the frame, zoom with the
+// slider. `cutout` frames the Luxembourg athlete portrait on its whole page.
+function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
+  const defaults = cutout ? DEFAULT_CUTOUT_FRAME : DEFAULT_PHOTO_FRAME;
+  const current = normalizePhotoFrame(frame, defaults);
+  const drag = useRef(null);
+  const height = 300;
+  // Same proportions as the photo on the A4 page (794 × 1123).
+  const width = Math.round(height * (cutout ? 794 : 794 / columns) / 1123);
+  const pageScale = height / 1123;
+
+  function update(patch) {
+    onChange(normalizePhotoFrame({ ...current, ...patch }, defaults));
+  }
+
+  function handlePointerDown(event) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { x: event.clientX, y: event.clientY, start: current };
+  }
+
+  function handlePointerMove(event) {
+    if (!drag.current) return;
+    const dx = event.clientX - drag.current.x;
+    const dy = event.clientY - drag.current.y;
+    const { start } = drag.current;
+    if (cutout) {
+      update({ x: start.x + dx / (4 * pageScale), y: start.y + dy / (6 * pageScale) });
+    } else {
+      // Dragging the photo to the right shows more of its left side.
+      update({ x: start.x - (dx * 100) / width, y: start.y - (dy * 100) / height });
+    }
+  }
+
+  function handlePointerUp() {
+    drag.current = null;
+  }
+
+  const imageStyle = cutout
+    ? {
+      position: "absolute",
+      left: 34 * pageScale,
+      bottom: 0,
+      height: 1000 * pageScale,
+      width: "auto",
+      transform: `translate(${(current.x - 50) * 4 * pageScale}px, ${(current.y - 50) * 6 * pageScale}px) scale(${current.zoom / 100})`,
+      transformOrigin: "50% 100%",
+    }
+    : { width: "100%", height: "100%", objectFit: "cover", display: "block", ...photoFrameStyle(current) };
+
+  if (!url) return null;
+
+  return (
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+      <div
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        title="Drag the photo to frame it"
+        style={{
+          position: "relative",
+          width,
+          height,
+          flex: "none",
+          overflow: "hidden",
+          borderRadius: 8,
+          border: "2px solid #10253d",
+          background: cutout ? "#13253d" : "#e5e7eb",
+          cursor: "grab",
+          touchAction: "none",
+          userSelect: "none",
+        }}
+      >
+        <img src={url} alt="" draggable={false} style={{ ...imageStyle, pointerEvents: "none" }} />
+      </div>
+      <div style={{ display: "grid", gap: 8, minWidth: 160, flex: "1 1 160px" }}>
+        <span style={{ fontSize: "0.8rem", color: "#546770" }}>Drag the photo in the frame to place it.</span>
+        <label style={{ fontSize: "0.78rem", color: "#546770" }}>
+          Zoom {current.zoom}%
+          <span style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+            <EmptyButton onClick={() => update({ zoom: current.zoom - 10 })} aria-label="Zoom out">−</EmptyButton>
+            <input
+              type="range"
+              min="100"
+              max="300"
+              step="5"
+              value={current.zoom}
+              onChange={(event) => update({ zoom: Number(event.target.value) })}
+              style={{ flex: 1 }}
+            />
+            <EmptyButton onClick={() => update({ zoom: current.zoom + 10 })} aria-label="Zoom in">+</EmptyButton>
+          </span>
+        </label>
+        <div>
+          <EmptyButton onClick={() => onChange({ ...defaults })}>Reset framing</EmptyButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Search box over the athlete database, with a World Athletics fallback.
+function AthleteFinder({ athleteCards, onPick, disabled = false, placeholder = "Last or first name, from the athlete database" }) {
+  const [search, setSearch] = useState("");
+  const [waMatches, setWaMatches] = useState(null);
+  const [message, setMessage] = useState("");
+  const inputStyle = fieldInputStyle();
+
+  const matches = useMemo(() => {
+    const key = searchKey(search.trim());
+    if (key.length < 2) return [];
+    return athleteCards
+      .filter((card) => searchKey(athleteDisplayName(card)).includes(key) || searchKey(`${card.lastName} ${card.firstName}`).includes(key))
+      .slice(0, 8);
+  }, [search, athleteCards]);
+
+  async function searchWa() {
+    setMessage("Searching World Athletics…");
+    try {
+      setWaMatches(await searchWaAthletes(search.trim()));
+      setMessage("");
+    } catch (error) {
+      setMessage(error.message || "World Athletics did not answer.");
+    }
+  }
+
+  function pick(person) {
+    setSearch("");
+    setWaMatches(null);
+    onPick(person);
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={placeholder} disabled={disabled} />
+        <EmptyButton disabled={disabled || search.trim().length < 3} onClick={searchWa} style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+          Search on World Athletics
+        </EmptyButton>
+      </div>
+      {message ? <span style={{ fontSize: "0.82rem", color: "#546770" }}>{message}</span> : null}
+      {matches.length || waMatches ? (
+        <div style={{ display: "grid", gap: 4, padding: 6, border: "1px solid #dbe4ee", borderRadius: 10, background: "#fff" }}>
+          {matches.map((card) => (
+            <button key={card._docId} type="button" className="emag-ed__page" onClick={() => pick(card)}>
+              <span className="emag-ed__page-title">
+                {athleteDisplayName(card)} {card.nationality ? `(${card.nationality})` : ""} {card.birthYear ? `· ${card.birthYear}` : ""}
+                {card.waid ? "" : " · no WA ID"}
+              </span>
+            </button>
+          ))}
+          {(waMatches || []).map((person) => (
+            <button key={person.waid} type="button" className="emag-ed__page" onClick={() => pick(person)}>
+              <span className="emag-ed__page-title">
+                World Athletics: {person.firstName} {person.lastName} ({person.country}){person.birthYear ? ` · ${person.birthYear}` : ""}
+              </span>
+            </button>
+          ))}
+          {waMatches && !waMatches.length ? <span style={{ fontSize: "0.82rem", color: "#6b7280" }}>Nobody found on World Athletics.</span> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Duel / 3 / 4 athletes: the athletes are saved with the page (name, flag,
+// World Athletics PB in the page event, photo) so that the public sees them.
+function HighlightEditor({ page, athleteCards, onChange }) {
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
   const athleteSlotCount = page.type === "quatuor" ? 4 : page.type === "trio" ? 3 : page.type === "duel" ? 2 : 1;
@@ -202,90 +383,146 @@ function HighlightEditor({ page, athleteOptions, onChange }) {
     onChange({ ...page, [field]: value });
   }
 
-  function setAthleteAt(index, value) {
-    const next = [...page.athleteIds];
-    next[index] = value;
-    onChange({ ...page, athleteIds: next.filter(Boolean) });
+  function setAthleteAt(index, athlete) {
+    const next = [...page.athletes];
+    next[index] = athlete;
+    onChange({ ...page, athletes: next.filter(Boolean) });
   }
 
-  function setAthletePhoto(athleteId, url) {
-    if (!athleteId) return;
-    onChange({ ...page, athletePhotos: { ...(page.athletePhotos || {}), [athleteId]: url } });
+  async function pbFor(waid) {
+    if (!waid || !page.event) return { pb: "", record: "" };
+    const events = await fetchAthleteEventsFromWa(waid);
+    const code = waCodeForEvent(page.event);
+    const match = events.find((entry) => entry.disciplineCode === code)
+      || events.find((entry) => entry.event.toLowerCase() === page.event.toLowerCase());
+    return { pb: match?.pb || "", record: match?.record || "" };
+  }
+
+  async function pick(index, person) {
+    setBusy("Loading the World Athletics PB…");
+    setMessage("");
+    const waid = person.waid ? String(person.waid) : "";
+    let best = { pb: "", record: "" };
+    try {
+      best = await pbFor(waid);
+      if (!waid) setMessage("No World Athletics ID in the database: search on World Athletics to get the PB.");
+      else if (!page.event) setMessage("Fill in the event to get the PBs.");
+      else if (!best.pb) setMessage(`No indoor ${page.event} PB on World Athletics.`);
+    } catch (error) {
+      setMessage(`World Athletics: ${error.message}`);
+    }
+    setAthleteAt(index, {
+      id: waid ? `wa-${waid}` : `athlete-${index + 1}-${searchKey(person.lastName).replace(/[^a-z]/g, "")}`,
+      firstName: person.firstName || "",
+      lastName: person.lastName || "",
+      nationality: person.nationality || person.country || "",
+      waid,
+      ...best,
+      photoUrl: page.athletes[index]?.photoUrl || "",
+    });
+    setBusy("");
+  }
+
+  async function updatePbs() {
+    setBusy("Updating the PBs from World Athletics…");
+    setMessage("");
+    try {
+      const athletes = await Promise.all(page.athletes.map(async (athlete) => ({ ...athlete, ...(await pbFor(athlete.waid)) })));
+      onChange({ ...page, athletes });
+    } catch (error) {
+      setMessage(`World Athletics: ${error.message}`);
+    }
+    setBusy("");
   }
 
   return (
-    <div style={{ display: "grid", gap: 14, padding: 18, border: "1px solid #dbe4ee", borderRadius: 14, background: "#fff" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <div>
-          <h4 style={{ margin: 0, fontSize: "1rem", color: "#10253d" }}>{page.title || "Highlight page"}</h4>
-          <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "0.82rem" }}>
-            One full-height photo per athlete (upload it under each athlete), with name, flag and PB from the athlete database.
-          </p>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr", gap: 12 }}>
+    <EditorSection
+      title={page.title || "Highlight page"}
+      description="One full-height photo per athlete. Find each athlete by name: the flag and the PB in the page event come from World Athletics."
+      actions={(
+        <EmptyButton disabled={!page.event || !page.athletes.length || Boolean(busy)} onClick={updatePbs}>
+          Update PBs from World Athletics
+        </EmptyButton>
+      )}
+    >
+      <div className="emag-ed__two-cols">
         <div>
           <label style={labelStyle}>Template</label>
           <select style={inputStyle} value={page.type} onChange={(event) => set("type", event.target.value)}>
-            <option value="duel">Vs 2</option>
-            <option value="trio">Vs 3</option>
-            <option value="quatuor">Vs 4</option>
-            <option value="luxembourg">Luxembourg spotlight</option>
-            <option value="international">International spotlight</option>
+            <option value="duel">Duel (2 athletes)</option>
+            <option value="trio">3 athletes</option>
+            <option value="quatuor">4 athletes</option>
           </select>
         </div>
         <div>
-          <label style={labelStyle}>Title</label>
-          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Empty = the athletes' event, e.g. Long Jump Men" />
+          <label style={labelStyle}>Event (for the PBs)</label>
+          <input style={inputStyle} value={page.event} onChange={(event) => set("event", event.target.value)} placeholder="400m, 60m hurdles, Long Jump" />
         </div>
         <div>
-          <label style={labelStyle}>Image URL</label>
-          <input style={inputStyle} value={page.imageUrl} onChange={(event) => set("imageUrl", event.target.value)} placeholder="https://…" />
+          <label style={labelStyle}>Title</label>
+          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Athletes to watch" />
         </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={labelStyle}>Subtitle</label>
-          <input style={inputStyle} value={page.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder="Optional subtitle" />
-        </div>
-        <div>
-          <label style={labelStyle}>Manual intro</label>
-          <input style={inputStyle} value={page.body} onChange={(event) => set("body", event.target.value)} placeholder="Optional intro text" />
+          <input style={inputStyle} value={page.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder="400m Men" />
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${athleteSlotCount}, minmax(0, 1fr))`, gap: 12 }}>
+      {busy || message ? <p style={{ margin: 0, fontSize: "0.84rem", color: busy ? "#1d4ed8" : "#92400e" }}>{busy || message}</p> : null}
+      {!page.athletes.length && page.athleteIds.length ? (
+        <p className="emag-ed__missing">Older page: pick the athletes again below so that the public sees them.</p>
+      ) : null}
+
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(athleteSlotCount, 2)}, minmax(0, 1fr))`, gap: 12 }}>
         {Array.from({ length: athleteSlotCount }).map((_, index) => {
-          const athleteId = page.athleteIds[index] || "";
+          const athlete = page.athletes[index];
           return (
-            <div key={`${page.id}-athlete-${index}`} style={{ display: "grid", gap: 8 }}>
-              <label style={labelStyle}>Athlete {index + 1}</label>
-              <select
-                style={inputStyle}
-                value={athleteId}
-                onChange={(event) => setAthleteAt(index, event.target.value)}
-              >
-                <option value="">Select athlete</option>
-                {athleteOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              {athleteId ? (
-                <FileUpload
-                  value={page.athletePhotos?.[athleteId] || ""}
-                  onChange={(url) => setAthletePhoto(athleteId, url)}
-                  accept="image/*"
-                  storagePath="emagazine-athlete-photos"
-                  label="Photo de cet athlète"
+            <div key={`${page.id}-athlete-${index}`} style={{ display: "grid", gap: 8, alignContent: "start", padding: 12, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Athlete {index + 1}</label>
+              {athlete ? (
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: "0.9rem", color: "#10253d" }}>
+                    <strong>{athlete.firstName} {athlete.lastName}</strong> {athlete.nationality ? `(${athlete.nationality})` : ""}
+                    <br />
+                    <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
+                      PB {page.event}: {athlete.pb ? `${athlete.pb}${athlete.record ? ` ${athlete.record}` : ""}` : "—"}
+                    </span>
+                  </span>
+                  <EmptyButton onClick={() => onChange({ ...page, athletes: page.athletes.filter((_, position) => position !== index) })} style={{ color: "#c62828" }}>
+                    Remove
+                  </EmptyButton>
+                </div>
+              ) : null}
+              {athlete || index === page.athletes.length ? (
+                <AthleteFinder
+                  athleteCards={athleteCards}
+                  disabled={Boolean(busy)}
+                  placeholder={athlete ? "Replace with…" : "Find the athlete by name"}
+                  onPick={(person) => pick(index, person)}
                 />
+              ) : null}
+              {athlete ? (
+                <>
+                  <FileUpload
+                    value={athlete.photoUrl}
+                    onChange={(url) => setAthleteAt(index, { ...athlete, photoUrl: url, photoFrame: { ...DEFAULT_PHOTO_FRAME } })}
+                    accept="image/*"
+                    storagePath="emagazine-athlete-photos"
+                    label="Photo (portrait, full height of the page)"
+                  />
+                  <PhotoFramer
+                    url={athlete.photoUrl}
+                    frame={athlete.photoFrame}
+                    columns={athleteSlotCount}
+                    onChange={(photoFrame) => setAthleteAt(index, { ...athlete, photoFrame })}
+                  />
+                </>
               ) : null}
             </div>
           );
         })}
       </div>
-    </div>
+    </EditorSection>
   );
 }
 
@@ -338,12 +575,218 @@ function PartnerPageEditor({ page, sponsors, onChange }) {
   );
 }
 
+const COUNTRY_NAMES = { LUX: "Luxembourg" };
+
+function searchKey(value) {
+  return String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function AthletePageEditor({ page, athleteCards, onChange }) {
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
+  const meetingResults = useRef(null);
+  const labelStyle = fieldLabelStyle();
+  const inputStyle = fieldInputStyle();
+  const set = (patch) => onChange({ ...page, ...patch });
+
+  async function meetingStatsFor(person) {
+    meetingResults.current ||= await fetchAllMeetingResults();
+    return buildMeetingStats(meetingResults.current.filter((row) => sameAthlete(row, person)));
+  }
+
+  async function waPatch(waid) {
+    const events = await fetchAthleteEventsFromWa(waid);
+    return { waid: String(waid), events, waUpdatedAt: new Date().toISOString().slice(0, 10) };
+  }
+
+  // Fills the page from the athlete database, then World Athletics.
+  async function pick(person) {
+    setBusy("Loading the athlete…");
+    setMessage("");
+    const nationality = person.nationality || person.country || "";
+    let next = {
+      ...page,
+      firstName: person.firstName || page.firstName,
+      lastName: person.lastName || page.lastName,
+      country: COUNTRY_NAMES[nationality] || nationality || page.country,
+      waid: person.waid ? String(person.waid) : "",
+    };
+    const problems = [];
+    try {
+      next.meetingStats = await meetingStatsFor(next);
+    } catch (error) {
+      problems.push(`meeting results: ${error.message}`);
+    }
+    if (next.waid) {
+      try {
+        next = { ...next, ...(await waPatch(next.waid)) };
+      } catch (error) {
+        problems.push(`World Athletics: ${error.message}`);
+      }
+    } else {
+      problems.push("no World Athletics ID in the database: use \"Search on World Athletics\"");
+    }
+    onChange(next);
+    setBusy("");
+    setMessage(problems.length ? `Loaded, except ${problems.join("; ")}.` : "Loaded from the athlete database, World Athletics and the meeting results.");
+  }
+
+  async function run(label, task) {
+    setBusy(label);
+    setMessage("");
+    try {
+      await task();
+    } catch (error) {
+      setMessage(error.message || "Something went wrong.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const shownCount = page.events.filter((entry) => entry.shown).length;
+  const stats = page.meetingStats;
+
+  return (
+    <EditorSection
+      title="Luxembourg athlete"
+      description="Search the athlete by name: the bests come from World Athletics and the history from the meeting results. Only the photo and the short text are typed in."
+    >
+      <div>
+        <label style={labelStyle}>Find the athlete</label>
+        <AthleteFinder athleteCards={athleteCards} onPick={pick} disabled={Boolean(busy)} />
+      </div>
+
+      {busy || message ? (
+        <p style={{ margin: 0, fontSize: "0.84rem", color: busy ? "#1d4ed8" : "#546770" }}>{busy || message}</p>
+      ) : null}
+
+      <div className="emag-ed__two-cols">
+        <div>
+          <label style={labelStyle}>First name</label>
+          <input style={inputStyle} value={page.firstName} onChange={(event) => set({ firstName: event.target.value })} />
+        </div>
+        <div>
+          <label style={labelStyle}>Last name</label>
+          <input style={inputStyle} value={page.lastName} onChange={(event) => set({ lastName: event.target.value })} />
+        </div>
+        <div>
+          <label style={labelStyle}>Country</label>
+          <input style={inputStyle} value={page.country} onChange={(event) => set({ country: event.target.value })} placeholder="Luxembourg" />
+        </div>
+        <div>
+          <label style={labelStyle}>World Athletics ID</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input style={inputStyle} value={page.waid} onChange={(event) => set({ waid: event.target.value.replace(/\D/g, "") })} placeholder="14621598" />
+            {page.waid ? (
+              <a href={`https://worldathletics.org/athletes/_/${page.waid}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                WA profile
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <FileUpload
+        value={page.photoUrl}
+        onChange={(url) => set({ photoUrl: url, photoFrame: { ...DEFAULT_CUTOUT_FRAME } })}
+        accept="image/*"
+        storagePath="emagazine-athletes"
+        label="Photo (portrait, cut-out PNG, full body)"
+      />
+      <PhotoFramer url={page.photoUrl} frame={page.photoFrame} cutout onChange={(photoFrame) => set({ photoFrame })} />
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <label style={{ ...labelStyle, marginBottom: 0 }}>
+            Indoor bests — World Athletics{page.waUpdatedAt ? `, updated ${page.waUpdatedAt}` : ""}
+          </label>
+          <EmptyButton
+            disabled={!page.waid || Boolean(busy)}
+            onClick={() => run("Loading World Athletics…", async () => set(await waPatch(page.waid)))}
+          >
+            Update from World Athletics
+          </EmptyButton>
+        </div>
+        {page.events.length ? (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.86rem" }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: "#6b7280" }}>
+                <th style={{ padding: "4px 6px" }}>On the page</th>
+                <th style={{ padding: "4px 6px" }}>Event</th>
+                <th style={{ padding: "4px 6px" }}>PB</th>
+                <th style={{ padding: "4px 6px" }}>Record</th>
+                <th style={{ padding: "4px 6px" }}>SB</th>
+              </tr>
+            </thead>
+            <tbody>
+              {page.events.map((entry) => (
+                <tr key={entry.id} style={{ borderTop: "1px solid #e5e7eb" }}>
+                  <td style={{ padding: "6px" }}>
+                    <input
+                      type="checkbox"
+                      checked={entry.shown}
+                      disabled={!entry.shown && shownCount >= 3}
+                      onChange={(event) => set({
+                        events: page.events.map((item) => (item.id === entry.id ? { ...item, shown: event.target.checked } : item)),
+                      })}
+                      aria-label={`Show ${entry.event} on the page`}
+                    />
+                  </td>
+                  <td style={{ padding: "6px", fontWeight: 700 }}>{entry.event}</td>
+                  <td style={{ padding: "6px" }}>{entry.pb}{entry.pbYear ? ` (${entry.pbYear})` : ""}</td>
+                  <td style={{ padding: "6px" }}>{entry.record || "—"}</td>
+                  <td style={{ padding: "6px" }}>{entry.sb ? `${entry.sb} (${entry.sbYear})` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p style={{ margin: 0, fontSize: "0.84rem", color: "#6b7280" }}>Find the athlete above, or enter the World Athletics ID and update.</p>
+        )}
+        <p style={{ margin: 0, fontSize: "0.78rem", color: "#6b7280" }}>Up to 3 events on the page.</p>
+      </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <label style={{ ...labelStyle, marginBottom: 0, display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="checkbox" checked={page.showMeetingStats} onChange={(event) => set({ showMeetingStats: event.target.checked })} />
+            At the meeting — from the meeting results
+          </label>
+          <EmptyButton
+            disabled={!page.lastName || Boolean(busy)}
+            onClick={() => run("Reading the meeting results…", async () => set({ meetingStats: await meetingStatsFor(page) }))}
+          >
+            Recalculate
+          </EmptyButton>
+        </div>
+        <p style={{ margin: 0, fontSize: "0.86rem", color: "#10253d" }}>
+          {stats
+            ? `${stats.editions} edition(s) since ${stats.firstYear} · ${stats.wins} win(s) · best: ${stats.bests.map((best) => `${best.event} ${best.mark} (${best.year})`).join(", ")}`
+            : "No result at the meeting found under this name."}
+        </p>
+      </div>
+
+      <div>
+        <label style={labelStyle}>Short text (optional)</label>
+        <textarea
+          style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
+          value={page.text}
+          onChange={(event) => set({ text: event.target.value })}
+          placeholder="A few lines about the athlete, up to about 35 words"
+        />
+      </div>
+    </EditorSection>
+  );
+}
+
 const PAGE_SECTIONS = {
   core: "Opening",
   special: "Special races",
+  athlete: "Luxembourg athletes",
   highlight: "Highlights",
   partner: "Partners",
   auto: "Start lists",
+  closing: "Closing",
 };
 
 const STATUS_COLORS = {
@@ -367,6 +810,16 @@ function pageReadiness(page, draft, startlistById) {
     if (!draft.welcome.body.trim()) missing.push("the message");
     if (!draft.welcome.personName.trim()) missing.push("the signatory's name");
     if (!draft.welcome.photoUrl) missing.push("the portrait");
+  } else if (page.id === "thanks") {
+    if (!draft.thanks.names.length) missing.push("the people to thank");
+    if (!draft.thanks.closing.trim()) missing.push("the closing words");
+  } else if (page.kind === "athlete") {
+    const athlete = draft.athletePages.find((entry) => entry.id === page.sourceId);
+    if (athlete) {
+      if (!athlete.firstName.trim() || !athlete.lastName.trim()) missing.push("the name");
+      if (!athlete.photoUrl) missing.push("the photo");
+      if (!athlete.events.some((entry) => entry.shown)) missing.push("the World Athletics bests");
+    }
   } else if (page.kind === "special") {
     const race = draft.specialRaces[page.id.replace("special:", "")];
     if (!race?.enabled) return { state: "off", missing: [] };
@@ -375,8 +828,8 @@ function pageReadiness(page, draft, startlistById) {
     const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
     if (highlight) {
       const slots = highlightSlotCount(highlight.type);
-      if (highlight.athleteIds.length < slots) missing.push(`${slots - highlight.athleteIds.length} athlete(s)`);
-      const withoutPhoto = highlight.athleteIds.filter((id) => !highlight.athletePhotos?.[id]).length;
+      if (highlight.athletes.length < slots) missing.push(`${slots - highlight.athletes.length} athlete(s)`);
+      const withoutPhoto = highlight.athletes.filter((athlete) => !athlete.photoUrl).length;
       if (withoutPhoto) missing.push(`${withoutPhoto} athlete photo(s)`);
     }
   } else if (page.kind === "partner") {
@@ -443,10 +896,12 @@ export function WebsiteEmagazinePage({ Panel }) {
     setSavedSnapshot(JSON.stringify(config));
   }, [selectedEdition]);
 
-  const athleteOptions = useMemo(
-    () => buildAthleteOptions(registry, athletes),
+  const athleteCards = useMemo(
+    () => [...buildAthleteLookup(registry, athletes).values()],
     [registry, athletes],
   );
+
+
 
   const activeSponsors = useMemo(
     () => sponsors.filter((sponsor) => sponsor.active),
@@ -570,11 +1025,36 @@ export function WebsiteEmagazinePage({ Panel }) {
       ...current,
       highlightPages: [
         ...current.highlightPages,
-        { id, type: "duel", title: "", subtitle: "", body: "", imageUrl: "", athleteIds: [] },
+        { id, type: "duel", title: "", subtitle: "", body: "", imageUrl: "", event: "", athletes: [], athleteIds: [], athletePhotos: {} },
       ],
       pageOrder: [...current.pageOrder, `highlight:${id}`],
     }));
     setSelectedPageId(`highlight:${id}`);
+  }
+
+  function appendAthletePage() {
+    const id = `athlete-${Date.now()}`;
+    setDraft((current) => ({
+      ...current,
+      athletePages: [
+        ...current.athletePages,
+        {
+          id,
+          firstName: "",
+          lastName: "",
+          country: "Luxembourg",
+          waid: "",
+          photoUrl: "",
+          text: "",
+          events: [],
+          waUpdatedAt: "",
+          meetingStats: null,
+          showMeetingStats: true,
+        },
+      ],
+      pageOrder: [...current.pageOrder, `athlete:${id}`],
+    }));
+    setSelectedPageId(`athlete:${id}`);
   }
 
   function appendPartnerPage() {
@@ -591,13 +1071,17 @@ export function WebsiteEmagazinePage({ Panel }) {
   }
 
   function hideOrDeletePage(page) {
-    if (page.kind === "highlight" || page.kind === "partner") {
+    if (page.kind === "highlight" || page.kind === "partner" || page.kind === "athlete") {
       if (!window.confirm(`Delete the page "${page.title}"?`)) return;
-      const listKey = page.kind === "highlight" ? "highlightPages" : "partnerPages";
+      const listKey = { highlight: "highlightPages", partner: "partnerPages", athlete: "athletePages" }[page.kind];
       setDraft((current) => ({
         ...current,
         [listKey]: current[listKey].filter((entry) => entry.id !== page.sourceId),
         pageOrder: current.pageOrder.filter((entry) => entry !== page.id),
+        // A deleted 2026 sample page must not come back with the defaults.
+        dismissedSamples: page.sourceId.startsWith("sample-")
+          ? [...current.dismissedSamples, page.sourceId]
+          : current.dismissedSamples,
       }));
       setSelectedPageId("cover");
       return;
@@ -702,6 +1186,47 @@ export function WebsiteEmagazinePage({ Panel }) {
       );
     }
 
+    if (page.id === "thanks") {
+      const setThanks = (field, value) => setDraft((current) => ({ ...current, thanks: { ...current.thanks, [field]: value } }));
+      return (
+        <EditorSection title="Thank you" description="Closing page of the magazine. The partner logos at the bottom come from the partners database.">
+          <div>
+            <label style={labelStyle}>Title</label>
+            <input style={inputStyle} value={draft.thanks.title} onChange={(event) => setThanks("title", event.target.value)} />
+          </div>
+          <FileUpload
+            value={draft.thanks.photoUrl}
+            onChange={(url) => setThanks("photoUrl", url)}
+            accept="image/*"
+            storagePath="emagazine-imported-pages"
+            label="Photo (landscape) — empty = the volunteers photo of the website"
+          />
+          <div>
+            <label style={labelStyle}>Intro</label>
+            <textarea style={{ ...inputStyle, minHeight: 70, resize: "vertical" }} value={draft.thanks.intro} onChange={(event) => setThanks("intro", event.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>People and institutions thanked — one per line</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 220, resize: "vertical" }}
+              value={draft.thanks.names.join("\n")}
+              onChange={(event) => setThanks("names", event.target.value.split("\n"))}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Closing words</label>
+            <textarea style={{ ...inputStyle, minHeight: 100, resize: "vertical" }} value={draft.thanks.closing} onChange={(event) => setThanks("closing", event.target.value)} />
+          </div>
+        </EditorSection>
+      );
+    }
+
+    if (page.id === "clubs") {
+      return (
+        <EditorSection title="Athletics clubs" description="&quot;Want to discover athletics?&quot;: the FLA clubs with email, website and phone, and the QR code of the 2026 magazine. The list is kept in the app's code (src/data/flaClubs.json): ask for an update when a club changes." />
+      );
+    }
+
     if (page.id === "timetable") {
       return (
         <EditorSection title="Timetable" description="Built from the timetable of the current edition settings.">
@@ -756,12 +1281,28 @@ export function WebsiteEmagazinePage({ Panel }) {
       );
     }
 
+    if (page.kind === "athlete") {
+      const athlete = draft.athletePages.find((entry) => entry.id === page.sourceId);
+      return athlete ? (
+        <AthletePageEditor
+          key={athlete.id}
+          page={athlete}
+          athleteCards={athleteCards}
+          onChange={(nextPage) => setDraft((current) => ({
+            ...current,
+            athletePages: current.athletePages.map((entry) => (entry.id === nextPage.id ? nextPage : entry)),
+          }))}
+        />
+      ) : null;
+    }
+
     if (page.kind === "highlight") {
       const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
       return highlight ? (
         <HighlightEditor
+          key={highlight.id}
           page={highlight}
-          athleteOptions={athleteOptions}
+          athleteCards={athleteCards}
           onChange={(nextPage) => setDraft((current) => ({
             ...current,
             highlightPages: current.highlightPages.map((entry) => (entry.id === nextPage.id ? nextPage : entry)),
@@ -916,6 +1457,7 @@ export function WebsiteEmagazinePage({ Panel }) {
             ) : null}
 
             <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
+              <EmptyButton onClick={appendAthletePage}>+ Add Luxembourg athlete</EmptyButton>
               <EmptyButton onClick={appendHighlightPage}>+ Add highlight page</EmptyButton>
               <EmptyButton onClick={appendPartnerPage}>+ Add partner page</EmptyButton>
             </div>
@@ -946,7 +1488,7 @@ export function WebsiteEmagazinePage({ Panel }) {
                       </EmptyButton>
                       <span style={{ flex: 1 }} />
                       <EmptyButton onClick={() => hideOrDeletePage(selectedPage)} style={{ color: "#c62828" }}>
-                        {selectedPage.kind === "highlight" || selectedPage.kind === "partner" ? "Delete page" : "Hide page"}
+                        {["highlight", "partner", "athlete"].includes(selectedPage.kind) ? "Delete page" : "Hide page"}
                       </EmptyButton>
                     </>
                   ) : (

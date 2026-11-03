@@ -2,6 +2,19 @@ import {
   buildAthleteIdentityKeys,
   resolveAthleteBirthYear,
 } from "../app/athlete-portal-hooks";
+import { DEFAULT_CUTOUT_FRAME, normalizePhotoFrame } from "./emagazine-athlete-data";
+// Cut-out portrait of the 2026 magazine: photo of the prefilled athlete page.
+import vanDerWekenPhoto from "../assets/emag-athlete-van-der-weken.png";
+// Photos of the 2026 duel pages: sample highlight pages to try the layouts.
+import bredauPhoto from "../assets/emag-samples/bredau.jpg";
+import iguacelPhoto from "../assets/emag-samples/iguacel.jpg";
+import fernandezPhoto from "../assets/emag-samples/fernandez.jpg";
+import martinezPhoto from "../assets/emag-samples/martinez.jpg";
+import szymanskiPhoto from "../assets/emag-samples/szymanski.jpg";
+import czykierPhoto from "../assets/emag-samples/czykier.jpg";
+import llopisPhoto from "../assets/emag-samples/llopis.jpg";
+import verheydenPhoto from "../assets/emag-samples/verheyden.jpg";
+import querinjeanPhoto from "../assets/emag-samples/querinjean.jpg";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -44,11 +57,101 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
     },
   },
   highlightPages: [],
+  // One page per Luxembourg athlete. Bests come from World Athletics and the
+  // meeting stats from the meeting results, both loaded in the admin.
+  athletePages: [
+    {
+      id: "athlete-van-der-weken",
+      firstName: "Patrizia",
+      lastName: "Van der Weken",
+      country: "Luxembourg",
+      waid: "14621598",
+      photoUrl: vanDerWekenPhoto,
+      text: "",
+      events: [
+        { id: "wa-60", disciplineCode: "60", event: "60m", pb: "7.01", pbYear: "2026", record: "NR", sb: "7.01", sbYear: "2026", shown: true },
+        { id: "wa-200", disciplineCode: "200", event: "200m", pb: "23.09", pbYear: "2026", record: "NR", sb: "23.09", sbYear: "2026", shown: true },
+        { id: "wa-50", disciplineCode: "50", event: "50m", pb: "6.12", pbYear: "2025", record: "NR", sb: "", sbYear: "", shown: false },
+        { id: "wa-300", disciplineCode: "300", event: "300m", pb: "39.55", pbYear: "2021", record: "", sb: "", sbYear: "", shown: false },
+      ],
+      waUpdatedAt: "2026-11-03",
+      meetingStats: {
+        editions: 10,
+        firstYear: 2015,
+        wins: 7,
+        bests: [
+          { event: "60m", mark: "7.07", year: 2025 },
+          { event: "200m", mark: "23.17", year: 2025 },
+          { event: "50m", mark: "6.37", year: 2019 },
+        ],
+      },
+      showMeetingStats: true,
+    },
+  ],
   partnerPages: [],
   // Header photo of each official start list page, by group id ("60m-W").
   startlistPhotos: {},
+  // Closing "Thank you" page, prefilled with the 2026 text.
+  thanks: {
+    title: "Thank you",
+    intro: "To all the people and institutions without whom this magnificent event could not have taken place.",
+    names: [
+      "CMCM",
+      "Ville de Luxembourg",
+      "Luxembourg Let’s Make It Happen",
+      "The Ministry of Sports",
+      "Institutional partners: the Coque, European Athletics, LUNEX",
+      "The judges",
+      "The volunteers",
+      "LUNEX students",
+      "FLA staff",
+      "The meeting director",
+    ],
+    closing: "Without the 250 people who have worked on this project over the last 6 months, the event would not have been possible. Thank you all for your commitment — see you next year!",
+    photoUrl: "",
+  },
   pageOrder: [],
 };
+
+// 2026 duel pages with their World Athletics PBs (November 2026), added to
+// every edition until they are deleted in the admin.
+const SAMPLE_HIGHLIGHT_PAGES = [
+  {
+    id: "sample-duel",
+    type: "duel",
+    title: "3000m Men",
+    event: "3000m",
+    athletes: [
+      { id: "wa-14754671", firstName: "Ruben", lastName: "Verheyden", nationality: "BEL", waid: "14754671", pb: "7:39.90", record: "", photoUrl: verheydenPhoto },
+      { id: "wa-14929147", firstName: "Ruben", lastName: "Querinjean", nationality: "LUX", waid: "14929147", pb: "7:40.64", record: "NR", photoUrl: querinjeanPhoto },
+    ],
+  },
+  {
+    id: "sample-trio",
+    type: "trio",
+    title: "Athletes to watch",
+    subtitle: "400m Men",
+    event: "400m",
+    athletes: [
+      { id: "wa-14771929", firstName: "Jean Paul", lastName: "Bredau", nationality: "GER", waid: "14771929", pb: "45.94", record: "", photoUrl: bredauPhoto },
+      { id: "wa-14564235", firstName: "Christian", lastName: "Iguacel", nationality: "BEL", waid: "14564235", pb: "46.48", record: "", photoUrl: iguacelPhoto },
+      { id: "wa-14932553", firstName: "Markel", lastName: "Fernandez", nationality: "ESP", waid: "14932553", pb: "45.95", record: "", photoUrl: fernandezPhoto },
+    ],
+  },
+  {
+    id: "sample-quatuor",
+    type: "quatuor",
+    title: "Pick your podium",
+    subtitle: "60m hurdles Men",
+    event: "60m hurdles",
+    athletes: [
+      { id: "wa-14734118", firstName: "Asier", lastName: "Martínez", nationality: "ESP", waid: "14734118", pb: "7.49", record: "", photoUrl: martinezPhoto },
+      { id: "wa-14799803", firstName: "Jakub", lastName: "Szymański", nationality: "POL", waid: "14799803", pb: "7.37", record: "NR", photoUrl: szymanskiPhoto },
+      { id: "wa-14434325", firstName: "Damian", lastName: "Czykier", nationality: "POL", waid: "14434325", pb: "7.48", record: "", photoUrl: czykierPhoto },
+      { id: "wa-14711683", firstName: "Enrique", lastName: "Llopis", nationality: "ESP", waid: "14711683", pb: "7.42", record: "NR", photoUrl: llopisPhoto },
+    ],
+  },
+];
 
 function buildOfficialStartlistPageIds(edition) {
   return buildOfficialStartlistGroups(edition?.disciplines || [], [])
@@ -63,9 +166,12 @@ function buildDefaultPageOrder(config, edition) {
     "sponsors",
     "special:influencerRace",
     "special:businessRace",
+    ...config.athletePages.map((page) => `athlete:${page.id}`),
     ...config.highlightPages.map((page) => `highlight:${page.id}`),
     ...config.partnerPages.map((page) => `partner:${page.id}`),
     ...buildOfficialStartlistPageIds(edition),
+    "clubs",
+    "thanks",
   ];
 }
 
@@ -80,8 +186,14 @@ function normalizePageOrder(pageOrder, config, edition) {
     }).filter((value) => knownIds.has(value))
     : [];
   const normalized = normalizedRaw.filter((value, index) => normalizedRaw.indexOf(value) === index);
-  const missing = buildDefaultPageOrder(config, edition).filter((id) => !normalized.includes(id));
-  return [...normalized, ...missing];
+  // A page new to a saved order goes after the page it follows by default.
+  const defaultOrder = buildDefaultPageOrder(config, edition);
+  defaultOrder.forEach((id, index) => {
+    if (normalized.includes(id)) return;
+    const previous = defaultOrder.slice(0, index).reverse().find((entry) => normalized.includes(entry));
+    normalized.splice(previous ? normalized.indexOf(previous) + 1 : 0, 0, id);
+  });
+  return normalized;
 }
 
 export function buildEmagazinePageRegistry(config, edition) {
@@ -113,6 +225,14 @@ export function buildEmagazinePageRegistry(config, edition) {
       sourcePath: "/app/website/emagazine",
       enabled: config.specialRaces.businessRace.enabled,
     },
+    ...config.athletePages.map((page) => ({
+      id: `athlete:${page.id}`,
+      kind: "athlete",
+      sourceId: page.id,
+      title: [page.firstName, page.lastName].filter(Boolean).join(" ") || "Athlete page",
+      editorAnchor: null,
+      sourcePath: "/app/website/emagazine",
+    })),
     ...config.highlightPages.map((page) => ({
       id: `highlight:${page.id}`,
       kind: "highlight",
@@ -136,6 +256,9 @@ export function buildEmagazinePageRegistry(config, edition) {
       editorAnchor: "emag-startlist-photos",
       sourcePath: "/app/athlete-portal/athletes",
     })),
+    // FLA clubs and how to join them (list in src/data/flaClubs.json).
+    { id: "clubs", kind: "closing", title: "Athletics clubs", editorAnchor: null, sourcePath: "/e-magazine" },
+    { id: "thanks", kind: "closing", title: "Thank you", editorAnchor: null, sourcePath: "/app/website/emagazine" },
   ];
 }
 
@@ -171,8 +294,50 @@ function normalizeHighlightPage(page, index) {
     subtitle: normalizeText(page?.subtitle),
     body: normalizeText(page?.body),
     imageUrl: normalizeText(page?.imageUrl),
+    // Event of the World Athletics PBs ("400m", "60m hurdles").
+    event: normalizeText(page?.event),
+    // Athletes saved with the page (name, flag, WA PB, photo): the public can
+    // read them, unlike the athlete database behind the older athleteIds.
+    athletes: (Array.isArray(page?.athletes) ? page.athletes : []).map((athlete, athleteIndex) => ({
+      id: athlete?.id || makeStableId("athlete", athleteIndex),
+      firstName: normalizeText(athlete?.firstName),
+      lastName: normalizeText(athlete?.lastName),
+      nationality: normalizeText(athlete?.nationality),
+      waid: normalizeText(athlete?.waid),
+      pb: normalizeText(athlete?.pb),
+      record: normalizeText(athlete?.record),
+      photoUrl: normalizeText(athlete?.photoUrl),
+      photoFrame: normalizePhotoFrame(athlete?.photoFrame),
+    })),
     athleteIds,
     athletePhotos,
+  };
+}
+
+function normalizeAthletePage(page, index) {
+  return {
+    id: page?.id || makeStableId("athlete", index),
+    firstName: normalizeText(page?.firstName),
+    lastName: normalizeText(page?.lastName),
+    country: normalizeText(page?.country),
+    waid: normalizeText(page?.waid),
+    photoUrl: normalizeText(page?.photoUrl),
+    photoFrame: normalizePhotoFrame(page?.photoFrame, DEFAULT_CUTOUT_FRAME),
+    text: normalizeText(page?.text),
+    events: (Array.isArray(page?.events) ? page.events : []).map((entry, eventIndex) => ({
+      id: entry?.id || makeStableId("event", eventIndex),
+      disciplineCode: normalizeText(entry?.disciplineCode),
+      event: normalizeText(entry?.event),
+      pb: normalizeText(entry?.pb),
+      pbYear: normalizeText(entry?.pbYear),
+      record: normalizeText(entry?.record),
+      sb: normalizeText(entry?.sb),
+      sbYear: normalizeText(entry?.sbYear),
+      shown: entry?.shown !== false,
+    })),
+    waUpdatedAt: normalizeText(page?.waUpdatedAt),
+    meetingStats: page?.meetingStats && typeof page.meetingStats === "object" ? page.meetingStats : null,
+    showMeetingStats: page?.showMeetingStats !== false,
   };
 }
 
@@ -193,6 +358,18 @@ function normalizeImportedPage(page, index, prefix) {
     id: page?.id || makeStableId(prefix, index),
     title: normalizeText(page?.title),
     imageUrl: normalizeText(page?.imageUrl),
+  };
+}
+
+function normalizeThanks(raw) {
+  const defaults = DEFAULT_EMAGAZINE_CONFIG.thanks;
+  if (!raw || typeof raw !== "object") return { ...defaults, names: [...defaults.names] };
+  return {
+    title: normalizeText(raw.title) || defaults.title,
+    intro: normalizeText(raw.intro),
+    names: Array.isArray(raw.names) ? raw.names.map(normalizeText).filter(Boolean) : [...defaults.names],
+    closing: normalizeText(raw.closing),
+    photoUrl: normalizeText(raw.photoUrl),
   };
 }
 
@@ -232,7 +409,14 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
         participants: (specialRaces.businessRace?.participants || []).map(normalizeParticipant),
       },
     },
-    highlightPages: (rawConfig?.highlightPages || []).map(normalizeHighlightPage),
+    highlightPages: [
+      ...(rawConfig?.highlightPages || []),
+      ...SAMPLE_HIGHLIGHT_PAGES.filter((page) => !(rawConfig?.highlightPages || []).some((saved) => saved?.id === page.id)
+        && !(rawConfig?.dismissedSamples || []).includes(page.id)),
+    ].map(normalizeHighlightPage),
+    dismissedSamples: Array.isArray(rawConfig?.dismissedSamples) ? rawConfig.dismissedSamples.map(normalizeText).filter(Boolean) : [],
+    athletePages: (Array.isArray(rawConfig?.athletePages) ? rawConfig.athletePages : DEFAULT_EMAGAZINE_CONFIG.athletePages)
+      .map(normalizeAthletePage),
     partnerPages: (rawConfig?.partnerPages || []).map(normalizePartnerPage),
     sponsorPages: (rawConfig?.sponsorPages || []).map((page, index) => normalizeImportedPage(page, index, "sponsor-page")),
     startlistPhotos: Object.entries(rawConfig?.startlistPhotos || {}).reduce((accumulator, [groupId, url]) => {
@@ -240,6 +424,7 @@ export function normalizeEmagazineConfig(rawConfig, edition) {
       if (normalizedUrl) accumulator[groupId] = normalizedUrl;
       return accumulator;
     }, {}),
+    thanks: normalizeThanks(rawConfig?.thanks),
     pageOrder: [],
   };
 

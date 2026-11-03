@@ -6,6 +6,11 @@
 # World Athletics proxy — keeps the same URL shape the frontend calls, backed
 # by a Netlify Function (see netlify/functions/wa-athlete.mjs)
 [[redirects]]
+  from = "/api/wa/search"
+  to   = "/.netlify/functions/wa-athlete"
+  status = 200
+
+[[redirects]]
   from = "/api/wa/athlete/:waid/performances"
   to   = "/.netlify/functions/wa-athlete?waid=:waid"
   status = 200

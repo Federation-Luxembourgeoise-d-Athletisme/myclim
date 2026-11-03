@@ -1,18 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { computeLogoSize, getSponsorMediaSettings, getSponsorMediaStyle } from "./sponsor-media-utils";
+import {
+  computeLogoSize,
+  computeManualLogoStyle,
+  getManualLogoSettings,
+  getSponsorMediaSettings,
+  getSponsorMediaStyle,
+} from "./sponsor-media-utils";
 
 /**
  * A partner logo sized to the same visual weight as its neighbours.
  * It measures its parent box, so the same logo looks balanced in every grid
- * (home page, partners page, links page, admin preview).
+ * (home page, partners page, links page, e-magazine, admin preview).
+ * A logo in manual mode takes the size and offset set in the admin instead.
  * Logos set to "cover" keep the old fill-the-box behaviour.
  */
-export function SponsorLogo({ sponsor, alt }) {
+export function SponsorLogo({ sponsor, alt, className }) {
   const imageRef = useRef(null);
   const [ratio, setRatio] = useState(0);
   const [box, setBox] = useState({ width: 0, height: 0 });
+  const manual = getManualLogoSettings(sponsor);
   const { logoFit, logoScale } = getSponsorMediaSettings(sponsor);
-  const isCover = logoFit === "cover";
+  const isCover = !manual && logoFit === "cover";
 
   useEffect(() => {
     const parent = imageRef.current?.parentElement;
@@ -38,13 +46,18 @@ export function SponsorLogo({ sponsor, alt }) {
     if (naturalWidth && naturalHeight) setRatio(naturalWidth / naturalHeight);
   }
 
-  const size = isCover
-    ? null
-    : computeLogoSize({ boxWidth: box.width, boxHeight: box.height, ratio, scale: logoScale });
+  let style;
+  if (manual) {
+    style = computeManualLogoStyle({ boxWidth: box.width, boxHeight: box.height, ...manual })
+      || { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" };
+  } else {
+    const size = isCover
+      ? null
+      : computeLogoSize({ boxWidth: box.width, boxHeight: box.height, ratio, scale: logoScale });
+    style = size
+      ? { width: size.width, height: size.height, maxWidth: "none", maxHeight: "none", objectFit: "contain", transform: "none" }
+      : getSponsorMediaStyle(sponsor);
+  }
 
-  const style = size
-    ? { width: size.width, height: size.height, maxWidth: "none", maxHeight: "none", objectFit: "contain", transform: "none" }
-    : getSponsorMediaStyle(sponsor);
-
-  return <img ref={imageRef} src={sponsor.logoUrl} alt={alt ?? sponsor.name ?? ""} style={style} onLoad={handleLoad} />;
+  return <img ref={imageRef} className={className} src={sponsor.logoUrl} alt={alt ?? sponsor.name ?? ""} style={style} onLoad={handleLoad} />;
 }

@@ -463,6 +463,12 @@ export async function syncWinnersForYear(year, rank1Results) {
   return count;
 }
 
+// Every result of every edition (e-magazine athlete pages).
+export async function fetchAllMeetingResults() {
+  const snap = await getDocs(collection(db, MEETING_RESULTS_COL));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export async function rebuildMeetingRecords(onProgress) {
   onProgress?.("Lecture des résultats pour recalculer les records…");
   const resultsSnap = await getDocs(collection(db, MEETING_RESULTS_COL));
