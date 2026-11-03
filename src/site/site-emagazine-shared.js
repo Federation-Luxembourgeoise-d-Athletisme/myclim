@@ -306,6 +306,16 @@ function normalizeHighlightPage(page, index) {
       waid: normalizeText(athlete?.waid),
       pb: normalizeText(athlete?.pb),
       record: normalizeText(athlete?.record),
+      pbYear: normalizeText(athlete?.pbYear),
+      // WA code of the event the PB comes from, and every indoor PB on WA.
+      pbEvent: normalizeText(athlete?.pbEvent),
+      waEvents: (Array.isArray(athlete?.waEvents) ? athlete.waEvents : []).map((entry) => ({
+        disciplineCode: normalizeText(entry?.disciplineCode),
+        event: normalizeText(entry?.event),
+        pb: normalizeText(entry?.pb),
+        pbYear: normalizeText(entry?.pbYear),
+        record: normalizeText(entry?.record),
+      })),
       photoUrl: normalizeText(athlete?.photoUrl),
       photoFrame: normalizePhotoFrame(athlete?.photoFrame),
     })),

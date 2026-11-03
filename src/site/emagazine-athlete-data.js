@@ -137,9 +137,12 @@ export async function fetchAthleteEventsFromWa(waid) {
 
 // Framing of an athlete photo, set in the admin: zoom in % and the point of
 // the photo kept in view (x, y in %, from the left and the top).
-export const DEFAULT_PHOTO_FRAME = { zoom: 100, x: 50, y: 0 };
+export const DEFAULT_PHOTO_FRAME = { zoom: 100, x: 50, y: 0, minZoom: 100 };
 // Cut-out portrait of the Luxembourg athlete page: x and y move it around.
-export const DEFAULT_CUTOUT_FRAME = { zoom: 100, x: 50, y: 50 };
+// It can be made smaller than the page, and moved by up to 200 px sideways
+// and 500 px up or down (CUTOUT_SHIFT px per step of x and y).
+export const DEFAULT_CUTOUT_FRAME = { zoom: 100, x: 50, y: 50, minZoom: 40 };
+export const CUTOUT_SHIFT = { x: 4, y: 10 };
 
 const clamp = (value, min, max, fallback) => {
   const number = Number(value);
@@ -148,7 +151,7 @@ const clamp = (value, min, max, fallback) => {
 
 export function normalizePhotoFrame(raw, defaults = DEFAULT_PHOTO_FRAME) {
   return {
-    zoom: clamp(raw?.zoom, 100, 300, defaults.zoom),
+    zoom: clamp(raw?.zoom, defaults.minZoom ?? 100, 300, defaults.zoom),
     x: clamp(raw?.x, 0, 100, defaults.x),
     y: clamp(raw?.y, 0, 100, defaults.y),
   };
@@ -169,7 +172,7 @@ export function cutoutFrameStyle(frame) {
   const { zoom, x, y } = normalizePhotoFrame(frame, DEFAULT_CUTOUT_FRAME);
   if (zoom === 100 && x === 50 && y === 50) return undefined;
   return {
-    transform: `translate(${(x - 50) * 4}px, ${(y - 50) * 6}px) scale(${zoom / 100})`,
+    transform: `translate(${(x - 50) * CUTOUT_SHIFT.x}px, ${(y - 50) * CUTOUT_SHIFT.y}px) scale(${zoom / 100})`,
     transformOrigin: "50% 100%",
   };
 }

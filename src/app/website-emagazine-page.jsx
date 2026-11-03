@@ -9,6 +9,7 @@ import "./website-emagazine-page.css";
 import { emagazineStatsPageId, emagazineStatsPagesForEntry } from "../site/emagazine-stats";
 import {
   buildMeetingStats,
+  CUTOUT_SHIFT,
   DEFAULT_CUTOUT_FRAME,
   DEFAULT_PHOTO_FRAME,
   fetchAthleteEventsFromWa,
@@ -231,7 +232,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
     const dy = event.clientY - drag.current.y;
     const { start } = drag.current;
     if (cutout) {
-      update({ x: start.x + dx / (4 * pageScale), y: start.y + dy / (6 * pageScale) });
+      update({ x: start.x + dx / (CUTOUT_SHIFT.x * pageScale), y: start.y + dy / (CUTOUT_SHIFT.y * pageScale) });
     } else {
       // Dragging the photo to the right shows more of its left side.
       update({ x: start.x - (dx * 100) / width, y: start.y - (dy * 100) / height });
@@ -249,7 +250,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
       bottom: 0,
       height: 1000 * pageScale,
       width: "auto",
-      transform: `translate(${(current.x - 50) * 4 * pageScale}px, ${(current.y - 50) * 6 * pageScale}px) scale(${current.zoom / 100})`,
+      transform: `translate(${(current.x - 50) * CUTOUT_SHIFT.x * pageScale}px, ${(current.y - 50) * CUTOUT_SHIFT.y * pageScale}px) scale(${current.zoom / 100})`,
       transformOrigin: "50% 100%",
     }
     : { width: "100%", height: "100%", objectFit: "cover", display: "block", ...photoFrameStyle(current) };
@@ -288,7 +289,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
             <EmptyButton onClick={() => update({ zoom: current.zoom - 10 })} aria-label="Zoom out">−</EmptyButton>
             <input
               type="range"
-              min="100"
+              min={defaults.minZoom}
               max="300"
               step="5"
               value={current.zoom}
@@ -299,7 +300,7 @@ function PhotoFramer({ url, frame, cutout = false, columns = 1, onChange }) {
           </span>
         </label>
         <div>
-          <EmptyButton onClick={() => onChange({ ...defaults })}>Reset framing</EmptyButton>
+          <EmptyButton onClick={() => onChange(normalizePhotoFrame(defaults, defaults))}>Reset framing</EmptyButton>
         </div>
       </div>
     </div>
@@ -322,6 +323,10 @@ function AthleteFinder({ athleteCards, onPick, disabled = false, placeholder = "
   }, [search, athleteCards]);
 
   async function searchWa() {
+    if (search.trim().length < 3) {
+      setMessage("Type at least 3 letters of the name in the box first.");
+      return;
+    }
     setMessage("Searching World Athletics…");
     try {
       setWaMatches(await searchWaAthletes(search.trim()));
@@ -341,7 +346,7 @@ function AthleteFinder({ athleteCards, onPick, disabled = false, placeholder = "
     <div style={{ display: "grid", gap: 6 }}>
       <div style={{ display: "flex", gap: 8 }}>
         <input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={placeholder} disabled={disabled} />
-        <EmptyButton disabled={disabled || search.trim().length < 3} onClick={searchWa} style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+        <EmptyButton disabled={disabled} onClick={searchWa} style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
           Search on World Athletics
         </EmptyButton>
       </div>
@@ -370,6 +375,19 @@ function AthleteFinder({ athleteCards, onPick, disabled = false, placeholder = "
   );
 }
 
+// Indoor events of the meeting, for the PBs of the duel pages.
+const HIGHLIGHT_EVENTS = [
+  "60m", "60m hurdles", "200m", "400m", "800m", "1500m", "3000m",
+  "High Jump", "Pole Vault", "Long Jump", "Triple Jump", "Shot Put",
+];
+
+// The PB of the page event among all the indoor PBs of the athlete.
+function pickPb(waEvents, event) {
+  const code = waCodeForEvent(event);
+  const match = waEvents.find((entry) => entry.disciplineCode === code);
+  return { pb: match?.pb || "", record: match?.record || "", pbYear: match?.pbYear || "", pbEvent: match?.disciplineCode || "" };
+}
+
 // Duel / 3 / 4 athletes: the athletes are saved with the page (name, flag,
 // World Athletics PB in the page event, photo) so that the public sees them.
 function HighlightEditor({ page, athleteCards, onChange }) {
@@ -389,25 +407,28 @@ function HighlightEditor({ page, athleteCards, onChange }) {
     onChange({ ...page, athletes: next.filter(Boolean) });
   }
 
-  async function pbFor(waid) {
-    if (!waid || !page.event) return { pb: "", record: "" };
-    const events = await fetchAthleteEventsFromWa(waid);
-    const code = waCodeForEvent(page.event);
-    const match = events.find((entry) => entry.disciplineCode === code)
-      || events.find((entry) => entry.event.toLowerCase() === page.event.toLowerCase());
-    return { pb: match?.pb || "", record: match?.record || "" };
+  async function waDataFor(waid, event) {
+    if (!waid) return { waEvents: [], pb: "", record: "", pbYear: "", pbEvent: "" };
+    const waEvents = (await fetchAthleteEventsFromWa(waid)).map((entry) => ({
+      disciplineCode: entry.disciplineCode,
+      event: entry.event,
+      pb: entry.pb,
+      pbYear: entry.pbYear,
+      record: entry.record,
+    }));
+    return { waEvents, ...pickPb(waEvents, event) };
   }
 
   async function pick(index, person) {
     setBusy("Loading the World Athletics PB…");
     setMessage("");
     const waid = person.waid ? String(person.waid) : "";
-    let best = { pb: "", record: "" };
+    let best = {};
     try {
-      best = await pbFor(waid);
-      if (!waid) setMessage("No World Athletics ID in the database: search on World Athletics to get the PB.");
-      else if (!page.event) setMessage("Fill in the event to get the PBs.");
-      else if (!best.pb) setMessage(`No indoor ${page.event} PB on World Athletics.`);
+      best = await waDataFor(waid, page.event);
+      if (!waid) setMessage("No World Athletics ID in the database: type the name and click \"Search on World Athletics\" to get the PBs.");
+      else if (!page.event) setMessage("Choose the event above: the PBs of that event will be used.");
+      else if (!best.pb) setMessage(`No indoor ${page.event} PB on World Athletics: pick another one under the athlete if needed.`);
     } catch (error) {
       setMessage(`World Athletics: ${error.message}`);
     }
@@ -419,16 +440,17 @@ function HighlightEditor({ page, athleteCards, onChange }) {
       waid,
       ...best,
       photoUrl: page.athletes[index]?.photoUrl || "",
+      photoFrame: page.athletes[index]?.photoFrame,
     });
     setBusy("");
   }
 
-  async function updatePbs() {
+  async function updatePbs(event = page.event, base = page) {
     setBusy("Updating the PBs from World Athletics…");
     setMessage("");
     try {
-      const athletes = await Promise.all(page.athletes.map(async (athlete) => ({ ...athlete, ...(await pbFor(athlete.waid)) })));
-      onChange({ ...page, athletes });
+      const athletes = await Promise.all(base.athletes.map(async (athlete) => ({ ...athlete, ...(await waDataFor(athlete.waid, event)) })));
+      onChange({ ...base, event, athletes });
     } catch (error) {
       setMessage(`World Athletics: ${error.message}`);
     }
@@ -440,7 +462,7 @@ function HighlightEditor({ page, athleteCards, onChange }) {
       title={page.title || "Highlight page"}
       description="One full-height photo per athlete. Find each athlete by name: the flag and the PB in the page event come from World Athletics."
       actions={(
-        <EmptyButton disabled={!page.event || !page.athletes.length || Boolean(busy)} onClick={updatePbs}>
+        <EmptyButton disabled={!page.athletes.length || Boolean(busy)} onClick={() => updatePbs()}>
           Update PBs from World Athletics
         </EmptyButton>
       )}
@@ -456,15 +478,28 @@ function HighlightEditor({ page, athleteCards, onChange }) {
         </div>
         <div>
           <label style={labelStyle}>Event (for the PBs)</label>
-          <input style={inputStyle} value={page.event} onChange={(event) => set("event", event.target.value)} placeholder="400m, 60m hurdles, Long Jump" />
+          <select
+            style={inputStyle}
+            value={page.event}
+            onChange={(event) => {
+              const nextEvent = event.target.value;
+              if (page.athletes.some((athlete) => athlete.waid)) updatePbs(nextEvent);
+              else set("event", nextEvent);
+            }}
+          >
+            <option value="">Choose the event…</option>
+            {[...new Set([...HIGHLIGHT_EVENTS, page.event].filter(Boolean))].map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label style={labelStyle}>Title</label>
-          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="Athletes to watch" />
+          <input style={inputStyle} value={page.title} onChange={(event) => set("title", event.target.value)} placeholder="e.g. Athletes to watch" />
         </div>
         <div>
           <label style={labelStyle}>Subtitle</label>
-          <input style={inputStyle} value={page.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder="400m Men" />
+          <input style={inputStyle} value={page.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder="e.g. 400m Men" />
         </div>
       </div>
 
@@ -485,12 +520,43 @@ function HighlightEditor({ page, athleteCards, onChange }) {
                     <strong>{athlete.firstName} {athlete.lastName}</strong> {athlete.nationality ? `(${athlete.nationality})` : ""}
                     <br />
                     <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
-                      PB {page.event}: {athlete.pb ? `${athlete.pb}${athlete.record ? ` ${athlete.record}` : ""}` : "—"}
+                      PB on the page: {athlete.pb ? `${athlete.pb}${athlete.record ? ` ${athlete.record}` : ""}` : "—"}
+                      {athlete.waid ? (
+                        <> · <a href={`https://worldathletics.org/athletes/_/${athlete.waid}`} target="_blank" rel="noopener noreferrer">WA profile</a></>
+                      ) : null}
                     </span>
                   </span>
                   <EmptyButton onClick={() => onChange({ ...page, athletes: page.athletes.filter((_, position) => position !== index) })} style={{ color: "#c62828" }}>
                     Remove
                   </EmptyButton>
+                </div>
+              ) : null}
+              {athlete?.waEvents?.length ? (
+                <div style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: "0.74rem", color: "#6b7280" }}>Indoor PBs on World Athletics — click to use another one:</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {athlete.waEvents.map((entry) => {
+                      const used = entry.disciplineCode === athlete.pbEvent;
+                      return (
+                        <button
+                          key={entry.disciplineCode}
+                          type="button"
+                          onClick={() => setAthleteAt(index, { ...athlete, pb: entry.pb, record: entry.record, pbYear: entry.pbYear, pbEvent: entry.disciplineCode })}
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                            border: used ? "1px solid #16a34a" : "1px solid #d5dee8",
+                            background: used ? "#dcfce7" : "#fff",
+                            fontSize: "0.78rem",
+                            cursor: "pointer",
+                            fontWeight: used ? 700 : 400,
+                          }}
+                        >
+                          {entry.event} {entry.pb}{entry.record ? ` ${entry.record}` : ""}{entry.pbYear ? ` (${entry.pbYear})` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : null}
               {athlete || index === page.athletes.length ? (
