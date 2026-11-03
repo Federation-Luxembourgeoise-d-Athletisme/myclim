@@ -15,8 +15,12 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    // exists() d'abord : un compte qui crée son profil n'en a pas encore, et
+    // un get() sur un document absent ferait échouer toute la règle.
     function userTypes() {
-      return isSignedIn() && currentUserDoc().data.userTypes is list
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserDoc().data.userTypes is list
         ? currentUserDoc().data.userTypes
         : [];
     }
@@ -158,6 +162,59 @@ service cloud.firestore {
       return isValidCashSession() && cashPostDoc().data.get("showVipLists", false) == true;
     }
 
+    // ── Attribution des rôles ────────────────────────────────────────────────
+    // Rôles qu'un compte peut s'attribuer seul : ceux que posent les
+    // formulaires publics (bénévole, parent pré-programme, athlète des
+    // courses nationales).
+    function selfServiceRoles() {
+      return ["benevole", "parent_u14", "athlete_preprogram"];
+    }
+
+    // Rôles transport que la synchronisation des équipes (App.jsx,
+    // syncVolunteerAssignmentToUserProfile) ajoute ou retire, y compris
+    // quand un gestionnaire affecte un bénévole.
+    function managerGrantableRoles() {
+      return selfServiceRoles().concat(["benevole_transport_athletes", "chef_transport_athletes"]);
+    }
+
+    // Anciens champs que extractUserTypes() convertit encore en rôles côté
+    // client : seul un admin peut les écrire.
+    function legacyRoleFlagKeys() {
+      return ["isAdmin", "isManager", "isTeamLead", "isParentU14", "isVolunteer", "roles", "role", "userType"];
+    }
+
+    function newUserTypes() {
+      return request.resource.data.get("userTypes", []).toSet();
+    }
+
+    function oldUserTypes() {
+      return resource.data.get("userTypes", []).toSet();
+    }
+
+    function addedUserTypes() {
+      return newUserTypes().difference(oldUserTypes());
+    }
+
+    function changedUserTypes() {
+      return addedUserTypes().union(oldUserTypes().difference(newUserTypes()));
+    }
+
+    // Activation d'une invitation (invite-page.jsx) : le profil cite
+    // l'invitation, qui doit être en attente, non expirée, adressée à l'email
+    // du compte, et ne peut accorder que les rôles qu'elle contient.
+    function isInvitationRoleGrant() {
+      let invitationId = request.resource.data.get("invitationId", "");
+      let invitationPath = /databases/$(database)/documents/invitations/$(invitationId);
+      let invitation = get(invitationPath).data;
+      return invitationId is string && invitationId != "" &&
+        exists(invitationPath) &&
+        invitation.status == "pending" &&
+        invitation.expiresAt > request.time &&
+        request.auth.token.email != null &&
+        invitation.email == request.auth.token.email.lower() &&
+        newUserTypes().hasOnly(invitation.roles.concat(selfServiceRoles()));
+    }
+
     function isParentOwnerCreate() {
       return isSignedIn() &&
         request.resource.data.parentUserId == request.auth.uid;
@@ -176,8 +233,22 @@ service cloud.firestore {
         (isAthleteTransportChief() &&
          resource.data.userTypes is list &&
          "benevole_transport_athletes" in resource.data.userTypes);
-      allow create: if isOwner(userId) || isAdminOrManager();
-      allow update: if isOwner(userId) || isAdminOrManager();
+      // Les rôles (userTypes) portent tous les droits : un compte ne peut pas
+      // s'en donner lui-même au-delà des parcours d'inscription publics. Les
+      // autres rôles viennent d'un admin (page Rôles), d'une invitation encore
+      // valide adressée à son email, ou pour un gestionnaire des seuls rôles
+      // transport synchronisés depuis les équipes.
+      allow create: if isAdmin() ||
+        (isOwner(userId) &&
+         !request.resource.data.keys().hasAny(legacyRoleFlagKeys()) &&
+         (newUserTypes().hasOnly(selfServiceRoles()) || isInvitationRoleGrant()));
+      allow update: if isAdmin() ||
+        (isOwner(userId) &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(legacyRoleFlagKeys()) &&
+         addedUserTypes().hasOnly(selfServiceRoles())) ||
+        (isAdminOrManager() &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(legacyRoleFlagKeys()) &&
+         changedUserTypes().hasOnly(managerGrantableRoles()));
       allow delete: if isAdmin();
     }
 
@@ -439,11 +510,16 @@ service cloud.firestore {
     // (email auth == email invitation, statut encore pending).
     match /invitations/{invitationId} {
       allow read: if true;
-      allow create, delete: if isAdminOrManager();
-      allow update: if isAdminOrManager() ||
+      // Une invitation accorde des rôles : seuls les admins la créent ou la
+      // modifient (la page Invitations leur est réservée). La personne invitée
+      // peut seulement la marquer acceptée, sans toucher aux rôles.
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
         (isSignedIn() &&
-         resource.data.email == request.auth.token.email &&
-         resource.data.status == "pending");
+         resource.data.email == request.auth.token.email.lower() &&
+         resource.data.status == "pending" &&
+         request.resource.data.status == "accepted" &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "acceptedAt", "acceptedByUid"]));
     }
 
     match /vipAdminRegistrations/{registrationId} {
@@ -648,10 +724,14 @@ service cloud.firestore {
 
     // Règle générale admin/gestionnaire, sauf les collections réservées aux
     // Cloud Functions : jetons (server_secrets) et codes des postes de caisse.
-    // ({rest=**} couvre aussi les sous-collections.)
+    // ({rest=**} couvre aussi les sous-collections.) Les profils (users) et les
+    // invitations portent les rôles : leur écriture reste aux seules règles
+    // dédiées plus haut, sinon un gestionnaire pourrait se nommer admin.
     match /{collection}/{rest=**} {
-      allow read, write: if isAdminOrManager() &&
+      allow read: if isAdminOrManager() &&
         !(collection in ["server_secrets", "cashPostSecrets", "cashAccessAttempts"]);
+      allow write: if isAdminOrManager() &&
+        !(collection in ["server_secrets", "cashPostSecrets", "cashAccessAttempts", "users", "invitations"]);
     }
   }
 }
