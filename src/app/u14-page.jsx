@@ -209,8 +209,21 @@ function U14Page(props) {
         .sort((left, right) => left.submittedAtMs - right.submittedAtMs),
     [requestRecords],
   );
-  // Alertes : parents retenus qui n'ont pas confirmé dans les 10 jours, et
-  // places protégées dont l'invitation a expiré sans inscription.
+  // Enfants montés tout seuls de la liste d'attente (recalcul serveur après un
+  // désistement) : retenus, mais le mail d'acceptation attend la validation.
+  const promotedToApprove = useMemo(
+    () =>
+      requestRecords
+        .filter(
+          (request) =>
+            request.promotedFromWaitlistAt &&
+            normalizeComparableValue(request.status) === "confirmed" &&
+            normalizeComparableValue(request.adminApprovalStatus) !== "approved",
+        )
+        .sort((left, right) => getTimestampMs(left.promotedFromWaitlistAt) - getTimestampMs(right.promotedFromWaitlistAt)),
+    [requestRecords],
+  );
+  // Alertes : parents retenus qui n'ont pas confirmé dans les 10 jours.
   const overdueConfirmations = useMemo(
     () =>
       requestRecords
@@ -602,6 +615,28 @@ function U14Page(props) {
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
       {dataLoading ? <p className="status-note">Chargement du module U12 / U14...</p> : null}
+
+      {promotedToApprove.length ? (
+        <div className="notice-card notice-card--ok">
+          <strong>Montés de la liste d'attente — à valider</strong>
+          <p>Une place s'est libérée : ces enfants sont retenus. La validation envoie le mail d'acceptation et ouvre le délai de 10 jours.</p>
+          <div className="u14-overdue-list">
+            {promotedToApprove.map((request) => (
+              <div key={request.id} className="u14-overdue-row">
+                <span>
+                  <strong>{request.childName}</strong> · {request.raceLabel}
+                  <span className="parent-request-note"> — monté le {formatDateTimeForDisplay(request.promotedFromWaitlistAt)}</span>
+                </span>
+                <span className="table-actions table-actions--inline">
+                  <button className="button button--primary button--small" disabled={isSaving} type="button" onClick={() => handleApproveRequest(request)}>
+                    Valider et envoyer le mail
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {overdueConfirmations.length ? (
         <div className="notice-card notice-card--warn">

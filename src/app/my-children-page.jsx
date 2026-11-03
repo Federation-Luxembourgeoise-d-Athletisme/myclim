@@ -206,10 +206,10 @@ function MyChildrenPage(props) {
         });
       }
 
-      // Le recalcul de la liste d'attente (qui doit lire/écrire les demandes de
-      // tous les parents) ne peut pas se faire depuis la session du parent —
-      // seul l'admin y est autorisé, via "Recalculer les allocations" dans le
-      // module Pré-programme.
+      // Le recalcul de la liste d'attente (qui lit/écrit les demandes de tous
+      // les parents) se fait côté serveur dès ce désistement
+      // (functions/src/u14-allocation.js) : l'enfant suivant monte et reste à
+      // valider par l'équipe.
       const promotedRaceLabel = row.raceCode ? getU14RaceLabel(row.raceCode) : "sa course";
       if (currentUser?.email) {
         const { enqueueTransactionalMail } = await loadMailQueueModule();

@@ -14,6 +14,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { notifyUsers, usersWithRoles } from "./notifications.js";
+import { recalculateU14Edition } from "./u14-allocation.js";
 
 const REGION = "europe-west1";
 const TIME_ZONE = "Europe/Luxembourg";
@@ -157,7 +158,12 @@ export const claimU14ProtectedInvite = onCall({ region: REGION }, async (request
       parentDecisionAt: now,
       waitlistPosition: null,
     });
-    return { raceCode: entry.raceCode, alreadyClaimed: false, child: `${invite.firstName || ""} ${invite.lastName || ""}`.trim() };
+    return {
+      raceCode: entry.raceCode,
+      alreadyClaimed: false,
+      child: `${invite.firstName || ""} ${invite.lastName || ""}`.trim(),
+      editionId: entry.editionId || invite.editionId,
+    };
   });
 
   if (!result.alreadyClaimed) {
@@ -168,6 +174,12 @@ export const claimU14ProtectedInvite = onCall({ region: REGION }, async (request
       body: { fr: `${result.child} a confirmé sa place protégée.`, en: `${result.child} confirmed their protected place.` },
       path: "/app/u14/places-protegees",
     }).catch((error) => logger.error("Protected place notification failed", error));
+
+    // La réserve baisse d'une place dans les autres courses de la catégorie :
+    // une place générale peut s'y ouvrir pour la liste d'attente.
+    await recalculateU14Edition(result.editionId, `place protégée confirmée par ${result.child}`).catch((error) =>
+      logger.error("Allocation after protected claim failed", error),
+    );
   }
 
   return { ok: true, raceCode: result.raceCode };
@@ -179,6 +191,7 @@ export const u14ProtectedInvitesDaily = onSchedule(
     const today = todayInLuxembourg();
     const snapshot = await firestore().collection(INVITES).where("status", "==", "invited").get();
     const expired = [];
+    const expiredEditions = new Set();
     let reminders = 0;
 
     for (const entrySnapshot of snapshot.docs) {
@@ -188,6 +201,7 @@ export const u14ProtectedInvitesDaily = onSchedule(
       if (today > invite.deadline) {
         await entrySnapshot.ref.update({ status: "expired", expiredAt: admin.firestore.FieldValue.serverTimestamp() });
         expired.push(`${invite.firstName || ""} ${invite.lastName || ""}`.trim());
+        expiredEditions.add(invite.editionId);
         continue;
       }
 
@@ -229,11 +243,24 @@ export const u14ProtectedInvitesDaily = onSchedule(
         type: "u14_request",
         title: { fr: "Places protégées libérées", en: "Protected places released" },
         body: {
-          fr: `Date limite passée sans inscription : ${expired.join(", ")}. Recalculez les statuts dans le module U12 / U14 pour faire monter la liste d'attente.`,
-          en: `Deadline passed without registration: ${expired.join(", ")}. Recalculate statuses in the U12 / U14 module to move the waiting list up.`,
+          fr: `Date limite passée sans inscription : ${expired.join(", ")}. Les enfants en liste d'attente qui montent sont à valider dans le module U12 / U14.`,
+          en: `Deadline passed without registration: ${expired.join(", ")}. Children moving up from the waiting list are to be approved in the U12 / U14 module.`,
         },
         path: "/app/u14",
       });
+    }
+
+    // Le lendemain de la date limite, la réserve restante revient aux places
+    // générales : la liste d'attente avance (enfants « retenus », à valider).
+    const settingsSnapshot = await firestore().collection("appSettings").doc("u14ProtectedSettings").get();
+    const settings = settingsSnapshot.exists ? settingsSnapshot.data() : {};
+    if (settings?.deadline && today === addDays(settings.deadline, 1) && settings.editionId) {
+      expiredEditions.add(settings.editionId);
+    }
+    for (const editionId of expiredEditions) {
+      await recalculateU14Edition(editionId, "date limite des places protégées passée").catch((error) =>
+        logger.error("Allocation after deadline failed", { editionId, reason: error?.message }),
+      );
     }
 
     logger.info("Protected invites daily run", { today, reminders, expired: expired.length });

@@ -552,6 +552,8 @@ async function syncU14RaceAllocations({ requests, children, protectedInvites, pr
             ? "confirmed"
             : null
           : null,
+      // Montée depuis la liste d'attente : signalée « à valider » dans le module.
+      ...(currentStatus === "waitlisted" && nextStatus === "confirmed" ? { promotedFromWaitlistAt: serverTimestamp() } : {}),
       allocationUpdatedAt: serverTimestamp(),
     });
   }
