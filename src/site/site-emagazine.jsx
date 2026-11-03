@@ -117,10 +117,12 @@ function NationCell({ noc }) {
   );
 }
 
-function StartlistEntryRow({ entry }) {
+function StartlistEntryRow({ entry, sbSeason }) {
   // SB = previous indoor season (2026 for the 2027 meeting): World Athletics
   // value when the profile is linked ("7.21 @ Venue" → "7.21"), else the Excel.
   const sb = String(entry.waIndoorSb || entry.sb || "").split(" @ ")[0];
+  // Under it, the best of the meeting year once the athlete raced in it.
+  const currentSb = String(entry.waIndoorSbCurrent || "").split(" @ ")[0];
   const pb = entry.waPbIndoor || entry.pbIndoor || entry.pb || "";
   return (
     <tr>
@@ -129,7 +131,10 @@ function StartlistEntryRow({ entry }) {
         <strong>{athleteDisplayName(entry)}</strong>
       </td>
       <td><NationCell noc={entry.nationality} /></td>
-      <td>{sb || "—"}</td>
+      <td>
+        {sb || "—"}
+        {currentSb && sbSeason ? <span className="site-emag-table__sb-current">{sbSeason + 1}: {currentSb}</span> : null}
+      </td>
       <td>{pb || "—"}</td>
     </tr>
   );
@@ -364,6 +369,15 @@ function AthletePage({ page, edition }) {
   const events = page.events.filter((entry) => entry.shown && (entry.event || entry.pb)).slice(0, 3);
   const stats = page.showMeetingStats ? page.meetingStats : null;
   const meetingBest = stats?.bests?.[0];
+  // Season bests printed: the last indoor season before the meeting (2026
+  // for 2027), and the meeting year as well once the athlete raced in it.
+  const meetingYear = Number(edition?.year) || 0;
+  const seasonBestsFor = (entry) => {
+    const bests = entry.seasonBests?.length ? entry.seasonBests : (entry.sb ? [{ year: entry.sbYear, mark: entry.sb }] : []);
+    return [meetingYear - 1, meetingYear]
+      .map((year) => bests.find((best) => best.year === String(year)))
+      .filter(Boolean);
+  };
   return (
     <section className="site-emag-page site-emag-athlete">
       <div className="site-emag-athlete__flag" aria-hidden="true" />
@@ -417,12 +431,12 @@ function AthletePage({ page, edition }) {
                       ) : null}
                     </dd>
                   </div>
-                  {entry.sb ? (
-                    <div className="site-emag-athlete__stat">
-                      <dt>Season best{entry.sbYear ? ` ${entry.sbYear}` : ""}</dt>
-                      <dd>{entry.sb}</dd>
+                  {seasonBestsFor(entry).map((best) => (
+                    <div key={best.year} className="site-emag-athlete__stat">
+                      <dt>Season best {best.year}</dt>
+                      <dd>{best.mark}</dd>
                     </div>
-                  ) : null}
+                  ))}
                 </dl>
                 {entry.record && RECORD_LABELS[entry.record.toUpperCase()] ? (
                   <p className="site-emag-athlete__record">{RECORD_LABELS[entry.record.toUpperCase()]}</p>
@@ -790,7 +804,7 @@ function OfficialStartlistPage({ group, sbSeason, photoUrl }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry) => <StartlistEntryRow key={entry.id} entry={entry} />)}
+                  {entries.map((entry) => <StartlistEntryRow key={entry.id} entry={entry} sbSeason={sbSeason} />)}
                 </tbody>
               </table>
             </div>
@@ -1279,4 +1293,4 @@ export function SiteEmagazineFrame() {
       )}
     </div>
   );
-}
+}export { OfficialStartlistPage as __StartlistForTest };

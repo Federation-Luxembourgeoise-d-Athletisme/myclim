@@ -69,8 +69,8 @@ export const DEFAULT_EMAGAZINE_CONFIG = {
       photoUrl: vanDerWekenPhoto,
       text: "",
       events: [
-        { id: "wa-60", disciplineCode: "60", event: "60m", pb: "7.01", pbYear: "2026", record: "NR", sb: "7.01", sbYear: "2026", shown: true },
-        { id: "wa-200", disciplineCode: "200", event: "200m", pb: "23.09", pbYear: "2026", record: "NR", sb: "23.09", sbYear: "2026", shown: true },
+        { id: "wa-60", disciplineCode: "60", event: "60m", pb: "7.01", pbYear: "2026", record: "NR", sb: "7.01", sbYear: "2026", seasonBests: [{ year: "2026", mark: "7.01" }, { year: "2025", mark: "7.06" }], shown: true },
+        { id: "wa-200", disciplineCode: "200", event: "200m", pb: "23.09", pbYear: "2026", record: "NR", sb: "23.09", sbYear: "2026", seasonBests: [{ year: "2026", mark: "23.09" }, { year: "2025", mark: "23.17" }], shown: true },
         { id: "wa-50", disciplineCode: "50", event: "50m", pb: "6.12", pbYear: "2025", record: "NR", sb: "", sbYear: "", shown: false },
         { id: "wa-300", disciplineCode: "300", event: "300m", pb: "39.55", pbYear: "2021", record: "", sb: "", sbYear: "", shown: false },
       ],
@@ -343,6 +343,9 @@ function normalizeAthletePage(page, index) {
       record: normalizeText(entry?.record),
       sb: normalizeText(entry?.sb),
       sbYear: normalizeText(entry?.sbYear),
+      seasonBests: (Array.isArray(entry?.seasonBests) ? entry.seasonBests : [])
+        .map((best) => ({ year: normalizeText(best?.year), mark: normalizeText(best?.mark) }))
+        .filter((best) => best.year && best.mark),
       shown: entry?.shown !== false,
     })),
     waUpdatedAt: normalizeText(page?.waUpdatedAt),
