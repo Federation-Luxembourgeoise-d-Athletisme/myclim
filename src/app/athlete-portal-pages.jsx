@@ -34,6 +34,7 @@ import {
   formatTravelDay,
 } from "./athlete-portal-hooks";
 import { db } from "../services/firebase";
+import { searchWaAthletes } from "../site/emagazine-athlete-data";
 
 const PLATFORM_ROLES = [
   { key: "admin",                      label: "Administrator" },
@@ -1531,7 +1532,24 @@ function getRegistryEntryDisciplines(entry) {
   )].sort((a, b) => String(a).localeCompare(String(b)));
 }
 
-function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onClear, title = "Athlete profile", editable = false }) {
+// WAID typed or pasted as a World Athletics link (…/patrizia-van-der-weken-14621598).
+function parseWaidInput(value) {
+  const text = String(value || "").trim();
+  if (/^\d+$/.test(text)) return text;
+  return extractWaid(text) || text.replace(/\D/g, "");
+}
+
+const WA_FIELD_LABELS = {
+  lastName: "Nom",
+  firstName: "Prénom",
+  nationality: "Nationalité",
+  birthDate: "Date de naissance",
+  birthYear: "Année de naissance",
+  gender: "Genre",
+  waUrl: "Lien WA",
+};
+
+function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onClear, title = "Athlete profile", editable = false, registry = [], onMergeWith = null }) {
   const primary = registryEntry || currentAthletes[0] || null;
   if (!primary) return null;
 
@@ -1551,6 +1569,11 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
   const [isEditing, setIsEditing] = useState(false);
   const [saveState, setSaveState] = useState("");
   const [saving, setSaving] = useState(false);
+  const { settings: portalSettings } = useAthletePortalSettings();
+  const [waCandidates, setWaCandidates] = useState(null);
+  const [waBusy, setWaBusy] = useState("");
+  const [waMessage, setWaMessage] = useState("");
+  const [waChanges, setWaChanges] = useState([]);
   const [draft, setDraft] = useState({
     lastName: primary?.lastName || "",
     firstName: primary?.firstName || "",
@@ -1575,6 +1598,9 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
     });
     setIsEditing(false);
     setSaveState("");
+    setWaCandidates(null);
+    setWaMessage("");
+    setWaChanges([]);
   }, [
     primary?._docId,
     primary?.lastName,
@@ -1587,6 +1613,69 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
     primary?.waid,
     primary?.waUrl,
   ]);
+
+  // Same person already on another fiche of the database (same WAID).
+  const duplicateEntry = draft.waid
+    ? registry.find((entry) => entry._docId !== registryEntry?._docId && String(entry.waid || "") === String(draft.waid)) || null
+    : null;
+
+  // Candidates on World Athletics for the name of the fiche, same country first.
+  async function handleFindWaCandidates() {
+    const name = [draft.firstName, draft.lastName].filter(Boolean).join(" ").trim();
+    if (name.length < 3) {
+      setWaMessage("Il faut au moins un nom pour chercher sur World Athletics.");
+      return;
+    }
+    setWaBusy("Recherche sur World Athletics…");
+    setWaMessage("");
+    try {
+      const found = await searchWaAthletes(name);
+      const nationality = String(draft.nationality || "").toUpperCase();
+      setWaCandidates([...found].sort((a, b) => Number(b.country === nationality) - Number(a.country === nationality)));
+      if (!found.length) setWaMessage("Personne trouvé sur World Athletics avec ce nom : colle le WAID ou le lien WA.");
+    } catch (error) {
+      setWaMessage(`World Athletics ne répond pas : ${error.message}`);
+    } finally {
+      setWaBusy("");
+    }
+  }
+
+  // Fills the fiche from the World Athletics profile; nothing is saved yet.
+  async function handleFillFromWa(waidValue, candidate = null) {
+    const waidToLoad = parseWaidInput(waidValue);
+    if (!waidToLoad) {
+      setWaMessage("Colle le WAID ou le lien de la page World Athletics de l'athlète.");
+      return;
+    }
+    setWaBusy("Lecture du profil World Athletics…");
+    setWaMessage("");
+    try {
+      const waData = await fetchAthleteFromWaService(waidToLoad, portalSettings || DEFAULT_PORTAL_SETTINGS);
+      const identity = waData?._waIdentity || {};
+      const waBirthDate = identity.birthDate ? String(identity.birthDate).slice(0, 10) : "";
+      const next = {
+        ...draft,
+        waid: String(waidToLoad),
+        lastName: identity.lastName || draft.lastName,
+        firstName: identity.firstName || draft.firstName,
+        nationality: identity.countryCode || draft.nationality,
+        birthDate: waBirthDate || draft.birthDate,
+        birthYear: waBirthDate ? waBirthDate.slice(0, 4) : draft.birthYear,
+        gender: candidate?.sex ? (candidate.sex === "W" ? "F" : "M") : draft.gender,
+        waUrl: identity.waUrl || `https://worldathletics.org/athletes/_/${waidToLoad}`,
+      };
+      setWaChanges(Object.keys(WA_FIELD_LABELS)
+        .filter((field) => String(next[field] || "") !== String(draft[field] || ""))
+        .map((field) => ({ field, before: draft[field] || "—", after: next[field] || "—" })));
+      setDraft(next);
+      setWaCandidates(null);
+      setIsEditing(true);
+    } catch (error) {
+      setWaMessage(`World Athletics ne répond pas : ${error.message}`);
+    } finally {
+      setWaBusy("");
+    }
+  }
 
   async function handleSaveProfile() {
     if (!registryEntry?._docId) return;
@@ -1645,6 +1734,7 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
       await batch.commit();
       setSaveState("✅ Fiche athlète mise à jour.");
       setIsEditing(false);
+      setWaChanges([]);
     } catch (error) {
       setSaveState(`❌ ${error.message}`);
     } finally {
@@ -1669,9 +1759,20 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
                 </button>
               </>
             ) : (
-              <button className="button button--secondary button--small" type="button" onClick={() => setIsEditing(true)}>
-                Modifier la fiche
-              </button>
+              <>
+                {!waid ? (
+                  <button
+                    className="button button--primary button--small"
+                    type="button"
+                    onClick={() => { setIsEditing(true); handleFindWaCandidates(); }}
+                  >
+                    Compléter avec World Athletics
+                  </button>
+                ) : null}
+                <button className="button button--secondary button--small" type="button" onClick={() => setIsEditing(true)}>
+                  Modifier la fiche
+                </button>
+              </>
             )
           ) : null}
           {onClear ? (
@@ -1705,6 +1806,72 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
         {saveState ? <p className="panel-note" style={{ margin: 0 }}>{saveState}</p> : null}
 
         {isEditing ? (
+          <div className="notice-card" style={{ padding: "0.9rem 1rem", display: "grid", gap: "0.6rem" }}>
+            <strong>Identifiant World Athletics</strong>
+            <p className="panel-note" style={{ margin: 0 }}>
+              Le WAID fait de la fiche une seule personne : nom, nationalité et naissance viennent alors de World Athletics.
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                value={draft.waid}
+                onChange={(event) => setDraft((current) => ({ ...current, waid: parseWaidInput(event.target.value) }))}
+                placeholder="WAID ou lien de la page WA"
+                style={{ flex: "1 1 220px" }}
+              />
+              <button className="button button--secondary button--small" type="button" disabled={Boolean(waBusy) || !draft.waid} onClick={() => handleFillFromWa(draft.waid)}>
+                Remplir depuis World Athletics
+              </button>
+              <button className="button button--ghost button--small" type="button" disabled={Boolean(waBusy)} onClick={handleFindWaCandidates}>
+                Chercher sur World Athletics
+              </button>
+            </div>
+            {waBusy || waMessage ? <p className="panel-note" style={{ margin: 0 }}>{waBusy || waMessage}</p> : null}
+            {waCandidates?.length ? (
+              <div style={{ display: "grid", gap: "0.35rem" }}>
+                <span className="panel-note" style={{ margin: 0 }}>Clique sur la bonne personne (vérifie le pays et l'année) :</span>
+                {waCandidates.map((candidate) => (
+                  <button
+                    key={candidate.waid}
+                    type="button"
+                    className="button button--ghost button--small"
+                    style={{ justifyContent: "flex-start", textAlign: "left" }}
+                    onClick={() => handleFillFromWa(candidate.waid, candidate)}
+                  >
+                    {candidate.firstName} {candidate.lastName} · {candidate.country || "?"} · {candidate.birthYear || "année ?"} · WAID {candidate.waid}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {waChanges.length ? (
+              <div className="panel-note" style={{ margin: 0 }}>
+                <strong>Rempli depuis World Athletics (pas encore enregistré) :</strong>
+                <ul style={{ margin: "0.3rem 0 0", paddingLeft: "1.1rem" }}>
+                  {waChanges.map((change) => (
+                    <li key={change.field}>{WA_FIELD_LABELS[change.field]} : {String(change.before)} → <strong>{String(change.after)}</strong></li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {duplicateEntry ? (
+              <div className="notice-card notice-card--warn" style={{ padding: "0.7rem 0.9rem", display: "grid", gap: "0.45rem" }}>
+                <span>
+                  Ce WAID est déjà sur la fiche <strong>{getAthleteDisplayName(duplicateEntry)}</strong>
+                  {" "}({duplicateEntry.nationality || "?"}, éditions {[...new Set((duplicateEntry.editions || []).map((edition) => edition.year))].sort().join(", ") || "aucune"}).
+                  C'est la même personne : fusionne les deux fiches pour réunir leur historique.
+                </span>
+                {onMergeWith ? (
+                  <div>
+                    <button className="button button--secondary button--small" type="button" onClick={() => onMergeWith(duplicateEntry)}>
+                      Fusionner les deux fiches
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {isEditing ? (
           <div className="field-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
             <label className="field">
               <span>Nom</span>
@@ -1733,10 +1900,6 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
                 <option value="M">Men</option>
                 <option value="F">Women</option>
               </select>
-            </label>
-            <label className="field">
-              <span>WAID</span>
-              <input value={draft.waid} onChange={(event) => setDraft((current) => ({ ...current, waid: event.target.value.replace(/[^0-9]/g, "") }))} inputMode="numeric" />
             </label>
             <label className="field" style={{ gridColumn: "1 / -1" }}>
               <span>Lien WA</span>
@@ -3816,16 +3979,35 @@ function AthleteRegistryPage({ Panel }) {
   const [dismissingGroupId, setDismissingGroupId] = useState("");
   const [mergeStatus, setMergeStatus] = useState("");
   const [mergeOverrides, setMergeOverrides] = useState({});
+  const [onlyWithoutWaid, setOnlyWithoutWaid] = useState(false);
 
+  const withWaidCount = useMemo(() => registry.filter((entry) => entry.waid).length, [registry]);
+
+  // Without a WAID first come the athletes with the most editions at the meeting.
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return registry;
-    return registry.filter((a) => {
+    const editionCount = (entry) => new Set((entry.editions || []).map((edition) => edition.year)).size;
+    const list = registry.filter((a) => {
+      if (onlyWithoutWaid && a.waid) return false;
+      if (!q) return true;
       const hay = [a.lastName, a.firstName, a.nationality, a.waid, a.birthDate]
         .filter(Boolean).join(" ").toLowerCase();
       return hay.includes(q);
     });
-  }, [registry, search]);
+    return onlyWithoutWaid ? [...list].sort((a, b) => editionCount(b) - editionCount(a)) : list;
+  }, [registry, search, onlyWithoutWaid]);
+
+  // The open fiche and the other fiche with the same WAID, merged as one person.
+  function handleMergeSameWaid(otherEntry) {
+    if (!selectedRegistryEntry || !otherEntry) return;
+    const entries = [selectedRegistryEntry, otherEntry]
+      .sort((a, b) => compareRegistryPrimaryCandidates(a, b, currentAthletesByRegistryId));
+    handleMergeDuplicateGroup({
+      id: `waid:${entries.map((entry) => entry._docId).sort().join("__")}`,
+      entries,
+      reasons: ["Même WAID"],
+    });
+  }
 
   const registryLookup = useMemo(
     () => buildRegistryLookup(registry),
@@ -4127,7 +4309,7 @@ function AthleteRegistryPage({ Panel }) {
                 className="button button--danger"
                 disabled={rebuilding}
                 onClick={async () => {
-                  if (!window.confirm("Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?")) return;
+                  if (!window.confirm(`Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?\n\nATTENTION : ${withWaidCount} fiche(s) ont un WAID et toutes les fusions seront perdues.`)) return;
                   setRebuildLog([]);
                   setRebuilding(true);
                   try {
@@ -4531,15 +4713,34 @@ function AthleteRegistryPage({ Panel }) {
           </Panel>
         ) : null}
 
-        <Panel title="Search" subtitle={`${filtered.length} result${filtered.length !== 1 ? "s" : ""}`}>
+        {selectedRegistryEntry ? (
+          <AthleteProfilePanel
+            Panel={Panel}
+            registryEntry={selectedRegistryEntry}
+            currentAthletes={selectedCurrentAthletes}
+            onClear={() => setSelectedRegistryDocId("")}
+            title={athletesLoading ? "Fiche athlète (liaison en cours…)" : "Fiche athlète"}
+            editable
+            registry={registry}
+            onMergeWith={handleMergeSameWaid}
+          />
+        ) : null}
+
+        <Panel title="Search" subtitle={`${filtered.length} result${filtered.length !== 1 ? "s" : ""} · ${withWaidCount} / ${registry.length} fiches avec WAID`}>
           <div style={{ marginBottom: "0.75rem", display: "flex", gap: "0.75rem", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              className="input"
-              placeholder="Name, nationality, WAID…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ maxWidth: 340 }}
-            />
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+              <input
+                className="input"
+                placeholder="Name, nationality, WAID…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ maxWidth: 340 }}
+              />
+              <label style={{ display: "flex", gap: "0.4rem", alignItems: "center", fontSize: "0.85rem" }}>
+                <input type="checkbox" checked={onlyWithoutWaid} onChange={(event) => setOnlyWithoutWaid(event.target.checked)} />
+                À compléter (sans WAID), les plus fidèles d'abord
+              </label>
+            </div>
             <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
               <span className="panel-note" style={{ margin: 0 }}>
                 {selectedRegistryIds.length} sélectionnée{selectedRegistryIds.length > 1 ? "s" : ""}
@@ -4595,7 +4796,7 @@ function AthleteRegistryPage({ Panel }) {
                         <td className="col-sticky col-sticky--last" style={{ fontWeight: 600 }}>
                           <button
                             type="button"
-                            onClick={() => setSelectedRegistryDocId(a._docId)}
+                            onClick={() => { setSelectedRegistryDocId(a._docId); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                             style={{
                               appearance: "none",
                               border: "none",
@@ -4681,18 +4882,6 @@ function AthleteRegistryPage({ Panel }) {
         </Panel>
       </section>
 
-      {selectedRegistryEntry && (
-        <section className="panel-grid panel-grid--1">
-          <AthleteProfilePanel
-            Panel={Panel}
-            registryEntry={selectedRegistryEntry}
-            currentAthletes={selectedCurrentAthletes}
-            onClear={() => setSelectedRegistryDocId("")}
-            title={athletesLoading ? "Fiche athlète (liaison en cours…)" : "Fiche athlète"}
-            editable
-          />
-        </section>
-      )}
     </div>
   );
 }
