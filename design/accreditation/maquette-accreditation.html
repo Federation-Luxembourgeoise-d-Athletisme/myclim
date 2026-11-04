@@ -69,8 +69,22 @@
   .back .allowed.compact i { width: 6mm; height: 6mm; font-size: 11pt; }
   .back .no-zone { padding: 2.5mm; border-radius: 2mm; background: #f2f5f8; font-size: 7.5pt; line-height: 1.35; color: var(--muted); }
   .back .no-zone b { display: block; font: 800 12pt/1.1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: var(--ink); margin-bottom: .6mm; }
-  .back .plan { flex: 1; min-height: 0; overflow: hidden; }
-  .back .plan img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .back .plan { flex: 1; min-height: 0; overflow: hidden; display: grid; place-items: center; }
+  .back .plan svg { width: 100%; height: 100%; display: block; }
+  .plan text { font-family: "Barlow Condensed", Arial, sans-serif; font-weight: 800; }
+
+  /* Fond du recto (au choix dans l'en-tête) : motif très léger dans la couleur de la catégorie */
+  .main { position: relative; z-index: 1; }
+  .bgs { position: absolute; top: 0; right: 0; bottom: 0; left: 17mm; overflow: hidden; pointer-events: none; z-index: 0; }
+  .vip .bgs { left: 11mm; }
+  .bgs svg { position: absolute; display: none; }
+  body[data-bg="lion"] .bg-lion, body[data-bg="griffes"] .bg-griffes, body[data-bg="piste"] .bg-piste { display: block; }
+  .bg-lion { width: 98mm; right: -30mm; top: 46mm; opacity: .09; }
+  .vip .bg-lion { width: 62mm; right: -14mm; top: 4mm; }
+  .bg-griffes { width: 52mm; right: -4mm; top: 34mm; opacity: .12; }
+  .vip .bg-griffes { width: 34mm; right: 4mm; top: 0; }
+  .bg-piste { width: 120mm; right: -42mm; top: 30mm; opacity: .13; }
+  .vip .bg-piste { width: 80mm; right: -26mm; top: -6mm; }
   .back .rules { font-size: 5pt; color: #6c7f8d; line-height: 1.3; border-top: .3mm solid #dfe6ec; padding-top: 1.5mm; }
 
   /* Vue feuille A4 : 2 x 2 badges, comme l'impression de l'app */
@@ -106,17 +120,38 @@
   [hidden] { display: none !important; }
 </style>
 </head>
-<body>
+<body data-bg="lion">
 <header>
   <div>
     <h1>Accréditations 2027 · Piste B</h1>
     <p>Recto : catégorie, nom, QR codes · Verso : zones autorisées et plan</p>
+  </div>
+  <div class="toggles" id="bg">
+    <button data-bg="none">Sans fond</button>
+    <button class="on" data-bg="lion">Lion</button>
+    <button data-bg="griffes">Griffes</button>
+    <button data-bg="piste">Lignes de piste</button>
   </div>
   <div class="toggles" id="view">
     <button class="on" data-view="badges">Tous les badges</button>
     <button data-view="sheet">Feuille A4</button>
   </div>
 </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Lion du meeting, repris de public/favicon.svg -->
+  <symbol id="lion" viewBox="0 0 443.44 443.44"><g id="lion-paths"></g></symbol>
+  <symbol id="griffes" viewBox="0 0 100 140">
+    <path d="M78 4 C70 42 52 86 20 136 L27 138 C60 90 78 46 84 6 Z" />
+    <path d="M94 18 C86 54 70 94 42 138 L49 139 C78 96 94 58 99 20 Z" />
+    <path d="M62 0 C54 30 40 66 14 110 L20 112 C47 70 62 34 67 2 Z" />
+  </symbol>
+  <symbol id="piste" viewBox="0 0 120 120">
+    <g fill="none" stroke="currentColor" stroke-width="1.6">
+      <ellipse cx="80" cy="80" rx="74" ry="56" /><ellipse cx="80" cy="80" rx="64" ry="47" />
+      <ellipse cx="80" cy="80" rx="54" ry="38" /><ellipse cx="80" cy="80" rx="44" ry="29" />
+    </g>
+  </symbol>
+</svg>
 <main>
   <div id="badges">
     <section>
@@ -210,6 +245,52 @@
 
   const levelOf = (z) => (z.length === ZONES.length ? "all" : !z.length ? "none" : z.includes(1) ? "infield" : "noInfield");
   const strip = (p) => `<div class="strip" style="background:${CATEGORIES[p.category]}"><span>${p.category}</span></div>`;
+  const backgrounds = (color) => `<div class="bgs" style="color:${color}">
+      <svg class="bg-lion" fill="currentColor"><use href="#lion" /></svg>
+      <svg class="bg-griffes" viewBox="0 0 100 140" fill="currentColor"><use href="#griffes" /></svg>
+      <svg class="bg-piste" viewBox="0 0 120 120"><use href="#piste" /></svg>
+    </div>`;
+
+  // Plan schématique de la Coque, d'après les plans 2024 et 2025. Les zones autorisées
+  // prennent la couleur de la catégorie, les autres restent grises.
+  // Emplacements repris du plan des badges 2026 (Warm-up = grande zone bleue côté gauche,
+  // Coaching en 3 points, Judges Room et Mixed Zone côté tribune principale, VIP tribune droite).
+  const ZONE_SHAPES = {
+    1: [`<rect x="70" y="55" width="60" height="28" rx="14" />`, [100, 69]],
+    2: [`<path d="M8 70 C20 50 34 38 50 31 L50 109 C34 102 20 90 8 70 Z" />`, [30, 70]],
+    3: [`<rect x="91" y="35.5" width="18" height="6" rx="3" /><rect x="68" y="97" width="17" height="6" rx="3" /><rect x="115" y="97" width="17" height="6" rx="3" />`, [100, 38.5]],
+    4: [`<rect x="104" y="106" width="15" height="9" rx="1.5" />`, [111.5, 110.5]],
+    5: [`<rect x="91" y="97" width="16" height="6" rx="1.5" />`, [99, 100]],
+    6: [`<path d="M140 90 C148 84 152 76 153 68 L163 70 C162 82 156 92 146 99 Z" />`, [152, 83]],
+  };
+  const planSvg = (p) => {
+    const cat = CATEGORIES[p.category];
+    // Dessiné à l'horizontale puis pivoté en portrait, comme le plan des badges 2026 :
+    // (x, y) devient (y, 200 - x), donc Warm-up en bas et entrée à droite. Les chiffres restent droits.
+    const turn = ([x, y]) => [y, 200 - x];
+    const shapes = Object.entries(ZONE_SHAPES).map(([n, [shape]]) => {
+      const on = p.zones.includes(Number(n));
+      return `<g fill="${on ? cat : "#dfe5ea"}">${shape}</g>`;
+    }).join("");
+    const numbers = Object.entries(ZONE_SHAPES).map(([n, [, point]]) => {
+      const on = p.zones.includes(Number(n));
+      const [x, y] = turn(point);
+      return `<circle cx="${x}" cy="${y}" r="4.6" fill="${on ? "#fff" : "#f4f6f8"}" stroke="${on ? cat : "#c3ccd3"}" stroke-width="1" />
+        <text x="${x}" y="${y + 2.3}" font-size="6.8" text-anchor="middle" fill="${on ? cat : "#a9b5be"}">${n}</text>`;
+    }).join("");
+    return `<svg viewBox="0 0 142 200" aria-label="Plan d'accès de la Coque">
+      <g transform="matrix(0 -1 1 0 0 200)">
+        <path d="M8 70 C38 24 78 16 100 16 C122 16 162 24 192 70 C162 112 124 119 113 119 L122 138 L78 138 L87 119 C76 119 38 112 8 70 Z" fill="#f7f9fb" stroke="#9aa8b3" stroke-width="1" />
+        <rect x="48" y="33" width="104" height="72" rx="36" fill="#eef2f5" stroke="#c3ccd3" stroke-width=".8" />
+        <rect x="60" y="45" width="80" height="48" rx="24" fill="#fff" stroke="#c3ccd3" stroke-width=".8" />
+        <rect x="64" y="49" width="72" height="40" rx="20" fill="none" stroke="#dde3e8" stroke-width=".6" stroke-dasharray="2 1.5" />
+        ${shapes}
+        <path d="M100 133 L100 122 M96 126 L100 121 L104 126" stroke="#4a5d6c" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+      ${numbers}
+      <text x="136" y="100" font-size="4.6" text-anchor="middle" fill="#4a5d6c" letter-spacing=".6" transform="rotate(90 136 100)">ENTRÉE</text>
+    </svg>`;
+  };
 
   const front = (p) => {
     const cat = CATEGORIES[p.category];
@@ -217,7 +298,7 @@
     const name = p.lastName
       ? `<div class="last">${p.lastName}</div><div class="first">${p.firstName}</div>`
       : `<div class="last">${p.category}</div>`;
-    return `<div class="badge"><div class="hole"></div>${strip(p)}
+    return `<div class="badge"><div class="hole"></div>${strip(p)}${backgrounds(cat)}
       <div class="main">
         <div class="top"><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /><img class="logo" src="${A}${lv.logo}" alt="" /></div>
         <div class="who"><div class="role" style="color:${cat}">${p.role}</div>${name}</div>
@@ -238,12 +319,12 @@
       <div class="main">
         <div class="h"><b>Accès autorisés</b><span>Coque · Luxembourg</span></div>
         ${access}
-        <div class="plan"><img src="${A}accreditation-plan.png" alt="" /></div>
+        <div class="plan">${planSvg(p)}</div>
         <div class="rules">Badge personnel et non cessible, à porter de façon visible. Il peut être retiré en cas d'usage abusif.</div>
       </div></div>`;
   };
 
-  const vip = (v) => `<div class="vip"><div class="hole"></div>${strip({ category: "VIP" })}
+  const vip = (v) => `<div class="vip"><div class="hole"></div>${strip({ category: "VIP" })}${backgrounds(CATEGORIES.VIP)}
       <div class="main">
         <div class="head"><img class="logo" src="${A}accreditation-meeting-principal.png" alt="" /><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /></div>
         <div class="event">CMCM Luxembourg Indoor Meeting 2027 · Coque</div>
@@ -280,6 +361,24 @@
   document.getElementById("vip-sheet").innerHTML = `
     <div><div class="sheet vip-sheet">${VIPS.map(vip).join("")}</div><div class="cap"><b>Page 1 · Recto</b></div></div>
     <div><div class="sheet vip-sheet">${vipBack.map((v) => (v ? vip(v) : "<div></div>")).join("")}</div><div class="cap"><b>Page 2 · Verso</b> (gauche/droite inversés)</div></div>`;
+
+  // Lion du favicon : il est en négatif (blanc) dans le rond rouge et bleu, donc on garde les parties
+  // colorées (cls-2, cls-3) et le lion apparaît découpé dans le motif.
+  fetch("/favicon.svg")
+    .then((response) => response.text())
+    .then((text) => {
+      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+      document.getElementById("lion-paths").innerHTML = [...doc.querySelectorAll("path.cls-2, path.cls-3")]
+        .map((path) => `<path d="${path.getAttribute("d")}" />`)
+        .join("");
+    });
+
+  document.getElementById("bg").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    document.querySelectorAll("#bg button").forEach((b) => b.classList.toggle("on", b === button));
+    document.body.dataset.bg = button.dataset.bg;
+  });
 
   document.getElementById("view").addEventListener("click", (event) => {
     const button = event.target.closest("button");
