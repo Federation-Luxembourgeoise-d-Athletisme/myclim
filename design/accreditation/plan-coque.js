@@ -35,7 +35,8 @@ const PLAN_DEFAULT_ELEMENTS = [
 function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee" } = {}) {
   return `<svg class="plan-base" viewBox="0 0 1415 2000" preserveAspectRatio="none" aria-hidden="true">
     <path d="M505 187 L555 225 C760 390 960 560 1065 780 L1110 785 L1125 815 L1135 940 L1360 960 C1340 1110 1270 1230 1180 1290 L1045 1100 L955 1140 C910 1330 880 1460 820 1580 C720 1740 610 1850 515 1935 C330 1760 160 1520 80 1280 L45 1220 L80 1165 L80 960 L45 905 L80 830 C130 560 300 330 505 187 Z" fill="#f7f9fb" stroke="#5f6f7c" stroke-width="7" stroke-linejoin="round" />
-    <path d="M45 905 L140 895 L140 1315 L175 1320 C220 1470 330 1580 470 1640 L560 1640 C650 1620 710 1580 745 1535 L825 1580 C720 1740 610 1850 515 1935 C330 1760 160 1520 80 1280 L45 1220 L80 1165 L80 960 Z" fill="${warmup}" />
+    <!-- Warm-up : passe sous les tribunes, dessinées par-dessus, pour s'arrêter pile à leur bord -->
+    <path d="M45 905 L400 895 L500 1300 L745 1535 L825 1580 C720 1740 610 1850 515 1935 C330 1760 160 1520 80 1280 L45 1220 L80 1165 L80 960 Z" fill="${warmup}" />
     <path d="M350 395 L425 262 L505 222 L588 262 L668 395 Z" fill="#dfe5ea" />
     <path d="M770 595 C842 650 912 722 946 800 L900 830 L830 805 Z" fill="#dfe5ea" />
     <path d="M795 890 L880 890 L880 1000 A60 60 0 0 1 880 1120 L880 1235 L795 1235 Z" fill="#dfe5ea" />
