@@ -4,14 +4,123 @@
     {
       "name": "myclim-dev",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "myclim-netlify",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["netlify", "dev"],
+      "runtimeArgs": [
+        "netlify",
+        "dev"
+      ],
       "port": 8888
+    },
+    {
+      "name": "myclim-dev-emulators",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "env": {
+        "VITE_USE_FIREBASE_EMULATORS": "true"
+      },
+      "port": 5174
+    },
+    {
+      "name": "myclim-com-emulators",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5178",
+        "--strictPort"
+      ],
+      "cwd": ".claude/worktrees/com-i18n",
+      "env": {
+        "VITE_USE_FIREBASE_EMULATORS": "true"
+      },
+      "port": 5178
+    },
+    {
+      "name": "myclim-invoice-filing-emulators",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5179",
+        "--strictPort"
+      ],
+      "cwd": ".claude/worktrees/invoice-filing",
+      "env": {
+        "VITE_USE_FIREBASE_EMULATORS": "true"
+      },
+      "port": 5179
+    },
+    {
+      "name": "myclim-emagazine",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
+      "cwd": ".claude/worktrees/emagazine",
+      "port": 5180
+    },
+    {
+      "name": "myclim-budget-redesign",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "cwd": ".claude/worktrees/budget-redesign",
+      "port": 5173,
+      "autoPort": false
+    },
+    {
+      "name": "myclim-preprogramme",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5181",
+        "--strictPort"
+      ],
+      "port": 5181
+    },
+    {
+      "name": "myclim-maquettes",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5183",
+        "--strictPort"
+      ],
+      "port": 5183
+    },
+    {
+      "name": "myclim-timetable",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5182",
+        "--strictPort"
+      ],
+      "cwd": ".claude/worktrees/timetable",
+      "port": 5182
     }
   ]
 }
