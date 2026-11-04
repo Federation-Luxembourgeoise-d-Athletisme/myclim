@@ -6,6 +6,8 @@ import { useAuth } from "../context/auth-context";
 import { useSiteEditionYear } from "../app/edition";
 import { useMeetingEditions } from "../app/meeting-history-hooks";
 import { useLanguage } from "../app/language-context";
+import { MobileTicketButton, TicketBar } from "./site-ticketing";
+import { useTicketing } from "./use-ticketing";
 import "./site.css";
 
 // FR / EN du site public : même préférence que l'espace MyCLIM. Les pages pas
@@ -76,6 +78,8 @@ export function SiteLayout() {
     : null;
   const currentEdition = configuredEdition || latestEdition || null;
   const emagazinePublished = (currentEdition?.emagazineStatus || "published") === "published";
+  const ticketing = useTicketing();
+  const showTicketBar = ticketing.phase !== "past";
   const navLinks = emagazinePublished
     ? [...BASE_NAV_LINKS.slice(0, 4), { to: "/e-magazine", label: "E-Magazine" }, ...BASE_NAV_LINKS.slice(4)]
     : BASE_NAV_LINKS;
@@ -84,6 +88,7 @@ export function SiteLayout() {
     isEmagazinePage ? "site-page--emagazine" : "",
     location.pathname === "/partners" ? "site-page--partners" : "",
     location.pathname === "/become-a-partner" ? "site-page--sponsorship" : "",
+    showTicketBar ? "site-page--ticket-bar" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -105,6 +110,8 @@ export function SiteLayout() {
 
   return (
     <div className={pageClassName}>
+      <TicketBar ticketing={ticketing} />
+
       {/* ── Navigation ─────────────────────────────────── */}
       <nav className={`site-nav${scrolled || mobileOpen ? " site-nav--scrolled" : ""}`}>
         <div className="site-nav__inner">
@@ -185,8 +192,10 @@ export function SiteLayout() {
 
       {/* ── Page content ────────────────────────────────── */}
       <main>
-        <Outlet />
+        <Outlet context={{ ticketing }} />
       </main>
+
+      {!isEmagazinePage ? <MobileTicketButton ticketing={ticketing} /> : null}
 
       {/* ── Footer ──────────────────────────────────────── */}
       {!isEmagazinePage ? (

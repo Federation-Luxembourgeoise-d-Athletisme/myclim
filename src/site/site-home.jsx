@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useOutletContext } from "react-router-dom";
 import { useSiteEditionYear } from "../app/edition";
 import { formatEditionLabel, getEditionDisplayNumber } from "../app/meeting-edition-utils";
 import { useMeetingEditions, useMeetingResultsForYear } from "../app/meeting-history-hooks";
+import { BuyTicketsLink, HeroCountdown, PlanYourVisit, TicketStubsSection } from "./site-ticketing";
 import { SponsorLogo } from "./sponsor-logo";
 import { usePublishedNews, useSponsorCategories, useSponsors } from "./site-hooks";
 import { sponsorCategoryLabel } from "./sponsor-utils";
@@ -134,6 +135,7 @@ export function SiteHome() {
   const { news } = usePublishedNews(4);
   const { categories: sponsorCategories } = useSponsorCategories();
   const { sponsors, loading: sponsorsLoading } = useSponsors(true);
+  const { ticketing } = useOutletContext();
 
   const latestEdition = editions[0] || null;
   const configuredSiteEdition = siteEditionYear
@@ -239,7 +241,8 @@ export function SiteHome() {
           <img src={waLogo} alt="World Athletics Indoor Tour Silver" className="site-hero__label-wa" />
         </div>
 
-        <div className="site-hero__content">
+        <div className="site-hero__content site-hero__content--with-countdown">
+          <div className="site-hero__main">
           <div className="site-hero__eyebrow">Luxembourg · Indoor Athletics</div>
           <h1 className="site-hero__title">
             CMCM Luxembourg<br />
@@ -274,9 +277,9 @@ export function SiteHome() {
           </div>
 
           <div className="site-hero__ctas">
-            <NavLink to="/statistics" className="site-btn site-btn--primary">
-              View Results &amp; Records
-            </NavLink>
+            <BuyTicketsLink ticketing={ticketing} className="site-btn site-btn--primary">
+              Buy tickets
+            </BuyTicketsLink>
             <NavLink to="/event" className="site-btn site-btn--secondary">
               Event Information
             </NavLink>
@@ -291,6 +294,9 @@ export function SiteHome() {
               ▶ Watch Aftermovie
             </a>
           </div>
+          </div>
+
+          <HeroCountdown ticketing={ticketing} />
         </div>
 
         <div className="site-hero__scroll" aria-hidden="true">
@@ -300,6 +306,9 @@ export function SiteHome() {
           </svg>
         </div>
       </section>
+
+      <TicketStubsSection ticketing={ticketing} />
+      <PlanYourVisit ticketing={ticketing} onlyNearEvent />
 
       {/* ════════════════════════════════════════════════
           KEY FIGURES
@@ -383,7 +392,9 @@ export function SiteHome() {
       <section className="site-section site-section--alt" id="live-results">
         <div className="site-container">
           <div className="site-section-header site-section-header--center" style={{ marginBottom: 40 }}>
-            <span className="site-eyebrow" style={{ color: "var(--site-red)" }}>● Live</span>
+            <span className="site-eyebrow" style={{ color: "var(--site-red)" }}>
+              {latestEdition?.resultsUrl ? "● Live" : "Competition day"}
+            </span>
             <h2 className="site-heading">Live Results &amp; Live Streaming</h2>
             {latestEdition?.resultsUrl && (
               <p className="site-lead">
@@ -460,7 +471,7 @@ export function SiteHome() {
         />
         <div className="site-container" style={{ position: "relative", zIndex: 1 }}>
           <div className="site-section-header site-section-header--center">
-            <span className="site-eyebrow">2025 Edition</span>
+            <span className="site-eyebrow">2026 Edition</span>
             <h2 className="site-heading">Watch the aftermovie</h2>
             <p className="site-lead">
               Relive the best moments of the CMCM Luxembourg Indoor Meeting — elite performances, atmosphere and highlights from the Coque.
@@ -884,9 +895,12 @@ export function SiteHome() {
             Be part of the meeting
           </h2>
           <p style={{ color: "rgba(255,255,255,0.75)", fontSize: "1.05rem", marginBottom: 36, maxWidth: 520, margin: "0 auto 36px" }}>
-            Join us as a volunteer, apply for press accreditation, or discover our VIP packages.
+            Watch from the stands, join us as a volunteer, apply for press accreditation, or discover our VIP packages.
           </p>
           <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+            <BuyTicketsLink ticketing={ticketing} className="site-btn site-btn--ink" infoLabel="Come and watch: ticket info">
+              Come and watch: buy tickets
+            </BuyTicketsLink>
             <NavLink to="/become-a-partner" className="site-btn" style={{ background: "#fff", color: "var(--site-red)", fontWeight: 800 }}>
               Become a partner
             </NavLink>
