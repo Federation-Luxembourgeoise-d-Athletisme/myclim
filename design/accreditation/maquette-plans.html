@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plans de la Coque — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Éditeur de plans : un seul plan de la Coque, deux versions (accréditations / spectateurs). */
+  :root { --ink: #0b1b2b; --muted: #4a5d6c; --dim: #8a9aa7; --line: #e3e9ee; --surface: #eef2f5; --red: #e30613; --accent: #0d8fd3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Barlow, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--surface); }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+  header h1 { margin: 0; font: 800 24px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+  .seg { display: inline-flex; background: var(--surface); border-radius: 999px; padding: 3px; }
+  .seg button { border: 0; background: transparent; border-radius: 999px; padding: 8px 16px; font: 700 14px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .layout { display: grid; grid-template-columns: 290px minmax(0, 1fr) 300px; gap: 16px; padding: 16px 24px 40px; align-items: start; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .panel h2 { margin: 0 0 10px; font: 800 15px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
+  .group { margin: 14px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); display: flex; justify-content: space-between; }
+  .group span:last-child { letter-spacing: .04em; }
+  .row { display: grid; grid-template-columns: 22px 1fr 26px 26px; gap: 6px; align-items: center; padding: 5px 6px; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; }
+  .row:hover { background: var(--surface); }
+  .row.sel { background: #e6f3fb; outline: 1px solid #a9d6f0; }
+  .chip { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 11px/1 "Barlow Condensed", Arial, sans-serif; }
+  .chip.sq { border-radius: 4px; }
+  .vis { width: 24px; height: 22px; border-radius: 6px; border: 1px solid var(--line); display: grid; place-items: center; font: 800 11px/1 Barlow, Arial, sans-serif; color: #c3ccd3; background: #fff; cursor: pointer; }
+  .vis.on { color: #fff; border-color: transparent; }
+  .vis.a.on { background: var(--ink); }
+  .vis.s.on { background: var(--red); }
+  .add { margin-top: 12px; width: 100%; border: 1px dashed #b9c5ce; background: #fff; border-radius: 8px; padding: 9px; font: 700 13.5px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+  .legend-vis { font-size: 12px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+  .legend-vis b { display: inline-grid; place-items: center; width: 18px; height: 16px; border-radius: 4px; color: #fff; font-size: 10px; margin-right: 4px; }
+
+  /* Plan éditable : positions en % de l'image, donc indépendantes de la taille d'affichage */
+  .stage { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .stage-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .stage-bar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .canvas { position: relative; margin: 0 auto; width: min(100%, 620px); aspect-ratio: 1872 / 2646; user-select: none; touch-action: none; }
+  .canvas img.base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  .el { position: absolute; transform: translate(-50%, -50%); cursor: grab; white-space: nowrap; }
+  .el.dragging { cursor: grabbing; z-index: 10; }
+  .el.ghost { opacity: .28; }
+  .el.sel .zone, .el.sel .pill, .el.sel .ctrl { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--accent); }
+  .zone { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 15px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .pill { padding: 6px 12px; border-radius: 999px; color: #fff; font: 700 13px/1 Barlow, Arial, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+
+  /* Fiche de l'élément sélectionné */
+  .field { display: grid; gap: 5px; margin-bottom: 11px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+  .field input[type=text], .field select { font: 600 14px Barlow, Arial, sans-serif; padding: 8px 10px; border: 1px solid #cfd8df; border-radius: 8px; color: var(--ink); }
+  .colors { display: flex; flex-wrap: wrap; gap: 6px; }
+  .colors button { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #cfd8df; cursor: pointer; }
+  .colors button.on { box-shadow: 0 0 0 2px var(--ink); }
+  .checks { display: grid; gap: 6px; font-weight: 600; color: var(--ink); font-size: 14px; }
+  .danger { width: 100%; border: 1px solid #f3c2c5; background: #fff5f5; color: #b0101c; border-radius: 8px; padding: 8px; font: 700 13px Barlow, Arial, sans-serif; cursor: pointer; margin-top: 4px; }
+  .empty { color: var(--dim); font-size: 13.5px; line-height: 1.5; }
+
+  /* Aperçus : ce que chaque version donne une fois imprimée */
+  .previews { padding: 0 24px 50px; }
+  .previews > h2 { font: 800 19px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; margin: 0 0 6px; }
+  .previews > p { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 900px; }
+  .pv-grid { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  .pv-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
+  .pv-cap select { font: 600 13px Barlow, Arial, sans-serif; margin-left: 6px; padding: 3px 6px; border-radius: 6px; border: 1px solid #cfd8df; }
+  .mini { position: relative; aspect-ratio: 1872 / 2646; }
+  .mini img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .mini .el { cursor: default; }
+
+  .badge-back { width: 100mm; height: 143.5mm; background: #fff; display: flex; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
+  .badge-back .strip { width: 17mm; display: grid; place-items: center; color: #fff; }
+  .badge-back .strip span { writing-mode: vertical-rl; transform: rotate(180deg); font: 800 30pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  .badge-back .main { flex: 1; padding: 11mm 4mm 4mm; display: flex; flex-direction: column; gap: 2mm; min-width: 0; }
+  .badge-back .h { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; border-bottom: .3mm solid #dfe6ec; padding-bottom: 2mm; }
+  .badge-back .mini { flex: 1; min-height: 0; aspect-ratio: auto; }
+  .badge-back .mini img { object-fit: contain; }
+  .badge-back .zone { width: 15px; height: 15px; font-size: 9.5px; border-width: 1.5px; }
+  .badge-back .pill { padding: 2px 5px; font-size: 6.5px; }
+  .badge-back .ctrl { width: 13px; height: 13px; font-size: 8.5px; border-width: 1px; }
+
+  .poster { width: 150mm; background: #fff; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); display: flex; flex-direction: column; }
+  .poster .ph { display: flex; align-items: center; height: 26mm; }
+  .poster .ph img { height: 22mm; margin: 0 4mm; }
+  .poster .ph b { flex: 1; align-self: stretch; display: grid; place-items: center; background: var(--red); color: #fff; font: 600 21pt/1 Barlow, Arial, sans-serif; border-radius: 13mm 0 0 13mm; letter-spacing: .02em; }
+  .poster .mini { width: 100%; }
+  .poster .pill { padding: 3px 7px; font-size: 8px; }
+  .poster .zone { width: 16px; height: 16px; font-size: 10px; border-width: 1.5px; }
+  .poster .pf { display: flex; justify-content: space-around; align-items: center; padding: 3mm 4mm 4mm; border-top: .3mm solid var(--line); }
+  .poster .pf img { height: 8mm; max-width: 24mm; object-fit: contain; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Plans de la Coque · éditeur</h1>
+    <p>Un seul plan, deux versions. Fais glisser les repères sur le plan, coche où chacun apparaît.</p>
+  </div>
+  <div class="seg" id="version">
+    <button class="on" data-v="a">Version accréditations</button>
+    <button data-v="s">Version spectateurs</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="panel">
+    <h2>Éléments du plan</h2>
+    <div id="list"></div>
+    <button class="add" id="add">+ Ajouter un repère</button>
+    <button class="add" id="reset" style="border-style:solid;margin-top:6px">Revenir au plan de départ</button>
+    <div class="legend-vis"><b style="background:var(--ink)">A</b>visible sur le plan des accréditations<br /><b style="background:var(--red)">S</b>visible sur le plan spectateurs</div>
+  </aside>
+
+  <section class="stage">
+    <div class="stage-bar">
+      <span id="stage-title"></span>
+      <label><input type="checkbox" id="ghosts" checked /> Montrer en transparence les éléments de l&apos;autre version</label>
+    </div>
+    <div class="canvas" id="canvas"><img class="base" src="assets/plan-coque-2026.png" alt="Plan de la Coque" /></div>
+  </section>
+
+  <aside class="panel" id="detail"></aside>
+</div>
+
+<div class="previews">
+  <h2>Aperçus</h2>
+  <p>Ils se mettent à jour quand tu modifies le plan. Le verso du badge allume les zones du rôle choisi, dans sa couleur ; l&apos;affiche spectateurs ne montre que les éléments cochés « S ».</p>
+  <div class="pv-grid">
+    <div>
+      <div class="badge-back" id="pv-badge"></div>
+      <div class="pv-cap">Verso de badge ·<select id="pv-role"></select></div>
+    </div>
+    <div>
+      <div class="poster" id="pv-poster"></div>
+      <div class="pv-cap">Venue map spectateurs (site, affichage, réseaux)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const A = "../../src/assets/";
+  const PALETTE = ["#e30613", "#0a2540", "#27a9e1", "#0f8a5f", "#f07c00", "#5b2bb5", "#9157e6", "#b8912a", "#e5719a", "#6b7a86"];
+  const ZONE_RED = "#c8102e";
+  // Positions en % de l'image du plan 2026 (portrait : Warm-up en bas, entrée principale à droite).
+  // a = plan des accréditations, s = plan spectateurs.
+  const DEFAULT_ELEMENTS = [
+    { id: "z1", kind: "zone", num: 1, label: "Infield", x: 35.3, y: 50, a: true, s: false },
+    { id: "z2", kind: "zone", num: 2, label: "Warm-up", x: 23, y: 85, a: true, s: false },
+    { id: "z3a", kind: "zone", num: 3, label: "Coaching Zone", x: 16.4, y: 50, a: true, s: false },
+    { id: "z3b", kind: "zone", num: 3, label: "Coaching Zone", x: 54.6, y: 44, a: true, s: false },
+    { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", x: 54.6, y: 62, a: true, s: false },
+    { id: "z4", kind: "zone", num: 4, label: "Judges Room", x: 58.4, y: 58.5, a: true, s: false },
+    { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", x: 54.4, y: 52, a: true, s: false },
+    { id: "z6", kind: "zone", num: 6, label: "VIP Zone", x: 61.5, y: 35, a: true, s: false },
+    { id: "m1", kind: "mark", label: "Main Entrance", color: "#0f8a5f", x: 80, y: 58, a: true, s: true },
+    { id: "m2", kind: "mark", label: "Bar", color: "#e5719a", x: 36, y: 15, a: false, s: true },
+    { id: "m3", kind: "mark", label: "Drink cards", color: "#e5719a", x: 69, y: 47, a: false, s: true },
+    { id: "m4", kind: "mark", label: "Signing Zone", color: "#6b7a86", x: 63, y: 26, a: false, s: true },
+    { id: "m5", kind: "mark", label: "Athletics workshop", color: "#e30613", x: 47, y: 9, a: false, s: true },
+    { id: "m6", kind: "mark", label: "First aid", color: "#e30613", x: 23, y: 29, a: true, s: true },
+    { id: "m7", kind: "mark", label: "VIP Welcome", color: "#b8912a", x: 74, y: 66, a: true, s: false },
+    { id: "m8", kind: "mark", label: "Volunteers · Judges · Press welcome", color: "#27a9e1", x: 73, y: 71, a: true, s: false },
+    { id: "c1", kind: "ctrl", label: "A", color: "#0a2540", x: 76, y: 63, a: true, s: false },
+    { id: "c2", kind: "ctrl", label: "B", color: "#0a2540", x: 63.6, y: 49, a: true, s: false },
+    { id: "c3", kind: "ctrl", label: "C", color: "#0a2540", x: 62, y: 55, a: true, s: false },
+    { id: "c4", kind: "ctrl", label: "D", color: "#0a2540", x: 61.5, y: 41, a: true, s: false },
+    { id: "c5", kind: "ctrl", label: "E", color: "#0a2540", x: 56, y: 67, a: true, s: false },
+    { id: "c6", kind: "ctrl", label: "F", color: "#0a2540", x: 17.7, y: 79, a: true, s: false },
+  ];
+  const ROLES = [
+    { category: "Organisation", color: "#e30613", zones: [1, 2, 3, 4, 5, 6] },
+    { category: "Athlète", color: "#0f8a5f", zones: [1, 2, 5] },
+    { category: "Coach", color: "#f07c00", zones: [2, 3] },
+    { category: "Juge", color: "#0a2540", zones: [1, 4] },
+    { category: "Presse", color: "#5b2bb5", zones: [5] },
+    { category: "Bénévole", color: "#27a9e1", zones: [] },
+  ];
+  const GROUPS = [["zone", "Zones d'accès"], ["mark", "Repères"], ["ctrl", "Points de contrôle"]];
+
+  const STORE = "myclim-maquette-plans";
+  let elements;
+  try { elements = JSON.parse(localStorage.getItem(STORE)) || null; } catch { elements = null; }
+  if (!Array.isArray(elements)) elements = structuredClone(DEFAULT_ELEMENTS);
+  let version = "a";
+  let selectedId = null;
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(elements)); } catch { /* aperçu sans mémoire */ } };
+
+  const colorOf = (el) => (el.kind === "zone" ? ZONE_RED : el.color);
+  const marker = (el, color = colorOf(el)) =>
+    el.kind === "zone" ? `<div class="zone" style="background:${color}">${el.num}</div>`
+    : el.kind === "ctrl" ? `<div class="ctrl" style="background:${color}">${el.label}</div>`
+    : `<div class="pill" style="background:${color}">${el.label}</div>`;
+
+  function renderCanvas() {
+    const canvas = document.getElementById("canvas");
+    canvas.querySelectorAll(".el").forEach((node) => node.remove());
+    const showGhosts = document.getElementById("ghosts").checked;
+    elements.forEach((el) => {
+      const visible = el[version];
+      if (!visible && !showGhosts) return;
+      const node = document.createElement("div");
+      node.className = `el${visible ? "" : " ghost"}${el.id === selectedId ? " sel" : ""}`;
+      node.style.left = `${el.x}%`;
+      node.style.top = `${el.y}%`;
+      node.dataset.id = el.id;
+      node.innerHTML = marker(el);
+      canvas.appendChild(node);
+    });
+    document.getElementById("stage-title").textContent =
+      version === "a" ? "Plan des accréditations : zones numérotées, points de contrôle" : "Plan spectateurs : entrées, bar, animations";
+  }
+
+  function renderList() {
+    document.getElementById("list").innerHTML = GROUPS.map(([kind, title]) => {
+      const rows = elements.filter((el) => el.kind === kind).map((el) => `
+        <div class="row${el.id === selectedId ? " sel" : ""}" data-id="${el.id}">
+          <span class="chip${kind === "ctrl" ? " sq" : ""}" style="background:${colorOf(el)}">${kind === "zone" ? el.num : kind === "ctrl" ? el.label : ""}</span>
+          <span>${kind === "ctrl" ? `Contrôle ${el.label}` : el.label}</span>
+          <span class="vis a${el.a ? " on" : ""}" data-toggle="a" title="Plan des accréditations">A</span>
+          <span class="vis s${el.s ? " on" : ""}" data-toggle="s" title="Plan spectateurs">S</span>
+        </div>`).join("");
+      return `<div class="group"><span>${title}</span><span>A · S</span></div>${rows}`;
+    }).join("");
+  }
+
+  function renderDetail() {
+    const el = elements.find((item) => item.id === selectedId);
+    const box = document.getElementById("detail");
+    if (!el) {
+      box.innerHTML = `<h2>Élément</h2><p class="empty">Clique sur un repère du plan ou de la liste pour le modifier. Fais-le glisser pour le déplacer.</p>`;
+      return;
+    }
+    const nameField = el.kind === "zone"
+      ? `<label class="field">Zone<select data-f="num">${[1, 2, 3, 4, 5, 6].map((n) => `<option ${n === el.num ? "selected" : ""}>${n}</option>`).join("")}</select></label>`
+      : "";
+    box.innerHTML = `<h2>${el.kind === "zone" ? "Zone d'accès" : el.kind === "ctrl" ? "Point de contrôle" : "Repère"}</h2>
+      ${nameField}
+      <label class="field">Texte affiché<input type="text" data-f="label" value="${el.label.replace(/"/g, "&quot;")}" /></label>
+      ${el.kind === "zone" ? "" : `<div class="field">Couleur<div class="colors">${PALETTE.map((c) => `<button data-color="${c}" class="${c === el.color ? "on" : ""}" style="background:${c}"></button>`).join("")}</div></div>`}
+      <div class="field">Visible sur
+        <div class="checks">
+          <label><input type="checkbox" data-f="a" ${el.a ? "checked" : ""} /> le plan des accréditations (verso des badges)</label>
+          <label><input type="checkbox" data-f="s" ${el.s ? "checked" : ""} /> le plan spectateurs (venue map)</label>
+        </div>
+      </div>
+      <button class="danger" id="delete">Supprimer cet élément</button>`;
+  }
+
+  function renderPreviews() {
+    const roleSelect = document.getElementById("pv-role");
+    if (!roleSelect.options.length) roleSelect.innerHTML = ROLES.map((r, i) => `<option value="${i}">${r.category}</option>`).join("");
+    const role = ROLES[Number(roleSelect.value) || 0];
+    const badgeEls = elements.filter((el) => el.a).map((el) => {
+      const color = el.kind === "zone" ? (role.zones.includes(el.num) ? role.color : "#c3ccd3") : colorOf(el);
+      return `<div class="el" style="left:${el.x}%;top:${el.y}%">${marker(el, color)}</div>`;
+    }).join("");
+    document.getElementById("pv-badge").innerHTML = `
+      <div class="strip" style="background:${role.color}"><span>${role.category}</span></div>
+      <div class="main"><div class="h">Plan d'accès</div>
+        <div class="mini"><img src="assets/plan-coque-2026.png" alt="" />${badgeEls}</div></div>`;
+    const posterEls = elements.filter((el) => el.s).map((el) => `<div class="el" style="left:${el.x}%;top:${el.y}%">${marker(el)}</div>`).join("");
+    document.getElementById("pv-poster").innerHTML = `
+      <div class="ph"><img src="${A}accreditation-meeting-principal.png" alt="" /><b>VENUE MAP</b></div>
+      <div class="mini"><img src="assets/plan-coque-2026.png" alt="" />${posterEls}</div>
+      <div class="pf">${["accreditation-sponsor-cmcm.png", "fla-logo.png", "wa-indoor-tour-silver.png", "accreditation-sponsor-ville-luxembourg.png", "accreditation-sponsor-luxembourg.png"].map((f) => `<img src="${A}${f}" alt="" />`).join("")}</div>`;
+  }
+
+  const renderAll = () => { renderCanvas(); renderList(); renderDetail(); renderPreviews(); };
+
+  // Glisser-déposer sur le plan
+  const canvas = document.getElementById("canvas");
+  let drag = null;
+  canvas.addEventListener("pointerdown", (event) => {
+    const node = event.target.closest(".el");
+    if (!node) return;
+    selectedId = node.dataset.id;
+    drag = { node, el: elements.find((item) => item.id === selectedId) };
+    node.classList.add("dragging");
+    canvas.setPointerCapture(event.pointerId);
+    renderList(); renderDetail();
+    canvas.querySelectorAll(".el").forEach((n) => n.classList.toggle("sel", n.dataset.id === selectedId));
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (!drag) return;
+    const rect = canvas.getBoundingClientRect();
+    drag.el.x = Math.min(98, Math.max(2, ((event.clientX - rect.left) / rect.width) * 100));
+    drag.el.y = Math.min(98, Math.max(2, ((event.clientY - rect.top) / rect.height) * 100));
+    drag.node.style.left = `${drag.el.x}%`;
+    drag.node.style.top = `${drag.el.y}%`;
+  });
+  canvas.addEventListener("pointerup", () => {
+    if (!drag) return;
+    drag = null;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("list").addEventListener("click", (event) => {
+    const row = event.target.closest(".row");
+    if (!row) return;
+    const el = elements.find((item) => item.id === row.dataset.id);
+    const toggle = event.target.dataset.toggle;
+    if (toggle) { el[toggle] = !el[toggle]; save(); }
+    else selectedId = el.id;
+    renderAll();
+  });
+
+  document.getElementById("detail").addEventListener("input", (event) => {
+    const el = elements.find((item) => item.id === selectedId);
+    const field = event.target.dataset.f;
+    if (!el || !field) return;
+    el[field] = event.target.type === "checkbox" ? event.target.checked : field === "num" ? Number(event.target.value) : event.target.value;
+    save();
+    renderCanvas(); renderList(); renderPreviews();
+  });
+  document.getElementById("detail").addEventListener("click", (event) => {
+    const el = elements.find((item) => item.id === selectedId);
+    if (!el) return;
+    if (event.target.dataset.color) { el.color = event.target.dataset.color; save(); renderAll(); }
+    if (event.target.id === "delete") { elements = elements.filter((item) => item !== el); selectedId = null; save(); renderAll(); }
+  });
+
+  document.getElementById("add").addEventListener("click", () => {
+    const el = { id: `m${Date.now()}`, kind: "mark", label: "Nouveau repère", color: PALETTE[2], x: 50, y: 50, a: version === "a", s: version === "s" };
+    elements.push(el);
+    selectedId = el.id;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    elements = structuredClone(DEFAULT_ELEMENTS);
+    selectedId = null;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("version").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    version = button.dataset.v;
+    document.querySelectorAll("#version button").forEach((b) => b.classList.toggle("on", b === button));
+    renderCanvas();
+  });
+  document.getElementById("ghosts").addEventListener("change", renderCanvas);
+  document.getElementById("pv-role").addEventListener("change", renderPreviews);
+
+  renderAll();
+</script>
+</body>
+</html>

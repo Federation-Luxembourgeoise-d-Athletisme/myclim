@@ -117,6 +117,11 @@
   .vip .partner-logos { grid-template-columns: repeat(6, 1fr); gap: 2mm; }
   .vip .partner-logos img { height: 5.5mm; }
   .sheet.vip-sheet { grid-auto-rows: 71.75mm; }
+  .subroles { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 22px; max-width: 1000px; }
+  .subrole-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .subrole-row:last-child { border-bottom: 0; }
+  .subrole-row b { color: #fff; border-radius: 6px; padding: 4px 8px; font: 800 13px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .03em; text-align: center; }
+  .subrole-row b.unsorted { background: #fff; color: var(--muted); border: 1px dashed #b9c5ce; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -138,7 +143,7 @@
   </div>
 </header>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <!-- Lion du meeting, repris de public/favicon.svg -->
+  <!-- Lion du meeting, repris du logo officiel (assets/logos/meeting-principal.svg) -->
   <symbol id="lion" viewBox="0 0 443.44 443.44"><g id="lion-paths"></g></symbol>
   <symbol id="griffes" viewBox="0 0 100 140">
     <path d="M78 4 C70 42 52 86 20 136 L27 138 C60 90 78 46 84 6 Z" />
@@ -158,6 +163,7 @@
       <h2>Les catégories</h2>
       <p class="note">Une couleur par catégorie, visible de loin. Les QR codes changent selon la catégorie (réglage existant dans l&apos;app). Le logo du meeting garde la règle actuelle de l'app : couleurs normales = toutes zones, bleu = avec Infield, rouge = sans Infield, noir = aucune zone.</p>
       <div class="legend-cats" id="cat-legend"></div>
+      <div class="subroles" id="subroles"></div>
       <div class="grid" id="fronts"></div>
     </section>
     <section>
@@ -195,8 +201,23 @@
     Presse: "#5b2bb5",
     Photographe: "#9157e6",
     Bénévole: "#27a9e1",
+    Technique: "#4a5056",
     VIP: "#b8912a",
   };
+  // Une catégorie (couleur de la bande) regroupe des sous-rôles (écrits sur le badge).
+  // Proposition à partir des rôles des badges 2026, à valider.
+  const SUBROLES = {
+    Organisation: ["Organisation", "Comité directeur FLA", "Porte-panier responsable", "Tribune management", "Lunex supervisor"],
+    Athlète: ["Athlete", "Special Olympics", "Business race athlete", "Influencer race guests", "U12/U14 team"],
+    Coach: ["Coach", "Special Olympics coach", "U12/U14 coach"],
+    Juge: ["Judges"],
+    Presse: ["Press", "Press media", "Young reporter"],
+    Photographe: ["Photographer", "Official photographer", "Cameraman RTL"],
+    Bénévole: ["Hurdles team", "Équipe block-start", "Porte-panier", "In-field assistance", "Entrance", "Buvette CAB", "Cheerleaders", "Animation team", "Volunteer VIP"],
+    Technique: ["Seltec", "TV (Apart TV)", "Athlete presentation"],
+    VIP: ["VIP (badge réduit)"],
+  };
+  const UNSORTED_ROLES = ["Medical", "ALAD", "ALAD chaperon", "Physio"];
   const LEVELS = {
     all: { label: "Toutes zones", logo: "accreditation-meeting-principal.png" },
     infield: { label: "Infield autorisé", logo: "accreditation-meeting-bleu.png" },
@@ -225,7 +246,8 @@
     { category: "Juge", role: "Juge arbitre", lastName: "Hoffmann", firstName: "Nina", zones: [1, 4], qrs: ["results"] },
     { category: "Presse", role: "Journaliste · RTL", lastName: "Klein", firstName: "Sophie", zones: [5], qrs: [] },
     { category: "Photographe", role: "Photographe · FLA", lastName: "Becker", firstName: "Tom", zones: [1, 5], qrs: [] },
-    { category: "Bénévole", role: "Transport", lastName: "Muller", firstName: "Alex", zones: [], qrs: ["results", "roadbook", "photos"] },
+    { category: "Bénévole", role: "Hurdles team", lastName: "Muller", firstName: "Alex", zones: [1], qrs: ["results", "roadbook", "photos"] },
+    { category: "Technique", role: "Seltec", lastName: "Wagner", firstName: "Mara", zones: [1, 4, 5], qrs: ["results"] },
   ];
   const VIPS = [
     { company: "CMCM", lastName: "Schmit", firstName: "Laure" },
@@ -340,6 +362,10 @@
 
   const caption = (p) => `<div class="cap"><b>${p.category}</b> · ${LEVELS[levelOf(p.zones)].label}</div>`;
 
+  document.getElementById("subroles").innerHTML = Object.entries(SUBROLES)
+    .map(([category, roles]) => `<div class="subrole-row"><b style="background:${CATEGORIES[category]}">${category}</b><span>${roles.join(" · ")}</span></div>`)
+    .join("") + `<div class="subrole-row"><b class="unsorted">À classer</b><span>${UNSORTED_ROLES.join(" · ")}</span></div>`;
+
   document.getElementById("cat-legend").innerHTML = Object.entries(CATEGORIES)
     .map(([name, color]) => `<span><i style="background:${color}"></i>${name}</span>`)
     .join("");
@@ -362,14 +388,15 @@
     <div><div class="sheet vip-sheet">${VIPS.map(vip).join("")}</div><div class="cap"><b>Page 1 · Recto</b></div></div>
     <div><div class="sheet vip-sheet">${vipBack.map((v) => (v ? vip(v) : "<div></div>")).join("")}</div><div class="cap"><b>Page 2 · Verso</b> (gauche/droite inversés)</div></div>`;
 
-  // Lion du favicon : il est en négatif (blanc) dans le rond rouge et bleu, donc on garde les parties
-  // colorées (cls-2, cls-3) et le lion apparaît découpé dans le motif.
-  fetch("/favicon.svg")
+  // Lion du logo officiel (charte graphique, version condensée). Tous les tracés dans l'ordre :
+  // le rouge et le bleu prennent la couleur de la catégorie, le blanc (lion, dents, yeux) reste blanc
+  // et recouvre la couleur en dessous, comme dans le vrai logo.
+  fetch("assets/logos/meeting-principal.svg")
     .then((response) => response.text())
     .then((text) => {
       const doc = new DOMParser().parseFromString(text, "image/svg+xml");
-      document.getElementById("lion-paths").innerHTML = [...doc.querySelectorAll("path.cls-2, path.cls-3")]
-        .map((path) => `<path d="${path.getAttribute("d")}" />`)
+      document.getElementById("lion-paths").innerHTML = [...doc.querySelectorAll("path")]
+        .map((path) => `<path d="${path.getAttribute("d")}" fill="${path.classList.contains("cls-1") ? "#fff" : "currentColor"}" />`)
         .join("");
     });
 
