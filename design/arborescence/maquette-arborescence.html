@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arborescence myclim — avant / après</title>
+<style>
+:root{
+  --red:#e8001c;--ink:#17324a;--muted:#627788;--dim:#8aa0b0;--line:rgba(130,148,166,.18);
+  --side:#f6f9fc;--bg:#e9eef3;--card:#fff;--blue:#1f5ea8;--blue-soft:rgba(29,78,216,.08);
+  --hl:#fff4c2;--hl-line:#e0b400;--new:#0f7a4a;--new-soft:#e5f5ec;--old:#b42318;--old-soft:#fdecea;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.45}
+.top{position:sticky;top:0;z-index:20;background:#111827;color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:center;font-size:13px}
+.top b{opacity:.7;font-weight:600}
+.top button{border:1px solid rgba(255,255,255,.3);background:none;color:#fff;border-radius:999px;padding:6px 12px;font:600 13px inherit;font-family:inherit;cursor:pointer}
+.top button.on{background:#fff;color:#111827}
+.wrap{max-width:1380px;margin:0 auto;padding:22px 16px 60px}
+h1{margin:0 0 4px;font-size:26px;letter-spacing:-.01em}
+.lead{margin:0 0 18px;color:var(--muted);max-width:900px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:22px}
+.kpi{background:var(--card);border-radius:14px;padding:12px 14px;border:1px solid var(--line)}
+.kpi small{display:block;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.kpi .v{font-size:22px;font-weight:800;margin-top:2px}
+.kpi .v s{color:var(--old);font-weight:700;font-size:17px;margin-right:6px}
+.kpi .v span{color:var(--new)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:980px){.cols{grid-template-columns:1fr}}
+.frame{background:var(--card);border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:0 10px 30px rgba(15,23,42,.06);display:flex;flex-direction:column}
+.frame-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.tag{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;border-radius:999px;padding:4px 10px}
+.tag.old{background:var(--old-soft);color:var(--old)}
+.tag.new{background:var(--new-soft);color:var(--new)}
+.frame-h .count{color:var(--muted);font-size:13px}
+.frame-h .icons{margin-left:auto;display:flex;gap:6px}
+.icon-btn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px;font:600 12px inherit;font-family:inherit;color:var(--ink);cursor:pointer}
+.icon-btn.hl{background:var(--hl);border-color:var(--hl-line)}
+.icon-btn.sel{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
+.app{display:grid;grid-template-columns:250px 1fr;min-height:640px}
+@media (max-width:620px){.app{grid-template-columns:1fr}.side{max-height:420px}}
+.side{background:var(--side);border-right:1px solid var(--line);padding:12px 10px;overflow:auto;max-height:760px}
+.sec{border-top:1px solid var(--line);padding:8px 0 4px}
+.sec:first-child{border-top:0;padding-top:0}
+.sec-t{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);padding:2px 6px 6px}
+.sec-t i{font-style:normal;background:rgba(130,148,166,.14);border-radius:999px;padding:1px 7px;letter-spacing:0;font-size:11px}
+.lnk{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:11px;padding:7px 9px;font:500 14px inherit;font-family:inherit;color:var(--ink);cursor:pointer}
+.lnk:hover{background:#fff}
+.lnk .n{margin-left:auto;font-size:11px;color:var(--dim)}
+.lnk.sel{background:#fff;border-color:var(--blue);color:var(--blue);font-weight:700;box-shadow:0 2px 8px rgba(31,94,168,.12)}
+.lnk.hl{background:var(--hl);border-color:var(--hl-line)}
+.lnk .warn{font-size:10px;font-weight:800;color:var(--old);background:var(--old-soft);border-radius:6px;padding:1px 5px}
+.lnk .plus{font-size:10px;font-weight:800;color:var(--new);background:var(--new-soft);border-radius:6px;padding:1px 5px}
+.content{padding:18px 20px;overflow:auto;max-height:760px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.content h2{margin:2px 0 10px;font-size:21px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.tabs span{border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13px;background:#f8fafc}
+.tabs span:first-child{background:var(--ink);color:#fff;border-color:var(--ink)}
+.box{border-radius:12px;padding:10px 12px;font-size:13.5px;margin-bottom:10px}
+.box.bad{background:var(--old-soft);color:#7a1a12}
+.box.good{background:var(--new-soft);color:#0b5535}
+.box.info{background:#f1f5f9;color:var(--ink)}
+.box b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.box ul{margin:4px 0 0;padding-left:18px}
+.empty{color:var(--muted);font-size:14px}
+.empty p{margin:0 0 8px}
+h3{margin:34px 0 10px;font-size:19px}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.why .c{background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--line)}
+.why .c h4{margin:0 0 6px;font-size:15px}
+.why .c p{margin:0;font-size:13.5px;color:#33495c}
+.why .c .k{font-size:11px;font-weight:800;color:var(--red);letter-spacing:.1em;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--line);font-size:13.5px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#f1f5f9;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td.o{color:var(--muted);white-space:nowrap}
+tr.rm td{background:#fffafa}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;margin:1px 2px 1px 0;background:#f1f5f9}
+.pill.g{background:var(--new-soft);color:var(--new)}
+.pill.r{background:var(--old-soft);color:var(--old)}
+.table-wrap{overflow-x:auto}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+</style>
+</head>
+<body>
+<div class="top">
+  <b>Voir comme</b>
+  <span id="roles"></span>
+</div>
+
+<div class="wrap">
+  <h1>Arborescence myclim — avant / après</h1>
+  <p class="lead">Clique sur une page à gauche ou à droite : son contenu (onglets) s'affiche, et la ou les pages correspondantes de l'autre côté s'allument en jaune. Change de rôle en haut pour voir ce que voit chaque profil.</p>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="cols">
+    <div class="frame">
+      <div class="frame-h"><span class="tag old">Actuel</span><span class="count" id="old-count"></span>
+        <div class="icons" id="old-icons"></div></div>
+      <div class="app"><nav class="side" id="old-side"></nav><div class="content" id="old-content"></div></div>
+    </div>
+    <div class="frame">
+      <div class="frame-h"><span class="tag new">Proposé</span><span class="count" id="new-count"></span>
+        <div class="icons" id="new-icons"></div></div>
+      <div class="app"><nav class="side" id="new-side"></nav><div class="content" id="new-content"></div></div>
+    </div>
+  </div>
+
+  <h3>Les 8 principes de la nouvelle arborescence</h3>
+  <div class="why" id="why"></div>
+
+  <h3>Où est passée chaque page ?</h3>
+  <div class="table-wrap"><table id="map"></table></div>
+  <p class="hint">Les URL actuelles pourront rediriger vers les nouvelles pages : les liens dans les e-mails déjà envoyés continueront de marcher.</p>
+</div>
+
+<script>
+/* ---------- Pages actuelles (contenu relevé dans le code) ---------- */
+const OLD = {
+  dash:{l:"Tableau de bord",tabs:["Priorités","Accès rapide (8 liens)","Installer l'app"],bad:["L'« Accès rapide » répète 8 liens du menu.","S'appelle « Tableau de bord » pour l'admin et « Vue d'ensemble » pour les autres."]},
+  docs:{l:"Documents",tabs:["Déposer une facture","Publier un document","Documents publiés","Extractions d'urgence","VIP (export pas branché)"],bad:["Mélange factures, documents, exports d'urgence du jour J et un bloc VIP vide."]},
+  budget:{l:"Budget",tabs:["Vue d'ensemble","Lignes budgétaires","Factures","Historique"],bad:["Rangé dans « Vue générale » à côté du tableau de bord et des notifications."]},
+  notif:{l:"Notifications",tabs:["Liste des notifications"],bad:["Prend une ligne du menu ; les préférences sont ailleurs (Mon profil)."]},
+  benevoles:{l:"Bénévoles",tabs:["Bénévoles - meeting","Postes attribués","Aide autour du meeting","Alertes"],bad:["Les affectations se modifient ici ET dans Équipes & postes.","« Aide autour du meeting » ici, « Autour du meeting » dans Équipes : un même sujet coupé en deux."]},
+  postes:{l:"Équipes & postes",tabs:["Paramétrage","Composition actuelle","Récapitulatif équipes","Autour du meeting"],bad:["Le titre de la page est « Gestion des équipes », pas « Équipes & postes »."]},
+  presences:{l:"Présences",tabs:["Accueil","Sandwichs","Départs équipes"],bad:["Page du jour J rangée sous Bénévoles, loin de la Caisse et des exports d'urgence."]},
+  accred:{l:"Badges & zones",tabs:["Personnes & badges (+ Juges, + Presse)","Impression","Suivi & retrait","Historique","Réglages : zones par rôle","Réglages : ressources QR"],bad:["6 onglets, dont 2 de réglages.","Les badges juges et presse s'impriment dans « Personnes », pas dans « Impression ».","Les points de retrait se gèrent à 3 endroits.","Le titre dit « Zones d'acces et statuts » (sans accents)."]},
+  presse:{l:"Presse",tabs:["Demandes d'accréditation","Liste de diffusion"],bad:["Rangée sous Accréditations alors que la moitié est de la communication (e-mails aux journalistes).","Les communiqués sont dans Site web, les badges dans Badges & zones."]},
+  vip:{l:"VIP",tabs:["Invitations","Inscrits VIP","Portails partenaires"],bad:["« Invitations » veut aussi dire « invitations de comptes » dans Réglages."]},
+  roadbook:{l:"Roadbook athlètes",tabs:["Infos générales","Arrivée & départ","Programme","Compétition","La Coque","Call times"],bad:["Contenu athlètes rangé sous Accréditations, loin de l'Athlete Portal."]},
+  kine:{l:"Kiné",tabs:["Planning","Horaires des kinés"],bad:["N'a rien à voir avec les accréditations mais y est rangé."]},
+  caisse:{l:"Caisse & entrées",tabs:["Postes & accès","Listes d'invités","Suivi"],bad:["Page du jour J rangée sous Accréditations."]},
+  com:{l:"Calendrier & partenaires",tabs:["Calendrier éditorial","Tâches","Événements","Rubriques récurrentes","Galerie photos","Partenaires","Importer (Excel)"],bad:["Un seul lien dans le menu, puis un 2e menu de 7 entrées à l'intérieur : un menu dans le menu.","Le nom du lien ne correspond pas au module (« Communication »)."]},
+  u14:{l:"U12 / U14",tabs:["À faire","Courses","Porte-panier","Places protégées","Mails et infos pratiques"],bad:["5 onglets (ça va), mais le lien « Porte-panier » du menu pointe vers un de ses onglets."]},
+  panier:{l:"Porte-panier",tabs:["(= onglet de U12 / U14)"],bad:["Doublon : ce n'est pas une page, c'est un onglet de U12 / U14."]},
+  cn:{l:"Courses nationales",tabs:["Décisions par course","Mails en attente","Modèles de mails","Export SELTEC"],bad:["Le lien SELTEC et l'horaire public du pré-programme se règlent dans Site web › Édition courante."]},
+  web:{l:"Vue d'ensemble (site)",tabs:["6 cartes qui renvoient aux pages du menu"],bad:["Page « hub » sans action : elle répète le menu."]},
+  webed:{l:"Édition courante",tabs:["Infos de base","Liens live","Lien SELTEC","Horaire pré-programme","Prize money","Disciplines","Timetable"],bad:["Une très longue page de 7 blocs, dont des réglages sportifs (prize money, disciplines) qui ne sont pas du « site web ».","Doublon partiel avec Réglages › Édition du meeting."]},
+  emag:{l:"E-magazine",tabs:["Opening","Special races","Luxembourg athletes","Highlights","Partners","Start lists","Closing"],bad:["Interface en anglais."]},
+  links:{l:"Page liens (QR)",tabs:["QR code","Mode jour J","Blocs affichés","Photos","Billets","Venir à la Coque","Réseaux"],bad:[]},
+  news:{l:"Actualités",tabs:["Articles","Formulaire (catégorie « press » incluse)"],bad:["Titre en anglais « Website News »."]},
+  sponsors:{l:"Partenaires (site)",tabs:["Catégories","Liste des partenaires & logos"],bad:["Deuxième page « Partenaires » : celle de Communication gère les contreparties des mêmes partenaires."]},
+  comm:{l:"Communiqués presse",tabs:["Liste","Formulaire"],bad:["La presse est éclatée : demandes et diffusion sous Accréditations, communiqués ici."]},
+  stat_reg:{l:"Base athlètes",tabs:["Recherche","Doublons probables","Fusion manuelle","Maintenance (vider / reconstruire)"],bad:["Bouton destructif « Vider et reconstruire » à côté de la recherche de tous les jours."]},
+  stat_res:{l:"Résultats meeting",tabs:["Résultats par édition","Admin — import JSON"],bad:["Titre en anglais « Edition Results »."]},
+  stat_rec:{l:"Records meeting",tabs:["Records"],bad:[]},
+  stat_win:{l:"Hall of Winners",tabs:["Winners","Comparaison winners / résultats"],bad:[]},
+  ap_ath:{l:"Vue d'ensemble (athlètes)",tabs:["Athlètes","Staff & accompagnateurs"],bad:["S'appelle « Vue d'ensemble » dans le menu et « Athletes » sur la page.","Section « Athlete Portal » en anglais, séparée de Statistiques."]},
+  ap_imp:{l:"Import Excel",tabs:["Formats","Upload","Aperçu","Historique des imports"],bad:["Une page entière pour une action ponctuelle."]},
+  ap_tr:{l:"Transport",tabs:["Arrivées","Lots","Bénévoles"],bad:[]},
+  ap_mytr:{l:"Mes transports",tabs:["Mes lots"],bad:["Page personnelle rangée dans une section d'administration."]},
+  ap_set:{l:"Réglages portal",tabs:["Saisons","Accès","Droits d'import","World Athletics","Visibilité des champs"],bad:["Réglages éparpillés : un « Réglages » par module."]},
+  roles:{l:"Rôles & accès",tabs:["Utilisateurs & rôles","Comprendre les rôles","Dépôt de facture","Maintenance : doublons"],bad:["Les rôles se choisissent ici ET dans Invitations."]},
+  edition:{l:"Édition du meeting",tabs:["Édition active","Effet de la bascule"],bad:["Deux pages « édition » : celle-ci et Site web › Édition courante."]},
+  invit:{l:"Invitations",tabs:["Inviter un utilisateur","Import en masse","Liste"],bad:["Même mot que VIP › Invitations pour autre chose."]},
+  certif:{l:"Certificat bénévole",tabs:["Signataire du certificat"],bad:["Une page entière pour un seul réglage ; le certificat s'imprime aussi dans Présences et Mes documents."]},
+  profil:{l:"Mon profil",tabs:["Identité","Notifications","Historique des affectations","Sécurité"],bad:["Rangé dans « Réglages », à côté des réglages admin."]},
+  mydossier:{l:"Mon dossier bénévole",tabs:["Situation du dossier","Mes informations"],bad:[]},
+  myaff:{l:"Mes affectations",tabs:["Missions","Repères équipe","Mon équipe","Invités VIP à guider"],bad:[]},
+  mydocs:{l:"Mes documents",tabs:["Déposer une facture","Documents disponibles","Mes factures","Certificat"],bad:[]},
+  myteam:{l:"Mon équipe",tabs:["Mon affectation","Infos","Documents équipe","Membres"],bad:[]},
+  mykids:{l:"Mes enfants",tabs:["Suivi des demandes","Ajouter un enfant"],bad:[]},
+};
+
+/* ---------- Pages proposées ---------- */
+const NEW = {
+  home:{l:"Accueil",from:["dash","web"],tabs:["À traiter aujourd'hui","Prochaines échéances","Installer l'app"],good:["Une seule liste « à traiter » qui pointe vers les pages, plus de raccourcis qui doublent le menu.","Le même nom pour tout le monde."]},
+  edition:{l:"Édition 2027",from:["edition","webed"],tabs:["Infos & lieu","Programme horaire","Disciplines & prize money","Liens live","Changer d'édition"],good:["Une seule page pour l'édition : ce qui est saisi ici sert au site, à l'e-magazine, au roadbook et à la page liens.","Le nom affiche l'année : on sait toujours sur quelle édition on travaille."]},
+  budget:{l:"Budget",from:["budget","docs","roles"],tabs:["Vue d'ensemble","Lignes budgétaires","Factures","Historique"],good:["Le seul endroit admin pour les factures (le dépôt reste possible depuis Mes documents pour les bénévoles).","Les droits de dépôt de facture se règlent dans l'onglet Factures."]},
+  docs:{l:"Documents",from:["docs"],tabs:["Documents publiés","Publier un document"],good:["Ne fait plus qu'une chose : partager des documents avec les équipes."]},
+  cand:{l:"Candidatures",from:["benevoles"],tabs:["À traiter","Tous les bénévoles","Alertes"],good:["Le suivi du dossier de chaque bénévole (reçu → affecté → confirmé), et c'est tout."]},
+  teams:{l:"Équipes & affectations",from:["postes","benevoles"],tabs:["Équipes","Affectations","Récapitulatif","Autour du meeting","E-mails d'affectation"],good:["On affecte les bénévoles à UN seul endroit.","« Autour du meeting » réunit les tâches ET les personnes qui se proposent."]},
+  engages:{l:"Engagés",from:["ap_ath","ap_imp"],tabs:["Athlètes","Staff & accompagnateurs","Importer un Excel"],good:["L'import devient un onglet (ou un bouton), plus une page du menu."]},
+  transport:{l:"Transport",from:["ap_tr"],tabs:["Arrivées","Lots","Bénévoles"],good:[]},
+  roadbook:{l:"Roadbook",from:["roadbook"],tabs:["Infos générales","Arrivée & départ","Programme","Compétition","La Coque","Call times"],good:["Rangé avec tout ce qui concerne les athlètes."]},
+  kine:{l:"Kiné",from:["kine"],tabs:["Planning","Horaires des kinés"],good:["Un service aux athlètes : il va dans Athlètes."]},
+  histo:{l:"Résultats & records",from:["stat_res","stat_rec","stat_win","stat_reg"],tabs:["Résultats","Records","Hall of Winners","Base athlètes"],good:["4 liens deviennent 4 onglets d'une même page.","Les outils de maintenance (vider la base, import JSON) partent dans Administration › Réglages."]},
+  u14:{l:"U12 / U14",from:["u14","panier"],tabs:["À faire","Courses","Porte-panier","Places protégées","Mails et infos pratiques"],good:["Plus de lien « Porte-panier » en double : c'est un onglet."]},
+  cn:{l:"Courses nationales",from:["cn","webed"],tabs:["Décisions","Mails","Modèles de mails","SELTEC & horaire public"],good:["Le lien SELTEC et l'horaire public du pré-programme se règlent ici, avec le reste."]},
+  accred:{l:"Accréditations",from:["accred"],tabs:["Personnes","Impression","Retrait & suivi","Historique","⚙ Réglages"],good:["UNE file d'impression pour tous : bénévoles, juges, presse, VIP, badges non nominatifs.","Un seul onglet « Réglages » (zones, QR, points de retrait), gérés une seule fois."]},
+  vip:{l:"VIP",from:["vip"],tabs:["Invités","Inscrits","Portails partenaires"],good:["« Invitations » devient « Invités » pour ne plus confondre avec les invitations de comptes.","Rangé avec la caisse et les badges qu'il alimente."]},
+  caisse:{l:"Caisse & entrées",from:["caisse"],tabs:["Postes & accès","Listes d'invités","Suivi"],good:[]},
+  presences:{l:"Présences",from:["presences","certif"],tabs:["Accueil","Sandwichs","Départs équipes","Certificats"],good:["Toutes les pages du jour J au même endroit."]},
+  urgence:{l:"Exports d'urgence",from:["docs"],tabs:["Pack complet","Contacts bénévoles","Par équipe","Accréditations par guichet","Commandement","Pointage & repas","Familles U12/U14","VIP"],good:["Sortis de Documents : en cas de problème le jour J, on les trouve tout de suite."]},
+  cal:{l:"Calendrier",from:["com"],tabs:["Calendrier éditorial","Événements","Rubriques récurrentes","Galerie photos","Importer (bouton)"],good:["Les pages de Communication deviennent de vrais liens du menu : plus de menu dans le menu."]},
+  taches:{l:"Tâches",from:["com"],tabs:["Toute l'équipe","Mes tâches","À valider"],good:[]},
+  partners:{l:"Partenaires",from:["com","sponsors"],tabs:["Liste & logos","Contreparties","Bilans","Catégories"],good:["UNE page Partenaires : la fiche (logo, catégorie, visible sur le site) et le suivi des contreparties."]},
+  press:{l:"Presse",from:["presse","comm","news"],tabs:["Demandes d'accréditation","Liste de diffusion","Communiqués"],good:["Toute la presse au même endroit. Les badges presse s'impriment avec les autres dans Accréditations."]},
+  news:{l:"Actualités",from:["news"],tabs:["Articles","Rédiger"],good:[]},
+  emag:{l:"E-magazine",from:["emag"],tabs:["Opening","Special races","Luxembourg athletes","Highlights","Partners","Start lists","Closing"],good:[]},
+  links:{l:"Page liens (QR)",from:["links"],tabs:["QR code","Mode jour J","Blocs affichés","Photos","Billets","Venir à la Coque","Réseaux"],good:[]},
+  users:{l:"Utilisateurs & rôles",from:["roles","invit"],tabs:["Utilisateurs","Inviter","Comprendre les rôles"],good:["On invite et on donne les rôles au même endroit, avec le même sélecteur."]},
+  settings:{l:"Réglages",from:["certif","ap_set","roles","stat_reg","stat_res"],tabs:["Certificat bénévole","Portail athlètes","Maintenance (doublons, base athlètes, imports)"],good:["Tous les réglages et outils dangereux regroupés, loin des pages de tous les jours."]},
+  notif:{l:"🔔 Notifications",from:["notif"],tabs:["Liste","Préférences"],good:["Passe dans l'en-tête (cloche), comme dans toutes les apps. Les préférences sont dedans."]},
+  compte:{l:"Mon compte",from:["profil"],tabs:["Identité","Sécurité"],good:["Passe dans l'en-tête (avatar). Plus rangé avec les réglages admin."]},
+  myaff:{l:"Mes affectations",from:["myaff","mydossier"],tabs:["Missions","Mon équipe","Invités VIP à guider","Mon dossier"],good:["Le dossier bénévole devient un onglet : une page de moins pour les bénévoles."]},
+  mydocs:{l:"Mes documents",from:["mydocs"],tabs:["Documents","Mes factures","Certificat"],good:[]},
+  myteam:{l:"Mon équipe",from:["myteam"],tabs:["Membres","Infos","Documents équipe"],good:[]},
+  myteampres:{l:"Présences de l'équipe",from:["presences"],tabs:["Départs équipes"],good:["Le chef d'équipe ne voit que ce qui le concerne."]},
+  mykids:{l:"Mes enfants",from:["mykids"],tabs:["Suivi des demandes","Ajouter un enfant"],good:[]},
+  mytr:{l:"Mes transports",from:["ap_mytr"],tabs:["Mes lots"],good:["Seulement pour les bénévoles transport, dans « Mon espace »."]},
+};
+
+/* ---------- Menus par rôle ---------- */
+const S = (t, ids) => ({t, ids});
+const OLD_NAV = {
+  admin:[
+    S("Vue générale",["dash","docs","budget","notif"]),
+    S("Bénévoles",["benevoles","postes","presences"]),
+    S("Accréditations",["accred","presse","vip","roadbook","kine","caisse"]),
+    S("Communication",["com"]),
+    S("Pré-programme",["u14","panier","cn"]),
+    S("Site web",["web","webed","emag","links","news","sponsors","comm"]),
+    S("Statistiques",["stat_reg","stat_res","stat_rec","stat_win"]),
+    S("Athlete Portal",["ap_ath","ap_imp","ap_tr","ap_mytr","ap_set"]),
+    S("Réglages",["roles","edition","invit","certif","profil"]),
+  ],
+  gestionnaire:[
+    S("Vue générale",["dash","docs","notif"]),
+    S("Bénévoles",["benevoles","presences"]),
+    S("Accréditations",["accred","presse","vip","roadbook","kine","caisse"]),
+    S("Communication",["com"]),
+    S("Pré-programme",["u14","panier"]),
+    S("Statistiques",["stat_reg","stat_res","stat_rec","stat_win"]),
+    S("Athlete Portal",["ap_mytr"]),
+    S("Mes accès",["mydossier","myaff","mydocs"]),
+    S("Réglages",["profil"]),
+  ],
+  chef:[S(null,["dash","notif","myteam","presences","mydossier","myaff","mydocs","profil"])],
+  benevole:[S(null,["dash","notif","mydossier","myaff","mydocs","profil"])],
+  parent:[S(null,["dash","notif","mykids","profil"])],
+};
+const NEW_NAV = {
+  admin:[
+    S(null,["home"]),
+    S("Pilotage",["edition","budget","docs"]),
+    S("Bénévoles",["cand","teams"]),
+    S("Athlètes",["engages","transport","roadbook","kine","histo"]),
+    S("Pré-programme",["u14","cn"]),
+    S("Accès & jour J",["accred","vip","caisse","presences","urgence"]),
+    S("Communication",["cal","taches","partners","press"]),
+    S("Site web",["news","emag","links"]),
+    S("Administration",["users","settings"]),
+  ],
+  gestionnaire:[
+    S(null,["home"]),
+    S("Mon espace",["myaff","mydocs"]),
+    S("Pilotage",["docs"]),
+    S("Bénévoles",["cand","teams"]),
+    S("Athlètes",["roadbook","kine","histo"]),
+    S("Pré-programme",["u14"]),
+    S("Accès & jour J",["accred","vip","caisse","presences","urgence"]),
+    S("Communication",["cal","taches","partners","press"]),
+  ],
+  chef:[S(null,["home"]),S("Mon espace",["myteam","myteampres","myaff","mydocs"])],
+  benevole:[S(null,["home"]),S("Mon espace",["myaff","mydocs"])],
+  parent:[S(null,["home"]),S("Mon espace",["mykids"])],
+};
+const ROLES = [["admin","Admin"],["gestionnaire","Gestionnaire"],["chef","Chef d'équipe"],["benevole","Bénévole"],["parent","Parent U12/U14"]];
+
+const WHY = [
+  ["Ranger par public","Bénévoles, Athlètes, Pré-programme…","Chaque section correspond à un groupe de personnes qu'on gère. Kiné, Roadbook et Transport rejoignent Athlètes au lieu d'être sous Accréditations ou dans un « Athlete Portal » à part."],
+  ["Un sujet = une page","Factures, presse, partenaires, édition","Les factures étaient à 3 endroits, la presse à 4, les partenaires à 3, l'édition à 2. Chacun n'a plus qu'une page."],
+  ["Le jour J réuni","Accès & jour J","Accréditations, VIP, Caisse, Présences et Exports d'urgence au même endroit : c'est la section qu'on ouvre le jour du meeting."],
+  ["Plus de menu dans le menu","Communication","Les 7 entrées cachées dans « Calendrier & partenaires » deviennent 4 vrais liens. Événements, Rubriques, Galerie et Import passent en onglets du Calendrier."],
+  ["Onglets plutôt que liens","Résultats & records, Engagés, U12/U14","Quand plusieurs liens mènent au même sujet (Résultats, Records, Hall of Winners, Base athlètes), ils deviennent les onglets d'une seule page."],
+  ["Le personnel à part","Mon espace + en-tête","Mes affectations, Mon équipe, Mes enfants… sont dans « Mon espace ». Notifications et Mon compte passent dans l'en-tête, comme partout."],
+  ["Le dangereux à l'écart","Administration › Réglages","Vider la base athlètes, l'import JSON des résultats ou les doublons de profils quittent les pages de tous les jours."],
+  ["Les mêmes mots partout","Français, un nom par page","Le nom dans le menu = le titre de la page. Plus de « Vue d'ensemble » pour trois pages différentes, plus de titres en anglais (« Website News », « Athlete Portal »…)."],
+];
+
+/* ---------- Rendu ---------- */
+let role = "admin";
+let sel = null; // {side:'old'|'new', id}
+const $ = (id) => document.getElementById(id);
+const reverse = {};
+for (const [nid, n] of Object.entries(NEW)) for (const o of n.from) (reverse[o] ||= []).push(nid);
+
+function idsOf(nav){ return nav.flatMap(s => s.ids); }
+function headerNew(){ return ["notif","compte"]; }
+
+function highlighted(side){
+  if (!sel) return new Set();
+  if (sel.side === side) return new Set();
+  if (sel.side === "old") return new Set(reverse[sel.id] || []);
+  return new Set(NEW[sel.id].from);
+}
+
+function renderSide(side){
+  const nav = side === "old" ? OLD_NAV[role] : NEW_NAV[role];
+  const data = side === "old" ? OLD : NEW;
+  const hl = highlighted(side);
+  const host = $(side + "-side");
+  host.innerHTML = "";
+  for (const s of nav){
+    const sec = document.createElement("div");
+    sec.className = "sec";
+    if (s.t) sec.innerHTML = `<div class="sec-t">${s.t}<i>${s.ids.length}</i></div>`;
+    for (const id of s.ids){
+      const p = data[id];
+      const b = document.createElement("button");
+      b.className = "lnk" + (sel && sel.side === side && sel.id === id ? " sel" : "") + (hl.has(id) ? " hl" : "");
+      let badge = "";
+      if (side === "old" && p.bad.length) badge = `<span class="n"><span class="warn">${p.bad.length}</span></span>`;
+      if (side === "new" && p.from.length > 1) badge = `<span class="n"><span class="plus">${new Set(p.from).size} → 1</span></span>`;
+      b.innerHTML = `<span>${p.l}</span>${badge}`;
+      b.onclick = () => { sel = {side, id}; renderAll(); };
+      sec.appendChild(b);
+    }
+    host.appendChild(sec);
+  }
+  const count = idsOf(nav).length;
+  const secs = nav.filter(s => s.t).length;
+  $(side + "-count").textContent = `${count} liens · ${secs} sections`;
+
+  const icons = $(side + "-icons");
+  icons.innerHTML = "";
+  if (side === "new"){
+    for (const id of headerNew()){
+      const b = document.createElement("button");
+      b.className = "icon-btn" + (sel && sel.side === "new" && sel.id === id ? " sel" : "") + (hl.has(id) ? " hl" : "");
+      b.textContent = NEW[id].l;
+      b.onclick = () => { sel = {side:"new", id}; renderAll(); };
+      icons.appendChild(b);
+    }
+    if (role === "admin"){ const v = document.createElement("span"); v.className="icon-btn"; v.textContent="Voir comme ▾"; icons.appendChild(v); }
+  } else if (role === "admin") {
+    const v = document.createElement("span"); v.className="icon-btn"; v.textContent="Voir comme ▾"; icons.appendChild(v);
+  }
+}
+
+function renderContent(side){
+  const host = $(side + "-content");
+  const data = side === "old" ? OLD : NEW;
+  if (!sel){
+    host.innerHTML = `<div class="empty"><p><b>Clique sur une page</b> dans le menu ${side === "old" ? "actuel" : "proposé"}.</p><p>${side === "old" ? "Les pastilles rouges comptent les problèmes relevés dans la page." : "Les pastilles vertes « 3 → 1 » montrent les pages qui en regroupent plusieurs."}</p></div>`;
+    return;
+  }
+  if (sel.side === side){
+    const p = data[sel.id];
+    let h = `<div class="eyebrow">${side === "old" ? "Page actuelle" : "Page proposée"}</div><h2>${p.l}</h2><div class="tabs">${p.tabs.map(t => `<span>${t}</span>`).join("")}</div>`;
+    if (side === "old"){
+      if (p.bad.length) h += `<div class="box bad"><b>Ce qui complique</b><ul>${p.bad.map(x => `<li>${x}</li>`).join("")}</ul></div>`;
+      const dest = (reverse[sel.id] || []).map(n => NEW[n].l);
+      h += `<div class="box info"><b>Devient</b>${dest.join(" · ") || "—"}</div>`;
+    } else {
+      if (p.good.length) h += `<div class="box good"><b>Ce qui change</b><ul>${p.good.map(x => `<li>${x}</li>`).join("")}</ul></div>`;
+      h += `<div class="box info"><b>Reprend</b>${[...new Set(p.from)].map(o => OLD[o].l).join(" · ")}</div>`;
+    }
+    host.innerHTML = h;
+  } else {
+    const others = side === "old" ? NEW[sel.id].from : (reverse[sel.id] || []);
+    const uniq = [...new Set(others)];
+    host.innerHTML = `<div class="eyebrow">${side === "old" ? "Venait de" : "Se retrouve dans"}</div>
+      <h2>${uniq.length} page${uniq.length > 1 ? "s" : ""}</h2>
+      ${uniq.map(id => `<div class="box info"><b>${data[id].l}</b>${data[id].tabs.join(" · ")}</div>`).join("")}
+      <p class="hint">Les pages surlignées en jaune dans le menu (si ce rôle les voit).</p>`;
+  }
+}
+
+function renderKpis(){
+  const o = idsOf(OLD_NAV.admin), n = idsOf(NEW_NAV.admin);
+  const oSec = OLD_NAV.admin.filter(s => s.t).length, nSec = NEW_NAV.admin.filter(s => s.t).length;
+  const k = [
+    ["Liens dans le menu (admin)", o.length + 7, n.length, "dont les 7 du menu caché de Communication"],
+    ["Sections", oSec, nSec, ""],
+    ["Pages où l'on gère les factures", 3, 1, ""],
+    ["Pages « presse »", 4, 1, ""],
+    ["Pages « partenaires »", 2, 1, ""],
+    ["Menu d'un bénévole", idsOf(OLD_NAV.benevole).length, idsOf(NEW_NAV.benevole).length, ""],
+  ];
+  $("kpis").innerHTML = k.map(([l,a,b,h]) => `<div class="kpi" ${h ? `title="${h}"` : ""}><small>${l}</small><div class="v"><s>${a}</s><span>${b}</span></div></div>`).join("");
+}
+
+function renderWhy(){
+  $("why").innerHTML = WHY.map(([t,k,p]) => `<div class="c"><div class="k">${k}</div><h4>${t}</h4><p>${p}</p></div>`).join("");
+}
+
+function renderMap(){
+  const secOf = {};
+  for (const s of OLD_NAV.admin) for (const id of s.ids) secOf[id] = s.t;
+  const newSec = {};
+  for (const s of NEW_NAV.admin) for (const id of s.ids) newSec[id] = s.t || "—";
+  for (const id of ["myaff","mydocs","myteam","myteampres","mykids","mytr"]) newSec[id] = "Mon espace";
+  newSec.notif = newSec.compte = "En-tête";
+  let rows = `<tr><th>Section actuelle</th><th>Page actuelle</th><th>Nouvelle place</th></tr>`;
+  for (const s of OLD_NAV.admin){
+    for (const id of s.ids){
+      const dest = reverse[id] || [];
+      const pills = dest.map(n => `<span class="pill ${NEW[n].from.length > 1 ? "g" : ""}">${newSec[n] ? newSec[n] + " › " : ""}${NEW[n].l.replace("🔔 ","")}</span>`).join("");
+      rows += `<tr><td class="o">${s.t}</td><td>${OLD[id].l}</td><td>${pills}</td></tr>`;
+    }
+  }
+  rows += `<tr><td class="o">Communication (menu interne)</td><td>Calendrier, Événements, Rubriques, Galerie, Import · Tâches · Partenaires</td><td><span class="pill g">Communication › Calendrier</span><span class="pill">Communication › Tâches</span><span class="pill g">Communication › Partenaires</span></td></tr>`;
+  $("map").innerHTML = rows;
+}
+
+function renderRoles(){
+  $("roles").innerHTML = "";
+  for (const [k, l] of ROLES){
+    const b = document.createElement("button");
+    b.textContent = l;
+    b.className = role === k ? "on" : "";
+    b.onclick = () => { role = k; sel = null; renderAll(); };
+    $("roles").appendChild(b);
+  }
+}
+
+function renderAll(){
+  renderRoles();
+  renderSide("old"); renderSide("new");
+  renderContent("old"); renderContent("new");
+}
+renderKpis(); renderWhy(); renderMap(); renderAll();
+</script>
+</body>
+</html>
