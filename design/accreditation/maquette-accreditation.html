@@ -195,27 +195,27 @@
   const ZONES = ["Infield", "Warm-up", "Coaching", "Judges Room", "Mixed Zone", "VIP"];
   const CATEGORIES = {
     Organisation: "#e30613",
-    Athlète: "#0f8a5f",
+    Athlete: "#0f8a5f",
     Coach: "#f07c00",
-    Juge: "#0a2540",
-    Presse: "#5b2bb5",
-    Photographe: "#9157e6",
-    Bénévole: "#27a9e1",
-    Technique: "#4a5056",
+    Judge: "#0a2540",
+    Press: "#5b2bb5",
+    Photographer: "#9157e6",
+    Volunteer: "#27a9e1",
+    Technical: "#4a5056",
     VIP: "#b8912a",
   };
   // Une catégorie (couleur de la bande) regroupe des sous-rôles (écrits sur le badge).
   // Proposition à partir des rôles des badges 2026, à valider.
   const SUBROLES = {
-    Organisation: ["Organisation", "Comité directeur FLA", "Porte-panier responsable", "Tribune management", "Lunex supervisor"],
-    Athlète: ["Athlete", "Special Olympics", "Business race athlete", "Influencer race guests", "U12/U14 team"],
+    Organisation: ["Organisation", "FLA Executive Board", "Ball-crew manager", "Tribune management", "Lunex supervisor"],
+    Athlete: ["Athlete", "Special Olympics", "Business race athlete", "Influencer race guests", "U12/U14 team"],
     Coach: ["Coach", "Special Olympics coach", "U12/U14 coach"],
-    Juge: ["Judges"],
-    Presse: ["Press", "Press media", "Young reporter"],
-    Photographe: ["Photographer", "Official photographer", "Cameraman RTL"],
-    Bénévole: ["Hurdles team", "Équipe block-start", "Porte-panier", "In-field assistance", "Entrance", "Buvette CAB", "Cheerleaders", "Animation team", "Volunteer VIP"],
-    Technique: ["Seltec", "TV (Apart TV)", "Athlete presentation"],
-    VIP: ["VIP (badge réduit)"],
+    Judge: ["Judges"],
+    Press: ["Press", "Press media", "Young reporter"],
+    Photographer: ["Photographer", "Official photographer", "Cameraman RTL"],
+    Volunteer: ["Hurdles team", "Block-start team", "Ball crew", "In-field assistance", "Entrance", "CAB bar", "Cheerleaders", "Animation team", "Volunteer VIP"],
+    Technical: ["Seltec", "TV (Apart TV)", "Athlete presentation"],
+    VIP: ["VIP (small badge)"],
   };
   const UNSORTED_ROLES = ["Medical", "ALAD", "ALAD chaperon", "Physio"];
   const LEVELS = {
@@ -225,11 +225,11 @@
     none: { label: "Aucune zone", logo: "accreditation-meeting-noir.png" },
   };
   const QR = {
-    results: ["accreditation-qr-results-live-athlete.png", "Résultats live", "Suivi des perfs"],
-    roadbook: ["accreditation-qr-roadbook.png", "Roadbook", "Infos bénévoles"],
-    athleteRoadbook: ["accreditation-qr-roadbook-athlete.png", "Roadbook", "Infos meeting"],
-    photos: ["accreditation-qr-photos.png", "Photos live", "Album"],
-    emag: ["accreditation-qr-emagazine-athlete.png", "E-magazine", "Contenus"],
+    results: ["accreditation-qr-results-live-athlete.png", "Live results", "Follow the results"],
+    roadbook: ["accreditation-qr-roadbook.png", "Roadbook", "Volunteer info"],
+    athleteRoadbook: ["accreditation-qr-roadbook-athlete.png", "Roadbook", "Meeting info"],
+    photos: ["accreditation-qr-photos.png", "Live photos", "Gallery"],
+    emag: ["accreditation-qr-emagazine-athlete.png", "E-magazine", "Stories"],
   };
   const PARTNERS = [
     "fla-logo.png",
@@ -240,14 +240,14 @@
     "accreditation-sponsor-luxembourg.png",
   ];
   const PEOPLE = [
-    { category: "Organisation", role: "Comité directeur FLA", lastName: "Esposito", firstName: "Carmela", zones: [1, 2, 3, 4, 5, 6], qrs: ["results"] },
-    { category: "Athlète", role: "Accréditation", lastName: "", firstName: "", zones: [1, 2, 5], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
-    { category: "Coach", role: "Accréditation", lastName: "", firstName: "", zones: [2, 3], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
-    { category: "Juge", role: "Juge arbitre", lastName: "Hoffmann", firstName: "Nina", zones: [1, 4], qrs: ["results"] },
-    { category: "Presse", role: "Journaliste · RTL", lastName: "Klein", firstName: "Sophie", zones: [5], qrs: [] },
-    { category: "Photographe", role: "Photographe · FLA", lastName: "Becker", firstName: "Tom", zones: [1, 5], qrs: [] },
-    { category: "Bénévole", role: "Hurdles team", lastName: "Muller", firstName: "Alex", zones: [1], qrs: ["results", "roadbook", "photos"] },
-    { category: "Technique", role: "Seltec", lastName: "Wagner", firstName: "Mara", zones: [1, 4, 5], qrs: ["results"] },
+    { category: "Organisation", role: "FLA Executive Board", lastName: "Esposito", firstName: "Carmela", zones: [1, 2, 3, 4, 5, 6], qrs: ["results"] },
+    { category: "Athlete", role: "Accreditation", lastName: "", firstName: "", zones: [1, 2, 5], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
+    { category: "Coach", role: "Accreditation", lastName: "", firstName: "", zones: [2, 3], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
+    { category: "Judge", role: "Referee", lastName: "Hoffmann", firstName: "Nina", zones: [1, 4], qrs: ["results"] },
+    { category: "Press", role: "Journalist · RTL", lastName: "Klein", firstName: "Sophie", zones: [5], qrs: [] },
+    { category: "Photographer", role: "Photographer · FLA", lastName: "Becker", firstName: "Tom", zones: [1, 5], qrs: [] },
+    { category: "Volunteer", role: "Hurdles team", lastName: "Muller", firstName: "Alex", zones: [1], qrs: ["results", "roadbook", "photos"] },
+    { category: "Technical", role: "Seltec", lastName: "Wagner", firstName: "Mara", zones: [1, 4, 5], qrs: ["results"] },
   ];
   const VIPS = [
     { company: "CMCM", lastName: "Schmit", firstName: "Laure" },
@@ -257,11 +257,11 @@
     { company: "Luxembourg for Tourism", lastName: "Kieffer", firstName: "Anne" },
     { company: "FLA", lastName: "Weber", firstName: "Jo" },
     { company: "CMCM", lastName: "Hansen", firstName: "Lea" },
-    { company: "Partenaire", lastName: "Thill", firstName: "Sven" },
+    { company: "Partner", lastName: "Thill", firstName: "Sven" },
   ];
   const VIP_QRS = [
     [`${A}accreditation-qr-emagazine-athlete.png`, "E-magazine"],
-    [`${A}accreditation-qr-results-live-athlete.png`, "Résultats live"],
+    [`${A}accreditation-qr-results-live-athlete.png`, "Live results"],
     ["assets/vip-qr-contact.png", "Contact"],
   ];
 
@@ -300,7 +300,7 @@
       return `<circle cx="${x}" cy="${y}" r="4.6" fill="${on ? "#fff" : "#f4f6f8"}" stroke="${on ? cat : "#c3ccd3"}" stroke-width="1" />
         <text x="${x}" y="${y + 2.3}" font-size="6.8" text-anchor="middle" fill="${on ? cat : "#a9b5be"}">${n}</text>`;
     }).join("");
-    return `<svg viewBox="0 0 142 200" aria-label="Plan d'accès de la Coque">
+    return `<svg viewBox="0 0 142 200" aria-label="Coque access map">
       <g transform="matrix(0 -1 1 0 0 200)">
         <path d="M8 70 C38 24 78 16 100 16 C122 16 162 24 192 70 C162 112 124 119 113 119 L122 138 L78 138 L87 119 C76 119 38 112 8 70 Z" fill="#f7f9fb" stroke="#9aa8b3" stroke-width="1" />
         <rect x="48" y="33" width="104" height="72" rx="36" fill="#eef2f5" stroke="#c3ccd3" stroke-width=".8" />
@@ -310,7 +310,7 @@
         <path d="M100 133 L100 122 M96 126 L100 121 L104 126" stroke="#4a5d6c" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
       </g>
       ${numbers}
-      <text x="136" y="100" font-size="4.6" text-anchor="middle" fill="#4a5d6c" letter-spacing=".6" transform="rotate(90 136 100)">ENTRÉE</text>
+      <text x="136" y="100" font-size="4.6" text-anchor="middle" fill="#4a5d6c" letter-spacing=".6" transform="rotate(90 136 100)">ENTRANCE</text>
     </svg>`;
   };
 
@@ -325,7 +325,7 @@
         <div class="top"><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /><img class="logo" src="${A}${lv.logo}" alt="" /></div>
         <div class="who"><div class="role" style="color:${cat}">${p.role}</div>${name}</div>
         ${p.qrs.length ? `<div class="qrs">${p.qrs.map((k) => `<div class="qr"><img src="${A}${QR[k][0]}" alt="" /><b>${QR[k][1]}</b>${QR[k][2]}</div>`).join("")}</div>` : ""}
-        <div class="partners" style="${p.qrs.length ? "" : "margin-top:auto"}"><small>Partenaires et institutions</small>
+        <div class="partners" style="${p.qrs.length ? "" : "margin-top:auto"}"><small>Partners</small>
           <div class="partner-logos">${PARTNERS.map((f) => `<img src="${A}${f}" alt=""${/cmcm|sponsor-luxembourg/.test(f) ? ' class="zoom"' : ""} />`).join("")}</div>
         </div>
       </div></div>`;
@@ -336,13 +336,13 @@
     const allowed = p.zones.map((n) => `<div><i style="background:${cat}">${n}</i>${ZONES[n - 1]}</div>`).join("");
     const access = p.zones.length
       ? `<div class="allowed${p.zones.length > 3 ? " compact" : ""}">${allowed}</div>`
-      : `<div class="no-zone"><b>Aucune zone réservée</b>Accès aux espaces publics et à ton poste uniquement.</div>`;
+      : `<div class="no-zone"><b>No restricted zone</b>Access to public areas and your own post only.</div>`;
     return `<div class="badge back"><div class="hole"></div>${strip(p)}
       <div class="main">
-        <div class="h"><b>Accès autorisés</b><span>Coque · Luxembourg</span></div>
+        <div class="h"><b>Access zones</b><span>Coque · Luxembourg</span></div>
         ${access}
         <div class="plan">${planSvg(p)}</div>
-        <div class="rules">Badge personnel et non cessible, à porter de façon visible. Il peut être retiré en cas d'usage abusif.</div>
+        <div class="rules">Personal, non-transferable badge. Wear it visibly at all times. It may be withdrawn in case of misuse.</div>
       </div></div>`;
   };
 
