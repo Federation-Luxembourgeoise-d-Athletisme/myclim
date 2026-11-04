@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Accréditations 2027 — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Piste B retenue : bande verticale = catégorie. Format réel 92 x 135.5 mm (4 par A4). */
+  :root { --ink: #0b1b2b; --muted: #4a5d6c; --dim: #8a9aa7; --line: #e3e9ee; --surface: #eef2f5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Barlow, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--surface); }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 22px 32px; display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+  header h1 { margin: 0; font: 800 26px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+  .toggles button { border: 1px solid rgba(0,0,0,.16); background: #fff; border-radius: 999px; padding: 8px 16px; font: 600 14px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+  .toggles button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  main { padding: 28px 32px 60px; }
+  h2 { font: 800 19px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px; }
+  .note { color: var(--muted); font-size: 14px; margin: 0 0 18px; max-width: 900px; }
+  section { margin-bottom: 44px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 24px; }
+  .cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
+  .cap b { color: var(--ink); }
+  .legend-cats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .legend-cats span { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px 6px 6px; font-size: 13px; font-weight: 600; }
+  .legend-cats i { width: 18px; height: 18px; border-radius: 50%; display: block; }
+
+  .badge { width: 92mm; height: 135.5mm; border-radius: 5mm; overflow: hidden; background: #fff; display: flex; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
+  .strip { width: 17mm; flex: none; color: #fff; display: grid; place-items: center; }
+  .strip span { writing-mode: vertical-rl; transform: rotate(180deg); font: 800 32pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .top { padding: 4mm 4mm 0; display: grid; justify-items: center; gap: 2.5mm; }
+  .top .wa { height: 8.5mm; }
+  .top .logo { width: 56mm; height: 21mm; object-fit: contain; }
+  .who { padding: 4mm 4mm 0; }
+  .role { font: 700 8.5pt/1.1 Barlow, Arial, sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+  .last { font: 800 24pt/.9 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; margin-top: 1.5mm; overflow-wrap: anywhere; }
+  .first { font: 600 14pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: var(--muted); }
+  .access { margin: auto 4mm 3mm; padding: 2.5mm; border-radius: 2.5mm; background: #f2f5f8; }
+  .access .t { font-size: 5.5pt; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #6c7f8d; margin-bottom: 1.5mm; display: flex; justify-content: space-between; }
+  .zones { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.4mm; }
+  .zone { aspect-ratio: 1; border-radius: 1.6mm; display: grid; place-items: center; font: 800 14pt/1 "Barlow Condensed", Arial, sans-serif; position: relative; }
+  .zone.on { background: var(--ink); color: #fff; }
+  .zone.off { background: #fff; color: #c4ced6; }
+  .zone.off::after { content: ""; position: absolute; left: 18%; right: 18%; top: 50%; height: .5mm; background: currentColor; transform: rotate(-45deg); opacity: .55; }
+  .zone-legend { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.4mm; margin-top: .8mm; font-size: 4.6pt; text-align: center; line-height: 1.05; text-transform: uppercase; letter-spacing: .02em; }
+  .partners { background: #fff; padding: 2mm 3mm 2.5mm; border-top: .3mm solid var(--line); }
+  .partners small { display: block; text-align: center; font-size: 5pt; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: .8mm; }
+  .partners img { width: 100%; height: 12mm; object-fit: contain; display: block; }
+
+  /* Verso : même bande catégorie, pour retrouver le badge retourné */
+  .back .main { padding: 4mm; gap: 2.5mm; }
+  .back .h { display: flex; justify-content: space-between; align-items: baseline; border-bottom: .3mm solid #dfe6ec; padding-bottom: 2mm; }
+  .back .h b { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  .back .h span { font-size: 5.6pt; color: #6c7f8d; text-transform: uppercase; letter-spacing: .12em; }
+  .back .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 2mm; font-size: 6.4pt; }
+  .back .legend div { display: flex; align-items: center; gap: 1.4mm; }
+  .back .legend i { font: 800 9pt/1 "Barlow Condensed", Arial, sans-serif; font-style: normal; width: 4.6mm; height: 4.6mm; border-radius: 1mm; display: grid; place-items: center; flex: none; }
+  .back .legend i.on { background: var(--ink); color: #fff; }
+  .back .legend i.off { background: #fff; color: #b9c5ce; border: .3mm solid #d7e0e7; }
+  .back .plan { flex: 1; min-height: 0; overflow: hidden; }
+  .back .plan img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .back .qrs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2mm; }
+  .back .qr { text-align: center; font-size: 4.6pt; line-height: 1.1; color: var(--muted); }
+  .back .qr img { width: 12mm; aspect-ratio: 1; display: block; margin: 0 auto .6mm; }
+  .back .qr b { display: block; font-size: 5.2pt; color: var(--ink); }
+  .back .rules { font-size: 5pt; color: #6c7f8d; line-height: 1.3; border-top: .3mm solid #dfe6ec; padding-top: 1.5mm; }
+
+  /* Vue feuille A4 : 2 x 2 badges, comme l'impression de l'app */
+  .sheet { width: 210mm; min-height: 297mm; background: #fff; padding: 10mm; display: grid; grid-template-columns: repeat(2, 92mm); grid-auto-rows: 135.5mm; gap: 6mm; justify-content: space-between; align-content: start; box-shadow: 0 2mm 8mm rgba(10, 30, 50, .15); }
+  .sheet .badge { box-shadow: none; outline: .3mm dashed #c9d3db; }
+  .sheets { display: flex; flex-wrap: wrap; gap: 28px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Accréditations 2027 · Piste B</h1>
+    <p>Bande verticale = catégorie · chiffres 1 à 6 = zones · logo du meeting = niveau d'accès</p>
+  </div>
+  <div class="toggles" id="view">
+    <button class="on" data-view="badges">Tous les badges</button>
+    <button data-view="sheet">Feuille A4</button>
+  </div>
+</header>
+<main>
+  <div id="badges">
+    <section>
+      <h2>Les catégories</h2>
+      <p class="note">Une couleur par catégorie, visible de loin. Le logo du meeting garde la règle actuelle de l'app : couleurs normales = toutes zones, bleu = avec Infield, rouge = sans Infield, noir = aucune zone.</p>
+      <div class="legend-cats" id="cat-legend"></div>
+      <div class="grid" id="fronts"></div>
+    </section>
+    <section>
+      <h2>Versos</h2>
+      <p class="note">Le verso reprend la bande de couleur, pour qu'on reconnaisse la catégorie même retourné. La légende allume les zones de la personne. Les QR codes changent selon la catégorie (réglage existant dans l'app).</p>
+      <div class="grid" id="backs"></div>
+    </section>
+  </div>
+  <div id="sheet" hidden>
+    <section>
+      <h2>Feuille A4 d'impression</h2>
+      <p class="note">4 badges par feuille, recto puis verso, au format réel. Les pointillés sont les traits de coupe.</p>
+      <div class="sheets" id="sheets"></div>
+    </section>
+  </div>
+</main>
+<script>
+  const A = "../../src/assets/";
+  const ZONES = ["Infield", "Warm-up", "Coaching", "Judges Room", "Mixed Zone", "VIP"];
+  const CATEGORIES = {
+    Organisation: "#0a2540",
+    Athlète: "#e30613",
+    Coach: "#f07c00",
+    Juge: "#0f8a5f",
+    Presse: "#7b3fe4",
+    Bénévole: "#0d8fd3",
+    VIP: "#b8912a",
+  };
+  const LEVELS = {
+    all: { label: "Toutes zones", logo: "accreditation-meeting-principal.png" },
+    infield: { label: "Infield autorisé", logo: "accreditation-meeting-bleu.png" },
+    noInfield: { label: "Sans infield", logo: "accreditation-meeting-rouge.png" },
+    none: { label: "Aucune zone", logo: "accreditation-meeting-noir.png" },
+  };
+  const QR = {
+    results: ["accreditation-qr-results-live-athlete.png", "Résultats live", "Suivi des perfs"],
+    roadbook: ["accreditation-qr-roadbook.png", "Roadbook", "Infos bénévoles"],
+    athleteRoadbook: ["accreditation-qr-roadbook-athlete.png", "Roadbook", "Infos meeting"],
+    photos: ["accreditation-qr-photos.png", "Photos live", "Album"],
+    emag: ["accreditation-qr-emagazine-athlete.png", "E-magazine", "Contenus"],
+  };
+  const PEOPLE = [
+    { category: "Organisation", role: "Comité directeur FLA", lastName: "Esposito", firstName: "Carmela", zones: [1, 2, 3, 4, 5, 6], qrs: ["results"] },
+    { category: "Athlète", role: "Accréditation", lastName: "", firstName: "", zones: [1, 2, 5], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
+    { category: "Coach", role: "Accréditation", lastName: "", firstName: "", zones: [2, 3], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
+    { category: "Juge", role: "Juge arbitre", lastName: "Hoffmann", firstName: "Nina", zones: [1, 4], qrs: ["results"] },
+    { category: "Presse", role: "Photographe", lastName: "Becker", firstName: "Tom", zones: [2, 5], qrs: [] },
+    { category: "Bénévole", role: "Transport", lastName: "Muller", firstName: "Alex", zones: [], qrs: ["results", "roadbook", "photos"] },
+    { category: "VIP", role: "Invité partenaire", lastName: "Schmit", firstName: "Laure", zones: [6], qrs: [] },
+  ];
+
+  const levelOf = (z) => (z.length === ZONES.length ? "all" : !z.length ? "none" : z.includes(1) ? "infield" : "noInfield");
+  const strip = (p) => `<div class="strip" style="background:${CATEGORIES[p.category]}"><span>${p.category}</span></div>`;
+
+  const front = (p) => {
+    const cat = CATEGORIES[p.category];
+    const lv = LEVELS[levelOf(p.zones)];
+    const name = p.lastName
+      ? `<div class="last">${p.lastName}</div><div class="first">${p.firstName}</div>`
+      : `<div class="last">${p.category}</div><div class="first">Non nominatif</div>`;
+    return `<div class="badge">${strip(p)}
+      <div class="main">
+        <div class="top"><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /><img class="logo" src="${A}${lv.logo}" alt="" /></div>
+        <div class="who"><div class="role" style="color:${cat}">${p.role}</div>${name}</div>
+        <div class="access">
+          <div class="t"><span>Zones d'accès</span><span>${lv.label}</span></div>
+          <div class="zones">${ZONES.map((_, i) => `<div class="zone ${p.zones.includes(i + 1) ? "on" : "off"}">${i + 1}</div>`).join("")}</div>
+          <div class="zone-legend">${ZONES.map((n) => `<span>${n}</span>`).join("")}</div>
+        </div>
+        <div class="partners"><small>Partenaires et institutions</small><img src="${A}accreditation-sponsors-strip.png" alt="" /></div>
+      </div></div>`;
+  };
+
+  const back = (p) => `<div class="badge back">${strip(p)}
+      <div class="main">
+        <div class="h"><b>Plan d'accès</b><span>Coque · Luxembourg</span></div>
+        <div class="legend">${ZONES.map((n, i) => `<div><i class="${p.zones.includes(i + 1) ? "on" : "off"}">${i + 1}</i>${n}</div>`).join("")}</div>
+        <div class="plan"><img src="${A}accreditation-plan.png" alt="" /></div>
+        ${p.qrs.length ? `<div class="qrs">${p.qrs.map((k) => `<div class="qr"><img src="${A}${QR[k][0]}" alt="" /><b>${QR[k][1]}</b>${QR[k][2]}</div>`).join("")}</div>` : ""}
+        <div class="rules">Badge personnel et non cessible, à porter de façon visible. Il peut être retiré en cas d'usage abusif.</div>
+      </div></div>`;
+
+  const caption = (p) => `<div class="cap"><b>${p.category}</b> · ${LEVELS[levelOf(p.zones)].label}</div>`;
+
+  document.getElementById("cat-legend").innerHTML = Object.entries(CATEGORIES)
+    .map(([name, color]) => `<span><i style="background:${color}"></i>${name}</span>`)
+    .join("");
+  document.getElementById("fronts").innerHTML = PEOPLE.map((p) => `<div>${front(p)}${caption(p)}</div>`).join("");
+  document.getElementById("backs").innerHTML = PEOPLE.map((p) => `<div>${back(p)}${caption(p)}</div>`).join("");
+
+  // Le verso d'une feuille est en miroir horizontal, pour tomber derrière le bon recto en impression recto-verso.
+  const page = PEOPLE.slice(0, 4);
+  const mirrored = [page[1], page[0], page[3], page[2]];
+  document.getElementById("sheets").innerHTML = `
+    <div><div class="sheet">${page.map(front).join("")}</div><div class="cap"><b>Recto</b></div></div>
+    <div><div class="sheet">${mirrored.map(back).join("")}</div><div class="cap"><b>Verso</b> (miroir, pour l'impression recto-verso)</div></div>`;
+
+  document.getElementById("view").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    document.querySelectorAll("#view button").forEach((b) => b.classList.toggle("on", b === button));
+    document.getElementById("badges").hidden = button.dataset.view !== "badges";
+    document.getElementById("sheet").hidden = button.dataset.view !== "sheet";
+  });
+</script>
+</body>
+</html>
