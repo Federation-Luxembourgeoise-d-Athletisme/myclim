@@ -126,7 +126,7 @@
     </section>
     <section>
       <h2>VIP · format réduit</h2>
-      <p class="note">Comme en 2026, le badge VIP est à part : nom de l&apos;entreprise, nom de la personne, 3 QR codes (e-magazine, résultats live, contact) et partenaires. En 2027 il passe en 90 × 65 mm paysage, recto seul, pour en imprimer 8 par A4 (contre 4 en A6 l&apos;an dernier). Il garde la bande dorée pour rester dans la même famille.</p>
+      <p class="note">Comme en 2026, le badge VIP est à part : nom de l&apos;entreprise, nom de la personne, 3 QR codes (e-magazine, résultats live, contact) et partenaires. En 2027 il passe en 90 × 65 mm paysage, recto-verso identique, pour en imprimer 8 par A4 (contre 4 en A6 l&apos;an dernier). Il garde la bande dorée pour rester dans la même famille.</p>
       <div class="grid" id="vips"></div>
     </section>
   </div>
@@ -138,7 +138,7 @@
     </section>
     <section>
       <h2>Feuille A4 VIP</h2>
-      <p class="note">8 badges VIP par feuille, recto seul.</p>
+      <p class="note">8 badges VIP par feuille, recto-verso avec le même contenu des deux côtés. Le PDF fait 2 pages : la page 2 inverse gauche et droite sur chaque ligne, pour que chaque verso tombe derrière son recto. À imprimer en recto-verso « retourner sur le bord long ».</p>
       <div class="sheets" id="vip-sheet"></div>
     </section>
   </div>
@@ -265,7 +265,13 @@
     <div><div class="sheet">${mirrored.map(back).join("")}</div><div class="cap"><b>Verso</b> (miroir, pour l'impression recto-verso)</div></div>`;
 
   document.getElementById("vips").innerHTML = VIPS.slice(0, 3).map((v) => `<div>${vip(v)}</div>`).join("");
-  document.getElementById("vip-sheet").innerHTML = `<div><div class="sheet vip-sheet">${VIPS.map(vip).join("")}</div><div class="cap"><b>Recto</b> · 8 VIP</div></div>`;
+  // Recto et verso VIP identiques. Impression recto-verso « bord long » : sur chaque ligne,
+  // gauche et droite s'inversent au verso, pour que chaque badge retombe derrière lui-même.
+  // Une case vide garde la place quand le dernier badge est seul sur sa ligne.
+  const vipBack = VIPS.flatMap((_, i) => (i % 2 ? [] : [VIPS[i + 1] ?? null, VIPS[i]]));
+  document.getElementById("vip-sheet").innerHTML = `
+    <div><div class="sheet vip-sheet">${VIPS.map(vip).join("")}</div><div class="cap"><b>Page 1 · Recto</b></div></div>
+    <div><div class="sheet vip-sheet">${vipBack.map((v) => (v ? vip(v) : "<div></div>")).join("")}</div><div class="cap"><b>Page 2 · Verso</b> (gauche/droite inversés)</div></div>`;
 
   document.getElementById("view").addEventListener("click", (event) => {
     const button = event.target.closest("button");
