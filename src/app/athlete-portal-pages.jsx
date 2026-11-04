@@ -12,7 +12,6 @@ import {
   DEFAULT_PORTAL_SETTINGS,
   FIELD_GROUPS,
   athleteMergeKey,
-  rebuildAthleteRegistryFromHistoricalResults,
   splitHistoricalHomonyms,
   canImportAthletes,
   extractWaid,
@@ -4297,38 +4296,14 @@ function AthleteRegistryPage({ Panel }) {
       </section>
 
       <section className="panel-grid panel-grid--1">
-        <Panel title="Maintenance" subtitle="Rebuild the historical athlete registry from the corrected meeting results">
+        <Panel title="Maintenance" subtitle="Split homonyms in the athlete registry">
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             <p className="panel-note" style={{ margin: 0 }}>
-              Cette action vide complètement <code>athleteRegistry</code>, puis le reconstruit à partir de
-              <code> meetingResults.json</code>. « Séparer les homonymes » ne touche qu'aux fiches qui mélangent
-              deux athlètes du même nom et garde toutes les fusions déjà faites.
+              « Séparer les homonymes » ne touche qu'aux fiches qui mélangent deux athlètes du même nom et garde
+              toutes les fusions déjà faites. La base n'est plus jamais vidée : les WAID et les fusions faits fiche
+              par fiche sont la référence.
             </p>
             <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-              <button
-                className="button button--danger"
-                disabled={rebuilding}
-                onClick={async () => {
-                  if (!window.confirm(`Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?\n\nATTENTION : ${withWaidCount} fiche(s) ont un WAID et toutes les fusions seront perdues.`)) return;
-                  setRebuildLog([]);
-                  setRebuilding(true);
-                  try {
-                    const summary = await rebuildAthleteRegistryFromHistoricalResults((msg) => {
-                      setRebuildLog((prev) => [...prev, msg]);
-                    });
-                    setRebuildLog((prev) => [
-                      ...prev,
-                      `✅ Base athlètes reconstruite : ${summary.deleted} supprimés, ${summary.written} recréés, source ${summary.sourceRows} lignes.`,
-                    ]);
-                  } catch (error) {
-                    setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
-                  } finally {
-                    setRebuilding(false);
-                  }
-                }}
-              >
-                {rebuilding ? "Reconstruction…" : "Vider et reconstruire la base athlètes"}
-              </button>
               <button
                 className="button button--secondary"
                 disabled={rebuilding}
