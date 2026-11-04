@@ -69,9 +69,15 @@
   .back .allowed.compact i { width: 6mm; height: 6mm; font-size: 11pt; }
   .back .no-zone { padding: 2.5mm; border-radius: 2mm; background: #f2f5f8; font-size: 7.5pt; line-height: 1.35; color: var(--muted); }
   .back .no-zone b { display: block; font: 800 12pt/1.1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: var(--ink); margin-bottom: .6mm; }
-  .back .plan { flex: 1; min-height: 0; overflow: hidden; display: grid; place-items: center; }
-  .back .plan svg { width: 100%; height: 100%; display: block; }
-  .plan text { font-family: "Barlow Condensed", Arial, sans-serif; font-weight: 800; }
+  .back .plan { flex: 1; min-height: 0; position: relative; }
+  .plan-box { position: absolute; inset: 0; margin: auto; height: 100%; max-width: 100%; aspect-ratio: 1872 / 2646; }
+  .plan-base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .pt { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
+  .pt i { font-style: normal; display: grid; place-items: center; }
+  .pz { width: 4.6mm; height: 4.6mm; border-radius: 50%; background: #fff; border: .35mm solid #c3ccd3; color: #a9b5be; font: 800 8pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .pz.on { color: #fff; border: .45mm solid #fff; box-shadow: 0 0 0 .2mm rgba(0,0,0,.25); }
+  .pc { width: 3.6mm; height: 3.6mm; border-radius: .8mm; background: #0a2540; color: #fff; font: 800 6.5pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .pm { padding: .5mm 1.4mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Barlow, Arial, sans-serif; }
 
   /* Fond du recto (au choix dans l'en-tête) : motif très léger dans la couleur de la catégorie */
   .main { position: relative; z-index: 1; }
@@ -190,6 +196,7 @@
     </section>
   </div>
 </main>
+<script src="plan-coque.js"></script>
 <script>
   const A = "../../src/assets/";
   const ZONES = ["Infield", "Warm-up", "Coaching", "Judges Room", "Mixed Zone", "VIP"];
@@ -273,45 +280,23 @@
       <svg class="bg-piste" viewBox="0 0 120 120"><use href="#piste" /></svg>
     </div>`;
 
-  // Plan schématique de la Coque, d'après les plans 2024 et 2025. Les zones autorisées
-  // prennent la couleur de la catégorie, les autres restent grises.
-  // Emplacements repris du plan des badges 2026 (Warm-up = grande zone bleue côté gauche,
-  // Coaching en 3 points, Judges Room et Mixed Zone côté tribune principale, VIP tribune droite).
-  const ZONE_SHAPES = {
-    1: [`<rect x="70" y="55" width="60" height="28" rx="14" />`, [100, 69]],
-    2: [`<path d="M8 70 C20 50 34 38 50 31 L50 109 C34 102 20 90 8 70 Z" />`, [30, 70]],
-    3: [`<rect x="91" y="35.5" width="18" height="6" rx="3" /><rect x="68" y="97" width="17" height="6" rx="3" /><rect x="115" y="97" width="17" height="6" rx="3" />`, [100, 38.5]],
-    4: [`<rect x="104" y="106" width="15" height="9" rx="1.5" />`, [111.5, 110.5]],
-    5: [`<rect x="91" y="97" width="16" height="6" rx="1.5" />`, [99, 100]],
-    6: [`<path d="M140 90 C148 84 152 76 153 68 L163 70 C162 82 156 92 146 99 Z" />`, [152, 83]],
-  };
+  // Même plan que l'éditeur (plan-coque.js) : plan simplifié + repères cochés « accréditations ».
+  // Les zones autorisées prennent la couleur de la catégorie, les autres restent grises.
   const planSvg = (p) => {
     const cat = CATEGORIES[p.category];
-    // Dessiné à l'horizontale puis pivoté en portrait, comme le plan des badges 2026 :
-    // (x, y) devient (y, 200 - x), donc Warm-up en bas et entrée à droite. Les chiffres restent droits.
-    const turn = ([x, y]) => [y, 200 - x];
-    const shapes = Object.entries(ZONE_SHAPES).map(([n, [shape]]) => {
-      const on = p.zones.includes(Number(n));
-      return `<g fill="${on ? cat : "#dfe5ea"}">${shape}</g>`;
+    const markers = loadPlanElements().filter((el) => el.a).map((el) => {
+      const on = el.kind === "zone" && p.zones.includes(el.num);
+      const inner = el.kind === "zone"
+        ? `<i class="pz${on ? " on" : ""}" style="${on ? `background:${cat}` : ""}">${el.num}</i>`
+        : el.kind === "ctrl" ? `<i class="pc">${el.label}</i>`
+        : `<i class="pm" style="background:${el.color}">${el.label}</i>`;
+      return `<span class="pt" style="left:${el.x}%;top:${el.y}%">${inner}</span>`;
     }).join("");
-    const numbers = Object.entries(ZONE_SHAPES).map(([n, [, point]]) => {
-      const on = p.zones.includes(Number(n));
-      const [x, y] = turn(point);
-      return `<circle cx="${x}" cy="${y}" r="4.6" fill="${on ? "#fff" : "#f4f6f8"}" stroke="${on ? cat : "#c3ccd3"}" stroke-width="1" />
-        <text x="${x}" y="${y + 2.3}" font-size="6.8" text-anchor="middle" fill="${on ? cat : "#a9b5be"}">${n}</text>`;
-    }).join("");
-    return `<svg viewBox="0 0 142 200" aria-label="Coque access map">
-      <g transform="matrix(0 -1 1 0 0 200)">
-        <path d="M8 70 C38 24 78 16 100 16 C122 16 162 24 192 70 C162 112 124 119 113 119 L122 138 L78 138 L87 119 C76 119 38 112 8 70 Z" fill="#f7f9fb" stroke="#9aa8b3" stroke-width="1" />
-        <rect x="48" y="33" width="104" height="72" rx="36" fill="#eef2f5" stroke="#c3ccd3" stroke-width=".8" />
-        <rect x="60" y="45" width="80" height="48" rx="24" fill="#fff" stroke="#c3ccd3" stroke-width=".8" />
-        <rect x="64" y="49" width="72" height="40" rx="20" fill="none" stroke="#dde3e8" stroke-width=".6" stroke-dasharray="2 1.5" />
-        ${shapes}
-        <path d="M100 133 L100 122 M96 126 L100 121 L104 126" stroke="#4a5d6c" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-      </g>
-      ${numbers}
-      <text x="136" y="100" font-size="4.6" text-anchor="middle" fill="#4a5d6c" letter-spacing=".6" transform="rotate(90 136 100)">ENTRANCE</text>
-    </svg>`;
+    const base = planBaseSvg({
+      infield: p.zones.includes(1) ? `${cat}40` : "#eef1f4",
+      warmup: p.zones.includes(2) ? `${cat}40` : "#e6ebef",
+    });
+    return `<div class="plan-box">${base}${markers}</div>`;
   };
 
   const front = (p) => {

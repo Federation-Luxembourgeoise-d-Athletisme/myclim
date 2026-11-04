@@ -40,7 +40,7 @@
   .stage-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
   .stage-bar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
   .canvas { position: relative; margin: 0 auto; width: min(100%, 620px); aspect-ratio: 1872 / 2646; user-select: none; touch-action: none; }
-  .canvas img.base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  .plan-base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   .el { position: absolute; transform: translate(-50%, -50%); cursor: grab; white-space: nowrap; }
   .el.dragging { cursor: grabbing; z-index: 10; }
   .el.ghost { opacity: .28; }
@@ -67,7 +67,7 @@
   .pv-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
   .pv-cap select { font: 600 13px Barlow, Arial, sans-serif; margin-left: 6px; padding: 3px 6px; border-radius: 6px; border: 1px solid #cfd8df; }
   .mini { position: relative; aspect-ratio: 1872 / 2646; }
-  .mini img { position: absolute; inset: 0; width: 100%; height: 100%; }
+
   .mini .el { cursor: default; }
 
   .badge-back { width: 100mm; height: 143.5mm; background: #fff; display: flex; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
@@ -75,8 +75,9 @@
   .badge-back .strip span { writing-mode: vertical-rl; transform: rotate(180deg); font: 800 30pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
   .badge-back .main { flex: 1; padding: 11mm 4mm 4mm; display: flex; flex-direction: column; gap: 2mm; min-width: 0; }
   .badge-back .h { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; border-bottom: .3mm solid #dfe6ec; padding-bottom: 2mm; }
-  .badge-back .mini { flex: 1; min-height: 0; aspect-ratio: auto; }
-  .badge-back .mini img { object-fit: contain; }
+  .badge-back .plan-area { flex: 1; min-height: 0; position: relative; }
+  .badge-back .mini { position: absolute; inset: 0; margin: auto; height: 100%; max-width: 100%; }
+
   .badge-back .zone { width: 15px; height: 15px; font-size: 9.5px; border-width: 1.5px; }
   .badge-back .pill { padding: 2px 5px; font-size: 6.5px; }
   .badge-back .ctrl { width: 13px; height: 13px; font-size: 8.5px; border-width: 1px; }
@@ -119,7 +120,7 @@
       <span id="stage-title"></span>
       <label><input type="checkbox" id="ghosts" checked /> Montrer en transparence les éléments de l&apos;autre version</label>
     </div>
-    <div class="canvas" id="canvas"><img class="base" src="assets/plan-coque-2026.png" alt="Plan de la Coque" /></div>
+    <div class="canvas" id="canvas"></div>
   </section>
 
   <aside class="panel" id="detail"></aside>
@@ -140,36 +141,12 @@
   </div>
 </div>
 
+<script src="plan-coque.js"></script>
 <script>
   const A = "../../src/assets/";
   const PALETTE = ["#e30613", "#0a2540", "#27a9e1", "#0f8a5f", "#f07c00", "#5b2bb5", "#9157e6", "#b8912a", "#e5719a", "#6b7a86"];
-  const ZONE_RED = "#c8102e";
-  // Positions en % de l'image du plan 2026 (portrait : Warm-up en bas, entrée principale à droite).
-  // a = plan des accréditations, s = plan spectateurs.
-  const DEFAULT_ELEMENTS = [
-    { id: "z1", kind: "zone", num: 1, label: "Infield", x: 35.3, y: 50, a: true, s: false },
-    { id: "z2", kind: "zone", num: 2, label: "Warm-up", x: 23, y: 85, a: true, s: false },
-    { id: "z3a", kind: "zone", num: 3, label: "Coaching Zone", x: 16.4, y: 50, a: true, s: false },
-    { id: "z3b", kind: "zone", num: 3, label: "Coaching Zone", x: 54.6, y: 44, a: true, s: false },
-    { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", x: 54.6, y: 62, a: true, s: false },
-    { id: "z4", kind: "zone", num: 4, label: "Judges Room", x: 58.4, y: 58.5, a: true, s: false },
-    { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", x: 54.4, y: 52, a: true, s: false },
-    { id: "z6", kind: "zone", num: 6, label: "VIP Zone", x: 61.5, y: 35, a: true, s: false },
-    { id: "m1", kind: "mark", label: "Main Entrance", color: "#0f8a5f", x: 80, y: 58, a: true, s: true },
-    { id: "m2", kind: "mark", label: "Bar", color: "#e5719a", x: 36, y: 15, a: false, s: true },
-    { id: "m3", kind: "mark", label: "Drink cards", color: "#e5719a", x: 69, y: 47, a: false, s: true },
-    { id: "m4", kind: "mark", label: "Signing Zone", color: "#6b7a86", x: 63, y: 26, a: false, s: true },
-    { id: "m5", kind: "mark", label: "Athletics workshop", color: "#e30613", x: 47, y: 9, a: false, s: true },
-    { id: "m6", kind: "mark", label: "First aid", color: "#e30613", x: 23, y: 29, a: true, s: true },
-    { id: "m7", kind: "mark", label: "VIP Welcome", color: "#b8912a", x: 74, y: 66, a: true, s: false },
-    { id: "m8", kind: "mark", label: "Volunteers · Judges · Press welcome", color: "#27a9e1", x: 73, y: 71, a: true, s: false },
-    { id: "c1", kind: "ctrl", label: "A", color: "#0a2540", x: 76, y: 63, a: true, s: false },
-    { id: "c2", kind: "ctrl", label: "B", color: "#0a2540", x: 63.6, y: 49, a: true, s: false },
-    { id: "c3", kind: "ctrl", label: "C", color: "#0a2540", x: 62, y: 55, a: true, s: false },
-    { id: "c4", kind: "ctrl", label: "D", color: "#0a2540", x: 61.5, y: 41, a: true, s: false },
-    { id: "c5", kind: "ctrl", label: "E", color: "#0a2540", x: 56, y: 67, a: true, s: false },
-    { id: "c6", kind: "ctrl", label: "F", color: "#0a2540", x: 17.7, y: 79, a: true, s: false },
-  ];
+  const ZONE_RED = PLAN_ZONE_RED;
+  const DEFAULT_ELEMENTS = PLAN_DEFAULT_ELEMENTS;
   const ROLES = [
     { category: "Organisation", color: "#e30613", zones: [1, 2, 3, 4, 5, 6] },
     { category: "Athlete", color: "#0f8a5f", zones: [1, 2, 5] },
@@ -180,13 +157,10 @@
   ];
   const GROUPS = [["zone", "Zones d'accès"], ["mark", "Repères"], ["ctrl", "Points de contrôle"]];
 
-  const STORE = "myclim-maquette-plans";
-  let elements;
-  try { elements = JSON.parse(localStorage.getItem(STORE)) || null; } catch { elements = null; }
-  if (!Array.isArray(elements)) elements = structuredClone(DEFAULT_ELEMENTS);
+  let elements = loadPlanElements();
   let version = "a";
   let selectedId = null;
-  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(elements)); } catch { /* aperçu sans mémoire */ } };
+  const save = () => savePlanElements(elements);
 
   const colorOf = (el) => (el.kind === "zone" ? ZONE_RED : el.color);
   const marker = (el, color = colorOf(el)) =>
@@ -260,11 +234,11 @@
     document.getElementById("pv-badge").innerHTML = `
       <div class="strip" style="background:${role.color}"><span>${role.category}</span></div>
       <div class="main"><div class="h">Access zones</div>
-        <div class="mini"><img src="assets/plan-coque-2026.png" alt="" />${badgeEls}</div></div>`;
+        <div class="plan-area"><div class="mini">${planBaseSvg({ infield: role.zones.includes(1) ? `${role.color}55` : undefined, warmup: role.zones.includes(2) ? `${role.color}55` : "#e6ebef" })}${badgeEls}</div></div></div>`;
     const posterEls = elements.filter((el) => el.s).map((el) => `<div class="el" style="left:${el.x}%;top:${el.y}%">${marker(el)}</div>`).join("");
     document.getElementById("pv-poster").innerHTML = `
       <div class="ph"><img src="${A}accreditation-meeting-principal.png" alt="" /><b>VENUE MAP</b></div>
-      <div class="mini"><img src="assets/plan-coque-2026.png" alt="" />${posterEls}</div>
+      <div class="mini">${planBaseSvg()}${posterEls}</div>
       <div class="pf">${["accreditation-sponsor-cmcm.png", "fla-logo.png", "wa-indoor-tour-silver.png", "accreditation-sponsor-ville-luxembourg.png", "accreditation-sponsor-luxembourg.png"].map((f) => `<img src="${A}${f}" alt="" />`).join("")}</div>`;
   }
 
@@ -348,6 +322,7 @@
   document.getElementById("ghosts").addEventListener("change", renderCanvas);
   document.getElementById("pv-role").addEventListener("change", renderPreviews);
 
+  canvas.innerHTML = planBaseSvg();
   renderAll();
 </script>
 </body>
