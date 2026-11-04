@@ -137,7 +137,7 @@ const OLD = {
   panier:{l:"Porte-panier",tabs:["(= onglet de U12 / U14)"],bad:["Doublon : ce n'est pas une page, c'est un onglet de U12 / U14."]},
   cn:{l:"Courses nationales",tabs:["Décisions par course","Mails en attente","Modèles de mails","Export SELTEC"],bad:[]},
   web:{l:"Vue d'ensemble (site)",tabs:["6 cartes qui renvoient aux pages du menu"],bad:["Page « hub » sans action : elle répète le menu."]},
-  webed:{l:"Édition courante",tabs:["Infos de base","Liens live","Lien SELTEC (n'est plus utilisé)","Horaire pré-programme","Prize money","Disciplines","Timetable"],bad:["Une très longue page de 7 blocs, dont des réglages sportifs (prize money, disciplines) qui ne sont pas du « site web ».","Doublon partiel avec Réglages › Édition du meeting.","Garde un bloc « lien SELTEC » qui n'est plus affiché nulle part."]},
+  webed:{l:"Édition courante",tabs:["Infos de base","Liens live","Lien SELTEC","Horaire pré-programme","Prize money","Disciplines","Timetable"],bad:["Une très longue page de 7 blocs, dont des réglages sportifs (prize money, disciplines) qui ne sont pas du « site web ».","Doublon partiel avec Réglages › Édition du meeting."]},
   emag:{l:"E-magazine",tabs:["Opening","Special races","Luxembourg athletes","Highlights","Partners","Start lists","Closing"],bad:["Interface en anglais."]},
   links:{l:"Page liens (QR)",tabs:["QR code","Mode jour J","Blocs affichés","Photos","Billets","Venir à la Coque","Réseaux"],bad:[]},
   news:{l:"Actualités",tabs:["Articles","Formulaire (catégorie « press » incluse)"],bad:["Titre en anglais « Website News »."]},
@@ -167,7 +167,7 @@ const OLD = {
 /* ---------- Pages proposées ---------- */
 const NEW = {
   home:{l:"Accueil",from:["dash","web"],tabs:["À traiter aujourd'hui","Prochaines échéances","Installer l'app"],good:["Une seule liste « à traiter » qui pointe vers les pages, plus de raccourcis qui doublent le menu.","Le même nom pour tout le monde."]},
-  edition:{l:"Édition 2027",from:["edition","webed"],tabs:["Infos & lieu","Programme horaire","Disciplines & prize money","Liens live","Changer d'édition"],good:["Une seule page pour l'édition : ce qui est saisi ici sert au site, à l'e-magazine, au roadbook et à la page liens.","Le nom affiche l'année : on sait toujours sur quelle édition on travaille.","Le bloc « lien SELTEC », qui n'est plus utilisé, disparaît."]},
+  edition:{l:"Édition 2027",from:["edition","webed"],tabs:["Infos & lieu","Programme horaire","Disciplines & prize money","Liens (live, SELTEC)","Changer d'édition"],good:["Une seule page pour l'édition : ce qui est saisi ici sert au site, à l'e-magazine, au roadbook et à la page liens.","Le nom affiche l'année : on sait toujours sur quelle édition on travaille."]},
   budget:{l:"Budget",from:["budget","docs","roles"],tabs:["Vue d'ensemble","Lignes budgétaires","Factures","Historique"],good:["Le seul endroit admin pour les factures (le dépôt reste possible depuis Mes documents pour les bénévoles).","Les droits de dépôt de facture se règlent dans l'onglet Factures."]},
   docs:{l:"Documents",from:["docs"],tabs:["Documents publiés","Publier un document"],good:["Ne fait plus qu'une chose : partager des documents avec les équipes."]},
   cand:{l:"Candidatures",from:["benevoles"],tabs:["À traiter","Tous les bénévoles","Alertes"],good:["Le suivi du dossier de chaque bénévole (reçu → affecté → confirmé), et c'est tout."]},
