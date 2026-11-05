@@ -49,14 +49,20 @@ const PLAN_DEFAULT_ELEMENTS = [
 
   // Stands et services (niveau des arcades)
   { id: "m2", kind: "mark", label: "Bar & food", desc: "Bar et restauration, le long du mur côté gymnase, avant l'amphithéâtre", color: "#e5719a", level: "rdc", ...at(632, 430), maps: on("web", "vol") },
-  { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 268), maps: on("web", "vol") },
+  { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 252), maps: on("web", "vol") },
   { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(260, 330), maps: on("web", "vol") },
   { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, après la buvette", color: "#e30613", level: "rdc", ...at(555, 335), maps: on("web", "vol") },
   { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours", color: "#e30613", level: "rdc", ...at(190, 400), maps: on("web", "vol", "acc") },
 
-  // Galerie (R+1) : escalier en colimaçon dans le bâtiment de la buvette
-  { id: "m11", kind: "mark", label: "↑ Galerie", desc: "Escalier en colimaçon vers la galerie (R+1) et l'espace bénévoles", color: "#4a5d6c", level: "rdc", ...at(420, 190), maps: on("web", "vol", "acc") },
-  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027), en haut de l'escalier en colimaçon", color: "#27a9e1", level: "etage", ...at(345, 230), maps: on("vol", "acc") },
+  // Toilettes publiques (plan d'architecte : bâtiment de la buvette et bâtiment des salons)
+  { id: "w1", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(420, 298), maps: on("web", "vol") },
+  { id: "w2", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 690), maps: on("web", "vol") },
+  { id: "w3", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 1010), maps: on("web", "vol") },
+
+  // Galerie (R+1) : on y entre par la porte du salon de presse ; l'espace bénévoles par l'escalier en colimaçon de la buvette
+  { id: "m11", kind: "mark", label: "↑ Galerie", desc: "Entrée de la galerie (R+1) par la porte du salon de presse", color: "#4a5d6c", level: "rdc", ...at(705, 575), maps: on("web", "vol", "acc") },
+  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (R+1)", color: "#4a5d6c", level: "rdc", ...at(420, 190), maps: on("vol", "acc") },
+  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027), en haut de l'escalier en colimaçon", color: "#27a9e1", level: "etage", ...at(420, 138), maps: on("vol", "acc") },
 
   // Points de contrôle des badges
   { id: "c1", kind: "ctrl", label: "A", desc: "", color: "#0a2540", level: "rdc", ...at(780, 940), maps: on("ctrl") },
