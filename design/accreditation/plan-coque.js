@@ -54,15 +54,15 @@ const PLAN_DEFAULT_ELEMENTS = [
 
   // Toilettes : à la porte de chaque bloc, femmes / hommes comme sur le plan d'architecte
   // (buvette : deux blocs femmes sur les côtés, hommes en haut ; salons : trois blocs mixtes ;
-  // bâtiment du bas : femmes à gauche, hommes à droite)
+  // bâtiment du bas : femmes à gauche, hommes à droite, réservés au warm-up)
   { id: "wf1", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(326, 252), maps: on("web", "vol") },
   { id: "wf2", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(520, 250), maps: on("web", "vol") },
   { id: "wh1", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(498, 196), maps: on("web", "vol") },
   { id: "wm1", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 652), maps: on("web", "vol") },
   { id: "wm2", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 738), maps: on("web", "vol") },
   { id: "wm3", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 921), maps: on("web", "vol") },
-  { id: "wf3", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(320, 1420), maps: on("web", "vol") },
-  { id: "wh2", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("web", "vol") },
+  { id: "wf3", kind: "mark", label: "WC ♀", desc: "Toilettes femmes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(320, 1420), maps: on("vol", "acc") },
+  { id: "wh2", kind: "mark", label: "WC ♂", desc: "Toilettes hommes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("vol", "acc") },
 
   // Accès réservés depuis les arcades
   { id: "m11", kind: "mark", label: "↑ Galerie VIP", desc: "Les VIP montent à la galerie par la porte du salon de presse", color: "#b8912a", level: "rdc", ...at(690, 588), maps: on("vol", "acc") },
@@ -95,7 +95,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
   // Piste et tribunes : ovales centrés sur (420, 826), lignes droites de 634 à 1018 (mesures du plan)
   const oval = (r) => `M${420 - r} 634 A${r} ${r} 0 0 1 ${420 + r} 634 L${420 + r} 1018 A${r} ${r} 0 0 1 ${420 - r} 1018 Z`;
   // Les arcades : tout le niveau d'entrée, jusqu'à la buvette et au couloir de l'amphithéâtre
-  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L738 615 C700 500 662 380 627 278 L625 222 L590 208 C536 162 530 80 586 44 Z";
+  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L738 615 C700 500 662 380 627 278 L625 222 L612 222 C600 225 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
   const label = (x, y, text, size = 22, fill = "#7d8d99") =>
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="${size}" letter-spacing="2" fill="${fill}">${text}</text>`;
   return `<svg class="plan-base" viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
@@ -105,7 +105,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     </defs>
 
     <!-- Gymnase et ses locaux : fermés, derrière le mur courbe de la rampe -->
-    <path d="M627 278 C662 380 700 500 738 615 L1020 612 L1020 30 L690 30 L664 93 L637 199 L625 222 Z" fill="url(#${hatch})" />
+    <path d="M627 278 C662 380 700 500 738 615 L1020 612 L1020 30 L690 30 L662 60 L662 120 L640 205 L625 222 Z" fill="url(#${hatch})" />
     ${label(885, 330, "GYMNASE", 26, "#a9b5be")}
 
     <!-- Hall d'entrée -->
@@ -121,10 +121,11 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <!-- Le mur qui sépare du gymnase (rampe), plus marqué -->
     <path d="M625 222 L627 278 C662 380 700 500 738 615" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
 
-    <!-- Amphithéâtre (forme en D du plan d'architecte), rangées tournées vers la scène -->
-    <path d="M586 44 C538 70 528 160 590 210 L637 199 L664 93 Z" fill="#e4e9ed" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
-    <path d="M648 77 A55 55 0 0 0 648 147 M629 61 A80 80 0 0 0 629 163 M604 52 A105 105 0 0 0 604 172" fill="none" stroke="#c3ccd3" stroke-width="3" />
-    <rect x="648" y="95" width="10" height="36" rx="2" fill="#b9c5ce" />
+    <!-- Amphithéâtre, comme sur le plan d'architecte : bâtiment arrondi, scène côté buvette,
+         gradins en éventail ; on y entre par les deux sas (en haut et en bas, côté gymnase) -->
+    <path d="M590 60 C548 80 538 160 560 195 C575 215 600 225 612 222 C640 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
+    <rect x="563" y="96" width="12" height="68" rx="3" fill="#9aa8b3" />
+    <path d="M594 84 Q622 130 596 196 M604 76 Q640 130 604 206 M614 68 Q658 130 610 214" fill="none" stroke="#b9c5ce" stroke-width="3" />
     ${label(600, 26, "AMPHITHÉÂTRE", 16)}
 
     <!-- Buvette (en haut, avec l'escalier en colimaçon) et bâtiment du bas -->
