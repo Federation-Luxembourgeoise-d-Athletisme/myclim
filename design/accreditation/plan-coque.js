@@ -12,8 +12,8 @@ const PLAN_RATIO = `${PLAN_W} / ${PLAN_H}`;
 const PLAN_CROP = { y: 200, h: 1440 };
 const PLAN_RATIO_CROP = `${PLAN_W} / ${PLAN_CROP.h}`;
 const PLAN_ZONE_RED = "#c8102e";
-const PLAN_STORE = "myclim-maquette-plans-v7";
-const PLAN_STORE_PREV = "myclim-maquette-plans-v6";
+const PLAN_STORE = "myclim-maquette-plans-v8";
+const PLAN_STORE_PREV = "myclim-maquette-plans-v7";
 const planPos = (el, crop = false) =>
   crop ? { x: el.x, y: ((el.y / 100) * PLAN_H - PLAN_CROP.y) / PLAN_CROP.h * 100 } : { x: el.x, y: el.y };
 
@@ -57,7 +57,7 @@ const PLAN_DEFAULT_ELEMENTS = [
   // bâtiment du bas : femmes à gauche, hommes à droite, réservés au warm-up)
   { id: "wf1", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(326, 252), maps: on("web", "vol") },
   { id: "wf2", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(520, 250), maps: on("web", "vol") },
-  { id: "wh1", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(498, 196), maps: on("web", "vol") },
+  { id: "wh1", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(484, 208), maps: on("web", "vol") },
   { id: "wm1", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 652), maps: on("web", "vol") },
   { id: "wm2", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 738), maps: on("web", "vol") },
   { id: "wm3", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 921), maps: on("web", "vol") },
@@ -67,7 +67,7 @@ const PLAN_DEFAULT_ELEMENTS = [
   // Accès réservés depuis les arcades
   { id: "m11", kind: "mark", label: "↑ Galerie VIP", desc: "Les VIP montent à la galerie par la porte du salon de presse", color: "#b8912a", level: "rdc", ...at(690, 588), maps: on("vol", "acc") },
   { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(436, 138), maps: on("vol", "acc") },
-  { id: "m15", kind: "mark", label: "Entrée amphi", desc: "Entrées de l'amphithéâtre (portes en bas et sur le côté), salle aussi utilisée par les bénévoles", color: "#4a5d6c", level: "rdc", ...at(612, 254), maps: on("vol") },
+  { id: "d1", kind: "door", label: "Amphi", desc: "Entrée de l'amphithéâtre (salle aussi utilisée par les bénévoles)", color: "#4a5d6c", angle: 0, level: "rdc", ...at(550, 166), maps: on("vol") },
   { id: "m14", kind: "mark", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
 
   // Sur la piste (R-1) : utile aux bénévoles et à l'organisation, pas au public
@@ -96,7 +96,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
   // Piste et tribunes : ovales centrés sur (420, 826), lignes droites de 634 à 1018 (mesures du plan)
   const oval = (r) => `M${420 - r} 634 A${r} ${r} 0 0 1 ${420 + r} 634 L${420 + r} 1018 A${r} ${r} 0 0 1 ${420 - r} 1018 Z`;
   // Les arcades : tout le niveau d'entrée, jusqu'à la buvette et au couloir de l'amphithéâtre
-  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L738 615 C700 500 662 380 627 278 L625 222 L612 222 C600 225 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
+  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L738 615 C700 500 662 380 627 278 L625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
   const label = (x, y, text, size = 22, fill = "#7d8d99") =>
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="${size}" letter-spacing="2" fill="${fill}">${text}</text>`;
   return `<svg class="plan-base" viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
@@ -124,7 +124,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
 
     <!-- Amphithéâtre, comme sur le plan d'architecte : bâtiment arrondi, scène côté buvette,
          gradins en éventail ; on y entre par les deux sas (en haut et en bas, côté gymnase) -->
-    <path d="M590 60 C548 80 538 160 560 195 C575 215 600 225 612 222 C640 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
+    <path d="M590 60 C548 80 538 160 560 195 C575 215 600 228 625 222 C645 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
     <rect x="563" y="96" width="12" height="68" rx="3" fill="#9aa8b3" />
     <path d="M594 84 Q622 130 596 196 M604 76 Q640 130 604 206 M614 68 Q658 130 610 214" fill="none" stroke="#b9c5ce" stroke-width="3" />
     ${label(600, 26, "AMPHITHÉÂTRE", 16)}
@@ -158,7 +158,7 @@ function migrateFromPrev(old) {
     const now = fresh.find((el) => el.id === id);
     if (before && now) Object.assign(now, { label: before.label, desc: before.desc });
   }
-  const known = new Set([...fresh.map((el) => el.id), "m10", "w1", "w2", "w3", "w4", "w5"]);
+  const known = new Set([...fresh.map((el) => el.id), "m10", "m15", "w1", "w2", "w3", "w4", "w5"]);
   return [...fresh, ...old.filter((el) => !known.has(el.id))];
 }
 
