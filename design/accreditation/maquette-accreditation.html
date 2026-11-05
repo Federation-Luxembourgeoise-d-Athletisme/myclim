@@ -84,7 +84,10 @@
   .bgs { position: absolute; top: 0; right: 0; bottom: 0; left: 17mm; overflow: hidden; pointer-events: none; z-index: 0; }
   .vip .bgs { left: 11mm; }
   .bgs svg { position: absolute; display: none; }
-  body[data-bg="lion"] .bg-lion, body[data-bg="griffes"] .bg-griffes, body[data-bg="piste"] .bg-piste { display: block; }
+  body[data-bg="lion"] .bg-lion, body[data-bg="tete"] .bg-tete, body[data-bg="griffes"] .bg-griffes, body[data-bg="piste"] .bg-piste { display: block; }
+  /* Tête de lion sans rond, descendue sous le logo : elle passe derrière le nom et les QR codes */
+  .bg-tete { width: 60mm; right: -10mm; top: 58mm; opacity: .1; }
+  .vip .bg-tete { width: 38mm; right: -6mm; top: 14mm; }
   .bg-lion { width: 98mm; right: -30mm; top: 46mm; opacity: .09; }
   .vip .bg-lion { width: 62mm; right: -14mm; top: 4mm; }
   .bg-griffes { width: 52mm; right: -4mm; top: 34mm; opacity: .12; }
@@ -131,7 +134,7 @@
   [hidden] { display: none !important; }
 </style>
 </head>
-<body data-bg="lion">
+<body data-bg="tete">
 <header>
   <div>
     <h1>Accréditations 2027 · Piste B</h1>
@@ -139,7 +142,8 @@
   </div>
   <div class="toggles" id="bg">
     <button data-bg="none">Sans fond</button>
-    <button class="on" data-bg="lion">Lion</button>
+    <button class="on" data-bg="tete">Tête de lion</button>
+    <button data-bg="lion">Lion (rond)</button>
     <button data-bg="griffes">Griffes</button>
     <button data-bg="piste">Lignes de piste</button>
   </div>
@@ -151,6 +155,15 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <!-- Lion du meeting, repris du logo officiel (assets/logos/meeting-principal.svg) -->
   <symbol id="lion" viewBox="0 0 443.44 443.44"><g id="lion-paths"></g></symbol>
+  <!-- Tête de lion seule : le disque du logo moins les deux demi-lunes de couleur, sans l'anneau -->
+  <symbol id="tete" viewBox="40 0 320 443.44">
+    <mask id="tete-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="443.44" height="443.44">
+      <circle cx="221.72" cy="221.72" r="210.3" fill="#fff" />
+      <g id="tete-cut" fill="#000"></g>
+      <g id="tete-keep" fill="#fff"></g>
+    </mask>
+    <rect width="443.44" height="443.44" fill="currentColor" mask="url(#tete-mask)" />
+  </symbol>
   <symbol id="griffes" viewBox="0 0 100 140">
     <path d="M78 4 C70 42 52 86 20 136 L27 138 C60 90 78 46 84 6 Z" />
     <path d="M94 18 C86 54 70 94 42 138 L49 139 C78 96 94 58 99 20 Z" />
@@ -276,6 +289,7 @@
   const strip = (p) => `<div class="strip" style="background:${CATEGORIES[p.category]}"><span>${p.category}</span></div>`;
   const backgrounds = (color) => `<div class="bgs" style="color:${color}">
       <svg class="bg-lion" fill="currentColor"><use href="#lion" /></svg>
+      <svg class="bg-tete" viewBox="40 0 320 443.44"><use href="#tete" /></svg>
       <svg class="bg-griffes" viewBox="0 0 100 140" fill="currentColor"><use href="#griffes" /></svg>
       <svg class="bg-piste" viewBox="0 0 120 120"><use href="#piste" /></svg>
     </div>`;
@@ -383,6 +397,16 @@
       document.getElementById("lion-paths").innerHTML = [...doc.querySelectorAll("path")]
         .map((path) => `<path d="${path.getAttribute("d")}" fill="${path.classList.contains("cls-1") ? "#fff" : "currentColor"}" />`)
         .join("");
+      // Tête de lion : on retire les tracés rouges/bleus du disque, puis on remet les petits détails blancs
+      // posés dessus (sauf le dernier tracé, qui est l'anneau autour du logo).
+      const paths = [...doc.querySelectorAll("path")];
+      const lastColored = paths.findLastIndex((path) => !path.classList.contains("cls-1"));
+      document.getElementById("tete-cut").innerHTML = paths
+        .filter((path) => !path.classList.contains("cls-1"))
+        .map((path) => `<path d="${path.getAttribute("d")}" />`).join("");
+      document.getElementById("tete-keep").innerHTML = paths
+        .slice(lastColored + 1, -1)
+        .map((path) => `<path d="${path.getAttribute("d")}" />`).join("");
     });
 
   document.getElementById("bg").addEventListener("click", (event) => {
