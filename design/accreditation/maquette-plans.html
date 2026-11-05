@@ -54,8 +54,19 @@
   .pill { padding: 5px 10px; border-radius: 999px; color: #fff; font: 700 13px/1 Barlow, Arial, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,.25); border: 2px solid #fff; }
   .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   /* À l'étage : contour violet en pointillés + petite étiquette */
-  .up .zone, .up .pill, .up .ctrl { border: 2px dashed #fff; outline: 2px solid var(--up); }
-  .up::after { content: "ÉTAGE"; position: absolute; left: 50%; top: 100%; transform: translate(-50%, 2px); font: 800 9px/1 Barlow, Arial, sans-serif; letter-spacing: .08em; color: var(--up); background: #fff; border-radius: 3px; padding: 1px 3px; }
+  .el.up .zone, .el.up .pill, .el.up .ctrl { border: 2px dashed #fff; outline: 2px solid var(--up); }
+  .el.up::after { content: "ÉTAGE"; position: absolute; left: 50%; top: 100%; transform: translate(-50%, 2px); font: 800 9px/1 Barlow, Arial, sans-serif; letter-spacing: .08em; color: var(--up); background: #fff; border-radius: 3px; padding: 1px 3px; }
+
+  /* Crayon : un calque de dessin libre par-dessus le plan, pour expliquer (n'est pas imprimé) */
+  .draw-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .draw-bar button { border: 1px solid #cfd8df; background: #fff; border-radius: 999px; padding: 6px 12px; font: 700 13px Barlow, Arial, sans-serif; color: var(--ink); cursor: pointer; }
+  .draw-bar #pen.on { background: var(--red); border-color: var(--red); color: #fff; }
+  .pen-colors { display: inline-flex; gap: 5px; }
+  .pen-colors button { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #cfd8df; }
+  .pen-colors button.on { box-shadow: 0 0 0 2px var(--ink); }
+  .ink { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; }
+  .canvas.drawing .ink { pointer-events: auto; cursor: crosshair; }
+  .ink path { fill: none; stroke-width: .7; stroke-linecap: round; stroke-linejoin: round; }
 
   /* Légende générée sous le plan : c'est là que vont les textes longs */
   .legend { border-top: 1px solid var(--line); padding: 12px 16px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 18px; font-size: 13px; }
@@ -91,7 +102,7 @@
   .pv-cap select { font: 600 13px Barlow, Arial, sans-serif; margin-left: 6px; padding: 3px 6px; border-radius: 6px; border: 1px solid #cfd8df; }
   .mini { position: relative; aspect-ratio: 1872 / 2646; }
   .mini .el { cursor: default; }
-  .mini .up::after { font-size: 6px; transform: translate(-50%, 1px); }
+  .mini .el.up::after { font-size: 6px; transform: translate(-50%, 1px); }
 
   .badge-back { width: 100mm; height: 143.5mm; background: #fff; display: flex; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
   .badge-back .strip { width: 17mm; display: grid; place-items: center; color: #fff; }
@@ -153,6 +164,12 @@
         <button data-l="etage">Étage</button>
       </div>
       <label><input type="checkbox" id="ghosts" checked /> Montrer en transparence le reste</label>
+    </div>
+    <div class="draw-bar">
+      <button id="pen">✏️ Dessiner sur le plan</button>
+      <span class="pen-colors" id="pen-colors"></span>
+      <button id="undo">↶ Annuler le dernier trait</button>
+      <button id="clear">Effacer le dessin</button>
     </div>
     <div class="canvas" id="canvas"></div>
     <div class="legend" id="legend"></div>
@@ -401,6 +418,54 @@
   document.getElementById("ghosts").addEventListener("change", renderCanvas);
 
   canvas.innerHTML = planBaseSvg();
+
+  // Crayon : traits en % du plan (viewBox 0-100), gardés dans le navigateur
+  const INK_STORE = "myclim-maquette-plans-dessin";
+  const INK_COLORS = ["#e30613", "#0a2540", "#0f8a5f", "#7a4fd0"];
+  let strokes = [];
+  try { strokes = JSON.parse(localStorage.getItem(INK_STORE)) || []; } catch { strokes = []; }
+  let penColor = INK_COLORS[0];
+  let current = null;
+  const ink = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  ink.setAttribute("class", "ink");
+  ink.setAttribute("viewBox", "0 0 100 100");
+  ink.setAttribute("preserveAspectRatio", "none");
+  canvas.appendChild(ink);
+  const saveInk = () => { try { localStorage.setItem(INK_STORE, JSON.stringify(strokes)); } catch { /* sans mémoire */ } };
+  const pathD = (pts) => pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(" ");
+  const renderInk = () => { ink.innerHTML = strokes.map((s) => `<path d="${pathD(s.pts)}" stroke="${s.color}" />`).join(""); };
+  const pointOf = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return [((event.clientX - rect.left) / rect.width) * 100, ((event.clientY - rect.top) / rect.height) * 100];
+  };
+  ink.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    ink.setPointerCapture(event.pointerId);
+    current = { color: penColor, pts: [pointOf(event)] };
+    strokes.push(current);
+    renderInk();
+  });
+  ink.addEventListener("pointermove", (event) => {
+    if (!current) return;
+    current.pts.push(pointOf(event));
+    ink.lastChild?.setAttribute("d", pathD(current.pts));
+  });
+  ink.addEventListener("pointerup", () => { current = null; saveInk(); });
+  document.getElementById("pen-colors").innerHTML = INK_COLORS.map((c) => `<button data-ink="${c}" class="${c === penColor ? "on" : ""}" style="background:${c}" title="Couleur du crayon"></button>`).join("");
+  document.getElementById("pen-colors").addEventListener("click", (event) => {
+    if (!event.target.dataset.ink) return;
+    penColor = event.target.dataset.ink;
+    document.querySelectorAll("#pen-colors button").forEach((b) => b.classList.toggle("on", b === event.target));
+  });
+  document.getElementById("pen").addEventListener("click", (event) => {
+    const isOn = canvas.classList.toggle("drawing");
+    event.target.classList.toggle("on", isOn);
+    event.target.textContent = isOn ? "✏️ Crayon actif (clique pour arrêter)" : "✏️ Dessiner sur le plan";
+  });
+  document.getElementById("undo").addEventListener("click", () => { strokes.pop(); saveInk(); renderInk(); });
+  document.getElementById("clear").addEventListener("click", () => { strokes = []; saveInk(); renderInk(); });
+  renderInk();
+
   renderAll();
 </script>
 </body>
