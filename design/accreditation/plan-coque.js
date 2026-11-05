@@ -49,13 +49,13 @@ const PLAN_DEFAULT_ELEMENTS = [
 
   // Stands et services (niveau des arcades)
   { id: "m2", kind: "mark", label: "Bar & food", desc: "Bar et restauration, le long du mur côté gymnase, avant l'amphithéâtre", color: "#e5719a", level: "rdc", ...at(632, 430), maps: on("web", "vol") },
-  { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 252), maps: on("web", "vol") },
-  { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(260, 330), maps: on("web", "vol") },
-  { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, après la buvette", color: "#e30613", level: "rdc", ...at(555, 335), maps: on("web", "vol") },
+  { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 332), maps: on("web", "vol") },
+  { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(205, 458), maps: on("web", "vol") },
+  { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, après la buvette", color: "#e30613", level: "rdc", ...at(590, 372), maps: on("web", "vol") },
   { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours", color: "#e30613", level: "rdc", ...at(190, 400), maps: on("web", "vol", "acc") },
 
   // Toilettes publiques (plan d'architecte : bâtiment de la buvette et bâtiment des salons)
-  { id: "w1", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(420, 298), maps: on("web", "vol") },
+  { id: "w1", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(420, 262), maps: on("web", "vol") },
   { id: "w2", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 690), maps: on("web", "vol") },
   { id: "w3", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 1010), maps: on("web", "vol") },
 
@@ -124,6 +124,12 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="${oval(255)} ${oval(238)} ${oval(222)}" fill="none" stroke="#dbe2e8" stroke-width="2" />
     <rect x="392" y="360" width="56" height="44" fill="#f4f6f8" />
     <rect x="392" y="1286" width="56" height="44" fill="${warmup}" />
+
+    <!-- Galerie (R+1), au-dessus des arcades : le long des tribunes côté salons (VIP), et l'espace
+         bénévoles au-dessus de la buvette. D'après le plan R+1 annoté par Margot. -->
+    <path d="M307 330 A330 330 0 0 1 750 640 L750 1050 A330 330 0 0 1 706 1215 L661 1189 A278 278 0 0 0 698 1050 L698 640 A278 278 0 0 0 325 379 Z" fill="rgba(122,79,208,.13)" stroke="#7a4fd0" stroke-width="3" stroke-dasharray="10 7" stroke-linejoin="round" />
+    <rect x="345" y="92" width="150" height="58" rx="10" fill="rgba(122,79,208,.13)" stroke="#7a4fd0" stroke-width="3" stroke-dasharray="10 7" />
+    <text x="724" y="850" transform="rotate(90 724 850)" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="20" letter-spacing="3" fill="#7a4fd0">GALERIE (R+1)</text>
 
     <!-- Piste en contrebas -->
     <path d="${oval(208)}" fill="#fff" />
