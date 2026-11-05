@@ -686,7 +686,7 @@ function DashboardHome(props) {
           <Panel
             title={t("navMyVolunteerFile")}
             subtitle={t("dashboardVolunteerFileSubtitle")}
-            actions={<NavLink className="button button--primary button-link" to="/app/mon-dossier-benevole">{t("dashboardOpenMyFile")}</NavLink>}
+            actions={<NavLink className="button button--primary button-link" to="/app/mes-affectations/mon-dossier">{t("dashboardOpenMyFile")}</NavLink>}
           >
             <ul className="compact-list">
               <li>{t("assignmentsStatusLabel")}: {formatVolunteerApplicationStatus(volunteerApplication.status, t)}</li>
@@ -706,7 +706,7 @@ function DashboardHome(props) {
           <Panel
             title={t("dashboardJoinVolunteersTitle")}
             subtitle={t("dashboardJoinVolunteersSubtitle")}
-            actions={<NavLink className="button button--primary button-link" to="/app/mon-dossier-benevole">{t("dashboardBecomeVolunteer")}</NavLink>}
+            actions={<NavLink className="button button--primary button-link" to="/app/mes-affectations/mon-dossier">{t("dashboardBecomeVolunteer")}</NavLink>}
           >
             <ul className="compact-list">
               <li>{t("dashboardJoinVolunteersPoint1")}</li>

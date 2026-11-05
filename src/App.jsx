@@ -242,6 +242,11 @@ const SETTINGS_TABS = [
   { to: "/app/reglages/portail-athletes", label: "Portail athlètes" },
 ];
 
+const MY_ASSIGNMENTS_TABS = [
+  { to: "/app/mes-affectations", end: true, label: "Mes missions" },
+  { to: "/app/mes-affectations/mon-dossier", label: "Mon dossier bénévole" },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -606,8 +611,10 @@ export default function App() {
                 <Route path="presences" element={<PresencePage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "benevole", "chef_equipe"]} />}>
-                <Route path="mon-dossier-benevole" element={<VolunteerProfilePage />} />
-                <Route path="mes-affectations" element={<MyAssignmentsPage />} />
+                <Route path="mes-affectations" element={<TabbedPage eyebrowKey="navSectionMySpace" titleKey="navMyAssignments" title="Mes affectations" tabs={MY_ASSIGNMENTS_TABS} />}>
+                  <Route index element={<MyAssignmentsPage />} />
+                  <Route path="mon-dossier" element={<VolunteerProfilePage />} />
+                </Route>
                 <Route path="mes-documents" element={<MyDocumentsPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "parent_u14"]} />}>
