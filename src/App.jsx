@@ -220,6 +220,11 @@ const EDITION_TABS = [
   { to: "/app/edition/changer", label: "Changer d'édition", allowedRoles: ["admin"] },
 ];
 
+const USERS_TABS = [
+  { to: "/app/utilisateurs", end: true, label: "Utilisateurs & rôles" },
+  { to: "/app/utilisateurs/inviter", label: "Inviter" },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -552,8 +557,10 @@ export default function App() {
                 <Route key={from} path={from} element={<LegacyRedirect to={to} />} />
               ))}
               <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
-                <Route path="utilisateurs" element={<RoleManagementPage />} />
-                <Route path="invitations" element={<InvitationAdminPage />} />
+                <Route path="utilisateurs" element={<TabbedPage eyebrowKey="navSectionAdministration" titleKey="navUsersRoles" title="Utilisateurs & rôles" tabs={USERS_TABS} />}>
+                  <Route index element={<RoleManagementPage />} />
+                  <Route path="inviter" element={<InvitationAdminPage />} />
+                </Route>
                 <Route path="reglages" element={<CertificateSettingsPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "budget"]} />}>

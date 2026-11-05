@@ -51,6 +51,7 @@ const LEGACY_APP_REDIRECTS = {
   "postes": APP_ROUTES.teams,
   "athlete-roadbook": APP_ROUTES.roadbook,
   "roles": APP_ROUTES.users,
+  "invitations": "/app/utilisateurs/inviter",
   "certificat": APP_ROUTES.settings,
   "profil": APP_ROUTES.account,
   "equipe": APP_ROUTES.myTeam,
