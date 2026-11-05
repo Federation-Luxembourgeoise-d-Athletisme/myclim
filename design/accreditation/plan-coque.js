@@ -12,8 +12,8 @@ const PLAN_RATIO = `${PLAN_W} / ${PLAN_H}`;
 const PLAN_CROP = { y: 200, h: 1440 };
 const PLAN_RATIO_CROP = `${PLAN_W} / ${PLAN_CROP.h}`;
 const PLAN_ZONE_RED = "#c8102e";
-const PLAN_STORE = "myclim-maquette-plans-v6";
-const PLAN_STORE_PREV = "myclim-maquette-plans-v5";
+const PLAN_STORE = "myclim-maquette-plans-v7";
+const PLAN_STORE_PREV = "myclim-maquette-plans-v6";
 const planPos = (el, crop = false) =>
   crop ? { x: el.x, y: ((el.y / 100) * PLAN_H - PLAN_CROP.y) / PLAN_CROP.h * 100 } : { x: el.x, y: el.y };
 
@@ -66,7 +66,8 @@ const PLAN_DEFAULT_ELEMENTS = [
 
   // Accès réservés depuis les arcades
   { id: "m11", kind: "mark", label: "↑ Galerie VIP", desc: "Les VIP montent à la galerie par la porte du salon de presse", color: "#b8912a", level: "rdc", ...at(690, 588), maps: on("vol", "acc") },
-  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(410, 136), maps: on("vol", "acc") },
+  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(436, 138), maps: on("vol", "acc") },
+  { id: "m15", kind: "mark", label: "Entrée amphi", desc: "Entrées de l'amphithéâtre (portes en bas et sur le côté), salle aussi utilisée par les bénévoles", color: "#4a5d6c", level: "rdc", ...at(612, 254), maps: on("vol") },
   { id: "m14", kind: "mark", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
 
   // Sur la piste (R-1) : utile aux bénévoles et à l'organisation, pas au public
