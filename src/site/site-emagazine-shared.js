@@ -201,7 +201,7 @@ export function buildEmagazinePageRegistry(config, edition) {
   return [
     { id: "cover", kind: "core", title: "Cover", editorAnchor: "emag-cover", sourcePath: "/app/e-magazine" },
     { id: "welcome", kind: "core", title: "Welcome", editorAnchor: "emag-welcome", sourcePath: "/app/e-magazine" },
-    { id: "timetable", kind: "core", title: "Timetable", editorAnchor: null, sourcePath: "/app/website/edition" },
+    { id: "timetable", kind: "core", title: "Timetable", editorAnchor: null, sourcePath: "/app/edition" },
     {
       id: "sponsors",
       kind: "core",

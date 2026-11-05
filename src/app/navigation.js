@@ -45,7 +45,8 @@ const APP_ROUTES = {
 // La clé est le chemin sous /app ; un « /* » garde la fin de l'adresse
 // (sous-onglet) et la requête.
 const LEGACY_APP_REDIRECTS = {
-  "edition-meeting": APP_ROUTES.edition,
+  "edition-meeting": "/app/edition/changer",
+  "website/edition": APP_ROUTES.edition,
   "benevoles": APP_ROUTES.applications,
   "postes": APP_ROUTES.teams,
   "athlete-roadbook": APP_ROUTES.roadbook,
@@ -224,7 +225,7 @@ function buildNavigationFromRoles(roles, options = {}) {
     return [
       LINKS.home(),
       section("mySpace", personalLinkKeys(roles)),
-      section("steering", [has("budget") && "budget", "documents"]),
+      section("steering", [has("gestionnaire_site") && "edition", has("budget") && "budget", "documents"]),
       section("volunteers", ["applications", "teams"]),
       section("athletes", [
         has("chef_transport_athletes") && "transport",
@@ -244,7 +245,7 @@ function buildNavigationFromRoles(roles, options = {}) {
   return [
     LINKS.home(),
     section("mySpace", personalLinkKeys(roles)),
-    section("steering", [has("budget") && "budget"]),
+    section("steering", [has("gestionnaire_site") && "edition", has("budget") && "budget"]),
     section("athletes", [
       canAccessEntries && "entries",
       has("chef_transport_athletes") && "transport",

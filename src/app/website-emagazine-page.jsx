@@ -1301,7 +1301,7 @@ export function WebsiteEmagazinePage({ Panel }) {
       return (
         <EditorSection title="Timetable" description="Built from the timetable of the current edition settings.">
           <div>
-            <a href="/app/website/edition" className="btn btn--secondary" style={{ fontSize: "0.85rem" }}>Edit the timetable</a>
+            <a href="/app/edition" className="btn btn--secondary" style={{ fontSize: "0.85rem" }}>Edit the timetable</a>
           </div>
         </EditorSection>
       );

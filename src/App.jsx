@@ -63,6 +63,7 @@ import {
 } from "./app/u14-helpers";
 import { LegacyRedirect, RequireAuth, RequireRouteAccess } from "./app/route-guards";
 import { TabbedPage } from "./app/page-tabs";
+import { useActiveEdition } from "./app/edition";
 import { LEGACY_APP_REDIRECTS, STATISTICS_ACCESS_ROLES } from "./app/navigation";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./app/seed-data";
 import { getU14CategoryFromBirthDate } from "./app/utils";
@@ -209,6 +210,14 @@ const PRESS_TABS = [
 const PARTNERS_TABS = [
   { to: "/app/partenaires", end: true, label: "Liste & logos" },
   { to: "/app/partenaires/contreparties", label: "Contreparties", allowedRoles: ["admin", "gestionnaire"] },
+];
+
+const EDITION_TABS = [
+  { to: "/app/edition", end: true, label: "Infos & lieu" },
+  { to: "/app/edition/programme", label: "Programme horaire" },
+  { to: "/app/edition/disciplines", label: "Disciplines & prize money" },
+  { to: "/app/edition/liens", label: "Liens (live, SELTEC)" },
+  { to: "/app/edition/changer", label: "Changer d'édition", allowedRoles: ["admin"] },
 ];
 
 function AppShell() {
@@ -377,8 +386,23 @@ function WebsitePressPage() {
   return <WebsitePressPageScreen Panel={Panel} />;
 }
 
-function WebsiteEditionPage() {
-  return <WebsiteEditionPageScreen Panel={Panel} />;
+function WebsiteEditionPage({ section }) {
+  return <WebsiteEditionPageScreen Panel={Panel} section={section} />;
+}
+
+// Édition {année} : réglages de l'édition (site, e-magazine, roadbook, page
+// liens) et bascule d'une édition à l'autre.
+function EditionPage() {
+  const { activeEditionId } = useActiveEdition();
+  return (
+    <TabbedPage
+      eyebrowKey="navSectionSteering"
+      titleKey="navEdition"
+      title="Édition"
+      titleValues={{ edition: activeEditionId || "" }}
+      tabs={EDITION_TABS}
+    />
+  );
 }
 
 function WebsiteLinksPage() {
@@ -529,7 +553,6 @@ export default function App() {
               ))}
               <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
                 <Route path="utilisateurs" element={<RoleManagementPage />} />
-                <Route path="edition" element={<EditionSettingsPage />} />
                 <Route path="invitations" element={<InvitationAdminPage />} />
                 <Route path="reglages" element={<CertificateSettingsPage />} />
               </Route>
@@ -586,6 +609,17 @@ export default function App() {
                   <Route path="contreparties/*" element={<CommunicationModule area="partners" />} />
                 </Route>
               </Route>
+              <Route path="edition" element={<EditionPage />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
+                  <Route index element={<WebsiteEditionPage section="info" />} />
+                  <Route path="programme" element={<WebsiteEditionPage section="schedule" />} />
+                  <Route path="disciplines" element={<WebsiteEditionPage section="disciplines" />} />
+                  <Route path="liens" element={<WebsiteEditionPage section="links" />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
+                  <Route path="changer" element={<EditionSettingsPage />} />
+                </Route>
+              </Route>
               <Route path="mon-compte" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
@@ -616,7 +650,6 @@ export default function App() {
                 <Route path="actualites" element={<WebsiteNewsPage />} />
                 <Route path="e-magazine" element={<WebsiteEmagazinePage />} />
                 <Route path="page-liens" element={<WebsiteLinksPage />} />
-                <Route path="website/edition" element={<WebsiteEditionPage />} />
               </Route>
             </Route>
           </Route>
