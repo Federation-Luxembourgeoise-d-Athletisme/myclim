@@ -569,8 +569,8 @@ const messages = {
     vipExplainerFooterSuffix:
       "tab: it's the only list to check on the day (accreditation, pickup point, badge). The “Source / Matching” column shows where each row comes from and, if one exists, the linked invitation card.",
 
-    vipTabInvitations: "Invitations",
-    vipTabRegistrations: "VIP registrants",
+    vipTabInvitations: "Guests",
+    vipTabRegistrations: "Registered",
     vipTabPartnerPortals: "Partner portals",
     vipTabNavAriaLabel: "VIP module navigation",
 
@@ -1565,8 +1565,8 @@ const messages = {
     vipExplainerFooterSuffix:
       ": c'est la seule liste à consulter pour le jour J (accréditation, point de retrait, badge). La colonne « Source / Matching » y indique d'où vient chaque ligne et, si elle existe, la fiche invitation associée.",
 
-    vipTabInvitations: "Invitations",
-    vipTabRegistrations: "Inscrits VIP",
+    vipTabInvitations: "Invités",
+    vipTabRegistrations: "Inscrits",
     vipTabPartnerPortals: "Portails partenaires",
     vipTabNavAriaLabel: "Navigation du module VIP",
 
