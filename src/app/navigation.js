@@ -20,7 +20,7 @@ const APP_ROUTES = {
   vip: "/app/vip",
   cashDesk: "/app/caisse",
   attendance: "/app/presences",
-  emergencyExports: "/app/documents",
+  emergencyExports: "/app/exports-urgence",
   calendar: "/app/calendrier",
   tasks: "/app/taches",
   partners: "/app/partenaires",

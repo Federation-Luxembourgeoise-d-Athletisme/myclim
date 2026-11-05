@@ -335,12 +335,13 @@ function BudgetTrackingPage() {
   return <BudgetTrackingPageScreen Panel={Panel} />;
 }
 
-function DocumentsPage() {
+function DocumentsPage({ view }) {
   return (
     <DocumentsPageScreen
       AuthFormField={AuthFormField}
       Panel={Panel}
       getDocumentConsultationUrl={getDocumentConsultationUrl}
+      view={view}
     />
   );
 }
@@ -597,6 +598,7 @@ export default function App() {
                 <Route path="u14/*" element={<U14Page />} />
                 <Route path="accreditations/*" element={<AccreditationsPage />} />
                 <Route path="documents" element={<DocumentsPage />} />
+                <Route path="exports-urgence" element={<DocumentsPage view="emergency" />} />
                 <Route path="vip" element={<VipPage />} />
                 <Route path="roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
