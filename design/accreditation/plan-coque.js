@@ -54,8 +54,8 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours", color: "#e30613", level: "rdc", x: 23, y: 29, maps: on("web", "vol", "acc") },
 
   // Étage : on y monte par le haut des gradins
-  { id: "m11", kind: "mark", label: "↑ Étage", desc: "Accès à l'étage par le haut des gradins", color: "#4a5d6c", level: "rdc", x: 72, y: 31, maps: on("web", "vol", "acc") },
-  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027)", color: "#27a9e1", level: "etage", x: 70, y: 22, maps: on("vol", "acc") },
+  { id: "m11", kind: "mark", label: "↑ Étage", desc: "Escalier vers l'étage et l'espace bénévoles", color: "#4a5d6c", level: "rdc", x: 32.3, y: 9.25, maps: on("web", "vol", "acc") },
+  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027)", color: "#27a9e1", level: "etage", x: 22, y: 6, maps: on("vol", "acc") },
 
   // Points de contrôle des badges
   { id: "c1", kind: "ctrl", label: "A", desc: "", color: "#0a2540", level: "rdc", x: 76, y: 63, maps: on("ctrl") },
@@ -78,10 +78,10 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
          (c'est ouvert), seul le contour extérieur est tracé. -->
     <path d="M300 340 L150 -20 A560 560 0 0 1 1130 -20 L840 470 Z" fill="#f7f9fb" />
     <path d="M300 340 L150 -20 A560 560 0 0 1 1130 -20 L847 482" fill="none" stroke="#5f6f7c" stroke-width="7" stroke-linejoin="round" />
-    <path d="M276.3 -70 A420 420 0 0 1 1003.7 -70 L839.2 25 A230 230 0 0 0 440.8 25 Z" fill="#dfe5ea" />
-    <path d="M399.2 1 A278 278 0 0 1 880.8 1 M357.7 -23 A326 326 0 0 1 922.3 -23 M316.1 -47 A374 374 0 0 1 963.9 -47" fill="none" stroke="#c3ccd3" stroke-width="3" />
-    <text x="640" y="-140" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="44" letter-spacing="4" fill="#8a9aa7">AMPHITHÉÂTRE</text>
-    <text x="640" y="150" text-anchor="middle" font-family="Barlow, Arial, sans-serif" font-weight="700" font-size="30" letter-spacing="3" fill="#a9b5be">COULOIR</text>
+    <!-- Amphithéâtre : juste après le bar, décalé vers l'entrée (entouré par Margot sur le plan) -->
+    <ellipse cx="722" cy="-24" rx="212" ry="182" fill="#e4e9ed" stroke="#b9c5ce" stroke-width="4" />
+    <path d="M560 -60 A180 150 0 0 1 884 -60 M600 -20 A140 110 0 0 1 844 -20" fill="none" stroke="#cdd6dd" stroke-width="3" />
+    <text x="722" y="-118" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="40" letter-spacing="3" fill="#8a9aa7">AMPHITHÉÂTRE</text>
     <!-- Warm-up : passe sous les tribunes, dessinées par-dessus, pour s'arrêter pile à leur bord -->
     <path d="M45 905 L400 895 L500 1300 L745 1535 L825 1580 C720 1740 610 1850 515 1935 C330 1760 160 1520 80 1280 L45 1220 L80 1165 L80 960 Z" fill="${warmup}" />
     <path d="M350 395 L425 262 L505 222 L588 262 L668 395 Z" fill="#dfe5ea" />
