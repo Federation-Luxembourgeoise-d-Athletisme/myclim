@@ -648,6 +648,15 @@ function VolunteersPage(props) {
       : date.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
   }
 
+  function formatVolunteerRequestAge(value) {
+    if (!value) return null;
+    const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const startOfDay = (input) => new Date(input.getFullYear(), input.getMonth(), input.getDate()).getTime();
+    const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000);
+    return days <= 0 ? t("requestedTodayLabel") : t("requestedDaysAgoLabel").replace("{count}", days);
+  }
+
   function getVolunteerStatusHistoryTitle(volunteer) {
     const lines = [t("statusBadgeTooltip")];
     if (volunteer.firstAssignedRole) {
@@ -1127,6 +1136,7 @@ function VolunteersPage(props) {
                   <tr>
                     <th style={{ width: "32px" }} />
                     <th>{t("colVolunteer")}</th>
+                    <th>{t("colRequestDate")}</th>
                     <th>{t("colContact")}</th>
                     <th>{t("colLanguages")}</th>
                     <th>{t("colStatus")}</th>
@@ -1136,7 +1146,7 @@ function VolunteersPage(props) {
                 <tbody>
                   {visibleMeetingVolunteers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="table-empty-state">
+                      <td colSpan={7} className="table-empty-state">
                         {t("emptyMeetingVolunteers")}
                       </td>
                     </tr>
@@ -1152,7 +1162,7 @@ function VolunteersPage(props) {
                     <Fragment key={volunteer.id}>
                       {showGroupDivider ? (
                         <tr className="table-group-row">
-                          <td colSpan={6}>
+                          <td colSpan={7}>
                             <strong>{primaryRole || t("unassignedGroupLabel")}</strong>
                           </td>
                         </tr>
@@ -1184,6 +1194,16 @@ function VolunteersPage(props) {
                               {volunteer.firstName} {volunteer.lastName} ({volunteer.age} {t("ageUnit")})
                             </button>
                           </div>
+                        </td>
+                        <td>
+                          {formatVolunteerTimestamp(volunteer.submittedAt) ? (
+                            <div className="table-stack">
+                              <span>{formatVolunteerTimestamp(volunteer.submittedAt)}</span>
+                              <span>{formatVolunteerRequestAge(volunteer.submittedAt)}</span>
+                            </div>
+                          ) : (
+                            "-"
+                          )}
                         </td>
                         <td>
                           <div className="table-stack">
