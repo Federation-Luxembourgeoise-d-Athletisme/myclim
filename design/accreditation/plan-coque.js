@@ -37,7 +37,7 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", level: "rdc", x: 54.6, y: 62, maps: on("acc", "ctrl") },
   { id: "z4", kind: "zone", num: 4, label: "Judges Room", level: "rdc", x: 58.4, y: 58.5, maps: on("acc", "ctrl") },
   { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", level: "rdc", x: 54.4, y: 52, maps: on("acc", "ctrl") },
-  { id: "z6", kind: "zone", num: 6, label: "VIP Zone", level: "etage", x: 61.5, y: 35, maps: on("acc", "ctrl") },
+  { id: "z6", kind: "zone", num: 6, label: "VIP Zone", level: "etage", x: 61, y: 27.5, maps: on("acc", "ctrl") },
 
   // Entrée : un mot sur le plan, le détail dans la légende
   { id: "m1", kind: "mark", label: "Entrée", desc: "Entrée principale (public)", color: "#0f8a5f", level: "rdc", x: 86, y: 61, maps: on("web", "vol", "acc") },
@@ -55,7 +55,7 @@ const PLAN_DEFAULT_ELEMENTS = [
 
   // Étage : on y monte par le haut des gradins
   { id: "m11", kind: "mark", label: "↑ Étage", desc: "Escalier vers l'étage et l'espace bénévoles", color: "#4a5d6c", level: "rdc", x: 32.3, y: 9.25, maps: on("web", "vol", "acc") },
-  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027)", color: "#27a9e1", level: "etage", x: 22, y: 6, maps: on("vol", "acc") },
+  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027), au R+1 au-dessus de l'escalier en colimaçon", color: "#27a9e1", level: "etage", x: 36.6, y: 15, maps: on("vol", "acc") },
 
   // Points de contrôle des badges
   { id: "c1", kind: "ctrl", label: "A", desc: "", color: "#0a2540", level: "rdc", x: 76, y: 63, maps: on("ctrl") },
