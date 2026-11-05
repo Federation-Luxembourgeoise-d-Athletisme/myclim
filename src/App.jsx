@@ -62,6 +62,7 @@ import {
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
 import { LegacyRedirect, RequireAuth, RequireRouteAccess } from "./app/route-guards";
+import { TabbedPage } from "./app/page-tabs";
 import { LEGACY_APP_REDIRECTS, STATISTICS_ACCESS_ROLES } from "./app/navigation";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./app/seed-data";
 import { getU14CategoryFromBirthDate } from "./app/utils";
@@ -198,6 +199,13 @@ function getDocumentConsultationUrl(document) {
   return "";
 }
 
+// Pages regroupées en onglets : chaque onglet garde sa propre adresse.
+const PRESS_TABS = [
+  { to: "/app/presse", end: true, label: "Demandes d'accréditation", allowedRoles: ["admin", "gestionnaire"] },
+  { to: "/app/presse/diffusion", label: "Liste de diffusion", allowedRoles: ["admin", "gestionnaire"] },
+  { to: "/app/presse/communiques", label: "Communiqués" },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -312,8 +320,8 @@ function CashDeskAdminPage() {
   return <CashDeskAdminPageScreen Panel={Panel} />;
 }
 
-function PressAdminPage() {
-  return <PressAdminPageScreen Panel={Panel} loadMailQueueModule={loadMailQueueModule} />;
+function PressAdminPage({ view }) {
+  return <PressAdminPageScreen Panel={Panel} loadMailQueueModule={loadMailQueueModule} view={view} />;
 }
 
 function AthletesListPage() {
@@ -530,7 +538,6 @@ export default function App() {
                 <Route path="accreditations/*" element={<AccreditationsPage />} />
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="vip" element={<VipPage />} />
-                <Route path="presse" element={<PressAdminPage />} />
                 <Route path="roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
                 <Route path="calendrier/*" element={<CommunicationModule area="calendar" />} />
@@ -557,6 +564,15 @@ export default function App() {
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "athlete_preprogram"]} />}>
                 <Route path="mon-inscription" element={<MyNationalRacePage />} />
+              </Route>
+              <Route path="presse" element={<TabbedPage eyebrowKey="navSectionCommunication" titleKey="navPress" title="Presse" tabs={PRESS_TABS} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
+                  <Route index element={<PressAdminPage view="requests" />} />
+                  <Route path="diffusion" element={<PressAdminPage view="mailing" />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
+                  <Route path="communiques" element={<WebsitePressPage />} />
+                </Route>
               </Route>
               <Route path="mon-compte" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
@@ -590,7 +606,6 @@ export default function App() {
                 <Route path="page-liens" element={<WebsiteLinksPage />} />
                 <Route path="website/edition" element={<WebsiteEditionPage />} />
                 <Route path="website/sponsors" element={<WebsiteSponsorsPage />} />
-                <Route path="website/press" element={<WebsitePressPage />} />
               </Route>
             </Route>
           </Route>

@@ -1098,7 +1098,7 @@ export function WebsiteDashboardPage({ Panel }) {
       cta: "Manage partners",
     },
     {
-      to: "/app/website/press",
+      to: "/app/presse/communiques",
       icon: "📄",
       title: "Press Releases",
       desc: `${publishedReleases} published`,

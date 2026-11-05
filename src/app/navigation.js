@@ -67,6 +67,7 @@ const LEGACY_APP_REDIRECTS = {
   "athlete-portal/history": APP_ROUTES.results,
   "statistics": APP_ROUTES.results,
   "statistics/results": APP_ROUTES.results,
+  "website/press": "/app/presse/communiques",
 };
 
 function makeSection(titleKey, title, links) {
@@ -138,6 +139,8 @@ const LINKS = {
   tasks: () => makeLink(APP_ROUTES.tasks, "navTasks", "Tâches", "check"),
   partners: () => makeLink(APP_ROUTES.partners, "navPartners", "Partenaires", "badge"),
   press: () => makeLink(APP_ROUTES.press, "navPress", "Presse", "folder"),
+  // Gestionnaire du site seul : il n'a accès qu'aux onglets « site » de ces pages.
+  pressReleases: () => makeLink("/app/presse/communiques", "navPress", "Presse", "folder"),
   news: () => makeLink(APP_ROUTES.news, "navWebsiteNews", "Actualités", "spark"),
   emagazine: () => makeLink(APP_ROUTES.emagazine, "navWebsiteEmagazine", "E-magazine", "folder"),
   links: () => makeLink(APP_ROUTES.links, "navWebsiteLinks", "Page liens (QR)", "grid"),
@@ -248,6 +251,7 @@ function buildNavigationFromRoles(roles, options = {}) {
       canSeeStatistics && "results",
     ]),
     section("preprogram", [has("commission_athletes") && "nationalRaces"]),
+    section("communication", has("gestionnaire_site") ? ["pressReleases"] : []),
     section("website", has("gestionnaire_site") ? ["news", "emagazine", "links"] : []),
   ].filter(Boolean);
 }

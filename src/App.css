@@ -1932,6 +1932,50 @@ textarea {
   }
 }
 
+/* Page regroupée en onglets (page-tabs.jsx). */
+.page-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -8px;
+}
+
+.page-tabs__tab {
+  border: 1px solid #c5d9f1;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: #ffffff;
+  color: #17324a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.page-tabs__tab:hover {
+  border-color: #1a4aa1;
+}
+
+.page-tabs__tab--active {
+  background: #17324a;
+  border-color: #17324a;
+  color: #ffffff;
+}
+
+/* La page affichée dans un onglet garde sa description et ses actions,
+   mais pas son titre : c'est celui de la page regroupée. */
+.tabbed-page__body > .page > .page-header:first-child h1,
+.tabbed-page__body > .page > .page-header:first-child .eyebrow,
+.tabbed-page__body > .admin-stack > .panel-head:first-child h1,
+.tabbed-page__body > .admin-stack > .panel-head:first-child .eyebrow,
+.tabbed-page__body .com-page-header .com-eyebrow {
+  display: none;
+}
+
+.tabbed-page__body > .page > .page-header:first-child:not(:has(p, button, a, select)),
+.tabbed-page__body > .admin-stack > .panel-head:first-child:not(:has(p, button, a, select)) {
+  display: none;
+}
+
 .content-toolbar {
   display: flex;
   justify-content: space-between;
