@@ -207,7 +207,7 @@ export function buildEmagazinePageRegistry(config, edition) {
       kind: "core",
       title: "Sponsor overview",
       editorAnchor: "emag-sponsor-pages",
-      sourcePath: config.sponsorPages.length ? "/app/e-magazine" : "/app/website/sponsors",
+      sourcePath: config.sponsorPages.length ? "/app/e-magazine" : "/app/partenaires",
     },
     {
       id: "special:influencerRace",

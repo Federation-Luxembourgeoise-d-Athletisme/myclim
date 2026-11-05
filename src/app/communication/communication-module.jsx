@@ -46,8 +46,10 @@ export function CommunicationModule({ area = "calendar" }) {
   const tasks = useTasks();
   const location = useLocation();
   const openTasks = tasks.filter((t) => t.assigneUid === uid && t.statut !== "done").length;
-  // La page d'une publication prend toute la largeur (elle a son propre mini-calendrier).
-  const fullWidth = location.pathname.includes("/calendrier/publication/");
+  // La page d'une publication prend toute la largeur (elle a son propre
+  // mini-calendrier) ; les contreparties sont un onglet de Partenaires, sans
+  // la navigation du module.
+  const fullWidth = area === "partners" || location.pathname.includes("/calendrier/publication/");
 
   return (
     <div className={`com-module ${fullWidth ? "is-full" : ""}`}>

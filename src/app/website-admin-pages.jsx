@@ -1091,7 +1091,7 @@ export function WebsiteDashboardPage({ Panel }) {
       cta: "Manage news",
     },
     {
-      to: "/app/website/sponsors",
+      to: "/app/partenaires",
       icon: "🤝",
       title: "Partners & Sponsors",
       desc: `${activeSponsors} active sponsor${activeSponsors !== 1 ? "s" : ""}`,

@@ -1315,7 +1315,7 @@ export function WebsiteEmagazinePage({ Panel }) {
           actions={<EmptyButton onClick={appendSponsorPage}>+ Add sponsor page</EmptyButton>}
         >
           <div>
-            <a href="/app/website/sponsors" className="btn btn--secondary" style={{ fontSize: "0.85rem" }}>Edit the partners</a>
+            <a href="/app/partenaires" className="btn btn--secondary" style={{ fontSize: "0.85rem" }}>Edit the partners</a>
           </div>
           {draft.sponsorPages.map((sponsorPage) => (
             <div key={sponsorPage.id} style={{ display: "grid", gap: 10, padding: 14, border: "1px solid #dbe4ee", borderRadius: 12, background: "#fff" }}>

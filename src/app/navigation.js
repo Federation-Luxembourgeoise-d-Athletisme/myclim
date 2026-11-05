@@ -23,7 +23,7 @@ const APP_ROUTES = {
   emergencyExports: "/app/documents",
   calendar: "/app/calendrier",
   tasks: "/app/taches",
-  partners: "/app/partenaires/contreparties",
+  partners: "/app/partenaires",
   press: "/app/presse",
   news: "/app/actualites",
   emagazine: "/app/e-magazine",
@@ -68,6 +68,7 @@ const LEGACY_APP_REDIRECTS = {
   "statistics": APP_ROUTES.results,
   "statistics/results": APP_ROUTES.results,
   "website/press": "/app/presse/communiques",
+  "website/sponsors": APP_ROUTES.partners,
 };
 
 function makeSection(titleKey, title, links) {
@@ -251,7 +252,7 @@ function buildNavigationFromRoles(roles, options = {}) {
       canSeeStatistics && "results",
     ]),
     section("preprogram", [has("commission_athletes") && "nationalRaces"]),
-    section("communication", has("gestionnaire_site") ? ["pressReleases"] : []),
+    section("communication", has("gestionnaire_site") ? ["partners", "pressReleases"] : []),
     section("website", has("gestionnaire_site") ? ["news", "emagazine", "links"] : []),
   ].filter(Boolean);
 }

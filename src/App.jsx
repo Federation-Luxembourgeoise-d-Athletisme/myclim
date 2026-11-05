@@ -206,6 +206,11 @@ const PRESS_TABS = [
   { to: "/app/presse/communiques", label: "Communiqués" },
 ];
 
+const PARTNERS_TABS = [
+  { to: "/app/partenaires", end: true, label: "Liste & logos" },
+  { to: "/app/partenaires/contreparties", label: "Contreparties", allowedRoles: ["admin", "gestionnaire"] },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -542,7 +547,6 @@ export default function App() {
                 <Route path="caisse" element={<CashDeskAdminPage />} />
                 <Route path="calendrier/*" element={<CommunicationModule area="calendar" />} />
                 <Route path="taches" element={<CommunicationModule area="tasks" />} />
-                <Route path="partenaires/contreparties/*" element={<CommunicationModule area="partners" />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "kine"]} />}>
                 <Route path="kine" element={<PhysioPage />} />
@@ -572,6 +576,14 @@ export default function App() {
                 </Route>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
                   <Route path="communiques" element={<WebsitePressPage />} />
+                </Route>
+              </Route>
+              <Route path="partenaires" element={<TabbedPage eyebrowKey="navSectionCommunication" titleKey="navPartners" title="Partenaires" tabs={PARTNERS_TABS} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
+                  <Route index element={<WebsiteSponsorsPage />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
+                  <Route path="contreparties/*" element={<CommunicationModule area="partners" />} />
                 </Route>
               </Route>
               <Route path="mon-compte" element={<ProfilePage />} />
@@ -605,7 +617,6 @@ export default function App() {
                 <Route path="e-magazine" element={<WebsiteEmagazinePage />} />
                 <Route path="page-liens" element={<WebsiteLinksPage />} />
                 <Route path="website/edition" element={<WebsiteEditionPage />} />
-                <Route path="website/sponsors" element={<WebsiteSponsorsPage />} />
               </Route>
             </Route>
           </Route>

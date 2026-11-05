@@ -1967,7 +1967,8 @@ textarea {
 .tabbed-page__body > .page > .page-header:first-child .eyebrow,
 .tabbed-page__body > .admin-stack > .panel-head:first-child h1,
 .tabbed-page__body > .admin-stack > .panel-head:first-child .eyebrow,
-.tabbed-page__body .com-page-header .com-eyebrow {
+.tabbed-page__body .com-page-header .com-eyebrow,
+.tabbed-page__body .com-page-header h1 {
   display: none;
 }
 

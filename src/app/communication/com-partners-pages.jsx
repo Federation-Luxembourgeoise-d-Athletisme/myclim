@@ -108,7 +108,7 @@ export function ComPartnersPage() {
           "Benefits promised in the contracts and how they are progressing. Calendar publications that mention a partner are counted automatically.",
         )}
         actions={
-          <Link to="/app/website/sponsors" className="button button--secondary button--small">
+          <Link to="/app/partenaires" className="button button--secondary button--small">
             {tr("Gérer la liste des partenaires (site web)", "Manage the partner list (website)")}
           </Link>
         }
