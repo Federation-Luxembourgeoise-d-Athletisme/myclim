@@ -1932,6 +1932,19 @@ textarea {
   }
 }
 
+/* Accueil : chaque ligne « À traiter » ouvre sa page. */
+.dashboard-todo__link {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.dashboard-todo__link:hover {
+  color: #1a4aa1;
+}
+
 /* Page regroupée en onglets (page-tabs.jsx). */
 .page-tabs {
   display: flex;

@@ -364,6 +364,20 @@ function AppShell(props) {
   );
 }
 
+// « À traiter aujourd'hui » : une seule liste par rôle, dont chaque ligne
+// ouvre la page concernée (plus de raccourcis qui doublent le menu).
+function TodoItem({ to, children }) {
+  if (!to) return <li>{children}</li>;
+  return (
+    <li>
+      <NavLink className="dashboard-todo__link" to={to}>
+        <span>{children}</span>
+        <span aria-hidden="true">›</span>
+      </NavLink>
+    </li>
+  );
+}
+
 function DashboardHome(props) {
   const { Panel } = props;
   const { t } = useLanguage();
@@ -497,138 +511,88 @@ function DashboardHome(props) {
   const volunteerDataLoading = teamsLoading || documentsLoading;
   const leadDataLoading = teamsLoading || documentsLoading;
 
+  function renderTodoPanel(subtitleKey, items) {
+    return (
+      <section className="panel-grid">
+        <Panel title={t("dashboardTodoTitle")} subtitle={t(subtitleKey)}>
+          <ul className="compact-list dashboard-todo">{items}</ul>
+        </Panel>
+      </section>
+    );
+  }
+
   function renderRoleSummary() {
     if (activeRole === "admin") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardAdminPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              <li>{adminDataLoading ? t("dashboardLoadingApplications") : t("dashboardAdminApplicationsToProcess").replace("{count}", pendingApplicationsCount)}</li>
-              <li>{adminDataLoading ? t("dashboardLoadingTeams") : t("dashboardAdminIncompleteTeams").replace("{count}", incompleteTeamsCount)}</li>
-              <li>{documentsLoading ? t("dashboardLoadingDocuments") : t("dashboardAdminDocumentsToReview").replace("{count}", documents.length)}</li>
-              <li>{u14RequestsLoading ? t("dashboardLoadingU14Requests") : t("dashboardAdminU14RequestsToFollow").replace("{count}", submittedU14RequestsCount)}</li>
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardAdminQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/candidatures">{t("dashboardManageVolunteers")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/utilisateurs">{t("dashboardManageRoles")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/edition">{t("navEditionSettings")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/equipes">{t("dashboardAdjustTeams")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/accreditations">{t("dashboardProduceBadges")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app">{t("dashboardManageWebsite")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/athletes">{t("dashboardManageAthletes")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/resultats">{t("dashboardManageResults")}</NavLink>
-            </div>
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardAdminPrioritiesSubtitle", (
+        <>
+          <TodoItem to={APP_ROUTES.applications}>{adminDataLoading ? t("dashboardLoadingApplications") : t("dashboardAdminApplicationsToProcess").replace("{count}", pendingApplicationsCount)}</TodoItem>
+          <TodoItem to={APP_ROUTES.teams}>{adminDataLoading ? t("dashboardLoadingTeams") : t("dashboardAdminIncompleteTeams").replace("{count}", incompleteTeamsCount)}</TodoItem>
+          <TodoItem to={APP_ROUTES.documents}>{documentsLoading ? t("dashboardLoadingDocuments") : t("dashboardAdminDocumentsToReview").replace("{count}", documents.length)}</TodoItem>
+          <TodoItem to={APP_ROUTES.u14}>{u14RequestsLoading ? t("dashboardLoadingU14Requests") : t("dashboardAdminU14RequestsToFollow").replace("{count}", submittedU14RequestsCount)}</TodoItem>
+        </>
+      ));
     }
 
     if (activeRole === "benevole") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardVolunteerPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              <li>{volunteerDataLoading ? t("dashboardLoadingAssignment") : `${t("dashboardCurrentAssignment")}: ${volunteerAssignmentSummary}`}</li>
-              <li>{t("dashboardPlannedShift")}: {volunteerShiftSummary}</li>
-              <li>{t("dashboardVolunteerFileStatus")}: {formatVolunteerApplicationStatus(volunteerApplication?.status, t)}</li>
-              <li>{documentsLoading ? t("dashboardLoadingMissionDocuments") : t("dashboardDocumentsAvailableForTeams").replace("{count}", myDocumentsCount)}</li>
-              <li>{t("dashboardBriefingLabel")}: {volunteerBriefingSummary}</li>
-              <li>{t("dashboardVolunteerDepartureReminder")}</li>
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardVolunteerQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/mes-affectations">{t("navMyAssignments")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/mes-documents">{t("navMyDocuments")}</NavLink>
-            </div>
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardVolunteerPrioritiesSubtitle", (
+        <>
+          <TodoItem to={APP_ROUTES.myAssignments}>{volunteerDataLoading ? t("dashboardLoadingAssignment") : `${t("dashboardCurrentAssignment")}: ${volunteerAssignmentSummary}`}</TodoItem>
+          <TodoItem to={APP_ROUTES.myAssignments}>{t("dashboardPlannedShift")}: {volunteerShiftSummary}</TodoItem>
+          <TodoItem to={`${APP_ROUTES.myAssignments}/mon-dossier`}>{t("dashboardVolunteerFileStatus")}: {formatVolunteerApplicationStatus(volunteerApplication?.status, t)}</TodoItem>
+          <TodoItem to={APP_ROUTES.myDocuments}>{documentsLoading ? t("dashboardLoadingMissionDocuments") : t("dashboardDocumentsAvailableForTeams").replace("{count}", myDocumentsCount)}</TodoItem>
+          <TodoItem>{t("dashboardBriefingLabel")}: {volunteerBriefingSummary}</TodoItem>
+          <TodoItem>{t("dashboardVolunteerDepartureReminder")}</TodoItem>
+        </>
+      ));
     }
 
     if (activeRole === "gestionnaire") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardManagerPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              <li>{t("dashboardManagerTaskCheckIn")}</li>
-              <li>{t("dashboardManagerTaskLunch")}</li>
-              <li>{t("dashboardManagerTaskAttendance")}</li>
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardManagerQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/candidatures">{t("navVolunteersLink")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/accreditations">{t("navSectionAccreditations")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/presences">{t("navAttendance")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/u14">{t("navSectionPreprogram")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/documents">{t("navDocuments")}</NavLink>
-            </div>
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardManagerPrioritiesSubtitle", (
+        <>
+          <TodoItem to={APP_ROUTES.attendance}>{t("dashboardManagerTaskCheckIn")}</TodoItem>
+          <TodoItem to={APP_ROUTES.attendance}>{t("dashboardManagerTaskLunch")}</TodoItem>
+          <TodoItem to={APP_ROUTES.attendance}>{t("dashboardManagerTaskAttendance")}</TodoItem>
+        </>
+      ));
     }
 
     if (activeRole === "parent_u14") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardParentPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              {parentRowsLoading ? <li>{t("dashboardLoadingU14Requests")}</li> : null}
-              {!parentRowsLoading && parentRequestRows.length === 0 ? <li>{t("dashboardNoU14Request")}</li> : null}
-              {!parentRowsLoading && parentRequestRows.map((child) => (
-                <li key={child.id}>{child.name}: {formatParentRequestStatus(child.status, t)} - {formatParentRequestSchedule(child, t)}</li>
-              ))}
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardParentQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/mes-enfants">{t("navMyChildren")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/mon-compte">{t("navMyProfile")}</NavLink>
-            </div>
-            {!parentRowsLoading && parentRequestRows.length > 0 ? (
-              <p className="panel-note">
-                {t("dashboardParentConfirmedPending")
-                  .replace("{confirmed}", parentConfirmedCount)
-                  .replace("{pending}", parentPendingCount)}
-              </p>
-            ) : null}
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardParentPrioritiesSubtitle", (
+        <>
+          {parentRowsLoading ? <TodoItem>{t("dashboardLoadingU14Requests")}</TodoItem> : null}
+          {!parentRowsLoading && parentRequestRows.length === 0 ? <TodoItem to={APP_ROUTES.myChildren}>{t("dashboardNoU14Request")}</TodoItem> : null}
+          {!parentRowsLoading && parentRequestRows.map((child) => (
+            <TodoItem key={child.id} to={APP_ROUTES.myChildren}>{child.name}: {formatParentRequestStatus(child.status, t)} - {formatParentRequestSchedule(child, t)}</TodoItem>
+          ))}
+          {!parentRowsLoading && parentRequestRows.length > 0 ? (
+            <TodoItem>
+              {t("dashboardParentConfirmedPending")
+                .replace("{confirmed}", parentConfirmedCount)
+                .replace("{pending}", parentPendingCount)}
+            </TodoItem>
+          ) : null}
+        </>
+      ));
     }
 
     if (activeRole === "chef_equipe") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardTeamLeadPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              <li>
-                {leadDataLoading
-                  ? t("dashboardLoadingTeams")
-                  : totalOpenPositions > 0
-                    ? t("dashboardOpenPositions")
-                        .replace("{count}", totalOpenPositions)
-                        .replace("{roles}", ledRoles.map((role) => role.roleName).join(", "))
-                    : t("dashboardAllTeamsFull")}
-              </li>
-              <li>{leadDataLoading ? t("dashboardLoadingAssignments") : t("dashboardTeamMembersCount").replace("{count}", totalLeadMembers)}</li>
-              <li>{documentsLoading ? t("dashboardLoadingTeamDocuments") : t("dashboardTeamDocumentsAvailable").replace("{count}", leadDocumentsCount)}</li>
-              <li>{leadDataLoading ? t("dashboardLoadingReplacements") : t("dashboardReplacementsIdentified").replace("{count}", totalReplacements)}</li>
-              <li>{t("dashboardTeamLeadDepartureReminder")}</li>
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardTeamLeadQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/mon-equipe">{t("navMyTeam")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/presences">{t("navAttendance")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/mes-documents">{t("navDocuments")}</NavLink>
-            </div>
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardTeamLeadPrioritiesSubtitle", (
+        <>
+          <TodoItem to={APP_ROUTES.myTeam}>
+            {leadDataLoading
+              ? t("dashboardLoadingTeams")
+              : totalOpenPositions > 0
+                ? t("dashboardOpenPositions")
+                    .replace("{count}", totalOpenPositions)
+                    .replace("{roles}", ledRoles.map((role) => role.roleName).join(", "))
+                : t("dashboardAllTeamsFull")}
+          </TodoItem>
+          <TodoItem to={APP_ROUTES.myTeam}>{leadDataLoading ? t("dashboardLoadingAssignments") : t("dashboardTeamMembersCount").replace("{count}", totalLeadMembers)}</TodoItem>
+          <TodoItem to={APP_ROUTES.myDocuments}>{documentsLoading ? t("dashboardLoadingTeamDocuments") : t("dashboardTeamDocumentsAvailable").replace("{count}", leadDocumentsCount)}</TodoItem>
+          <TodoItem to={APP_ROUTES.myTeam}>{leadDataLoading ? t("dashboardLoadingReplacements") : t("dashboardReplacementsIdentified").replace("{count}", totalReplacements)}</TodoItem>
+          <TodoItem to={APP_ROUTES.myTeamAttendance}>{t("dashboardTeamLeadDepartureReminder")}</TodoItem>
+        </>
+      ));
     }
 
     return null;
@@ -643,6 +607,8 @@ function DashboardHome(props) {
           <p>{t("dashboardIntro")}</p>
         </div>
       </section>
+
+      {renderRoleSummary()}
 
       <article className="info-card install-app-card">
         <h3>{t("dashboardInstallTitle")}</h3>
@@ -678,8 +644,6 @@ function DashboardHome(props) {
         </section>
         <p className="install-app-note">{t("dashboardInstallNote")}</p>
       </article>
-
-      {renderRoleSummary()}
 
       {volunteerApplication ? (
         <section className="panel-grid panel-grid--2">
