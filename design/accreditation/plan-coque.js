@@ -40,7 +40,7 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "m2", kind: "mark", label: "Bar", desc: "Bar", color: "#e5719a", level: "rdc", x: 36, y: 15, maps: on("web", "vol") },
   { id: "m3", kind: "mark", label: "Jetons", desc: "Vente des cartes boissons", color: "#e5719a", level: "rdc", x: 69, y: 47, maps: on("web", "vol") },
   { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", x: 63, y: 26, maps: on("web", "vol") },
-  { id: "m5", kind: "mark", label: "Atelier", desc: "Athletics workshop pour les enfants", color: "#e30613", level: "rdc", x: 47, y: 9, maps: on("web", "vol") },
+  { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, dans le couloir après le bar", color: "#e30613", level: "rdc", x: 35.7, y: 10.3, maps: on("web", "vol") },
   { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours", color: "#e30613", level: "rdc", x: 23, y: 29, maps: on("web", "vol", "acc") },
 
   // Étage : on y monte par le haut des gradins
