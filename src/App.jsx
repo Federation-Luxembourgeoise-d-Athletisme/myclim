@@ -61,8 +61,8 @@ import {
   normalizeComparableValue,
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
-import { RequireAuth, RequireRouteAccess } from "./app/route-guards";
-import { STATISTICS_ACCESS_ROLES } from "./app/navigation";
+import { LegacyRedirect, RequireAuth, RequireRouteAccess } from "./app/route-guards";
+import { LEGACY_APP_REDIRECTS, STATISTICS_ACCESS_ROLES } from "./app/navigation";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./app/seed-data";
 import { getU14CategoryFromBirthDate } from "./app/utils";
 import { db } from "./services/firebase";
@@ -96,7 +96,6 @@ const AthleteTransportVolunteerPageScreen = lazyNamed(() => import("./app/athlet
 const MeetingHistoryPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingHistoryPage");
 const MeetingRecordsPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingRecordsPage");
 const MeetingWinnersPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingWinnersPage");
-const WebsiteDashboardPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteDashboardPage");
 const WebsiteNewsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteNewsPage");
 const WebsiteSponsorsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteSponsorsPage");
 const WebsitePressPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsitePressPage");
@@ -353,10 +352,6 @@ function MeetingWinnersPage() {
   return <MeetingWinnersPageScreen Panel={Panel} />;
 }
 
-function WebsiteDashboardPage() {
-  return <WebsiteDashboardPageScreen Panel={Panel} />;
-}
-
 function WebsiteNewsPage() {
   return <WebsiteNewsPageScreen Panel={Panel} />;
 }
@@ -516,36 +511,37 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route path="/app" element={<AppShell />}>
               <Route index element={<DashboardHome />} />
+              {Object.entries(LEGACY_APP_REDIRECTS).map(([from, to]) => (
+                <Route key={from} path={from} element={<LegacyRedirect to={to} />} />
+              ))}
               <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
-                <Route path="roles" element={<RoleManagementPage />} />
-                <Route path="edition-meeting" element={<EditionSettingsPage />} />
+                <Route path="utilisateurs" element={<RoleManagementPage />} />
+                <Route path="edition" element={<EditionSettingsPage />} />
                 <Route path="invitations" element={<InvitationAdminPage />} />
-                <Route path="certificat" element={<CertificateSettingsPage />} />
+                <Route path="reglages" element={<CertificateSettingsPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "budget"]} />}>
                 <Route path="budget" element={<BudgetTrackingPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
-                <Route path="benevoles" element={<VolunteersPage />} />
-                <Route path="postes" element={<TeamsPage />} />
+                <Route path="candidatures" element={<VolunteersPage />} />
+                <Route path="equipes" element={<TeamsPage />} />
                 <Route path="u14/*" element={<U14Page />} />
-              </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
                 <Route path="accreditations/*" element={<AccreditationsPage />} />
-              </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="vip" element={<VipPage />} />
                 <Route path="presse" element={<PressAdminPage />} />
-                <Route path="athlete-roadbook" element={<AthleteRoadbookAdminPage />} />
+                <Route path="roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
-                <Route path="communication/*" element={<CommunicationModule />} />
+                <Route path="calendrier/*" element={<CommunicationModule area="calendar" />} />
+                <Route path="taches" element={<CommunicationModule area="tasks" />} />
+                <Route path="partenaires/contreparties/*" element={<CommunicationModule area="partners" />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "kine"]} />}>
                 <Route path="kine" element={<PhysioPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "chef_equipe"]} />}>
-                <Route path="equipe" element={<TeamPage />} />
+                <Route path="mon-equipe" element={<TeamPage />} />
                 <Route path="presences" element={<PresencePage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "benevole", "chef_equipe"]} />}>
@@ -562,49 +558,39 @@ export default function App() {
               <Route element={<RequireRouteAccess allowedRoles={["admin", "athlete_preprogram"]} />}>
                 <Route path="mon-inscription" element={<MyNationalRacePage />} />
               </Route>
-              <Route path="profil" element={<ProfilePage />} />
+              <Route path="mon-compte" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
-              <Route path="athlete-portal">
-                <Route index element={<Navigate replace to="athletes" />} />
-                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
-                  <Route path="athletes" element={<AthletesListPage />} />
-                </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
-                  <Route path="import" element={<AthleteImportPage />} />
-                </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
-                  <Route path="settings" element={<AthletePortalSettingsPage />} />
-                </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["admin", "chef_transport_athletes"]} />}>
-                  <Route path="transport" element={<AthleteTransportChiefPage />} />
-                </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
-                  <Route path="mes-transport" element={<AthleteTransportVolunteerPage />} />
-                </Route>
-                <Route path="registry" element={<Navigate replace to="/app/statistics/registry" />} />
-                <Route path="history" element={<Navigate replace to="/app/statistics/results" />} />
-                <Route path="records" element={<Navigate replace to="/app/statistics/records" />} />
-                <Route path="winners" element={<Navigate replace to="/app/statistics/winners" />} />
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
+                <Route path="athletes" element={<AthletesListPage />} />
               </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
+                <Route path="athlete-portal/import" element={<AthleteImportPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
+                <Route path="athlete-portal/settings" element={<AthletePortalSettingsPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "chef_transport_athletes"]} />}>
+                <Route path="transport" element={<AthleteTransportChiefPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
+                <Route path="mes-transports" element={<AthleteTransportVolunteerPage />} />
+              </Route>
+              <Route path="athlete-portal/registry" element={<Navigate replace to="/app/statistics/registry" />} />
+              <Route path="athlete-portal/records" element={<Navigate replace to="/app/statistics/records" />} />
+              <Route path="athlete-portal/winners" element={<Navigate replace to="/app/statistics/winners" />} />
               <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
-                <Route path="statistics">
-                  <Route index element={<Navigate replace to="results" />} />
-                  <Route path="registry" element={<AthleteRegistryPage />} />
-                  <Route path="results" element={<MeetingHistoryPage />} />
-                  <Route path="records" element={<MeetingRecordsPage />} />
-                  <Route path="winners" element={<MeetingWinnersPage />} />
-                </Route>
+                <Route path="resultats" element={<MeetingHistoryPage />} />
+                <Route path="statistics/registry" element={<AthleteRegistryPage />} />
+                <Route path="statistics/records" element={<MeetingRecordsPage />} />
+                <Route path="statistics/winners" element={<MeetingWinnersPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
-                <Route path="website">
-                <Route index element={<WebsiteDashboardPage />} />
-                <Route path="edition" element={<WebsiteEditionPage />} />
-                <Route path="emagazine" element={<WebsiteEmagazinePage />} />
-                <Route path="links" element={<WebsiteLinksPage />} />
-                <Route path="news" element={<WebsiteNewsPage />} />
-                  <Route path="sponsors" element={<WebsiteSponsorsPage />} />
-                  <Route path="press" element={<WebsitePressPage />} />
-                </Route>
+                <Route path="actualites" element={<WebsiteNewsPage />} />
+                <Route path="e-magazine" element={<WebsiteEmagazinePage />} />
+                <Route path="page-liens" element={<WebsiteLinksPage />} />
+                <Route path="website/edition" element={<WebsiteEditionPage />} />
+                <Route path="website/sponsors" element={<WebsiteSponsorsPage />} />
+                <Route path="website/press" element={<WebsitePressPage />} />
               </Route>
             </Route>
           </Route>

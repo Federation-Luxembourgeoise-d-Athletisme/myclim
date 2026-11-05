@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
 import { getCashPostIdFromUid, isTechnicalSessionUid } from "../context/technical-sessions";
 import { useLanguage } from "./language-context";
@@ -51,4 +51,14 @@ function RequireRouteAccess({ allowedRoles }) {
   );
 }
 
-export { RequireAuth, RequireRouteAccess };
+// Redirige une ancienne adresse vers la nouvelle en gardant la fin du chemin
+// (« /* » de la route), la requête et l'ancre : /app/communication/rubriques
+// mène à /app/calendrier/rubriques.
+function LegacyRedirect({ to }) {
+  const params = useParams();
+  const location = useLocation();
+  const rest = params["*"] ? `/${params["*"]}` : "";
+  return <Navigate replace to={`${to}${rest}${location.search}${location.hash}`} />;
+}
+
+export { LegacyRedirect, RequireAuth, RequireRouteAccess };

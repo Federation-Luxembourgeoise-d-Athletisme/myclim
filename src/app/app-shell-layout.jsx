@@ -511,14 +511,14 @@ function DashboardHome(props) {
           </Panel>
           <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardAdminQuickAccessSubtitle")}>
             <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/benevoles">{t("dashboardManageVolunteers")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/roles">{t("dashboardManageRoles")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/edition-meeting">{t("navEditionSettings")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/postes">{t("dashboardAdjustTeams")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/candidatures">{t("dashboardManageVolunteers")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/utilisateurs">{t("dashboardManageRoles")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/edition">{t("navEditionSettings")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/equipes">{t("dashboardAdjustTeams")}</NavLink>
               <NavLink className="button button--secondary button-link" to="/app/accreditations">{t("dashboardProduceBadges")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/website">{t("dashboardManageWebsite")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/athlete-portal/athletes">{t("dashboardManageAthletes")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/statistics/results">{t("dashboardManageResults")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app">{t("dashboardManageWebsite")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/athletes">{t("dashboardManageAthletes")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/resultats">{t("dashboardManageResults")}</NavLink>
             </div>
           </Panel>
         </section>
@@ -560,7 +560,7 @@ function DashboardHome(props) {
           </Panel>
           <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardManagerQuickAccessSubtitle")}>
             <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/benevoles">{t("navVolunteersLink")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/candidatures">{t("navVolunteersLink")}</NavLink>
               <NavLink className="button button--secondary button-link" to="/app/accreditations">{t("navSectionAccreditations")}</NavLink>
               <NavLink className="button button--secondary button-link" to="/app/presences">{t("navAttendance")}</NavLink>
               <NavLink className="button button--secondary button-link" to="/app/u14">{t("navSectionPreprogram")}</NavLink>
@@ -586,7 +586,7 @@ function DashboardHome(props) {
           <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardParentQuickAccessSubtitle")}>
             <div className="dashboard-action-grid">
               <NavLink className="button button--secondary button-link" to="/app/mes-enfants">{t("navMyChildren")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/profil">{t("navMyProfile")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/mon-compte">{t("navMyProfile")}</NavLink>
             </div>
             {!parentRowsLoading && parentRequestRows.length > 0 ? (
               <p className="panel-note">
@@ -622,7 +622,7 @@ function DashboardHome(props) {
           </Panel>
           <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardTeamLeadQuickAccessSubtitle")}>
             <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/equipe">{t("navMyTeam")}</NavLink>
+              <NavLink className="button button--secondary button-link" to="/app/mon-equipe">{t("navMyTeam")}</NavLink>
               <NavLink className="button button--secondary button-link" to="/app/presences">{t("navAttendance")}</NavLink>
               <NavLink className="button button--secondary button-link" to="/app/mes-documents">{t("navDocuments")}</NavLink>
             </div>

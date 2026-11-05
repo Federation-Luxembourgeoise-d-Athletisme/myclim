@@ -1406,7 +1406,7 @@ export function WebsiteEmagazinePage({ Panel }) {
           description={entries.length
             ? `${entries.length} athletes${heats > 1 ? ` · ${heats} heats` : ""}, from the start list imported in Athlete Portal. Records, flags and SB are added automatically.`
             : "No athlete imported for this event yet: the page fills itself once the start list Excel is imported in Athlete Portal."}
-          actions={<a href="/app/athlete-portal/athletes" className="btn btn--secondary" style={{ fontSize: "0.8rem" }}>Athlete Portal</a>}
+          actions={<a href="/app/athletes" className="btn btn--secondary" style={{ fontSize: "0.8rem" }}>Athlete Portal</a>}
         >
           <FileUpload
             value={draft.startlistPhotos[groupId] || ""}
