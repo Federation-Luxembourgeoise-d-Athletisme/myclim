@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Affectations bénévoles — maquette</title>
+<style>
+:root{
+  --ink:#17324a;--muted:#627788;--dim:#8aa0b0;--line:rgba(130,148,166,.22);
+  --bg:#e9eef3;--card:#fff;--side:#f6f9fc;--blue:#1a4aa1;--blue-soft:#eaf1fb;
+  --green:#0f7a4a;--green-soft:#e5f5ec;--amber:#a15c00;--amber-soft:#fff3dc;--red:#b42318;--red-soft:#fdecea;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.45}
+.wrap{max-width:1380px;margin:0 auto;padding:22px 16px 60px}
+h1{margin:0 0 4px;font-size:26px}
+h2{margin:0;font-size:20px}
+h3{margin:30px 0 10px;font-size:18px}
+.lead{margin:0 0 16px;color:var(--muted);max-width:920px}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
+.why .c{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:13.5px}
+.why .c b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.why .c.old b{color:var(--red)} .why .c.new b{color:var(--green)}
+.why ul{margin:4px 0 0;padding-left:18px}
+.frame{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(15,23,42,.06);overflow:hidden}
+.frame-h{padding:14px 18px 10px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.ptabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ptabs span{border:1px solid #c5d9f1;border-radius:999px;padding:5px 13px;font-size:13px;font-weight:600;background:#fff}
+.ptabs span.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:12px 18px;background:var(--side);border-bottom:1px solid var(--line)}
+.kpi{font-size:13px;color:var(--muted)} .kpi b{font-size:18px;color:var(--ink);margin-right:4px}
+.kpi.warn b{color:var(--red)} .kpi.amber b{color:var(--amber)}
+.btn{border:1px solid #c5d9f1;background:#fff;color:var(--blue);border-radius:999px;padding:7px 14px;font:600 13px inherit;font-family:inherit;cursor:pointer}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.small{padding:4px 10px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:default}
+.spacer{margin-left:auto}
+.board{display:grid;grid-template-columns:330px 1fr;min-height:620px}
+@media (max-width:900px){.board{grid-template-columns:1fr}}
+.pool{background:var(--side);border-right:1px solid var(--line);padding:14px;max-height:860px;overflow:auto}
+.pool h2,.teams h2{font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.count{background:rgba(130,148,166,.16);border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700}
+.filters{display:grid;gap:6px;margin-bottom:10px}
+.filters input,.filters select,.card select,.member select{font:inherit;font-size:13px;border:1px solid #c9d6e2;border-radius:9px;padding:6px 8px;background:#fff;color:var(--ink);width:100%}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 11px;margin-bottom:8px;cursor:grab}
+.card.sel{border-color:var(--blue);box-shadow:0 0 0 2px rgba(26,74,161,.15)}
+.card .n{font-weight:700}
+.card .meta{font-size:12px;color:var(--muted);margin:2px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.chip{font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;background:#f1f5f9;color:var(--ink)}
+.chip.pref{background:var(--blue-soft);color:var(--blue)}
+.chip.ok{background:var(--green-soft);color:var(--green)}
+.chip.no{background:var(--red-soft);color:var(--red)}
+.chip.amber{background:var(--amber-soft);color:var(--amber)}
+.sugg{font-size:12px;color:var(--muted);margin-top:6px}
+.sugg button{border:0;background:none;color:var(--blue);font:600 12px inherit;font-family:inherit;cursor:pointer;padding:0 6px 0 0;text-decoration:underline}
+.teams{padding:14px 16px;max-height:860px;overflow:auto}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.team{border:1px solid var(--line);border-radius:14px;padding:11px 12px;background:#fff;transition:background .15s}
+.team.drop{background:var(--blue-soft);border-color:var(--blue)}
+.team.target{border-color:var(--blue);box-shadow:0 0 0 2px rgba(26,74,161,.12)}
+.team-h{display:flex;align-items:baseline;gap:8px}
+.team-h b{font-size:15px}
+.team-h .need{margin-left:auto;font-size:12px;font-weight:700}
+.need.full{color:var(--green)} .need.miss{color:var(--red)}
+.gauge{height:6px;border-radius:99px;background:#eef2f6;margin:6px 0 8px;overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--blue)}
+.team .info{font-size:12px;color:var(--muted);margin-bottom:6px}
+.member{display:grid;grid-template-columns:1fr 112px auto 22px;gap:6px;align-items:center;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
+.member select{padding:3px 6px;font-size:12px}
+.member .x{border:0;background:none;color:var(--dim);font-size:16px;cursor:pointer}
+.member .x:hover{color:var(--red)}
+.empty{font-size:12.5px;color:var(--dim);padding:6px 0}
+.place-here{display:none;margin-top:6px}
+.team.target .place-here{display:block}
+.preview{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:900px){.preview{grid-template-columns:1fr}}
+.pv{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.pv .row{display:grid;grid-template-columns:1.2fr 1fr 1.3fr;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+.pv .row.h{border-top:0;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ro{color:var(--muted)} .ro a{color:var(--blue);font-weight:600;text-decoration:none}
+.note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.q ol{margin:6px 0 0;padding-left:20px} .q li{margin:6px 0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:999px;padding:9px 16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Affecter les bénévoles à un seul endroit</h1>
+  <p class="lead">Maquette de l'onglet <b>Équipes &amp; affectations › Affectations</b>. Les données sont fictives. Elle est cliquable : choisis un bénévole à gauche, puis une équipe (ou fais-le glisser sur l'équipe), change sa fonction, retire-le, puis « envoie » les e-mails.</p>
+
+  <div class="why">
+    <div class="c old"><b>Aujourd'hui : deux endroits</b>
+      <ul>
+        <li>Candidatures : chaque ligne de bénévole permet de choisir, d'ajouter ou de retirer une équipe et de changer sa fonction.</li>
+        <li>Équipes › Paramétrage &amp; composition : on change aussi la fonction ou on retire un membre.</li>
+        <li>L'envoi des e-mails d'affectation se fait depuis la liste des bénévoles, l'état « à informer » se lit dans un 3<sup>e</sup> écran.</li>
+      </ul>
+    </div>
+    <div class="c new"><b>Proposé : un seul écran</b>
+      <ul>
+        <li>On affecte, change la fonction, retire et informe <b>uniquement</b> ici, en voyant en même temps les besoins de chaque équipe.</li>
+        <li>Candidatures ne gère plus que le dossier (reçu → affecté → confirmé) et affiche l'équipe en lecture.</li>
+        <li>Équipes ne garde que le paramétrage ; la composition s'y lit, et renvoie ici pour la modifier.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-h">
+      <div class="eyebrow">Bénévoles</div>
+      <h2>Équipes &amp; affectations</h2>
+      <div class="ptabs"><span>Équipes</span><span class="on">Affectations</span><span>Récapitulatif</span><span>Autour du meeting</span></div>
+    </div>
+    <div class="bar">
+      <span class="kpi"><b id="k-need">0</b>places</span>
+      <span class="kpi"><b id="k-ass">0</b>affectés</span>
+      <span class="kpi warn"><b id="k-miss">0</b>manquants</span>
+      <span class="kpi amber"><b id="k-mail">0</b>à informer</span>
+      <button class="btn primary spacer" id="send">Envoyer les e-mails d'affectation</button>
+    </div>
+    <div class="board">
+      <aside class="pool">
+        <h2>À affecter <span class="count" id="pool-count">0</span></h2>
+        <div class="filters">
+          <input id="f-search" placeholder="Rechercher un nom">
+          <select id="f-pref"><option value="">Toutes les préférences</option></select>
+          <select id="f-lang"><option value="">Toutes les langues</option></select>
+          <label style="font-size:12.5px;color:var(--muted)"><input type="checkbox" id="f-sun" style="width:auto"> Seulement les dispos le dimanche</label>
+        </div>
+        <div id="pool"></div>
+        <p class="note">Les bénévoles déjà affectés n'apparaissent plus ici. Un bénévole peut être dans plusieurs équipes : « + autre équipe » sur sa ligne dans l'équipe.</p>
+      </aside>
+      <section class="teams">
+        <h2>Équipes <span class="count" id="team-count">0</span>
+          <label style="margin-left:auto;font-size:12.5px;font-weight:400;color:var(--muted)"><input type="checkbox" id="f-incomplete" style="width:auto"> Seulement les équipes incomplètes</label></h2>
+        <div class="tgrid" id="teams"></div>
+      </section>
+    </div>
+  </div>
+
+  <h3>Les deux autres écrans : affectation en lecture seule</h3>
+  <div class="preview">
+    <div class="pv">
+      <div class="eyebrow">Candidatures › Tous les bénévoles</div>
+      <div class="row h"><span>Bénévole</span><span>Dossier</span><span>Équipe</span></div>
+      <div id="pv-cand"></div>
+      <p class="note">Plus de listes déroulantes d'équipe ici : on suit le dossier (confirmer, annuler, réactiver). L'équipe s'affiche avec un lien vers Affectations.</p>
+    </div>
+    <div class="pv">
+      <div class="eyebrow">Équipes › Équipes</div>
+      <div class="row h"><span>Équipe</span><span>Besoin</span><span>Composition</span></div>
+      <div id="pv-teams"></div>
+      <p class="note">Le paramétrage (besoin, langues, horaires, infos équipe) reste ici. La composition se lit, et se modifie dans Affectations.</p>
+    </div>
+  </div>
+
+  <h3>Questions pour toi</h3>
+  <div class="q">
+    <ol>
+      <li><b>Glisser-déposer ou liste déroulante ?</b> La maquette fait les deux ; sur téléphone seule la liste marche bien.</li>
+      <li><b>Statut automatique :</b> affecter quelqu'un passe son dossier à « Affecté », et l'e-mail envoyé à « Informé ». C'est bien ce que tu veux ?</li>
+      <li><b>Plusieurs équipes :</b> on garde la possibilité de mettre un bénévole dans deux équipes (ex. montage samedi + accueil dimanche) ?</li>
+      <li><b>Suggestions :</b> on propose les équipes qui correspondent aux préférences et aux langues du bénévole (comme ici) ?</li>
+      <li><b>Chefs d'équipe :</b> faut-il signaler une équipe sans chef (comme « Chef manquant » ici) ?</li>
+    </ol>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TEAMS = [
+  { id:"accueil", name:"Accueil & billetterie", need:8, leads:1, langs:["FR","EN","LU"], info:"Dim. 11h30–18h · briefing 11h" },
+  { id:"callroom", name:"Call room", need:6, leads:1, langs:["FR","EN"], info:"Dim. 12h–18h30 · briefing 11h30" },
+  { id:"warmup", name:"Warm-up", need:4, leads:1, langs:["EN"], info:"Dim. 11h–18h" },
+  { id:"transport", name:"Transport", need:5, leads:1, langs:["EN","FR"], info:"Ven.–lun. · navettes aéroport" },
+  { id:"chrono", name:"Chronométrage & résultats", need:3, leads:1, langs:["FR"], info:"Dim. 12h–19h" },
+  { id:"logistique", name:"Logistique terrain", need:7, leads:1, langs:["FR","LU"], info:"Sam. montage + dim." },
+  { id:"vip", name:"VIP & hospitalité", need:4, leads:1, langs:["FR","EN","DE"], info:"Dim. 13h–19h" },
+  { id:"presse", name:"Presse & médias", need:2, leads:1, langs:["EN","FR"], info:"Dim. 12h–19h" },
+];
+const PREF_TO_TEAM = { "Accueil":"accueil", "Call room":"callroom", "Warm-up":"warmup", "Transport":"transport", "Résultats":"chrono", "Logistique":"logistique", "VIP":"vip", "Presse":"presse" };
+const V = [
+  ["Léa","Muller",19,["FR","LU","EN"],["Accueil","VIP"],true],
+  ["Tom","Schmit",24,["FR","EN"],["Call room"],true],
+  ["Sofia","Pereira",31,["FR","EN","PT"],["Accueil"],true],
+  ["Marc","Weber",45,["DE","LU","FR"],["Logistique"],true],
+  ["Inès","Haddad",17,["FR","EN"],["Warm-up","Call room"],false],
+  ["Paul","Reding",52,["LU","FR","DE"],["Transport"],true],
+  ["Anna","Kowalska",28,["EN","PL"],["Warm-up"],true],
+  ["Hugo","Martin",22,["FR"],["Résultats"],true],
+  ["Clara","Hoffmann",35,["DE","EN","FR"],["VIP"],true],
+  ["Noah","Thill",16,["LU","FR"],["Logistique","Accueil"],true],
+  ["Emma","Dupont",40,["FR","EN"],["Presse"],true],
+  ["Luca","Rossi",29,["IT","EN","FR"],["Transport","Warm-up"],false],
+  ["Mia","Wagner",21,["LU","DE","EN"],["Accueil"],true],
+  ["Jules","Bernard",33,["FR"],["Logistique"],true],
+].map(([firstName,lastName,age,langs,prefs,sunday],i)=>({id:"v"+i,firstName,lastName,age,langs,prefs,sunday}));
+// Affectations déjà faites : [bénévole, équipe, fonction, état mail]
+const START = [
+  [0,"accueil","Chef d'équipe","Confirmé"],[2,"accueil","Bénévole","Informé"],[12,"accueil","Bénévole","À informer"],
+  [1,"callroom","Bénévole","Informé"],[5,"transport","Chef d'équipe","Confirmé"],[10,"presse","Bénévole","À informer"],
+  [3,"logistique","Chef d'équipe","Informé"],
+];
+let A = START.map(([v,team,fn,mail])=>({vid:V[v].id,team,fn,mail}));
+let selected = null;
+const $ = (id)=>document.getElementById(id);
+const name = (v)=>`${v.firstName} ${v.lastName}`;
+const byId = (id)=>V.find(v=>v.id===id);
+const teamOf = (id)=>TEAMS.find(t=>t.id===id);
+const membersOf = (tid)=>A.filter(a=>a.team===tid);
+const assigned = (vid)=>A.some(a=>a.vid===vid);
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),2200);}
+function suggestions(v){
+  return v.prefs.map(p=>PREF_TO_TEAM[p]).filter(Boolean)
+    .filter(tid=>membersOf(tid).length < teamOf(tid).need && !A.some(a=>a.vid===v.id&&a.team===tid));
+}
+function assign(vid,tid,fn="Bénévole"){
+  if (A.some(a=>a.vid===vid&&a.team===tid)) return;
+  A.push({vid,team:tid,fn,mail:"À informer"});
+  selected=null; render();
+  toast(`${name(byId(vid))} → ${teamOf(tid).name} (dossier passé à « Affecté »)`);
+}
+function render(){
+  const q=$("f-search").value.trim().toLowerCase(), pref=$("f-pref").value, lang=$("f-lang").value, sun=$("f-sun").checked;
+  const pool=V.filter(v=>!assigned(v.id))
+    .filter(v=>!q||name(v).toLowerCase().includes(q))
+    .filter(v=>!pref||v.prefs.includes(pref))
+    .filter(v=>!lang||v.langs.includes(lang))
+    .filter(v=>!sun||v.sunday);
+  $("pool-count").textContent=V.filter(v=>!assigned(v.id)).length;
+  $("pool").innerHTML = pool.length ? pool.map(v=>{
+    const sg=suggestions(v);
+    return `<div class="card ${selected===v.id?"sel":""}" draggable="true" data-v="${v.id}">
+      <div class="n">${name(v)}</div>
+      <div class="meta">${v.age} ans · ${v.langs.join(" · ")}</div>
+      <div class="chips">${v.prefs.map(p=>`<span class="chip pref">${p}</span>`).join("")}
+        <span class="chip ${v.sunday?"ok":"no"}">${v.sunday?"Dispo dimanche":"Pas dispo dimanche"}</span></div>
+      <select data-assign="${v.id}"><option value="">Affecter à…</option>${TEAMS.map(t=>{const m=membersOf(t.id).length;return `<option value="${t.id}">${t.name} (${m}/${t.need})</option>`;}).join("")}</select>
+      ${sg.length?`<div class="sugg">Suggéré : ${sg.map(tid=>`<button data-quick="${v.id}|${tid}">${teamOf(tid).name}</button>`).join("")}</div>`:""}
+    </div>`;}).join("") : `<p class="empty">Personne à affecter avec ces filtres.</p>`;
+
+  const onlyIncomplete=$("f-incomplete").checked;
+  const teams=TEAMS.filter(t=>!onlyIncomplete||membersOf(t.id).length<t.need);
+  $("team-count").textContent=TEAMS.length;
+  $("teams").innerHTML=teams.map(t=>{
+    const ms=membersOf(t.id), n=ms.length, hasLead=ms.some(m=>m.fn==="Chef d'équipe");
+    return `<div class="team ${selected?"target":""}" data-team="${t.id}">
+      <div class="team-h"><b>${t.name}</b><span class="need ${n>=t.need?"full":"miss"}">${n}/${t.need}${n<t.need?` · manque ${t.need-n}`:" · complet"}</span></div>
+      <div class="gauge"><i style="width:${Math.min(100,n/t.need*100)}%"></i></div>
+      <div class="info">${t.info} · ${t.langs.join("/")} ${hasLead?"":'<span class="chip amber">Chef manquant</span>'}</div>
+      ${ms.length?ms.map(m=>{const v=byId(m.vid);return `<div class="member">
+        <span>${name(v)}${A.filter(a=>a.vid===v.id).length>1?' <span class="chip">2 équipes</span>':""}</span>
+        <select data-fn="${m.vid}|${t.id}">${["Bénévole","Chef d'équipe","Remplaçant"].map(f=>`<option ${f===m.fn?"selected":""}>${f}</option>`).join("")}</select>
+        <span class="chip ${m.mail==="À informer"?"amber":m.mail==="Confirmé"?"ok":""}">${m.mail}</span>
+        <button class="x" title="Retirer de l'équipe" data-rm="${m.vid}|${t.id}">×</button></div>`;}).join(""):`<div class="empty">Personne pour l'instant.</div>`}
+      <button class="btn small place-here" data-place="${t.id}">Placer ${selected?name(byId(selected)):""} ici</button>
+    </div>`;}).join("");
+
+  const need=TEAMS.reduce((s,t)=>s+t.need,0), ass=A.length;
+  $("k-need").textContent=need; $("k-ass").textContent=ass;
+  $("k-miss").textContent=TEAMS.reduce((s,t)=>s+Math.max(0,t.need-membersOf(t.id).length),0);
+  const toInform=A.filter(a=>a.mail==="À informer").length;
+  $("k-mail").textContent=toInform;
+  $("send").textContent = toInform ? `Envoyer ${toInform} e-mail${toInform>1?"s":""} d'affectation` : "Tout le monde est informé";
+  $("send").disabled = !toInform;
+
+  // Aperçus en lecture seule
+  $("pv-cand").innerHTML=V.slice(0,6).map(v=>{
+    const as=A.filter(a=>a.vid===v.id);
+    const status=as.some(a=>a.mail==="Confirmé")?"Confirmé":as.some(a=>a.mail==="Informé")?"Informé":as.length?"Affecté":"Candidature reçue";
+    return `<div class="row"><span>${name(v)}</span><span><span class="chip ${status==="Candidature reçue"?"amber":"ok"}">${status}</span></span>
+      <span class="ro">${as.length?as.map(a=>`${teamOf(a.team).name} (${a.fn})`).join(", ")+' · <a href="#top">Modifier</a>':'— <a href="#top">Affecter →</a>'}</span></div>`;}).join("");
+  $("pv-teams").innerHTML=TEAMS.slice(0,5).map(t=>{const ms=membersOf(t.id);
+    return `<div class="row"><span>${t.name}</span><span>${ms.length}/${t.need}</span><span class="ro">${ms.map(m=>byId(m.vid).firstName).join(", ")||"—"} · <a href="#top">Modifier dans Affectations</a></span></div>`;}).join("");
+}
+document.addEventListener("click",(e)=>{
+  const card=e.target.closest(".card");
+  if(e.target.dataset.quick){const [vid,tid]=e.target.dataset.quick.split("|");assign(vid,tid);return;}
+  if(e.target.dataset.place){assign(selected,e.target.dataset.place);return;}
+  if(e.target.dataset.rm){const [vid,tid]=e.target.dataset.rm.split("|");A=A.filter(a=>!(a.vid===vid&&a.team===tid));render();toast(`${name(byId(vid))} retiré(e) de ${teamOf(tid).name}`);return;}
+  if(e.target.id==="send"){const n=A.filter(a=>a.mail==="À informer").length;A.forEach(a=>{if(a.mail==="À informer")a.mail="Informé";});render();toast(`${n} e-mail(s) envoyé(s) : dossiers passés à « Informé »`);return;}
+  if(card&&!e.target.closest("select")&&!e.target.closest("button")){selected=selected===card.dataset.v?null:card.dataset.v;render();}
+});
+document.addEventListener("change",(e)=>{
+  if(e.target.dataset.assign&&e.target.value){assign(e.target.dataset.assign,e.target.value);return;}
+  if(e.target.dataset.fn){const [vid,tid]=e.target.dataset.fn.split("|");const m=A.find(a=>a.vid===vid&&a.team===tid);m.fn=e.target.value;m.mail=m.mail==="Confirmé"?"Confirmé":"À informer";render();toast("Fonction changée : la personne sera informée au prochain envoi");return;}
+  if(["f-pref","f-lang","f-sun","f-incomplete"].includes(e.target.id))render();
+});
+$("f-search").addEventListener("input",render);
+document.addEventListener("dragstart",(e)=>{const c=e.target.closest?.(".card");if(c)e.dataTransfer.setData("text/plain",c.dataset.v);});
+document.addEventListener("dragover",(e)=>{const t=e.target.closest?.(".team");if(t){e.preventDefault();t.classList.add("drop");}});
+document.addEventListener("dragleave",(e)=>{const t=e.target.closest?.(".team");if(t)t.classList.remove("drop");});
+document.addEventListener("drop",(e)=>{const t=e.target.closest?.(".team");if(!t)return;e.preventDefault();assign(e.dataTransfer.getData("text/plain"),t.dataset.team);});
+// Filtres
+[...new Set(V.flatMap(v=>v.prefs))].sort().forEach(p=>$("f-pref").insertAdjacentHTML("beforeend",`<option>${p}</option>`));
+[...new Set(V.flatMap(v=>v.langs))].sort().forEach(l=>$("f-lang").insertAdjacentHTML("beforeend",`<option>${l}</option>`));
+render();
+</script>
+</body>
+</html>
