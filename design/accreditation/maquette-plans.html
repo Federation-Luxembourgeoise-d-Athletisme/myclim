@@ -19,7 +19,7 @@
   .seg button.on { background: var(--ink); color: #fff; }
   .seg.small button { padding: 6px 12px; font-size: 13px; }
   .seg.small button.on { background: var(--up); }
-  .seg.small button[data-l="all"].on, .seg.small button[data-l="rdc"].on { background: var(--ink); }
+  .seg.small button[data-l="all"].on, .seg.small button[data-l="rdc"].on, .seg.small button[data-l="piste"].on { background: var(--ink); }
   .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 16px; padding: 16px 24px 40px; align-items: start; }
   @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
   .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
@@ -44,7 +44,7 @@
   .stage-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
   .stage-bar b { color: var(--ink); }
   .stage-bar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
-  .canvas { position: relative; margin: 0 auto; width: min(100%, 560px); aspect-ratio: 1415 / 2600; user-select: none; touch-action: none; }
+  .canvas { position: relative; margin: 0 auto; width: min(100%, 560px); aspect-ratio: 1020 / 1620; user-select: none; touch-action: none; }
   .plan-base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   .el { position: absolute; transform: translate(-50%, -50%); cursor: grab; white-space: nowrap; }
   .el.dragging { cursor: grabbing; z-index: 10; }
@@ -55,7 +55,7 @@
   .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   /* À l'étage : contour violet en pointillés + petite étiquette */
   .el.up .zone, .el.up .pill, .el.up .ctrl { border: 2px dashed #fff; outline: 2px solid var(--up); }
-  .el.up::after { content: "ÉTAGE"; position: absolute; left: 50%; top: 100%; transform: translate(-50%, 2px); font: 800 9px/1 Barlow, Arial, sans-serif; letter-spacing: .08em; color: var(--up); background: #fff; border-radius: 3px; padding: 1px 3px; }
+  .el.up::after { content: "GALERIE"; position: absolute; left: 50%; top: 100%; transform: translate(-50%, 2px); font: 800 9px/1 Barlow, Arial, sans-serif; letter-spacing: .08em; color: var(--up); background: #fff; border-radius: 3px; padding: 1px 3px; }
 
   /* Crayon : un calque de dessin libre par-dessus le plan, pour expliquer (n'est pas imprimé) */
   .draw-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
@@ -100,8 +100,8 @@
   .pv-grid { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
   .pv-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
   .pv-cap select { font: 600 13px Barlow, Arial, sans-serif; margin-left: 6px; padding: 3px 6px; border-radius: 6px; border: 1px solid #cfd8df; }
-  .mini { position: relative; aspect-ratio: 1415 / 2600; }
-  .mini.crop { aspect-ratio: 1415 / 2000; }
+  .mini { position: relative; aspect-ratio: 1020 / 1620; }
+  .mini.crop { aspect-ratio: 1020 / 1440; }
   .mini .el { cursor: default; }
   .mini .el.up::after { font-size: 6px; transform: translate(-50%, 1px); }
 
@@ -161,8 +161,9 @@
       <span id="stage-title"></span>
       <div class="seg small" id="levels">
         <button class="on" data-l="all">Tout</button>
-        <button data-l="rdc">Rez-de-chaussée</button>
-        <button data-l="etage">Étage</button>
+        <button data-l="piste">Piste</button>
+        <button data-l="rdc">Arcades</button>
+        <button data-l="etage">Galerie</button>
       </div>
       <label><input type="checkbox" id="ghosts" checked /> Montrer en transparence le reste</label>
     </div>
@@ -240,7 +241,7 @@
   function renderMaps() {
     document.getElementById("maps").innerHTML = PLAN_MAPS.map((m) => `<button data-m="${m.key}" class="${m.key === map ? "on" : ""}">${m.label}</button>`).join("");
     document.getElementById("legend-vis").innerHTML = PLAN_MAPS.map((m) => `<b>${m.short}</b>${m.label}`).join("<br />")
-      + `<div class="note"><b>L'étage</b>Le plan montre le rez-de-chaussée. Ce qui est à l'étage (VIP, espace bénévoles) garde sa place « au-dessus » de l'endroit où il se trouve, entouré en violet avec l'étiquette ÉTAGE. Le repère « ↑ Étage » montre l'escalier, près du bar.</div>`;
+      + `<div class="note"><b>3 niveaux</b>La piste est en contrebas. On entre par les arcades, en haut des tribunes basses (Hall d'entrée à droite). La galerie (R+1) est au-dessus : ce qui s'y trouve (VIP, espace bénévoles) est entouré en violet avec l'étiquette GALERIE. On y monte par l'escalier en colimaçon de la buvette.</div>`;
   }
 
   function renderCanvas() {
@@ -262,7 +263,7 @@
     document.getElementById("stage-title").innerHTML = `<b>${m.label}</b> · ${m.who}`;
     const { rdc, etage } = legendItems(map);
     const block = (lines) => lines.map((l) => `<div>${l.k}<span>${l.t}</span></div>`).join("");
-    document.getElementById("legend").innerHTML = `<h3>Légende de ce plan</h3>${block(rdc)}${etage.length ? `<h3 class="up">À l'étage (escalier près du bar)</h3>${block(etage)}` : ""}`;
+    document.getElementById("legend").innerHTML = `<h3>Légende de ce plan</h3>${block(rdc)}${etage.length ? `<h3 class="up">Galerie (R+1) : escalier en colimaçon près de la buvette</h3>${block(etage)}` : ""}`;
   }
 
   function renderList() {
@@ -271,7 +272,7 @@
       const rows = elements.filter((el) => el.kind === kind).map((el) => `
         <div class="row${el.id === selectedId ? " sel" : ""}" data-id="${el.id}">
           <span class="chip${kind === "ctrl" ? " sq" : ""}" style="background:${colorOf(el)}">${kind === "zone" ? el.num : kind === "ctrl" ? esc(el.label) : ""}</span>
-          <span>${kind === "ctrl" ? `Contrôle ${esc(el.label)}` : esc(el.label)}${el.level === "etage" ? `<span class="up-tag">ÉTAGE</span>` : ""}</span>
+          <span>${kind === "ctrl" ? `Contrôle ${esc(el.label)}` : esc(el.label)}${el.level === "etage" ? `<span class="up-tag">GALERIE</span>` : ""}</span>
           ${PLAN_MAPS.map((m) => `<span class="vis${el.maps[m.key] ? " on" : ""}${m.key === map ? " cur" : ""}" data-toggle="${m.key}" title="${m.label}">${m.short}</span>`).join("")}
         </div>`).join("");
       return `<div class="group"><span>${title}</span>${head}</div>${rows}`;
@@ -304,7 +305,7 @@
   function legendHtml(key) {
     const { rdc, etage } = legendItems(key);
     const block = (lines) => lines.map((l) => `<div>${l.k}<span>${l.t}</span></div>`).join("");
-    return `${block(rdc)}${etage.length ? `<h4 class="up">À l'étage</h4>${block(etage)}` : ""}`;
+    return `${block(rdc)}${etage.length ? `<h4 class="up">Galerie (R+1)</h4>${block(etage)}` : ""}`;
   }
 
   function renderPreviews() {
@@ -426,7 +427,7 @@
   canvas.innerHTML = planBaseSvg();
 
   // Crayon : traits en % du plan (viewBox 0-100), gardés dans le navigateur
-  const INK_STORE = "myclim-maquette-plans-dessin";
+  const INK_STORE = "myclim-maquette-plans-dessin-v2";
   const INK_COLORS = ["#e30613", "#0a2540", "#0f8a5f", "#7a4fd0"];
   let strokes = [];
   try { strokes = JSON.parse(localStorage.getItem(INK_STORE)) || []; } catch { strokes = []; }
