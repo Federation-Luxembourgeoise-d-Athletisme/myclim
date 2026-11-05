@@ -54,8 +54,6 @@
   .pill { padding: 5px 10px; border-radius: 999px; color: #fff; font: 700 13px/1 Barlow, Arial, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,.25); border: 2px solid #fff; }
   .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   /* À l'étage : contour violet en pointillés + petite étiquette */
-  .el.up .zone, .el.up .pill, .el.up .ctrl { border: 2px dashed #fff; outline: 2px solid var(--up); }
-  .el.up::after { content: "GALERIE"; position: absolute; left: 50%; top: 100%; transform: translate(-50%, 2px); font: 800 9px/1 Barlow, Arial, sans-serif; letter-spacing: .08em; color: var(--up); background: #fff; border-radius: 3px; padding: 1px 3px; }
 
   /* Crayon : un calque de dessin libre par-dessus le plan, pour expliquer (n'est pas imprimé) */
   .draw-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
@@ -64,6 +62,8 @@
   .pen-colors { display: inline-flex; gap: 5px; }
   .pen-colors button { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #cfd8df; }
   .pen-colors button.on { box-shadow: 0 0 0 2px var(--ink); }
+  /* Calque : le plan d'architecte (PDF local, non commité), tourné dans le sens de notre plan */
+  .ref { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .55; mix-blend-mode: multiply; }
   .ink { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; }
   .canvas.drawing .ink { pointer-events: auto; cursor: crosshair; }
   .ink path { fill: none; stroke-width: .7; stroke-linecap: round; stroke-linejoin: round; }
@@ -77,6 +77,7 @@
   .legend i.z { border-radius: 50%; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; font: 800 12px/1 "Barlow Condensed", Arial, sans-serif; }
   .legend i.c { border-radius: 4px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; font: 800 12px/1 "Barlow Condensed", Arial, sans-serif; }
   .legend span { color: var(--muted); padding-top: 2px; }
+  .legend small, .card .leg small { color: var(--dim); }
   .legend .todo { color: #b45309; font-style: italic; }
 
   /* Fiche de l'élément sélectionné */
@@ -103,7 +104,6 @@
   .mini { position: relative; aspect-ratio: 1020 / 1620; }
   .mini.crop { aspect-ratio: 1020 / 1440; }
   .mini .el { cursor: default; }
-  .mini .el.up::after { font-size: 6px; transform: translate(-50%, 1px); }
 
   .badge-back { width: 100mm; height: 143.5mm; background: #fff; display: flex; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
   .badge-back .strip { width: 17mm; display: grid; place-items: center; color: #fff; }
@@ -159,13 +159,15 @@
   <section class="stage">
     <div class="stage-bar">
       <span id="stage-title"></span>
-      <div class="seg small" id="levels">
-        <button class="on" data-l="all">Tout</button>
-        <button data-l="piste">Piste</button>
-        <button data-l="rdc">Arcades</button>
-        <button data-l="etage">Galerie</button>
-      </div>
       <label><input type="checkbox" id="ghosts" checked /> Montrer en transparence le reste</label>
+      <label>Calque architecte
+        <select id="ref">
+          <option value="">aucun</option>
+          <option value="3">R-1 · piste</option>
+          <option value="2">Arcades · entrée</option>
+          <option value="4">R+1 · galerie</option>
+        </select>
+      </label>
     </div>
     <div class="draw-bar">
       <button id="pen">✏️ Dessiner sur le plan</button>
@@ -218,24 +220,25 @@
   const placed = (el, inner, crop = false) => {
     const { x, y } = planPos(el, crop);
     if (y < 0 || y > 100) return "";
-    return `<div class="el${el.level === "etage" ? " up" : ""}" style="left:${x}%;top:${y}%">${inner}</div>`;
+    return `<div class="el" style="left:${x}%;top:${y}%">${inner}</div>`;
   };
 
   // Légende d'un plan : zones (une ligne par numéro), repères, contrôles ; l'étage à part
   function legendItems(key) {
     const items = elements.filter((el) => el.maps[key]);
     const seen = new Set();
+    const where = (el) => (el.level === "piste" ? " · piste (R-1)" : el.level === "etage" ? " · galerie (R+1)" : "");
     const line = (el) => {
       if (el.kind === "zone") {
         if (seen.has(el.num)) return null;
         seen.add(el.num);
-        return { k: `<i class="z" style="background:${ZONE_RED}">${el.num}</i>`, t: esc(el.label), lvl: el.level };
+        return { k: `<i class="z" style="background:${ZONE_RED}">${el.num}</i>`, t: esc(el.label) + (el.desc ? ` — ${esc(el.desc)}` : "") + `<small>${where(el)}</small>`, lvl: el.level };
       }
       if (el.kind === "ctrl") return { k: `<i class="c" style="background:${el.color}">${esc(el.label)}</i>`, t: el.desc ? esc(el.desc) : `<em class="todo">à compléter : ce qu'on contrôle ici</em>`, lvl: el.level };
       const key = `mark|${el.label}|${el.desc}|${el.color}|${el.level}`;
       if (seen.has(key)) return null;
       seen.add(key);
-      return { k: `<i style="background:${el.color}">${esc(el.label)}</i>`, t: esc(el.desc || el.label), lvl: el.level };
+      return { k: `<i style="background:${el.color}">${esc(el.label)}</i>`, t: esc(el.desc || el.label) + `<small>${where(el)}</small>`, lvl: el.level };
     };
     const lines = items.sort((a, b) => (a.kind === "zone" ? a.num : 99) - (b.kind === "zone" ? b.num : 99)).map(line).filter(Boolean);
     return { rdc: lines.filter((l) => l.lvl !== "etage"), etage: lines.filter((l) => l.lvl === "etage") };
@@ -244,7 +247,7 @@
   function renderMaps() {
     document.getElementById("maps").innerHTML = PLAN_MAPS.map((m) => `<button data-m="${m.key}" class="${m.key === map ? "on" : ""}">${m.label}</button>`).join("");
     document.getElementById("legend-vis").innerHTML = PLAN_MAPS.map((m) => `<b>${m.short}</b>${m.label}`).join("<br />")
-      + `<div class="note"><b>3 niveaux</b>La piste est en contrebas. On entre par les arcades, en haut des tribunes basses (Hall d'entrée à droite). La galerie (R+1) est au-dessus : ce qui s'y trouve (VIP, espace bénévoles) est entouré en violet avec l'étiquette GALERIE. Les VIP y entrent par la porte du salon de presse, les bénévoles par l'escalier en colimaçon de la buvette.</div>`;
+      + `<div class="note"><b>Un plan = un niveau</b>Ces plans montrent le niveau des arcades, celui de l'entrée. La piste (R-1) et la galerie (R+1) auront leurs propres plans détaillés. Seul le verso des badges réunit les zones de tous les niveaux : la liste dit où chacune se trouve.</div>`;
   }
 
   function renderCanvas() {
@@ -252,10 +255,10 @@
     canvas.querySelectorAll(".el").forEach((node) => node.remove());
     const showGhosts = document.getElementById("ghosts").checked;
     elements.forEach((el) => {
-      const visible = el.maps[map] && (level === "all" || el.level === level);
+      const visible = el.maps[map];
       if (!visible && !showGhosts) return;
       const node = document.createElement("div");
-      node.className = `el${el.level === "etage" ? " up" : ""}${visible ? "" : " ghost"}${el.id === selectedId ? " sel" : ""}`;
+      node.className = `el${visible ? "" : " ghost"}${el.id === selectedId ? " sel" : ""}`;
       node.style.left = `${el.x}%`;
       node.style.top = `${el.y}%`;
       node.dataset.id = el.id;
@@ -266,7 +269,7 @@
     document.getElementById("stage-title").innerHTML = `<b>${m.label}</b> · ${m.who}`;
     const { rdc, etage } = legendItems(map);
     const block = (lines) => lines.map((l) => `<div>${l.k}<span>${l.t}</span></div>`).join("");
-    document.getElementById("legend").innerHTML = `<h3>Légende de ce plan</h3>${block(rdc)}${etage.length ? `<h3 class="up">Galerie (R+1) : VIP par le salon de presse, bénévoles par l'escalier en colimaçon</h3>${block(etage)}` : ""}`;
+    document.getElementById("legend").innerHTML = `<h3>Légende de ce plan</h3>${block(rdc)}${block(etage)}`;
   }
 
   function renderList() {
@@ -275,7 +278,7 @@
       const rows = elements.filter((el) => el.kind === kind).map((el) => `
         <div class="row${el.id === selectedId ? " sel" : ""}" data-id="${el.id}">
           <span class="chip${kind === "ctrl" ? " sq" : ""}" style="background:${colorOf(el)}">${kind === "zone" ? el.num : kind === "ctrl" ? esc(el.label) : ""}</span>
-          <span>${kind === "ctrl" ? `Contrôle ${esc(el.label)}` : esc(el.label)}${el.level === "etage" ? `<span class="up-tag">GALERIE</span>` : ""}</span>
+          <span>${kind === "ctrl" ? `Contrôle ${esc(el.label)}` : esc(el.label)}${el.level !== "rdc" ? `<span class="up-tag">${el.level === "etage" ? "R+1" : "R-1"}</span>` : ""}</span>
           ${PLAN_MAPS.map((m) => `<span class="vis${el.maps[m.key] ? " on" : ""}${m.key === map ? " cur" : ""}" data-toggle="${m.key}" title="${m.label}">${m.short}</span>`).join("")}
         </div>`).join("");
       return `<div class="group"><span>${title}</span>${head}</div>${rows}`;
@@ -308,7 +311,7 @@
   function legendHtml(key) {
     const { rdc, etage } = legendItems(key);
     const block = (lines) => lines.map((l) => `<div>${l.k}<span>${l.t}</span></div>`).join("");
-    return `${block(rdc)}${etage.length ? `<h4 class="up">Galerie (R+1)</h4>${block(etage)}` : ""}`;
+    return `${block(rdc)}${block(etage)}`;
   }
 
   function renderPreviews() {
@@ -398,7 +401,7 @@
   });
 
   document.getElementById("add").addEventListener("click", () => {
-    const el = { id: `m${Date.now()}`, kind: "mark", label: "Repère", desc: "", color: PALETTE[2], level: level === "etage" ? "etage" : "rdc", x: 50, y: 50, maps: Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === map])) };
+    const el = { id: `m${Date.now()}`, kind: "mark", label: "Repère", desc: "", color: PALETTE[2], level: "rdc", x: 50, y: 50, maps: Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === map])) };
     elements.push(el);
     selectedId = el.id;
     save();
@@ -418,16 +421,42 @@
     map = button.dataset.m;
     renderMaps(); renderCanvas(); renderList();
   });
-  document.getElementById("levels").addEventListener("click", (event) => {
-    const button = event.target.closest("button");
-    if (!button) return;
-    level = button.dataset.l;
-    document.querySelectorAll("#levels button").forEach((b) => b.classList.toggle("on", b === button));
-    renderCanvas();
-  });
   document.getElementById("ghosts").addEventListener("change", renderCanvas);
 
   canvas.innerHTML = planBaseSvg();
+
+  // Calque architecte : assets/ref/plans-arena.pdf (copie locale, hors git). Page 2 = arcades,
+  // 3 = R-1, 4 = R+1. Notre grille (1020 x 1620) = page à 2000 px de large, tournée d'un quart
+  // de tour : X = 1020 - y, Y = x.
+  let pdfDoc = null;
+  const refCanvas = document.createElement("canvas");
+  refCanvas.className = "ref";
+  canvas.insertBefore(refCanvas, canvas.querySelector(".plan-base").nextSibling);
+  async function showRef(pageNum) {
+    if (!pageNum) { refCanvas.hidden = true; return; }
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js";
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+    }
+    pdfDoc ||= await pdfjsLib.getDocument("assets/ref/plans-arena.pdf").promise;
+    const page = await pdfDoc.getPage(Number(pageNum));
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: 2000 / base.width });
+    const q = 2;
+    refCanvas.width = PLAN_W * q;
+    refCanvas.height = PLAN_H * q;
+    const ctx = refCanvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, refCanvas.width, refCanvas.height);
+    await page.render({ canvasContext: ctx, viewport, transform: [0, q, -q, 0, PLAN_W * q, 0] }).promise;
+    refCanvas.hidden = false;
+  }
+  document.getElementById("ref").addEventListener("change", (event) => showRef(event.target.value));
 
   // Crayon : traits en % du plan (viewBox 0-100), gardés dans le navigateur
   const INK_STORE = "myclim-maquette-plans-dessin-v2";

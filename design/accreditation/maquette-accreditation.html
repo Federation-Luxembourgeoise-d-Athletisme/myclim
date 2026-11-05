@@ -64,6 +64,7 @@
   .back .allowed { display: grid; gap: 1.5mm; }
   .back .allowed div { display: flex; align-items: center; gap: 2.2mm; font: 700 11pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .02em; }
   .back .allowed i { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; font-style: normal; width: 7.5mm; height: 7.5mm; border-radius: 1.4mm; display: grid; place-items: center; flex: none; color: #fff; }
+  .back .allowed small { font: 600 7pt/1 Barlow, Arial, sans-serif; text-transform: none; letter-spacing: 0; color: #6c7f8d; }
   .back .allowed.compact { grid-template-columns: 1fr 1fr; }
   .back .allowed.compact div { font-size: 9pt; }
   .back .allowed.compact i { width: 6mm; height: 6mm; font-size: 11pt; }
@@ -79,7 +80,6 @@
   .pc { width: 3.6mm; height: 3.6mm; border-radius: .8mm; background: #0a2540; color: #fff; font: 800 6.5pt/1 "Barlow Condensed", Arial, sans-serif; }
   .pm { padding: .5mm 1.4mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Barlow, Arial, sans-serif; }
   /* À l'étage : contour violet en pointillés, comme dans l'éditeur de plans */
-  .pt.up > i { outline: .35mm dashed #7a4fd0; outline-offset: .3mm; }
 
   /* Fond du recto (au choix dans l'en-tête) : motif très léger dans la couleur de la catégorie */
   .main { position: relative; z-index: 1; }
@@ -215,6 +215,8 @@
 <script>
   const A = "../../src/assets/";
   const ZONES = ["Infield", "Warm-up", "Coaching", "Judges Room", "Mixed Zone", "VIP"];
+  // Où se trouve chaque zone : le plan du verso réunit plusieurs niveaux, la liste le précise
+  const ZONE_WHERE = ["piste", "arcades", "piste", "salon VIP", "entrée piste", "galerie R+1"];
   const CATEGORIES = {
     Organisation: "#e30613",
     Athlete: "#0f8a5f",
@@ -337,7 +339,7 @@
 
   const back = (p) => {
     const cat = CATEGORIES[p.category];
-    const allowed = p.zones.map((n) => `<div><i style="background:${cat}">${n}</i>${ZONES[n - 1]}</div>`).join("");
+    const allowed = p.zones.map((n) => `<div><i style="background:${cat}">${n}</i><span>${ZONES[n - 1]} <small>${ZONE_WHERE[n - 1]}</small></span></div>`).join("");
     const access = p.zones.length
       ? `<div class="allowed${p.zones.length > 3 ? " compact" : ""}">${allowed}</div>`
       : `<div class="no-zone"><b>No restricted zone</b>Access to public areas and your own post only.</div>`;
