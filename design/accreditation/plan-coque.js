@@ -48,8 +48,8 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "m8", kind: "mark", label: "Staff", desc: "Accueil bénévoles, juges et presse, retrait des badges", color: "#27a9e1", level: "rdc", ...at(850, 1010), maps: on("vol", "acc") },
 
   // Stands et services (niveau des arcades)
-  { id: "m2", kind: "mark", label: "Bar", desc: "Buvette des arcades", color: "#e5719a", level: "rdc", ...at(420, 330), maps: on("web", "vol") },
-  { id: "m3", kind: "mark", label: "Jetons", desc: "Vente des cartes boissons", color: "#e5719a", level: "rdc", ...at(700, 575), maps: on("web", "vol") },
+  { id: "m2", kind: "mark", label: "Bar & food", desc: "Bar et restauration, le long du mur côté gymnase, avant l'amphithéâtre", color: "#e5719a", level: "rdc", ...at(632, 430), maps: on("web", "vol") },
+  { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 268), maps: on("web", "vol") },
   { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(260, 330), maps: on("web", "vol") },
   { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, après la buvette", color: "#e30613", level: "rdc", ...at(555, 335), maps: on("web", "vol") },
   { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours", color: "#e30613", level: "rdc", ...at(190, 400), maps: on("web", "vol", "acc") },
@@ -85,8 +85,8 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <defs><clipPath id="${clip}"><path d="${arcades}" /></clipPath><pattern id="${hatch}" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="16" stroke="#cdd5dc" stroke-width="3" /></pattern></defs>
 
     <!-- Reste du bâtiment, fermé : gymnase -->
-    <path d="M770 40 L1000 40 L1000 330 L800 330 Z" fill="url(#${hatch})" stroke="#cdd5dc" stroke-width="3" />
-    ${label(895, 200, "GYMNASE", 24, "#a9b5be")}
+    <path d="M600 300 L700 215 L770 40 L1000 40 L1000 575 L748 575 C735 480 690 380 600 300 Z" fill="url(#${hatch})" stroke="#cdd5dc" stroke-width="3" />
+    ${label(880, 330, "GYMNASE", 26, "#a9b5be")}
 
     <!-- Hall d'entrée, devant la salle -->
     <path d="M760 690 L955 625 L955 1065 L760 1010 Z" fill="#eaf4ee" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
