@@ -225,6 +225,13 @@ const USERS_TABS = [
   { to: "/app/utilisateurs/inviter", label: "Inviter" },
 ];
 
+const RESULTS_TABS = [
+  { to: "/app/resultats", end: true, label: "Résultats" },
+  { to: "/app/resultats/records", label: "Records" },
+  { to: "/app/resultats/hall-of-winners", label: "Hall of Winners" },
+  { to: "/app/resultats/base-athletes", label: "Base athlètes" },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -644,14 +651,13 @@ export default function App() {
               <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
                 <Route path="mes-transports" element={<AthleteTransportVolunteerPage />} />
               </Route>
-              <Route path="athlete-portal/registry" element={<Navigate replace to="/app/statistics/registry" />} />
-              <Route path="athlete-portal/records" element={<Navigate replace to="/app/statistics/records" />} />
-              <Route path="athlete-portal/winners" element={<Navigate replace to="/app/statistics/winners" />} />
               <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
-                <Route path="resultats" element={<MeetingHistoryPage />} />
-                <Route path="statistics/registry" element={<AthleteRegistryPage />} />
-                <Route path="statistics/records" element={<MeetingRecordsPage />} />
-                <Route path="statistics/winners" element={<MeetingWinnersPage />} />
+                <Route path="resultats" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navResultsRecords" title="Résultats & records" tabs={RESULTS_TABS} />}>
+                  <Route index element={<MeetingHistoryPage />} />
+                  <Route path="records" element={<MeetingRecordsPage />} />
+                  <Route path="hall-of-winners" element={<MeetingWinnersPage />} />
+                  <Route path="base-athletes" element={<AthleteRegistryPage />} />
+                </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
                 <Route path="actualites" element={<WebsiteNewsPage />} />

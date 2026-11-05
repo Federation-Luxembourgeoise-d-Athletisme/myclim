@@ -69,6 +69,12 @@ const LEGACY_APP_REDIRECTS = {
   "athlete-portal/history": APP_ROUTES.results,
   "statistics": APP_ROUTES.results,
   "statistics/results": APP_ROUTES.results,
+  "statistics/records": "/app/resultats/records",
+  "statistics/winners": "/app/resultats/hall-of-winners",
+  "statistics/registry": "/app/resultats/base-athletes",
+  "athlete-portal/records": "/app/resultats/records",
+  "athlete-portal/winners": "/app/resultats/hall-of-winners",
+  "athlete-portal/registry": "/app/resultats/base-athletes",
   "website/press": "/app/presse/communiques",
   "website/sponsors": APP_ROUTES.partners,
 };
