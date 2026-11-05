@@ -1976,8 +1976,8 @@ textarea {
 
 /* La page affichée dans un onglet garde sa description et ses actions,
    mais pas son titre : c'est celui de la page regroupée. */
-.tabbed-page__body > .page > .page-header:first-child h1,
-.tabbed-page__body > .page > .page-header:first-child .eyebrow,
+.tabbed-page__body .page > .page-header:first-child h1,
+.tabbed-page__body .page > .page-header:first-child .eyebrow,
 .tabbed-page__body > .admin-stack > .panel-head:first-child h1,
 .tabbed-page__body > .admin-stack > .panel-head:first-child .eyebrow,
 .tabbed-page__body .com-page-header .com-eyebrow,

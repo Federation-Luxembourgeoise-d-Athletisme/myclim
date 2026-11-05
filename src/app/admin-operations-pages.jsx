@@ -989,7 +989,9 @@ function RoleManagementPage(props) {
 }
 
 function TeamsPage(props) {
-  const { AuthFormField, DataTable, Panel, syncVolunteerAssignmentToUserProfile } = props;
+  // view : "configuration", "overview" ou "support" quand la page est un
+  // onglet d'Équipes & affectations ; sans view, elle garde ses onglets.
+  const { AuthFormField, DataTable, Panel, syncVolunteerAssignmentToUserProfile, view } = props;
   const {
     applications: volunteerApplications,
     loading: volunteerApplicationsLoading,
@@ -997,7 +999,8 @@ function TeamsPage(props) {
   } = useVolunteerApplicationsList(true);
   const [roles, setRoles] = useState(defaultTeamRoles);
   const [selectedRoleId, setSelectedRoleId] = useState(defaultTeamRoles[0]?.id ?? "");
-  const [activeTeamTab, setActiveTeamTab] = useState("configuration");
+  const [localTeamTab, setActiveTeamTab] = useState("configuration");
+  const activeTeamTab = view || localTeamTab;
   const [teamDetailTab, setTeamDetailTab] = useState("settings");
   const [memberSearch, setMemberSearch] = useState("");
   const [teamAssignments, setTeamAssignments] = useState(defaultTeamAssignments);
@@ -1476,7 +1479,7 @@ function TeamsPage(props) {
         </div>
       </section>
       {volunteerApplicationsError ? <p className="status-note">{volunteerApplicationsError}</p> : null}
-      <div className="admin-subtabs">
+      <div className="admin-subtabs" style={view ? { display: "none" } : undefined}>
         <button
           className={`admin-subtab ${activeTeamTab === "configuration" ? "admin-subtab--active" : ""}`}
           type="button"

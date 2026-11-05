@@ -248,6 +248,19 @@ const MY_ASSIGNMENTS_TABS = [
   { to: "/app/mes-affectations/mon-dossier", label: "Mon dossier bénévole" },
 ];
 
+const APPLICATIONS_TABS = [
+  { to: "/app/candidatures", end: true, label: "À traiter" },
+  { to: "/app/candidatures/tous", label: "Tous les bénévoles" },
+  { to: "/app/candidatures/alertes", label: "Alertes" },
+];
+
+const TEAMS_TABS = [
+  { to: "/app/equipes", end: true, label: "Équipes" },
+  { to: "/app/equipes/affectations", label: "Affectations" },
+  { to: "/app/equipes/recapitulatif", label: "Récapitulatif" },
+  { to: "/app/equipes/autour-du-meeting", label: "Autour du meeting" },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -302,9 +315,11 @@ function DataTable({ columns = [], rows = [] }) {
   );
 }
 
-function VolunteersPage() {
+function VolunteersPage({ view, initialStatusFilter }) {
   return (
     <VolunteersPageScreen
+      view={view}
+      initialStatusFilter={initialStatusFilter}
       loadMailQueueModule={loadMailQueueModule}
       Panel={Panel}
       syncVolunteerAssignmentToUserProfile={syncVolunteerAssignmentToUserProfile}
@@ -313,14 +328,26 @@ function VolunteersPage() {
   );
 }
 
-function TeamsPage() {
+function TeamsPage({ view }) {
   return (
     <TeamsPageScreen
+      view={view}
       AuthFormField={AuthFormField}
       DataTable={DataTable}
       Panel={Panel}
       syncVolunteerAssignmentToUserProfile={syncVolunteerAssignmentToUserProfile}
     />
+  );
+}
+
+// Équipes & affectations › Autour du meeting : les tâches (créneaux) et les
+// bénévoles qui se proposent pour les faire, sur la même page.
+function MeetingSupportPage() {
+  return (
+    <div className="page">
+      <TeamsPage view="support" />
+      <VolunteersPage view="support" />
+    </div>
   );
 }
 
@@ -615,8 +642,17 @@ export default function App() {
                 <Route path="budget" element={<BudgetTrackingPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
-                <Route path="candidatures" element={<VolunteersPage />} />
-                <Route path="equipes" element={<TeamsPage />} />
+                <Route path="candidatures" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navApplications" title="Candidatures" tabs={APPLICATIONS_TABS} />}>
+                  <Route index element={<VolunteersPage key="to-process" view="meeting" initialStatusFilter="Candidature reçue" />} />
+                  <Route path="tous" element={<VolunteersPage key="all" view="meeting" />} />
+                  <Route path="alertes" element={<VolunteersPage view="alerts" />} />
+                </Route>
+                <Route path="equipes" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navTeamsAssignments" title="Équipes & affectations" tabs={TEAMS_TABS} />}>
+                  <Route index element={<TeamsPage view="configuration" />} />
+                  <Route path="affectations" element={<VolunteersPage view="assigned-posts" />} />
+                  <Route path="recapitulatif" element={<TeamsPage view="overview" />} />
+                  <Route path="autour-du-meeting" element={<MeetingSupportPage />} />
+                </Route>
                 <Route path="u14/*" element={<U14Page />} />
                 <Route path="accreditations/*" element={<AccreditationsPage />} />
                 <Route path="documents" element={<DocumentsPage />} />

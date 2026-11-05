@@ -15,18 +15,25 @@ import { useLanguage } from "./language-context";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 
+// view : onglet affiché quand la page est un onglet de Candidatures ou
+// d'Équipes & affectations ("meeting", "assigned-posts", "support",
+// "alerts") ; sans view, la page garde ses propres onglets.
+// initialStatusFilter : filtre de statut au chargement (onglet « À traiter »).
 function VolunteersPage(props) {
   const {
+    initialStatusFilter,
     loadMailQueueModule,
     Panel,
     syncVolunteerAssignmentToUserProfile,
     syncVolunteerAssignmentsToTeamConfiguration,
+    view,
   } = props;
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("Tous");
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter || "Tous");
   const [volunteerSortMode, setVolunteerSortMode] = useState("alphabetical");
-  const [activeVolunteerView, setActiveVolunteerView] = useState("meeting");
+  const [localVolunteerView, setActiveVolunteerView] = useState("meeting");
+  const activeVolunteerView = view || localVolunteerView;
   const [assignedRoleFilter, setAssignedRoleFilter] = useState("Tous");
   const [teamRoleFilter, setTeamRoleFilter] = useState("Tous");
   const [mailFilter, setMailFilter] = useState("Tous");
@@ -930,7 +937,7 @@ function VolunteersPage(props) {
               : t("panelSubtitleSupport")
         }
       >
-        <div className="admin-subtabs">
+        <div className="admin-subtabs" style={view ? { display: "none" } : undefined}>
           <button
             className={`admin-subtab ${activeVolunteerView === "meeting" ? "admin-subtab--active" : ""}`}
             type="button"
