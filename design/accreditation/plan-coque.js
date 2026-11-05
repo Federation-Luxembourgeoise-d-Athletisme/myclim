@@ -32,7 +32,7 @@ const at = (X, Y) => ({ x: Math.round((X / PLAN_W) * 10000) / 100, y: Math.round
 const PLAN_DEFAULT_ELEMENTS = [
   // Zones d'accès (numéros du badge)
   { id: "z1", kind: "zone", num: 1, label: "Infield", level: "piste", ...at(420, 845), maps: on("acc", "ctrl") },
-  { id: "z2", kind: "zone", num: 2, label: "Warm-up", level: "piste", ...at(230, 1420), maps: on("acc", "ctrl") },
+  { id: "z2", kind: "zone", num: 2, label: "Warm-up", level: "rdc", ...at(270, 1385), maps: on("acc", "ctrl") },
   { id: "z3a", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(242, 845), maps: on("acc", "ctrl") },
   { id: "z3b", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(598, 700), maps: on("acc", "ctrl") },
   { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(598, 990), maps: on("acc", "ctrl") },
@@ -67,26 +67,22 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "c6", kind: "ctrl", label: "F", desc: "", color: "#0a2540", level: "rdc", ...at(200, 1270), maps: on("ctrl") },
 ];
 
-// Lettres des tribunes (signalétique de la Coque), dans le sens des aiguilles d'une montre
-const PLAN_SECTIONS = [
-  ["D", 250, 470], ["C", 590, 470], ["B", 638, 545], ["A", 660, 690], ["N", 660, 845], ["M", 660, 1000],
-  ["L", 638, 1145], ["K", 590, 1220], ["J", 250, 1220], ["I", 202, 1145], ["H", 180, 1000], ["G", 180, 845],
-  ["F", 180, 690], ["E", 202, 545],
-];
-
 let planSvgCount = 0;
 
 // Plan simplifié. crop = true cadre sur la salle seule (verso des badges).
 // Infield et Warm-up peuvent être colorés (badge).
 function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } = {}) {
   const viewBox = crop ? `0 ${PLAN_CROP.y} ${PLAN_W} ${PLAN_CROP.h}` : `0 0 ${PLAN_W} ${PLAN_H}`;
-  const hatch = `coque-hatch-${++planSvgCount}`;
+  const n = ++planSvgCount;
+  const hatch = `coque-hatch-${n}`;
+  const clip = `coque-clip-${n}`;
+  const arcades = "M420 60 C640 250 780 600 775 850 C770 1150 620 1400 420 1590 C220 1400 70 1150 75 850 C80 600 200 250 420 60 Z";
   // Tribunes et piste : ovales verticaux centrés sur (420, 845), lignes droites de 640 à 1050
   const oval = (r) => `M${420 - r} 640 A${r} ${r} 0 0 1 ${420 + r} 640 L${420 + r} 1050 A${r} ${r} 0 0 1 ${420 - r} 1050 Z`;
   const label = (x, y, text, size = 24, fill = "#7d8d99") =>
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="${size}" letter-spacing="2" fill="${fill}">${text}</text>`;
   return `<svg class="plan-base" viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
-    <defs><pattern id="${hatch}" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="16" stroke="#cdd5dc" stroke-width="3" /></pattern></defs>
+    <defs><clipPath id="${clip}"><path d="${arcades}" /></clipPath><pattern id="${hatch}" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="16" stroke="#cdd5dc" stroke-width="3" /></pattern></defs>
 
     <!-- Reste du bâtiment, fermé : gymnase -->
     <path d="M770 40 L1000 40 L1000 330 L800 330 Z" fill="url(#${hatch})" stroke="#cdd5dc" stroke-width="3" />
@@ -97,15 +93,17 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="M1012 822 L978 845 L1012 868 Z M1012 838 L1018 838 L1018 852 L1012 852 Z" fill="#0f8a5f" />
 
     <!-- Arcades : tout le niveau d'entrée autour des tribunes -->
-    <path d="M420 60 C640 250 780 600 775 850 C770 1150 620 1400 420 1590 C220 1400 70 1150 75 850 C80 600 200 250 420 60 Z" fill="#f4f6f8" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
+    <path d="${arcades}" fill="#f4f6f8" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
 
-    <!-- Warm-up (bas de la salle) -->
-    <path d="M78 1050 L150 1050 L150 1250 C200 1300 255 1332 300 1335 L631 1335 C560 1440 500 1510 420 1590 C220 1400 95 1220 78 1050 Z" fill="${warmup}" />
+    <!-- Warm-up : niveau des arcades, tout le bas de la salle jusqu'aux gradins -->
+    <rect x="0" y="1085" width="${PLAN_W}" height="600" fill="${warmup}" clip-path="url(#${clip})" />
+    <path d="${arcades}" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
 
     <!-- Amphithéâtre, au bout après la buvette -->
     <ellipse cx="600" cy="135" rx="108" ry="96" fill="#e4e9ed" stroke="#8a9aa7" stroke-width="4" />
-    <path d="M520 165 A85 70 0 0 1 680 165 M540 185 A62 48 0 0 1 660 185" fill="none" stroke="#c3ccd3" stroke-width="3" />
-    ${label(600, 128, "AMPHITHÉÂTRE", 22)}
+    <rect x="562" y="50" width="76" height="20" rx="3" fill="#b9c5ce" />
+    <path d="M560 78 A40 36 0 0 0 640 78 M538 78 A62 60 0 0 0 662 78 M515 78 A85 85 0 0 0 685 78" fill="none" stroke="#c3ccd3" stroke-width="3" />
+    ${label(600, 208, "AMPHITHÉÂTRE", 20)}
 
     <!-- Bâtiments : buvette (en haut), vestiaires (en bas), tribune principale (gauche), salons (droite) -->
     <path d="M420 150 L548 305 L292 305 Z" fill="#d5dde3" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
@@ -120,8 +118,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="${oval(272)}" fill="#c9d3db" />
     <path d="${oval(255)} ${oval(238)} ${oval(222)}" fill="none" stroke="#dbe2e8" stroke-width="2" />
     <rect x="392" y="360" width="56" height="44" fill="#f4f6f8" />
-    <rect x="392" y="1286" width="56" height="44" fill="#f4f6f8" />
-    ${PLAN_SECTIONS.map(([t, x, y]) => label(x, y + 10, t, 28, "#5f6f7c")).join("")}
+    <rect x="392" y="1286" width="56" height="44" fill="${warmup}" />
 
     <!-- Piste en contrebas -->
     <path d="${oval(208)}" fill="#fff" />
