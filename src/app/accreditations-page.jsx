@@ -38,18 +38,19 @@ const ACCREDITATION_TAB_PATHS = {
   print: "/app/accreditations/impressions",
   tracking: "/app/accreditations/suivi",
   history: "/app/accreditations/historique",
-  roles: "/app/accreditations/roles",
-  resources: "/app/accreditations/ressources-qr",
+  settings: "/app/accreditations/reglages",
 };
 
 function getAccreditationTabFromPath(pathname, availableTabs) {
   const normalizedPath = String(pathname || "").replace(/\/+$/, "") || "/app/accreditations";
 
-  if (normalizedPath.endsWith("/ressources-qr") && availableTabs.includes("resources")) return "resources";
+  // Zones par rôle et ressources QR sont réunies dans un seul onglet Réglages.
+  if (normalizedPath.endsWith("/reglages") && availableTabs.includes("settings")) return "settings";
+  if (normalizedPath.endsWith("/ressources-qr") && availableTabs.includes("settings")) return "settings";
   if (normalizedPath.endsWith("/impressions") && availableTabs.includes("print")) return "print";
   if (normalizedPath.endsWith("/suivi") && availableTabs.includes("tracking")) return "tracking";
   if (normalizedPath.endsWith("/historique") && availableTabs.includes("history")) return "history";
-  if (normalizedPath.endsWith("/roles") && availableTabs.includes("roles")) return "roles";
+  if (normalizedPath.endsWith("/roles") && availableTabs.includes("settings")) return "settings";
   // Legacy bookmarks/links from before the redesign (juges/presse/bénévoles
   // were merged into "people", the new default landing tab).
   if (normalizedPath.endsWith("/benevoles") && availableTabs.includes("people")) return "people";
@@ -1500,9 +1501,6 @@ function AccreditationsPage(props) {
     const haystack = `${judge.firstName} ${judge.lastName} ${judge.badgeLabel}`.toLowerCase();
     return haystack.includes(normalizedJudgeSearch);
   });
-  const judgeUsedLocations = [
-    ...new Set(activeJudges.map((judge) => getJudgeStorageLocation(judge.id)).filter(Boolean)),
-  ].sort((a, b) => a.localeCompare(b, "fr"));
   const normalizedPressSearch = pressSearch.trim().toLowerCase();
   const acceptedPressRegistrations = pressRegistrations.filter((registration) => {
     if (registration.status !== "accepted") return false;
@@ -1513,9 +1511,6 @@ function AccreditationsPage(props) {
   const queuedPress = acceptedPressRegistrations.filter(
     (registration) => registration.printStatus === "Dans la file" && !registration.destroyedAt,
   );
-  const pressUsedLocations = [
-    ...new Set(acceptedPressRegistrations.map((registration) => getPressStorageLocation(registration.id)).filter(Boolean)),
-  ].sort((a, b) => a.localeCompare(b, "fr"));
   const selectedNonNominativeZoneLabels = selectedNonNominativeTemplate
     ? sortedZones
         .filter((zone) => selectedNonNominativeTemplate.defaultZoneIds.includes(zone.id))
@@ -1564,7 +1559,7 @@ function AccreditationsPage(props) {
 
   const availableAccreditationTabs = [
     ...(canOperatePrinting ? ["people", "print", "tracking", "history"] : []),
-    ...(canManageAccreditationConfiguration ? ["roles", "resources"] : []),
+    ...(canManageAccreditationConfiguration ? ["settings"] : []),
   ];
   const [activeAccreditationTab, setActiveAccreditationTab] = useState(() =>
     getAccreditationTabFromPath(location.pathname, availableAccreditationTabs),
@@ -1578,7 +1573,7 @@ function AccreditationsPage(props) {
 
   function openAccreditationTab(tabId) {
     if (!availableAccreditationTabs.includes(tabId)) return;
-    const nextPath = ACCREDITATION_TAB_PATHS[tabId] || ACCREDITATION_TAB_PATHS.roles;
+    const nextPath = ACCREDITATION_TAB_PATHS[tabId] || ACCREDITATION_TAB_PATHS.people;
     setActiveAccreditationTab(tabId);
     if (location.pathname !== nextPath) {
       navigate(nextPath);
@@ -1703,9 +1698,9 @@ function AccreditationsPage(props) {
     <div className="page accreditation-page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Accreditations</p>
-          <h1>Zones d'acces et statuts</h1>
-          <p>Heritage par role, ajouts manuels, retraits manuels et suivi impression / remise.</p>
+          <p className="eyebrow">Accès &amp; jour J</p>
+          <h1>Accréditations</h1>
+          <p>Zones par personne, une file d'impression pour tous (bénévoles, juges, presse, badges non nominatifs), retrait des badges et réglages.</p>
           {teamsLoading || accreditationLoading || usersLoading ? <p className="panel-note">Chargement en cours...</p> : null}
           {teamsError || accreditationError ? <p className="panel-note">{teamsError || accreditationError}</p> : null}
           {accreditationStatus ? <p className="panel-note">{accreditationStatus}</p> : null}
@@ -1720,7 +1715,7 @@ function AccreditationsPage(props) {
               type="button"
               onClick={() => openAccreditationTab("people")}
             >
-              Personnes &amp; badges
+              Personnes
             </button>
             <button
               className={`admin-subtab ${activeAccreditationTab === "print" ? "admin-subtab--active" : ""}`}
@@ -1734,7 +1729,7 @@ function AccreditationsPage(props) {
               type="button"
               onClick={() => openAccreditationTab("tracking")}
             >
-              Suivi &amp; retrait
+              Retrait &amp; suivi
             </button>
             <button
               className={`admin-subtab ${activeAccreditationTab === "history" ? "admin-subtab--active" : ""}`}
@@ -1747,25 +1742,16 @@ function AccreditationsPage(props) {
         ) : null}
         {canManageAccreditationConfiguration ? (
           <button
-            className={`admin-subtab ${activeAccreditationTab === "roles" ? "admin-subtab--active" : ""}`}
+            className={`admin-subtab ${activeAccreditationTab === "settings" ? "admin-subtab--active" : ""}`}
             type="button"
-            onClick={() => openAccreditationTab("roles")}
+            onClick={() => openAccreditationTab("settings")}
           >
-            Réglages : zones par rôle
-          </button>
-        ) : null}
-        {canManageAccreditationConfiguration ? (
-          <button
-            className={`admin-subtab ${activeAccreditationTab === "resources" ? "admin-subtab--active" : ""}`}
-            type="button"
-            onClick={() => openAccreditationTab("resources")}
-          >
-            Réglages : ressources QR
+            ⚙ Réglages
           </button>
         ) : null}
       </div>
 
-      {canManageAccreditationConfiguration && activeAccreditationTab === "roles" ? (
+      {canManageAccreditationConfiguration && activeAccreditationTab === "settings" ? (
         <>
           <Panel
             title="Bibliothèque des zones"
@@ -1983,8 +1969,6 @@ function AccreditationsPage(props) {
               </div>
             ) : null}
           </section>
-        </>
-      ) : canManageAccreditationConfiguration && activeAccreditationTab === "resources" ? (
         <section className="admin-stack">
           <Panel
             title="Affectation des QR par visuel"
@@ -2266,6 +2250,7 @@ function AccreditationsPage(props) {
             </div>
           </Panel>
         </section>
+        </>
       ) : canOperatePrinting && activeAccreditationTab === "people" ? (
         <section className="admin-stack">
           <Panel
@@ -2634,74 +2619,6 @@ function AccreditationsPage(props) {
               </div>
             )}
 
-            <Panel
-              title="File d'impression juges"
-              subtitle="Même logique que pour les bénévoles : mise en file, impression, puis historique du lot."
-            >
-              <div className="table-wrap">
-                <table className="data-table data-table--admin">
-                  <thead>
-                    <tr>
-                      <th>Juge</th>
-                      <th>Libellé badge</th>
-                      <th>Zones</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleQueuedJudges.map((judge) => (
-                      <tr key={`judge-queue-${judge.id}`}>
-                        <td>{`${judge.firstName} ${judge.lastName}`.trim() || "Juge sans nom"}</td>
-                        <td>{judge.badgeLabel || "Judge"}</td>
-                        <td>
-                          {sortedZones
-                            .filter((zone) => judge.assignedZones.includes(zone.id))
-                            .map((zone) => formatZoneLabel(zone))
-                            .join(", ") || "Aucune zone"}
-                        </td>
-                        <td>
-                          <button
-                            className="button button--ghost-danger button--small"
-                            type="button"
-                            onClick={() => updateJudgePrintStatus(judge, "Non-imprimé")}
-                          >
-                            Retirer
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!queuedJudges.length ? (
-                      <tr>
-                        <td colSpan="4">Aucun juge n'est actuellement dans la file d'impression.</td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-              {canShowMoreListItems("queued-judges", queuedJudges) ? (
-                <div className="list-progressive-actions">
-                  <button
-                    className="button button--secondary button--small"
-                    type="button"
-                    onClick={() => showMoreListItems("queued-judges")}
-                  >
-                    Afficher 10 de plus
-                  </button>
-                </div>
-              ) : null}
-
-              <div className="table-actions table-actions--inline">
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={finalizeJudgePrintQueue}
-                  disabled={!queuedJudges.length}
-                >
-                  Générer les 2 PDF ({queuedJudges.length})
-                </button>
-              </div>
-            </Panel>
-
             <div className="table-wrap">
               <table className="data-table data-table--admin">
                 <thead>
@@ -2913,20 +2830,6 @@ function AccreditationsPage(props) {
               Les juges utilisent maintenant la meme logique operationnelle que les benevoles : ajout a la file, impression du lot, puis rangement du badge.
             </div>
 
-            <Panel
-              title="Points de retrait utilises pour les juges"
-              subtitle="Les juges reutilisent les memes points de retrait que les autres badges."
-            >
-              {judgeUsedLocations.length ? (
-                <div className="accreditation-tag-list">
-                  {judgeUsedLocations.map((loc) => (
-                    <span key={loc} className="accreditation-tag accreditation-tag--active">{loc}</span>
-                  ))}
-                </div>
-              ) : (
-                <p className="panel-note">Aucun badge juge n'est encore rangé.</p>
-              )}
-            </Panel>
           </Panel>
 
           <Panel
@@ -2963,74 +2866,6 @@ function AccreditationsPage(props) {
                 />
               </label>
             </div>
-
-            <Panel
-              title="File d'impression presse"
-              subtitle="Même logique que pour les bénévoles et les juges : mise en file, impression, puis historique du lot."
-            >
-              <div className="table-wrap">
-                <table className="data-table data-table--admin">
-                  <thead>
-                    <tr>
-                      <th>Personne</th>
-                      <th>Type</th>
-                      <th>Zones</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleQueuedPress.map((registration) => (
-                      <tr key={`press-queue-${registration.id}`}>
-                        <td>{`${registration.firstName || ""} ${registration.lastName || ""}`.trim() || registration.media || "—"}</td>
-                        <td>{PRESS_REQUEST_TYPE_LABELS[registration.requestType] || registration.requestType}</td>
-                        <td>
-                          {sortedZones
-                            .filter((zone) => (registration.zoneIds || []).includes(zone.id))
-                            .map((zone) => formatZoneLabel(zone))
-                            .join(", ") || "Aucune zone"}
-                        </td>
-                        <td>
-                          <button
-                            className="button button--ghost-danger button--small"
-                            type="button"
-                            onClick={() => updatePressPrintStatus(registration, "Non-imprimé")}
-                          >
-                            Retirer
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!queuedPress.length ? (
-                      <tr>
-                        <td colSpan="4">Aucun accrédité presse n'est actuellement dans la file d'impression.</td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-              {canShowMoreListItems("queued-press", queuedPress) ? (
-                <div className="list-progressive-actions">
-                  <button
-                    className="button button--secondary button--small"
-                    type="button"
-                    onClick={() => showMoreListItems("queued-press")}
-                  >
-                    Afficher 10 de plus
-                  </button>
-                </div>
-              ) : null}
-
-              <div className="table-actions table-actions--inline">
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={finalizePressPrintQueue}
-                  disabled={!queuedPress.length}
-                >
-                  Générer les 2 PDF ({queuedPress.length})
-                </button>
-              </div>
-            </Panel>
 
             <div className="table-wrap">
               <table className="data-table data-table--admin">
@@ -3161,26 +2996,12 @@ function AccreditationsPage(props) {
               </div>
             ) : null}
 
-            <Panel
-              title="Points de retrait utilisés pour la presse"
-              subtitle="La presse réutilise les mêmes points de retrait que les autres badges."
-            >
-              {pressUsedLocations.length ? (
-                <div className="accreditation-tag-list">
-                  {pressUsedLocations.map((loc) => (
-                    <span key={loc} className="accreditation-tag accreditation-tag--active">{loc}</span>
-                  ))}
-                </div>
-              ) : (
-                <p className="panel-note">Aucun badge presse n'est encore rangé.</p>
-              )}
-            </Panel>
           </Panel>
         </section>
       ) : canOperatePrinting && activeAccreditationTab === "print" ? (
         <section className="panel-grid panel-grid--2">
           <Panel
-            title="File d'impression"
+            title="File d'impression bénévoles"
             subtitle="Le lot génère deux sorties imprimables : badges et liste des impressions effectuées."
           >
             <div className="table-wrap">
@@ -3250,6 +3071,142 @@ function AccreditationsPage(props) {
 
             <div className="accreditation-print-note">
               Le premier document contient les badges à imprimer, le second la liste des badges imprimés pour le lot.
+            </div>
+          </Panel>
+
+          <Panel
+            title="File d'impression juges"
+            subtitle="Même logique que pour les bénévoles : mise en file, impression, puis historique du lot."
+          >
+            <div className="table-wrap">
+              <table className="data-table data-table--admin">
+                <thead>
+                  <tr>
+                    <th>Juge</th>
+                    <th>Libellé badge</th>
+                    <th>Zones</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleQueuedJudges.map((judge) => (
+                    <tr key={`judge-queue-${judge.id}`}>
+                      <td>{`${judge.firstName} ${judge.lastName}`.trim() || "Juge sans nom"}</td>
+                      <td>{judge.badgeLabel || "Judge"}</td>
+                      <td>
+                        {sortedZones
+                          .filter((zone) => judge.assignedZones.includes(zone.id))
+                          .map((zone) => formatZoneLabel(zone))
+                          .join(", ") || "Aucune zone"}
+                      </td>
+                      <td>
+                        <button
+                          className="button button--ghost-danger button--small"
+                          type="button"
+                          onClick={() => updateJudgePrintStatus(judge, "Non-imprimé")}
+                        >
+                          Retirer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!queuedJudges.length ? (
+                    <tr>
+                      <td colSpan="4">Aucun juge n'est actuellement dans la file d'impression.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            {canShowMoreListItems("queued-judges", queuedJudges) ? (
+              <div className="list-progressive-actions">
+                <button
+                  className="button button--secondary button--small"
+                  type="button"
+                  onClick={() => showMoreListItems("queued-judges")}
+                >
+                  Afficher 10 de plus
+                </button>
+              </div>
+            ) : null}
+
+            <div className="table-actions table-actions--inline">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={finalizeJudgePrintQueue}
+                disabled={!queuedJudges.length}
+              >
+                Générer les 2 PDF ({queuedJudges.length})
+              </button>
+            </div>
+          </Panel>
+
+          <Panel
+            title="File d'impression presse"
+            subtitle="Même logique que pour les bénévoles et les juges : mise en file, impression, puis historique du lot."
+          >
+            <div className="table-wrap">
+              <table className="data-table data-table--admin">
+                <thead>
+                  <tr>
+                    <th>Personne</th>
+                    <th>Type</th>
+                    <th>Zones</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleQueuedPress.map((registration) => (
+                    <tr key={`press-queue-${registration.id}`}>
+                      <td>{`${registration.firstName || ""} ${registration.lastName || ""}`.trim() || registration.media || "—"}</td>
+                      <td>{PRESS_REQUEST_TYPE_LABELS[registration.requestType] || registration.requestType}</td>
+                      <td>
+                        {sortedZones
+                          .filter((zone) => (registration.zoneIds || []).includes(zone.id))
+                          .map((zone) => formatZoneLabel(zone))
+                          .join(", ") || "Aucune zone"}
+                      </td>
+                      <td>
+                        <button
+                          className="button button--ghost-danger button--small"
+                          type="button"
+                          onClick={() => updatePressPrintStatus(registration, "Non-imprimé")}
+                        >
+                          Retirer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!queuedPress.length ? (
+                    <tr>
+                      <td colSpan="4">Aucun accrédité presse n'est actuellement dans la file d'impression.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            {canShowMoreListItems("queued-press", queuedPress) ? (
+              <div className="list-progressive-actions">
+                <button
+                  className="button button--secondary button--small"
+                  type="button"
+                  onClick={() => showMoreListItems("queued-press")}
+                >
+                  Afficher 10 de plus
+                </button>
+              </div>
+            ) : null}
+
+            <div className="table-actions table-actions--inline">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={finalizePressPrintQueue}
+                disabled={!queuedPress.length}
+              >
+                Générer les 2 PDF ({queuedPress.length})
+              </button>
             </div>
           </Panel>
 
