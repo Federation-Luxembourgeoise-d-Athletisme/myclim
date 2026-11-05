@@ -44,7 +44,7 @@
   .stage-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
   .stage-bar b { color: var(--ink); }
   .stage-bar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
-  .canvas { position: relative; margin: 0 auto; width: min(100%, 560px); aspect-ratio: 1872 / 2646; user-select: none; touch-action: none; }
+  .canvas { position: relative; margin: 0 auto; width: min(100%, 560px); aspect-ratio: 1415 / 2600; user-select: none; touch-action: none; }
   .plan-base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   .el { position: absolute; transform: translate(-50%, -50%); cursor: grab; white-space: nowrap; }
   .el.dragging { cursor: grabbing; z-index: 10; }
@@ -100,7 +100,8 @@
   .pv-grid { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
   .pv-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
   .pv-cap select { font: 600 13px Barlow, Arial, sans-serif; margin-left: 6px; padding: 3px 6px; border-radius: 6px; border: 1px solid #cfd8df; }
-  .mini { position: relative; aspect-ratio: 1872 / 2646; }
+  .mini { position: relative; aspect-ratio: 1415 / 2600; }
+  .mini.crop { aspect-ratio: 1415 / 2000; }
   .mini .el { cursor: default; }
   .mini .el.up::after { font-size: 6px; transform: translate(-50%, 1px); }
 
@@ -213,7 +214,11 @@
     el.kind === "zone" ? `<div class="zone" style="background:${color}">${el.num}</div>`
     : el.kind === "ctrl" ? `<div class="ctrl" style="background:${color}">${esc(el.label)}</div>`
     : `<div class="pill" style="background:${color}">${esc(el.label)}</div>`;
-  const placed = (el, inner) => `<div class="el${el.level === "etage" ? " up" : ""}" style="left:${el.x}%;top:${el.y}%">${inner}</div>`;
+  const placed = (el, inner, crop = false) => {
+    const { x, y } = planPos(el, crop);
+    if (y < 0 || y > 100) return "";
+    return `<div class="el${el.level === "etage" ? " up" : ""}" style="left:${x}%;top:${y}%">${inner}</div>`;
+  };
 
   // Légende d'un plan : zones (une ligne par numéro), repères, contrôles ; l'étage à part
   function legendItems(key) {
@@ -306,19 +311,20 @@
     const role = ROLES[pvRole];
     const badgeEls = elements.filter((el) => el.maps.acc).map((el) => {
       const color = el.kind === "zone" ? (role.zones.includes(el.num) ? role.color : "#c3ccd3") : colorOf(el);
-      return placed(el, marker(el, color));
+      return placed(el, marker(el, color), true);
     }).join("");
     const badge = `<div><div class="badge-back">
         <div class="strip" style="background:${role.color}"><span>${role.category}</span></div>
         <div class="main"><div class="h">Access zones</div>
-          <div class="plan-area"><div class="mini">${planBaseSvg({ infield: role.zones.includes(1) ? `${role.color}55` : undefined, warmup: role.zones.includes(2) ? `${role.color}55` : "#e6ebef" })}${badgeEls}</div></div></div></div>
+          <div class="plan-area"><div class="mini crop">${planBaseSvg({ crop: true, infield: role.zones.includes(1) ? `${role.color}55` : undefined, warmup: role.zones.includes(2) ? `${role.color}55` : "#e6ebef" })}${badgeEls}</div></div></div></div>
       <div class="pv-cap">Accréditations · verso de badge<select id="pv-role">${ROLES.map((r, i) => `<option value="${i}" ${i === pvRole ? "selected" : ""}>${r.category}</option>`).join("")}</select></div></div>`;
     const card = (key, cap) => {
       const [title, color] = MAP_HEAD[key];
-      const els = elements.filter((el) => el.maps[key]).map((el) => placed(el, marker(el))).join("");
+      const crop = key === "ctrl";
+      const els = elements.filter((el) => el.maps[key]).map((el) => placed(el, marker(el), crop)).join("");
       return `<div><div class="card">
           <div class="ph"><img src="${A}accreditation-meeting-principal.png" alt="" /><b style="background:${color}">${title}</b></div>
-          <div class="body"><div class="mini">${planBaseSvg()}${els}</div><div class="leg">${legendHtml(key)}</div></div>
+          <div class="body"><div class="mini${crop ? " crop" : ""}">${planBaseSvg({ crop })}${els}</div><div class="leg">${legendHtml(key)}</div></div>
           ${key === "web" ? `<div class="pf">${["accreditation-sponsor-cmcm.png", "fla-logo.png", "wa-indoor-tour-silver.png", "accreditation-sponsor-ville-luxembourg.png", "accreditation-sponsor-luxembourg.png"].map((f) => `<img src="${A}${f}" alt="" />`).join("")}</div>` : ""}
         </div><div class="pv-cap">${cap}</div></div>`;
     };
