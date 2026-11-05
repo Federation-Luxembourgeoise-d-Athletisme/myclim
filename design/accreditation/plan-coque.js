@@ -1,33 +1,59 @@
 // Plan de la Coque partagé par les maquettes (éditeur de plans et badges) : un seul jeu de repères.
 // Positions en % de l'image du plan 2026 (portrait : Warm-up en bas, entrée principale à droite).
-// a = plan des accréditations (verso des badges), s = plan spectateurs (venue map).
+// Chaque repère choisit sur quels plans il apparaît (maps) et à quel niveau il se trouve (level).
+// Sur le plan : un texte court (label). Le détail va dans la légende (desc).
 const PLAN_IMAGE = "assets/plan-coque-2026.png";
 const PLAN_RATIO = "1872 / 2646";
 const PLAN_ZONE_RED = "#c8102e";
-const PLAN_STORE = "myclim-maquette-plans";
+const PLAN_STORE = "myclim-maquette-plans-v2";
+
+// Les 4 plans dont on a besoin
+const PLAN_MAPS = [
+  { key: "web", short: "S", label: "Site internet", who: "Public : entrée et stands" },
+  { key: "vol", short: "B", label: "Bénévoles", who: "Pareil que le site + mise en place de l'entrée" },
+  { key: "acc", short: "A", label: "Accréditations", who: "Verso des badges : zones d'accès" },
+  { key: "ctrl", short: "C", label: "Points de contrôle", who: "Mise en place du contrôle des badges" },
+];
+const PLAN_LEVELS = { rdc: "Rez-de-chaussée", etage: "Étage" };
+
+const on = (...keys) => Object.fromEntries(PLAN_MAPS.map((m) => [m.key, keys.includes(m.key)]));
+
 const PLAN_DEFAULT_ELEMENTS = [
-  { id: "z1", kind: "zone", num: 1, label: "Infield", x: 35.3, y: 50, a: true, s: false },
-  { id: "z2", kind: "zone", num: 2, label: "Warm-up", x: 23, y: 85, a: true, s: false },
-  { id: "z3a", kind: "zone", num: 3, label: "Coaching Zone", x: 16.4, y: 50, a: true, s: false },
-  { id: "z3b", kind: "zone", num: 3, label: "Coaching Zone", x: 54.6, y: 44, a: true, s: false },
-  { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", x: 54.6, y: 62, a: true, s: false },
-  { id: "z4", kind: "zone", num: 4, label: "Judges Room", x: 58.4, y: 58.5, a: true, s: false },
-  { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", x: 54.4, y: 52, a: true, s: false },
-  { id: "z6", kind: "zone", num: 6, label: "VIP Zone", x: 61.5, y: 35, a: true, s: false },
-  { id: "m1", kind: "mark", label: "Main Entrance", color: "#0f8a5f", x: 80, y: 58, a: true, s: true },
-  { id: "m2", kind: "mark", label: "Bar", color: "#e5719a", x: 36, y: 15, a: false, s: true },
-  { id: "m3", kind: "mark", label: "Drink cards", color: "#e5719a", x: 69, y: 47, a: false, s: true },
-  { id: "m4", kind: "mark", label: "Signing Zone", color: "#6b7a86", x: 63, y: 26, a: false, s: true },
-  { id: "m5", kind: "mark", label: "Athletics workshop", color: "#e30613", x: 47, y: 9, a: false, s: true },
-  { id: "m6", kind: "mark", label: "First aid", color: "#e30613", x: 23, y: 29, a: true, s: true },
-  { id: "m7", kind: "mark", label: "VIP Welcome", color: "#b8912a", x: 74, y: 66, a: true, s: false },
-  { id: "m8", kind: "mark", label: "Volunteers · Judges · Press welcome", color: "#27a9e1", x: 73, y: 71, a: true, s: false },
-  { id: "c1", kind: "ctrl", label: "A", color: "#0a2540", x: 76, y: 63, a: true, s: false },
-  { id: "c2", kind: "ctrl", label: "B", color: "#0a2540", x: 63.6, y: 49, a: true, s: false },
-  { id: "c3", kind: "ctrl", label: "C", color: "#0a2540", x: 62, y: 55, a: true, s: false },
-  { id: "c4", kind: "ctrl", label: "D", color: "#0a2540", x: 61.5, y: 41, a: true, s: false },
-  { id: "c5", kind: "ctrl", label: "E", color: "#0a2540", x: 56, y: 67, a: true, s: false },
-  { id: "c6", kind: "ctrl", label: "F", color: "#0a2540", x: 17.7, y: 79, a: true, s: false },
+  // Zones d'accès (numéros du badge)
+  { id: "z1", kind: "zone", num: 1, label: "Infield", level: "rdc", x: 35.3, y: 50, maps: on("acc", "ctrl") },
+  { id: "z2", kind: "zone", num: 2, label: "Warm-up", level: "rdc", x: 23, y: 85, maps: on("acc", "ctrl") },
+  { id: "z3a", kind: "zone", num: 3, label: "Coaching Zone", level: "rdc", x: 16.4, y: 50, maps: on("acc", "ctrl") },
+  { id: "z3b", kind: "zone", num: 3, label: "Coaching Zone", level: "rdc", x: 54.6, y: 44, maps: on("acc", "ctrl") },
+  { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", level: "rdc", x: 54.6, y: 62, maps: on("acc", "ctrl") },
+  { id: "z4", kind: "zone", num: 4, label: "Judges Room", level: "rdc", x: 58.4, y: 58.5, maps: on("acc", "ctrl") },
+  { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", level: "rdc", x: 54.4, y: 52, maps: on("acc", "ctrl") },
+  { id: "z6", kind: "zone", num: 6, label: "VIP Zone", level: "etage", x: 61.5, y: 35, maps: on("acc", "ctrl") },
+
+  // Entrée : un mot sur le plan, le détail dans la légende
+  { id: "m1", kind: "mark", label: "Entrée", desc: "Entrée principale (public)", color: "#0f8a5f", level: "rdc", x: 86, y: 61, maps: on("web", "vol", "acc") },
+  { id: "m9", kind: "mark", label: "Caisse", desc: "Billetterie sur place", color: "#0f8a5f", level: "rdc", x: 86, y: 53, maps: on("vol") },
+  { id: "m10", kind: "mark", label: "Billets", desc: "Contrôle des billets du public", color: "#0f8a5f", level: "rdc", x: 71, y: 55, maps: on("vol") },
+  { id: "m7", kind: "mark", label: "VIP", desc: "Accueil VIP et retrait des badges VIP", color: "#b8912a", level: "rdc", x: 76, y: 66, maps: on("vol") },
+  { id: "m8", kind: "mark", label: "Staff", desc: "Accueil bénévoles, juges et presse, retrait des badges", color: "#27a9e1", level: "rdc", x: 74, y: 72, maps: on("vol", "acc") },
+
+  // Stands et services
+  { id: "m2", kind: "mark", label: "Bar", desc: "Bar", color: "#e5719a", level: "rdc", x: 36, y: 15, maps: on("web", "vol") },
+  { id: "m3", kind: "mark", label: "Jetons", desc: "Vente des cartes boissons", color: "#e5719a", level: "rdc", x: 69, y: 47, maps: on("web", "vol") },
+  { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", x: 63, y: 26, maps: on("web", "vol") },
+  { id: "m5", kind: "mark", label: "Atelier", desc: "Athletics workshop pour les enfants", color: "#e30613", level: "rdc", x: 47, y: 9, maps: on("web", "vol") },
+  { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours", color: "#e30613", level: "rdc", x: 23, y: 29, maps: on("web", "vol", "acc") },
+
+  // Étage : on y monte par le haut des gradins
+  { id: "m11", kind: "mark", label: "↑ Étage", desc: "Accès à l'étage par le haut des gradins", color: "#4a5d6c", level: "rdc", x: 72, y: 31, maps: on("web", "vol", "acc") },
+  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027)", color: "#27a9e1", level: "etage", x: 70, y: 22, maps: on("vol", "acc") },
+
+  // Points de contrôle des badges
+  { id: "c1", kind: "ctrl", label: "A", desc: "", color: "#0a2540", level: "rdc", x: 76, y: 63, maps: on("ctrl") },
+  { id: "c2", kind: "ctrl", label: "B", desc: "", color: "#0a2540", level: "rdc", x: 63.6, y: 49, maps: on("ctrl") },
+  { id: "c3", kind: "ctrl", label: "C", desc: "", color: "#0a2540", level: "rdc", x: 62, y: 55, maps: on("ctrl") },
+  { id: "c4", kind: "ctrl", label: "D", desc: "", color: "#0a2540", level: "rdc", x: 61.5, y: 41, maps: on("ctrl") },
+  { id: "c5", kind: "ctrl", label: "E", desc: "", color: "#0a2540", level: "rdc", x: 56, y: 67, maps: on("ctrl") },
+  { id: "c6", kind: "ctrl", label: "F", desc: "", color: "#0a2540", level: "rdc", x: 17.7, y: 79, maps: on("ctrl") },
 ];
 
 // Plan simplifié, redessiné d'après le plan d'architecte 2026 sur la même grille (1415 x 2000) :

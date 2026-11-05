@@ -78,6 +78,8 @@
   .pz.on { color: #fff; border: .45mm solid #fff; box-shadow: 0 0 0 .2mm rgba(0,0,0,.25); }
   .pc { width: 3.6mm; height: 3.6mm; border-radius: .8mm; background: #0a2540; color: #fff; font: 800 6.5pt/1 "Barlow Condensed", Arial, sans-serif; }
   .pm { padding: .5mm 1.4mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Barlow, Arial, sans-serif; }
+  /* À l'étage : contour violet en pointillés, comme dans l'éditeur de plans */
+  .pt.up > i { outline: .35mm dashed #7a4fd0; outline-offset: .3mm; }
 
   /* Fond du recto (au choix dans l'en-tête) : motif très léger dans la couleur de la catégorie */
   .main { position: relative; z-index: 1; }
@@ -298,13 +300,13 @@
   // Les zones autorisées prennent la couleur de la catégorie, les autres restent grises.
   const planSvg = (p) => {
     const cat = CATEGORIES[p.category];
-    const markers = loadPlanElements().filter((el) => el.a).map((el) => {
+    const markers = loadPlanElements().filter((el) => el.maps?.acc).map((el) => {
       const on = el.kind === "zone" && p.zones.includes(el.num);
       const inner = el.kind === "zone"
         ? `<i class="pz${on ? " on" : ""}" style="${on ? `background:${cat}` : ""}">${el.num}</i>`
         : el.kind === "ctrl" ? `<i class="pc">${el.label}</i>`
         : `<i class="pm" style="background:${el.color}">${el.label}</i>`;
-      return `<span class="pt" style="left:${el.x}%;top:${el.y}%">${inner}</span>`;
+      return `<span class="pt${el.level === "etage" ? " up" : ""}" style="left:${el.x}%;top:${el.y}%">${inner}</span>`;
     }).join("");
     const base = planBaseSvg({
       infield: p.zones.includes(1) ? `${cat}40` : "#eef1f4",
