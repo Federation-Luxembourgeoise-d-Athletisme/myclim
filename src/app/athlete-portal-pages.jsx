@@ -1206,7 +1206,7 @@ function AthletePortalOverview({ Panel }) {
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats">Meeting results</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/records">Meeting records</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/hall-of-winners">Hall of winners</NavLink>}
-            {isAdmin && <NavLink className="button button--secondary button-link" to="/app/athlete-portal/settings">Portal settings</NavLink>}
+            {isAdmin && <NavLink className="button button--secondary button-link" to="/app/reglages/portail-athletes">Portal settings</NavLink>}
           </div>
         </Panel>
       </section>

@@ -53,6 +53,7 @@ const LEGACY_APP_REDIRECTS = {
   "roles": APP_ROUTES.users,
   "invitations": "/app/utilisateurs/inviter",
   "certificat": APP_ROUTES.settings,
+  "athlete-portal/settings": "/app/reglages/portail-athletes",
   "profil": APP_ROUTES.account,
   "equipe": APP_ROUTES.myTeam,
   "communication/taches": APP_ROUTES.tasks,
