@@ -240,6 +240,7 @@ const ENTRIES_TABS = [
 const SETTINGS_TABS = [
   { to: "/app/reglages", end: true, label: "Certificat bénévole" },
   { to: "/app/reglages/portail-athletes", label: "Portail athlètes" },
+  { to: "/app/reglages/maintenance", label: "Maintenance" },
 ];
 
 const MY_ASSIGNMENTS_TABS = [
@@ -323,8 +324,8 @@ function TeamsPage() {
   );
 }
 
-function RoleManagementPage() {
-  return <RoleManagementPageScreen AuthFormField={AuthFormField} Panel={Panel} />;
+function RoleManagementPage({ maintenance }) {
+  return <RoleManagementPageScreen AuthFormField={AuthFormField} Panel={Panel} maintenance={maintenance} />;
 }
 
 function CertificateSettingsPage() {
@@ -378,8 +379,8 @@ function AthletePortalSettingsPage() {
   return <AthletePortalSettingsPageScreen Panel={Panel} />;
 }
 
-function AthleteRegistryPage() {
-  return <AthleteRegistryPageScreen Panel={Panel} />;
+function AthleteRegistryPage({ maintenance }) {
+  return <AthleteRegistryPageScreen Panel={Panel} maintenance={maintenance} />;
 }
 
 function AthleteTransportChiefPage() {
@@ -390,8 +391,28 @@ function AthleteTransportVolunteerPage() {
   return <AthleteTransportVolunteerPageScreen Panel={Panel} />;
 }
 
-function MeetingHistoryPage() {
-  return <MeetingHistoryPageScreen Panel={Panel} />;
+function MeetingHistoryPage({ maintenance }) {
+  return <MeetingHistoryPageScreen Panel={Panel} maintenance={maintenance} />;
+}
+
+// Réglages › Maintenance : les outils qui suppriment ou réécrivent des
+// données, sortis des pages de tous les jours.
+function MaintenancePage() {
+  return (
+    <div className="page">
+      <section className="page-header">
+        <div>
+          <p>Outils à utiliser avec précaution : ils suppriment ou réécrivent des données. Chacun demande une confirmation.</p>
+        </div>
+      </section>
+      <h3>Profils en doublon</h3>
+      <RoleManagementPage maintenance="only" />
+      <h3>Base athlètes</h3>
+      <AthleteRegistryPage maintenance="only" />
+      <h3>Résultats du meeting : import et données historiques</h3>
+      <MeetingHistoryPage maintenance="only" />
+    </div>
+  );
 }
 
 function MeetingRecordsPage() {
@@ -581,12 +602,13 @@ export default function App() {
               ))}
               <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
                 <Route path="utilisateurs" element={<TabbedPage eyebrowKey="navSectionAdministration" titleKey="navUsersRoles" title="Utilisateurs & rôles" tabs={USERS_TABS} />}>
-                  <Route index element={<RoleManagementPage />} />
+                  <Route index element={<RoleManagementPage maintenance="hide" />} />
                   <Route path="inviter" element={<InvitationAdminPage />} />
                 </Route>
                 <Route path="reglages" element={<TabbedPage eyebrowKey="navSectionAdministration" titleKey="navSettings" title="Réglages" tabs={SETTINGS_TABS} />}>
                   <Route index element={<CertificateSettingsPage />} />
                   <Route path="portail-athletes" element={<AthletePortalSettingsPage />} />
+                  <Route path="maintenance" element={<MaintenancePage />} />
                 </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "budget"]} />}>
@@ -674,10 +696,10 @@ export default function App() {
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
                 <Route path="resultats" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navResultsRecords" title="Résultats & records" tabs={RESULTS_TABS} />}>
-                  <Route index element={<MeetingHistoryPage />} />
+                  <Route index element={<MeetingHistoryPage maintenance="hide" />} />
                   <Route path="records" element={<MeetingRecordsPage />} />
                   <Route path="hall-of-winners" element={<MeetingWinnersPage />} />
-                  <Route path="base-athletes" element={<AthleteRegistryPage />} />
+                  <Route path="base-athletes" element={<AthleteRegistryPage maintenance="hide" />} />
                 </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>

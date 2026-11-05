@@ -3962,7 +3962,8 @@ function AthletePortalSettingsPage({ Panel }) {
 
 // ─── Athlete Registry page ────────────────────────────────────────────────────
 
-function AthleteRegistryPage({ Panel }) {
+// maintenance : "hide" (onglet Base athlètes) ou "only" (Réglages › Maintenance).
+function AthleteRegistryPage({ Panel, maintenance }) {
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const canAccess = canAccessStatistics(roles);
@@ -4283,6 +4284,81 @@ function AthleteRegistryPage({ Panel }) {
     );
   }
 
+  const maintenancePanel = (
+    <Panel title="Maintenance" subtitle="Rebuild the historical athlete registry from the corrected meeting results">
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <p className="panel-note" style={{ margin: 0 }}>
+          Cette action vide complètement <code>athleteRegistry</code>, puis le reconstruit à partir de
+          <code> meetingResults.json</code>. « Séparer les homonymes » ne touche qu'aux fiches qui mélangent
+          deux athlètes du même nom et garde toutes les fusions déjà faites.
+        </p>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            className="button button--danger"
+            disabled={rebuilding}
+            onClick={async () => {
+              if (!window.confirm(`Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?\n\nATTENTION : ${withWaidCount} fiche(s) ont un WAID et toutes les fusions seront perdues.`)) return;
+              setRebuildLog([]);
+              setRebuilding(true);
+              try {
+                const summary = await rebuildAthleteRegistryFromHistoricalResults((msg) => {
+                  setRebuildLog((prev) => [...prev, msg]);
+                });
+                setRebuildLog((prev) => [
+                  ...prev,
+                  `✅ Base athlètes reconstruite : ${summary.deleted} supprimés, ${summary.written} recréés, source ${summary.sourceRows} lignes.`,
+                ]);
+              } catch (error) {
+                setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
+              } finally {
+                setRebuilding(false);
+              }
+            }}
+          >
+            {rebuilding ? "Reconstruction…" : "Vider et reconstruire la base athlètes"}
+          </button>
+          <button
+            className="button button--secondary"
+            disabled={rebuilding}
+            onClick={async () => {
+              if (!window.confirm("Séparer les homonymes (même nom, années de naissance différentes dans meetingResults.json) ?\n\nLes autres fiches et les fusions déjà faites ne sont pas touchées.")) return;
+              setRebuildLog([]);
+              setRebuilding(true);
+              try {
+                await splitHistoricalHomonyms((msg) => {
+                  setRebuildLog((prev) => [...prev, msg]);
+                });
+                setRebuildLog((prev) => [...prev, "✅ Séparation terminée."]);
+              } catch (error) {
+                setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
+              } finally {
+                setRebuilding(false);
+              }
+            }}
+          >
+            Séparer les homonymes
+          </button>
+        </div>
+        {rebuildLog.length > 0 ? (
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "0.9rem 1rem",
+              fontFamily: "monospace",
+              fontSize: "0.82rem",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {rebuildLog.join("\n")}
+          </div>
+        ) : null}
+      </div>
+    </Panel>
+  );
+  if (maintenance === "only") return maintenancePanel;
+
   return (
     <div className="page">
       <section className="page-header">
@@ -4297,77 +4373,7 @@ function AthleteRegistryPage({ Panel }) {
       </section>
 
       <section className="panel-grid panel-grid--1">
-        <Panel title="Maintenance" subtitle="Rebuild the historical athlete registry from the corrected meeting results">
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <p className="panel-note" style={{ margin: 0 }}>
-              Cette action vide complètement <code>athleteRegistry</code>, puis le reconstruit à partir de
-              <code> meetingResults.json</code>. « Séparer les homonymes » ne touche qu'aux fiches qui mélangent
-              deux athlètes du même nom et garde toutes les fusions déjà faites.
-            </p>
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-              <button
-                className="button button--danger"
-                disabled={rebuilding}
-                onClick={async () => {
-                  if (!window.confirm(`Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?\n\nATTENTION : ${withWaidCount} fiche(s) ont un WAID et toutes les fusions seront perdues.`)) return;
-                  setRebuildLog([]);
-                  setRebuilding(true);
-                  try {
-                    const summary = await rebuildAthleteRegistryFromHistoricalResults((msg) => {
-                      setRebuildLog((prev) => [...prev, msg]);
-                    });
-                    setRebuildLog((prev) => [
-                      ...prev,
-                      `✅ Base athlètes reconstruite : ${summary.deleted} supprimés, ${summary.written} recréés, source ${summary.sourceRows} lignes.`,
-                    ]);
-                  } catch (error) {
-                    setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
-                  } finally {
-                    setRebuilding(false);
-                  }
-                }}
-              >
-                {rebuilding ? "Reconstruction…" : "Vider et reconstruire la base athlètes"}
-              </button>
-              <button
-                className="button button--secondary"
-                disabled={rebuilding}
-                onClick={async () => {
-                  if (!window.confirm("Séparer les homonymes (même nom, années de naissance différentes dans meetingResults.json) ?\n\nLes autres fiches et les fusions déjà faites ne sont pas touchées.")) return;
-                  setRebuildLog([]);
-                  setRebuilding(true);
-                  try {
-                    await splitHistoricalHomonyms((msg) => {
-                      setRebuildLog((prev) => [...prev, msg]);
-                    });
-                    setRebuildLog((prev) => [...prev, "✅ Séparation terminée."]);
-                  } catch (error) {
-                    setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
-                  } finally {
-                    setRebuilding(false);
-                  }
-                }}
-              >
-                Séparer les homonymes
-              </button>
-            </div>
-            {rebuildLog.length > 0 ? (
-              <div
-                style={{
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 14,
-                  padding: "0.9rem 1rem",
-                  fontFamily: "monospace",
-                  fontSize: "0.82rem",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {rebuildLog.join("\n")}
-              </div>
-            ) : null}
-          </div>
-        </Panel>
+        {maintenance === "hide" ? null : maintenancePanel}
 
         <Panel
           title="Doublons probables"

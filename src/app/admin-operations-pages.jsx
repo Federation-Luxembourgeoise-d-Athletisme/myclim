@@ -194,8 +194,9 @@ function buildDuplicateUserGroups(users) {
     .sort((left, right) => left.email.localeCompare(right.email, "fr"));
 }
 
+// maintenance : "hide" (Utilisateurs & rôles) ou "only" (Réglages › Maintenance).
 function RoleManagementPage(props) {
-  const { AuthFormField, Panel } = props;
+  const { AuthFormField, Panel, maintenance } = props;
   const { currentUser, deletePlatformUser, userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const hasAdminRole = roles.includes("admin");
@@ -646,6 +647,72 @@ function RoleManagementPage(props) {
       : "Équipe avec des accès élevés";
   const roleFilterOptions = [...orderedRoleOptions].reverse();
 
+  const duplicatesPanel = (
+    <details className="panel access-details" open={maintenance === "only"}>
+      <summary>
+        <h3>Maintenance : profils en doublon</h3>
+        <p>Détecte les profils en double pour une même adresse e-mail et archive ceux qui ne sont pas liés au compte de connexion.</p>
+      </summary>
+      <div className="button-row">
+        <button
+          className="button button--secondary"
+          type="button"
+          disabled={duplicatesLoading || isCleaningDuplicates}
+          onClick={analyzeDuplicateUsers}
+        >
+          {duplicatesLoading ? "Analyse..." : "Analyser les doublons"}
+        </button>
+        <button
+          className="button button--danger-soft"
+          type="button"
+          disabled={!duplicateGroups.length || duplicatesLoading || isCleaningDuplicates}
+          onClick={cleanupDuplicateUsers}
+        >
+          {isCleaningDuplicates ? "Nettoyage..." : "Archiver et supprimer les doublons"}
+        </button>
+      </div>
+      <p className="panel-note">
+        Règle : on garde le profil lié au compte de connexion (sinon le plus récent) et on archive les autres dans
+        `usersCleanupArchive` avant suppression.
+      </p>
+      {duplicateGroups.length ? (
+        <div className="table-wrap">
+          <table className="data-table data-table--admin">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Profil conservé</th>
+                <th>Profils supprimés</th>
+              </tr>
+            </thead>
+            <tbody>
+              {duplicateGroups.map((group) => (
+                <tr key={group.email}>
+                  <td>{group.email}</td>
+                  <td>
+                    <strong>{getDisplayName(group.keptUser, group.email)}</strong>
+                    <br />
+                    <span className="panel-note">{group.keptUser.id}</span>
+                  </td>
+                  <td>
+                    {group.removedUsers.map((user) => (
+                      <div key={user.id}>
+                        <strong>{getDisplayName(user, group.email)}</strong>
+                        <br />
+                        <span className="panel-note">{user.id}</span>
+                      </div>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </details>
+  );
+  if (maintenance === "only") return duplicatesPanel;
+
   return (
     <div className="page access-page">
       <section className="page-header">
@@ -916,68 +983,7 @@ function RoleManagementPage(props) {
         </div>
       </Panel>
 
-      <details className="panel access-details">
-        <summary>
-          <h3>Maintenance : profils en doublon</h3>
-          <p>Détecte les profils en double pour une même adresse e-mail et archive ceux qui ne sont pas liés au compte de connexion.</p>
-        </summary>
-        <div className="button-row">
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={duplicatesLoading || isCleaningDuplicates}
-            onClick={analyzeDuplicateUsers}
-          >
-            {duplicatesLoading ? "Analyse..." : "Analyser les doublons"}
-          </button>
-          <button
-            className="button button--danger-soft"
-            type="button"
-            disabled={!duplicateGroups.length || duplicatesLoading || isCleaningDuplicates}
-            onClick={cleanupDuplicateUsers}
-          >
-            {isCleaningDuplicates ? "Nettoyage..." : "Archiver et supprimer les doublons"}
-          </button>
-        </div>
-        <p className="panel-note">
-          Règle : on garde le profil lié au compte de connexion (sinon le plus récent) et on archive les autres dans
-          `usersCleanupArchive` avant suppression.
-        </p>
-        {duplicateGroups.length ? (
-          <div className="table-wrap">
-            <table className="data-table data-table--admin">
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>Profil conservé</th>
-                  <th>Profils supprimés</th>
-                </tr>
-              </thead>
-              <tbody>
-                {duplicateGroups.map((group) => (
-                  <tr key={group.email}>
-                    <td>{group.email}</td>
-                    <td>
-                      <strong>{getDisplayName(group.keptUser, group.email)}</strong>
-                      <br />
-                      <span className="panel-note">{group.keptUser.id}</span>
-                    </td>
-                    <td>
-                      {group.removedUsers.map((user) => (
-                        <div key={user.id}>
-                          <strong>{getDisplayName(user, group.email)}</strong>
-                          <br />
-                          <span className="panel-note">{user.id}</span>
-                        </div>
-                      ))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </details>
+      {maintenance === "hide" ? null : duplicatesPanel}
     </div>
   );
 }
