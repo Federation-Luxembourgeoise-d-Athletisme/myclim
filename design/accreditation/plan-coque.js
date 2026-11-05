@@ -54,10 +54,13 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, après la buvette", color: "#e30613", level: "rdc", ...at(590, 372), maps: on("web", "vol") },
   { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours", color: "#e30613", level: "rdc", ...at(190, 400), maps: on("web", "vol", "acc") },
 
-  // Toilettes publiques (plan d'architecte : bâtiment de la buvette et bâtiment des salons)
-  { id: "w1", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(420, 262), maps: on("web", "vol") },
-  { id: "w2", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 690), maps: on("web", "vol") },
-  { id: "w3", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 1010), maps: on("web", "vol") },
+  // Toilettes publiques, aux emplacements du plan d'architecte (niveau arcades) :
+  // bâtiment de la buvette (deux côtés), derrière la tribune côté hall (deux blocs), bâtiment du bas
+  { id: "w1", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(362, 268), maps: on("web", "vol") },
+  { id: "w5", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(478, 268), maps: on("web", "vol") },
+  { id: "w2", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(728, 705), maps: on("web", "vol") },
+  { id: "w3", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(728, 915), maps: on("web", "vol") },
+  { id: "w4", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(420, 1400), maps: on("web", "vol") },
 
   // Galerie (R+1) : les VIP entrent par la porte du salon de presse, les bénévoles par l'escalier en colimaçon de la buvette
   { id: "m11", kind: "mark", label: "↑ Galerie VIP", desc: "Entrée des VIP vers la galerie (R+1), par la porte du salon de presse", color: "#b8912a", level: "rdc", ...at(705, 575), maps: on("vol", "acc") },
@@ -111,13 +114,11 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="M560 78 A40 36 0 0 0 640 78 M538 78 A62 60 0 0 0 662 78 M515 78 A85 85 0 0 0 685 78" fill="none" stroke="#c3ccd3" stroke-width="3" />
     ${label(600, 208, "AMPHITHÉÂTRE", 20)}
 
-    <!-- Bâtiments : buvette (en haut), vestiaires (en bas), salons VIP / presse (droite, niveau arcades seulement) -->
+    <!-- Bâtiments : buvette (en haut) et bâtiment du bas -->
     <path d="M420 150 L548 305 L292 305 Z" fill="#d5dde3" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
     <circle cx="420" cy="205" r="20" fill="#fff" stroke="#9aa8b3" stroke-width="3" />
     <path d="M420 205 L420 187 M420 205 L436 214 M420 205 L404 214" stroke="#9aa8b3" stroke-width="3" />
     <path d="M300 1335 L540 1335 L420 1500 Z" fill="#d5dde3" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
-    ${label(420, 1395, "VESTIAIRES", 20)}
-    <rect x="700" y="610" width="64" height="470" rx="6" fill="#d5dde3" stroke="#9aa8b3" stroke-width="3" />
 
     <!-- Tribunes : anneau avec passages aux deux bouts -->
     <path d="${oval(272)}" fill="#c9d3db" />
