@@ -54,6 +54,9 @@
   .pill { padding: 5px 10px; border-radius: 999px; color: #fff; font: 700 13px/1 Barlow, Arial, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,.25); border: 2px solid #fff; }
   /* Flèche d'entrée : montre par où on entre (orientable) */
   .door { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: #fff; font: 900 15px/1 Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  /* Zone de stand : un espace (rectangle arrondi, pointillé), son nom au milieu */
+  .area { width: 100%; height: 100%; box-sizing: border-box; border-radius: 12px; border: 2px dashed; display: grid; place-items: center; text-align: center; font: 800 11px/1.05 Barlow, Arial, sans-serif; padding: 2px; overflow: visible; white-space: nowrap; }
+  .mini .area, .badge-back .area { font-size: 7px; border-width: 1px; border-radius: 6px; }
   .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   /* À l'étage : contour violet en pointillés + petite étiquette */
 
@@ -154,6 +157,7 @@
     <h2>Éléments du plan</h2>
     <div id="list"></div>
     <button class="add" id="add">+ Ajouter un repère</button>
+    <button class="add" id="add-area" style="margin-top:6px">+ Ajouter une zone de stand</button>
     <button class="add" id="add-door" style="margin-top:6px">+ Ajouter une flèche d'entrée</button>
     <button class="add" id="reset" style="border-style:solid;margin-top:6px">Revenir au plan de départ</button>
     <div class="legend-vis" id="legend-vis"></div>
@@ -204,7 +208,7 @@
     { category: "Press", color: "#5b2bb5", zones: [5] },
     { category: "Volunteer", color: "#27a9e1", zones: [] },
   ];
-  const GROUPS = [["zone", "Zones d'accès"], ["mark", "Repères"], ["door", "Flèches d'entrée"], ["ctrl", "Points de contrôle"]];
+  const GROUPS = [["zone", "Zones d'accès"], ["area", "Zones de stand"], ["mark", "Repères"], ["door", "Flèches d'entrée"], ["ctrl", "Points de contrôle"]];
   const MAP_HEAD = { web: ["VENUE MAP", "#e30613"], vol: ["PLAN BÉNÉVOLES", "#27a9e1"], ctrl: ["POINTS DE CONTRÔLE", "#0a2540"] };
 
   let elements = loadPlanElements();
@@ -219,12 +223,15 @@
   const marker = (el, color = colorOf(el)) =>
     el.kind === "zone" ? `<div class="zone" style="background:${color}">${el.num}</div>`
     : el.kind === "ctrl" ? `<div class="ctrl" style="background:${color}">${esc(el.label)}</div>`
+    : el.kind === "area" ? `<div class="area" style="background:${color}1f;border-color:${color};color:${color}">${esc(el.label)}</div>`
     : el.kind === "door" ? `<div class="door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></div>`
     : `<div class="pill" style="background:${color}">${esc(el.label)}</div>`;
+  const sizeOf = (el, crop = false) => (el.kind === "area" ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;` : "");
+  const areasFirst = (list) => [...list.filter((el) => el.kind === "area"), ...list.filter((el) => el.kind !== "area")];
   const placed = (el, inner, crop = false) => {
     const { x, y } = planPos(el, crop);
     if (y < 0 || y > 100) return "";
-    return `<div class="el" style="left:${x}%;top:${y}%">${inner}</div>`;
+    return `<div class="el" style="left:${x}%;top:${y}%;${sizeOf(el, crop)}">${inner}</div>`;
   };
 
   // Légende d'un plan : zones (une ligne par numéro), repères, contrôles ; l'étage à part
@@ -259,13 +266,14 @@
     const canvas = document.getElementById("canvas");
     canvas.querySelectorAll(".el").forEach((node) => node.remove());
     const showGhosts = document.getElementById("ghosts").checked;
-    elements.forEach((el) => {
+    areasFirst(elements).forEach((el) => {
       const visible = el.maps[map];
       if (!visible && !showGhosts) return;
       const node = document.createElement("div");
       node.className = `el${visible ? "" : " ghost"}${el.id === selectedId ? " sel" : ""}`;
       node.style.left = `${el.x}%`;
       node.style.top = `${el.y}%`;
+      if (el.kind === "area") { node.style.width = `${(el.w / PLAN_W) * 100}%`; node.style.height = `${(el.h / PLAN_H) * 100}%`; }
       node.dataset.id = el.id;
       node.innerHTML = marker(el);
       canvas.appendChild(node);
@@ -301,11 +309,12 @@
       ? `<label class="field">Zone<select data-f="num">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<option ${n === el.num ? "selected" : ""}>${n}</option>`).join("")}</select></label>`
       : "";
     const descField = el.kind === "zone" ? "" : `<label class="field">${el.kind === "ctrl" ? "Ce qu'on contrôle ici" : "Légende"} <small>${el.kind === "ctrl" ? "ex. accès Infield et Warm-up" : "le détail, affiché à côté du plan"}</small><textarea data-f="desc">${esc(el.desc)}</textarea></label>`;
+    const sizeField = el.kind === "area" ? `<div class="field">Taille <small>en unités du plan (la piste fait environ 380 de large)</small><div style="display:flex;gap:8px"><input type="text" data-f="w" value="${el.w}" style="width:80px" /> × <input type="text" data-f="h" value="${el.h}" style="width:80px" /></div></div>` : "";
     const angleField = el.kind === "door" ? `<label class="field">Direction <small>0 = vers la droite, 90 = vers le bas, 180 = vers la gauche, 270 = vers le haut</small><input type="text" data-f="angle" value="${el.angle || 0}" /></label>` : "";
-    box.innerHTML = `<h2>${el.kind === "zone" ? "Zone d'accès" : el.kind === "ctrl" ? "Point de contrôle" : el.kind === "door" ? "Flèche d'entrée" : "Repère"}</h2>
-      ${angleField}
+    box.innerHTML = `<h2>${el.kind === "zone" ? "Zone d'accès" : el.kind === "ctrl" ? "Point de contrôle" : el.kind === "door" ? "Flèche d'entrée" : el.kind === "area" ? "Zone de stand" : "Repère"}</h2>
+      ${angleField}${sizeField}
       ${zoneField}
-      <label class="field">${el.kind === "zone" ? "Nom de la zone" : "Texte sur le plan"} <small>${el.kind === "mark" ? "1 ou 2 mots" : ""}</small><input type="text" data-f="label" maxlength="${el.kind === "mark" ? 14 : 30}" value="${esc(el.label)}" /></label>
+      <label class="field">${el.kind === "zone" ? "Nom de la zone" : "Texte sur le plan"} <small>${el.kind === "mark" ? "1 ou 2 mots" : ""}</small><input type="text" data-f="label" maxlength="${el.kind === "mark" || el.kind === "area" ? 16 : 30}" value="${esc(el.label)}" /></label>
       ${descField}
       <label class="field">Niveau<select data-f="level">${Object.entries(PLAN_LEVELS).map(([k, l]) => `<option value="${k}" ${k === el.level ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       ${el.kind === "zone" ? "" : `<div class="field">Couleur<div class="colors">${PALETTE.map((c) => `<button data-color="${c}" class="${c === el.color ? "on" : ""}" style="background:${c}"></button>`).join("")}</div></div>`}
@@ -323,7 +332,7 @@
 
   function renderPreviews() {
     const role = ROLES[pvRole];
-    const badgeEls = elements.filter((el) => el.maps.acc).map((el) => {
+    const badgeEls = areasFirst(elements.filter((el) => el.maps.acc)).map((el) => {
       const color = el.kind === "zone" ? (role.zones.includes(el.num) ? role.color : "#c3ccd3") : colorOf(el);
       return placed(el, marker(el, color), true);
     }).join("");
@@ -335,7 +344,7 @@
     const card = (key, cap) => {
       const [title, color] = MAP_HEAD[key];
       const crop = key === "ctrl";
-      const els = elements.filter((el) => el.maps[key]).map((el) => placed(el, marker(el), crop)).join("");
+      const els = areasFirst(elements.filter((el) => el.maps[key])).map((el) => placed(el, marker(el), crop)).join("");
       return `<div><div class="card">
           <div class="ph"><img src="${A}accreditation-meeting-principal.png" alt="" /><b style="background:${color}">${title}</b></div>
           <div class="body"><div class="mini${crop ? " crop" : ""}">${planBaseSvg({ crop })}${els}</div><div class="leg">${legendHtml(key)}</div></div>
@@ -395,7 +404,7 @@
     if (!el) return;
     const { f, map: mapKey } = event.target.dataset;
     if (mapKey) el.maps[mapKey] = event.target.checked;
-    else if (f) el[f] = f === "num" || f === "angle" ? Number(event.target.value) || 0 : event.target.value;
+    else if (f) el[f] = ["num", "angle", "w", "h"].includes(f) ? Number(event.target.value) || 0 : event.target.value;
     else return;
     save();
     renderCanvas(); renderList(); renderPreviews();
@@ -409,6 +418,14 @@
 
   document.getElementById("add").addEventListener("click", () => {
     const el = { id: `m${Date.now()}`, kind: "mark", label: "Repère", desc: "", color: PALETTE[2], level: "rdc", x: 50, y: 50, maps: Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === map])) };
+    elements.push(el);
+    selectedId = el.id;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("add-area").addEventListener("click", () => {
+    const el = { id: `a${Date.now()}`, kind: "area", label: "Stand", desc: "", color: PALETTE[2], level: "rdc", x: 50, y: 50, w: 90, h: 60, maps: Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === map])) };
     elements.push(el);
     selectedId = el.id;
     save();

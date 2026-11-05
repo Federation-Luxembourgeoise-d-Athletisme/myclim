@@ -12,8 +12,8 @@ const PLAN_RATIO = `${PLAN_W} / ${PLAN_H}`;
 const PLAN_CROP = { y: 200, h: 1440 };
 const PLAN_RATIO_CROP = `${PLAN_W} / ${PLAN_CROP.h}`;
 const PLAN_ZONE_RED = "#c8102e";
-const PLAN_STORE = "myclim-maquette-plans-v8";
-const PLAN_STORE_PREV = "myclim-maquette-plans-v7";
+const PLAN_STORE = "myclim-maquette-plans-v9";
+const PLAN_STORE_PREV = "myclim-maquette-plans-v8";
 const planPos = (el, crop = false) =>
   crop ? { x: el.x, y: ((el.y / 100) * PLAN_H - PLAN_CROP.y) / PLAN_CROP.h * 100 } : { x: el.x, y: el.y };
 
@@ -49,14 +49,17 @@ const PLAN_DEFAULT_ELEMENTS = [
   // Stands (niveau des arcades)
   { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 335), maps: on("web", "vol") },
   { id: "m2", kind: "mark", label: "Bar & food", desc: "Bar et restauration, le long du mur du gymnase", color: "#e5719a", level: "rdc", ...at(665, 430), maps: on("web", "vol") },
-  { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, après la buvette", color: "#e30613", level: "rdc", ...at(600, 335), maps: on("web", "vol") },
+  // Les stands qui occupent un espace sont des zones (w x h en unités du plan), les points restent des étiquettes
+  { id: "m5", kind: "area", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, dans le couloir entre l'amphithéâtre et les toilettes", color: "#e30613", level: "rdc", ...at(594, 276), w: 104, h: 100, maps: on("web", "vol") },
+  { id: "m16", kind: "mark", label: "Photobooth", desc: "Photobooth (à placer sur le plan)", color: "#9157e6", level: "rdc", ...at(900, 1150), maps: on("web", "vol") },
+  { id: "m17", kind: "mark", label: "Asport", desc: "Stand Asport : vêtements (à placer sur le plan)", color: "#0d8fd3", level: "rdc", ...at(900, 1215), maps: on("web", "vol") },
   { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(240, 420), maps: on("web", "vol") },
 
   // Toilettes : à la porte de chaque bloc, femmes / hommes comme sur le plan d'architecte
   // (buvette : deux blocs femmes sur les côtés, hommes en haut ; salons : trois blocs mixtes ;
   // bâtiment du bas : femmes à gauche, hommes à droite, réservés au warm-up)
   { id: "wf1", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(326, 252), maps: on("web", "vol") },
-  { id: "wf2", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(520, 250), maps: on("web", "vol") },
+  { id: "wf2", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(496, 262), maps: on("web", "vol") },
   { id: "wh1", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(484, 208), maps: on("web", "vol") },
   { id: "wm1", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 652), maps: on("web", "vol") },
   { id: "wm2", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 738), maps: on("web", "vol") },
