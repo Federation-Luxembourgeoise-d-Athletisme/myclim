@@ -36,8 +36,8 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "z3a", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(242, 845), maps: on("acc", "ctrl") },
   { id: "z3b", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(598, 700), maps: on("acc", "ctrl") },
   { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(598, 990), maps: on("acc", "ctrl") },
-  { id: "z4", kind: "zone", num: 4, label: "Judges Room", level: "piste", ...at(732, 960), maps: on("acc", "ctrl") },
-  { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", level: "piste", ...at(732, 800), maps: on("acc", "ctrl") },
+  { id: "z4", kind: "zone", num: 4, label: "Judges Room", level: "piste", ...at(658, 960), maps: on("acc", "ctrl") },
+  { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", level: "piste", ...at(658, 800), maps: on("acc", "ctrl") },
   { id: "z6", kind: "zone", num: 6, label: "VIP Zone", level: "etage", ...at(700, 470), maps: on("acc", "ctrl") },
 
   // Hall d'entrée
@@ -95,8 +95,8 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <!-- Arcades : tout le niveau d'entrée autour des tribunes -->
     <path d="${arcades}" fill="#f4f6f8" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
 
-    <!-- Warm-up : niveau des arcades, tout le bas de la salle jusqu'aux gradins -->
-    <rect x="0" y="1085" width="${PLAN_W}" height="600" fill="${warmup}" clip-path="url(#${clip})" />
+    <!-- Warm-up : niveau des arcades, tout le bas de la salle jusqu'aux gradins, et le long des tribunes à gauche -->
+    <path d="M0 1085 L${PLAN_W} 1085 L${PLAN_W} 1700 L0 1700 Z M0 700 L300 700 L300 1085 L0 1085 Z" fill="${warmup}" clip-path="url(#${clip})" />
     <path d="${arcades}" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
 
     <!-- Amphithéâtre, au bout après la buvette -->
@@ -105,7 +105,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="M560 78 A40 36 0 0 0 640 78 M538 78 A62 60 0 0 0 662 78 M515 78 A85 85 0 0 0 685 78" fill="none" stroke="#c3ccd3" stroke-width="3" />
     ${label(600, 208, "AMPHITHÉÂTRE", 20)}
 
-    <!-- Bâtiments : buvette (en haut), vestiaires (en bas), salons VIP / presse (droite) -->
+    <!-- Bâtiments : buvette (en haut), vestiaires (en bas), salons VIP / presse (droite, niveau arcades seulement) -->
     <path d="M420 150 L548 305 L292 305 Z" fill="#d5dde3" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
     <circle cx="420" cy="205" r="20" fill="#fff" stroke="#9aa8b3" stroke-width="3" />
     <path d="M420 205 L420 187 M420 205 L436 214 M420 205 L404 214" stroke="#9aa8b3" stroke-width="3" />
