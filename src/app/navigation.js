@@ -64,6 +64,7 @@ const LEGACY_APP_REDIRECTS = {
   "website/links": APP_ROUTES.links,
   "athlete-portal": APP_ROUTES.entries,
   "athlete-portal/athletes": APP_ROUTES.entries,
+  "athlete-portal/import": "/app/athletes/import",
   "athlete-portal/transport": APP_ROUTES.transport,
   "athlete-portal/mes-transport": APP_ROUTES.myTransports,
   "athlete-portal/history": APP_ROUTES.results,

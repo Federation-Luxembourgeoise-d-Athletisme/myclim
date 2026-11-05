@@ -1201,7 +1201,7 @@ function AthletePortalOverview({ Panel }) {
         <Panel title="Quick access">
           <div className="dashboard-action-grid">
             <NavLink className="button button--secondary button-link" to="/app/athletes">View athletes</NavLink>
-            {isAdmin && <NavLink className="button button--secondary button-link" to="/app/athlete-portal/import">Staff & import history</NavLink>}
+            {isAdmin && <NavLink className="button button--secondary button-link" to="/app/athletes/import">Staff & import history</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/base-athletes">Athletes database</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats">Meeting results</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/records">Meeting records</NavLink>}

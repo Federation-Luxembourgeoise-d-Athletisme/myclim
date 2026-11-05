@@ -232,6 +232,11 @@ const RESULTS_TABS = [
   { to: "/app/resultats/base-athletes", label: "Base athlètes" },
 ];
 
+const ENTRIES_TABS = [
+  { to: "/app/athletes", end: true, label: "Athlètes & staff" },
+  { to: "/app/athletes/import", label: "Importer un Excel", allowedRoles: ["admin", "meeting_director"] },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -636,11 +641,13 @@ export default function App() {
               </Route>
               <Route path="mon-compte" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
-                <Route path="athletes" element={<AthletesListPage />} />
-              </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
-                <Route path="athlete-portal/import" element={<AthleteImportPage />} />
+              <Route path="athletes" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navEntries" title="Engagés" tabs={ENTRIES_TABS} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
+                  <Route index element={<AthletesListPage />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
+                  <Route path="import" element={<AthleteImportPage />} />
+                </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
                 <Route path="athlete-portal/settings" element={<AthletePortalSettingsPage />} />
