@@ -12,8 +12,8 @@ const PLAN_RATIO = `${PLAN_W} / ${PLAN_H}`;
 const PLAN_CROP = { y: 200, h: 1440 };
 const PLAN_RATIO_CROP = `${PLAN_W} / ${PLAN_CROP.h}`;
 const PLAN_ZONE_RED = "#c8102e";
-const PLAN_STORE = "myclim-maquette-plans-v5";
-const PLAN_STORE_V4 = "myclim-maquette-plans-v4";
+const PLAN_STORE = "myclim-maquette-plans-v6";
+const PLAN_STORE_PREV = "myclim-maquette-plans-v5";
 const planPos = (el, crop = false) =>
   crop ? { x: el.x, y: ((el.y / 100) * PLAN_H - PLAN_CROP.y) / PLAN_CROP.h * 100 } : { x: el.x, y: el.y };
 
@@ -52,16 +52,21 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "m5", kind: "mark", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, après la buvette", color: "#e30613", level: "rdc", ...at(600, 335), maps: on("web", "vol") },
   { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(240, 420), maps: on("web", "vol") },
 
-  // Toilettes, aux emplacements du plan d'architecte
-  { id: "w1", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(345, 272), maps: on("web", "vol") },
-  { id: "w5", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(495, 272), maps: on("web", "vol") },
-  { id: "w2", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(675, 728), maps: on("web", "vol") },
-  { id: "w3", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(675, 930), maps: on("web", "vol") },
-  { id: "w4", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(420, 1405), maps: on("web", "vol") },
+  // Toilettes : à la porte de chaque bloc, femmes / hommes comme sur le plan d'architecte
+  // (buvette : deux blocs femmes sur les côtés, hommes en haut ; salons : trois blocs mixtes ;
+  // bâtiment du bas : femmes à gauche, hommes à droite)
+  { id: "wf1", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(326, 252), maps: on("web", "vol") },
+  { id: "wf2", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(520, 250), maps: on("web", "vol") },
+  { id: "wh1", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(498, 196), maps: on("web", "vol") },
+  { id: "wm1", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 652), maps: on("web", "vol") },
+  { id: "wm2", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 738), maps: on("web", "vol") },
+  { id: "wm3", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 921), maps: on("web", "vol") },
+  { id: "wf3", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(320, 1420), maps: on("web", "vol") },
+  { id: "wh2", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("web", "vol") },
 
   // Accès réservés depuis les arcades
   { id: "m11", kind: "mark", label: "↑ Galerie VIP", desc: "Les VIP montent à la galerie par la porte du salon de presse", color: "#b8912a", level: "rdc", ...at(690, 588), maps: on("vol", "acc") },
-  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(418, 168), maps: on("vol", "acc") },
+  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(410, 136), maps: on("vol", "acc") },
   { id: "m14", kind: "mark", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
 
   // Sur la piste (R-1) : utile aux bénévoles et à l'organisation, pas au public
@@ -90,7 +95,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
   // Piste et tribunes : ovales centrés sur (420, 826), lignes droites de 634 à 1018 (mesures du plan)
   const oval = (r) => `M${420 - r} 634 A${r} ${r} 0 0 1 ${420 + r} 634 L${420 + r} 1018 A${r} ${r} 0 0 1 ${420 - r} 1018 Z`;
   // Les arcades : tout le niveau d'entrée, jusqu'à la buvette et au couloir de l'amphithéâtre
-  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L738 615 C700 500 662 380 622 282 L652 238 L560 226 L540 120 L452 118 Z";
+  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L738 615 C700 500 662 380 627 278 L625 222 L590 208 C536 162 530 80 586 44 Z";
   const label = (x, y, text, size = 22, fill = "#7d8d99") =>
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="${size}" letter-spacing="2" fill="${fill}">${text}</text>`;
   return `<svg class="plan-base" viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
@@ -100,7 +105,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     </defs>
 
     <!-- Gymnase et ses locaux : fermés, derrière le mur courbe de la rampe -->
-    <path d="M622 282 C662 380 700 500 738 615 L900 612 L1020 612 L1020 30 L716 30 L716 240 L652 238 Z" fill="url(#${hatch})" />
+    <path d="M627 278 C662 380 700 500 738 615 L1020 612 L1020 30 L690 30 L664 93 L637 199 L625 222 Z" fill="url(#${hatch})" />
     ${label(885, 330, "GYMNASE", 26, "#a9b5be")}
 
     <!-- Hall d'entrée -->
@@ -114,13 +119,13 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="M0 1085 L${PLAN_W} 1085 L${PLAN_W} 1700 L0 1700 Z M0 700 L300 700 L300 1085 L0 1085 Z" fill="${warmup}" clip-path="url(#${clip})" />
     <path d="${arcades}" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
     <!-- Le mur qui sépare du gymnase (rampe), plus marqué -->
-    <path d="M622 282 C662 380 700 500 738 615" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" />
+    <path d="M625 222 L627 278 C662 380 700 500 738 615" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
 
-    <!-- Amphithéâtre : scène en haut, rangées tournées vers elle -->
-    <ellipse cx="628" cy="146" rx="88" ry="96" fill="#e4e9ed" stroke="#5f6f7c" stroke-width="5" />
-    <rect x="592" y="60" width="72" height="16" rx="3" fill="#b9c5ce" />
-    <path d="M590 84 A38 34 0 0 0 666 84 M570 84 A58 56 0 0 0 686 84 M552 84 A76 80 0 0 0 704 84" fill="none" stroke="#c3ccd3" stroke-width="3" />
-    ${label(628, 222, "AMPHITHÉÂTRE", 18)}
+    <!-- Amphithéâtre (forme en D du plan d'architecte), rangées tournées vers la scène -->
+    <path d="M586 44 C538 70 528 160 590 210 L637 199 L664 93 Z" fill="#e4e9ed" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
+    <path d="M648 77 A55 55 0 0 0 648 147 M629 61 A80 80 0 0 0 629 163 M604 52 A105 105 0 0 0 604 172" fill="none" stroke="#c3ccd3" stroke-width="3" />
+    <rect x="648" y="95" width="10" height="36" rx="2" fill="#b9c5ce" />
+    ${label(600, 26, "AMPHITHÉÂTRE", 16)}
 
     <!-- Buvette (en haut, avec l'escalier en colimaçon) et bâtiment du bas -->
     <path d="M300 296 L561 296 L485 227 L456 190 L380 190 L351 227 Z" fill="#dfe5ea" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
@@ -144,14 +149,14 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
 
 // Repères enregistrés avant ce fond de carte : chacun reprend sa nouvelle place et ses nouveaux
 // réglages ; on garde seulement les textes que tu avais réécrits (Bar & food, drink cards).
-function migrateFromV4(old) {
+function migrateFromPrev(old) {
   const fresh = structuredClone(PLAN_DEFAULT_ELEMENTS);
   for (const id of ["m2", "m3"]) {
     const before = old.find((el) => el.id === id);
     const now = fresh.find((el) => el.id === id);
     if (before && now) Object.assign(now, { label: before.label, desc: before.desc });
   }
-  const known = new Set([...fresh.map((el) => el.id), "m10"]);
+  const known = new Set([...fresh.map((el) => el.id), "m10", "w1", "w2", "w3", "w4", "w5"]);
   return [...fresh, ...old.filter((el) => !known.has(el.id))];
 }
 
@@ -160,9 +165,9 @@ function loadPlanElements() {
   try {
     const stored = JSON.parse(localStorage.getItem(PLAN_STORE));
     if (Array.isArray(stored)) return stored;
-    const before = JSON.parse(localStorage.getItem(PLAN_STORE_V4));
+    const before = JSON.parse(localStorage.getItem(PLAN_STORE_PREV));
     if (Array.isArray(before)) {
-      const moved = migrateFromV4(before);
+      const moved = migrateFromPrev(before);
       savePlanElements(moved);
       return moved;
     }
