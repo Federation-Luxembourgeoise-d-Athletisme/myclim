@@ -520,7 +520,6 @@ export default function App() {
                 <Route path="roles" element={<RoleManagementPage />} />
                 <Route path="edition-meeting" element={<EditionSettingsPage />} />
                 <Route path="invitations" element={<InvitationAdminPage />} />
-                <Route path="postes" element={<TeamsPage />} />
                 <Route path="certificat" element={<CertificateSettingsPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "budget"]} />}>
@@ -528,6 +527,7 @@ export default function App() {
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
                 <Route path="benevoles" element={<VolunteersPage />} />
+                <Route path="postes" element={<TeamsPage />} />
                 <Route path="u14/*" element={<U14Page />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>

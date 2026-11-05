@@ -1,5 +1,46 @@
 import { extractRolesFromProfile } from "./utils";
 
+// Adresse de chaque page du back-office. Le menu, l'accueil et les
+// redirections lisent tous cette table : une page = une seule adresse.
+const APP_ROUTES = {
+  home: "/app",
+  edition: "/app/edition-meeting",
+  budget: "/app/budget",
+  documents: "/app/documents",
+  applications: "/app/benevoles",
+  teams: "/app/postes",
+  entries: "/app/athlete-portal/athletes",
+  transport: "/app/athlete-portal/transport",
+  roadbook: "/app/athlete-roadbook",
+  physio: "/app/kine",
+  results: "/app/statistics/results",
+  u14: "/app/u14",
+  nationalRaces: "/app/courses-nationales",
+  accreditations: "/app/accreditations",
+  vip: "/app/vip",
+  cashDesk: "/app/caisse",
+  attendance: "/app/presences",
+  emergencyExports: "/app/documents",
+  calendar: "/app/communication",
+  tasks: "/app/communication/taches",
+  partners: "/app/communication/partenaires",
+  press: "/app/presse",
+  news: "/app/website/news",
+  emagazine: "/app/website/emagazine",
+  links: "/app/website/links",
+  users: "/app/roles",
+  settings: "/app/certificat",
+  notifications: "/app/notifications",
+  account: "/app/profil",
+  myAssignments: "/app/mes-affectations",
+  myDocuments: "/app/mes-documents",
+  myTeam: "/app/equipe",
+  myTeamAttendance: "/app/presences",
+  myChildren: "/app/mes-enfants",
+  myTransports: "/app/athlete-portal/mes-transport",
+  myNationalRace: "/app/mon-inscription",
+};
+
 function makeSection(titleKey, title, links) {
   return { type: "section", titleKey, title, links };
 }
@@ -25,245 +66,162 @@ function getPrimaryRole(profile) {
   return "benevole";
 }
 
-function buildNavigation(profile) {
-  return buildNavigationFromRoles(getActiveRoles(profile));
+function buildNavigation(profile, options) {
+  return buildNavigationFromRoles(getActiveRoles(profile), options);
 }
 
 function getDefaultRouteByRoles(roles = []) {
-  if (roles.includes("admin")) return "/app";
-  if (roles.includes("budget")) return "/app/budget";
-  if (roles.includes("gestionnaire")) return "/app/benevoles";
-  if (roles.includes("gestionnaire_site")) return "/app/website";
-  if (roles.includes("chef_equipe")) return "/app/equipe";
-  if (roles.includes("chef_transport_athletes")) return "/app/athlete-portal/transport";
-  if (roles.includes("benevole_transport_athletes")) return "/app/athlete-portal/mes-transport";
-  if (roles.includes("kine")) return "/app/kine";
-  if (roles.includes("commission_athletes")) return "/app/courses-nationales";
-  if (roles.includes("benevole")) return "/app/mes-affectations";
-  if (roles.includes("parent_u14")) return "/app/mes-enfants";
-  if (roles.includes("athlete_preprogram")) return "/app/mon-inscription";
-  return "/app";
+  if (roles.includes("admin")) return APP_ROUTES.home;
+  if (roles.includes("budget")) return APP_ROUTES.budget;
+  if (roles.includes("gestionnaire")) return APP_ROUTES.applications;
+  if (roles.includes("gestionnaire_site")) return APP_ROUTES.news;
+  if (roles.includes("chef_equipe")) return APP_ROUTES.myTeam;
+  if (roles.includes("chef_transport_athletes")) return APP_ROUTES.transport;
+  if (roles.includes("benevole_transport_athletes")) return APP_ROUTES.myTransports;
+  if (roles.includes("kine")) return APP_ROUTES.physio;
+  if (roles.includes("commission_athletes")) return APP_ROUTES.nationalRaces;
+  if (roles.includes("benevole")) return APP_ROUTES.myAssignments;
+  if (roles.includes("parent_u14")) return APP_ROUTES.myChildren;
+  if (roles.includes("athlete_preprogram")) return APP_ROUTES.myNationalRace;
+  return APP_ROUTES.home;
 }
 
-function buildNavigationFromRoles(roles) {
-  const isAdminNavigation = roles.includes("admin");
-  const preProgrammeLinks = [
-    makeLink("/app/u14", "navPreprogramU12U14", "U12 / U14", "spark"),
-    makeLink("/app/u14/porte-panier", "navPreprogramBasketCarrier", "Porte-panier", "child"),
-  ];
-  // Courses nationales : rangées sous « Pré-programme », mais page à part
-  // (pas un onglet U12/U14), pilotée par la commission des athlètes.
-  const nationalRacesLinks = [
-    makeLink("/app/courses-nationales", "navNationalRaces", "Courses nationales", "spark"),
-  ];
+// Les liens, un par page. Le libellé du menu est aussi le titre de la page.
+const LINKS = {
+  home: () => makeLink(APP_ROUTES.home, "navHome", "Accueil", "dashboard"),
+  edition: () => makeLink(APP_ROUTES.edition, "navEdition", "Édition", "calendar"),
+  budget: () => makeLink(APP_ROUTES.budget, "navBudget", "Budget", "dashboard"),
+  documents: () => makeLink(APP_ROUTES.documents, "navDocuments", "Documents", "folder"),
+  applications: () => makeLink(APP_ROUTES.applications, "navApplications", "Candidatures", "users"),
+  teams: () => makeLink(APP_ROUTES.teams, "navTeamsAssignments", "Équipes & affectations", "grid"),
+  entries: () => makeLink(APP_ROUTES.entries, "navEntries", "Engagés", "users"),
+  transport: () => makeLink(APP_ROUTES.transport, "navAthleteTransport", "Transport", "pin"),
+  roadbook: () => makeLink(APP_ROUTES.roadbook, "navRoadbook", "Roadbook", "folder"),
+  physio: () => makeLink(APP_ROUTES.physio, "navPhysio", "Kiné", "users"),
+  results: () => makeLink(APP_ROUTES.results, "navResultsRecords", "Résultats & records", "trophy"),
+  u14: () => makeLink(APP_ROUTES.u14, "navPreprogramU12U14", "U12 / U14", "child"),
+  nationalRaces: () => makeLink(APP_ROUTES.nationalRaces, "navNationalRaces", "Courses nationales", "spark"),
+  accreditations: () => makeLink(APP_ROUTES.accreditations, "navAccreditations", "Accréditations", "ticket"),
+  vip: () => makeLink(APP_ROUTES.vip, "navVip", "VIP", "star"),
+  cashDesk: () => makeLink(APP_ROUTES.cashDesk, "navCashDesk", "Caisse & entrées", "check"),
+  attendance: () => makeLink(APP_ROUTES.attendance, "navAttendance", "Présences", "check"),
+  emergencyExports: () => makeLink(APP_ROUTES.emergencyExports, "navEmergencyExports", "Exports d'urgence", "shield"),
+  calendar: () => makeLink(APP_ROUTES.calendar, "navCalendar", "Calendrier", "calendar"),
+  tasks: () => makeLink(APP_ROUTES.tasks, "navTasks", "Tâches", "check"),
+  partners: () => makeLink(APP_ROUTES.partners, "navPartners", "Partenaires", "badge"),
+  press: () => makeLink(APP_ROUTES.press, "navPress", "Presse", "folder"),
+  news: () => makeLink(APP_ROUTES.news, "navWebsiteNews", "Actualités", "spark"),
+  emagazine: () => makeLink(APP_ROUTES.emagazine, "navWebsiteEmagazine", "E-magazine", "folder"),
+  links: () => makeLink(APP_ROUTES.links, "navWebsiteLinks", "Page liens (QR)", "grid"),
+  users: () => makeLink(APP_ROUTES.users, "navUsersRoles", "Utilisateurs & rôles", "shield"),
+  settings: () => makeLink(APP_ROUTES.settings, "navSettings", "Réglages", "shield"),
+  myAssignments: () => makeLink(APP_ROUTES.myAssignments, "navMyAssignments", "Mes affectations", "pin"),
+  myDocuments: () => makeLink(APP_ROUTES.myDocuments, "navMyDocuments", "Mes documents", "folder"),
+  myTeam: () => makeLink(APP_ROUTES.myTeam, "navMyTeam", "Mon équipe", "users"),
+  myTeamAttendance: () => makeLink(APP_ROUTES.myTeamAttendance, "navTeamAttendance", "Présences de l'équipe", "check"),
+  myChildren: () => makeLink(APP_ROUTES.myChildren, "navMyChildren", "Mes enfants", "child"),
+  myTransports: () => makeLink(APP_ROUTES.myTransports, "navMyTransports", "Mes transports", "pin"),
+  myNationalRace: () => makeLink(APP_ROUTES.myNationalRace, "navMyNationalRace", "Mon inscription", "spark"),
+};
 
-  if (isAdminNavigation) {
+const SECTION_TITLES = {
+  steering: ["navSectionSteering", "Pilotage"],
+  volunteers: ["navSectionVolunteers", "Bénévoles"],
+  athletes: ["navSectionAthletes", "Athlètes"],
+  preprogram: ["navSectionPreprogram", "Pré-programme"],
+  accessDay: ["navSectionAccessDay", "Accès & jour J"],
+  communication: ["navSectionCommunication", "Communication"],
+  website: ["navSectionWebsite", "Site web"],
+  administration: ["navSectionAdministration", "Administration"],
+  mySpace: ["navSectionMySpace", "Mon espace"],
+};
+
+function section(key, linkKeys) {
+  const links = linkKeys.filter(Boolean).map((linkKey) => LINKS[linkKey]());
+  if (!links.length) return null;
+  const [titleKey, title] = SECTION_TITLES[key];
+  return makeSection(titleKey, title, links);
+}
+
+// Pages personnelles (« Mon espace ») d'après les rôles détenus.
+function personalLinkKeys(roles) {
+  const isTeamLead = roles.includes("chef_equipe");
+  const isVolunteer = roles.includes("benevole") || isTeamLead;
+
+  return [
+    isTeamLead && "myTeam",
+    isTeamLead && "myTeamAttendance",
+    isVolunteer && "myAssignments",
+    isVolunteer && "myDocuments",
+    roles.includes("parent_u14") && "myChildren",
+    roles.includes("benevole_transport_athletes") && "myTransports",
+    roles.includes("athlete_preprogram") && "myNationalRace",
+  ];
+}
+
+/**
+ * Menu du back-office. Les sections sont rangées par public :
+ * Pilotage, Bénévoles, Athlètes, Pré-programme, Accès & jour J,
+ * Communication, Site web, Administration, plus l'Accueil et « Mon espace ».
+ * Notifications et Mon compte ne sont pas dans le menu : ils sont dans
+ * l'en-tête (cloche et avatar).
+ *
+ * options.athletePortal : { canAccess, canImport } d'après les réglages du
+ * portail athlètes (qui peut voir les engagés).
+ */
+function buildNavigationFromRoles(roles, options = {}) {
+  const canAccessEntries = Boolean(options.athletePortal?.canAccess);
+  const has = (role) => roles.includes(role);
+  const canSeeStatistics = canAccessStatistics(roles);
+
+  if (has("admin")) {
     return [
-      makeSection("navSectionOverview", "Vue générale", [
-        makeLink("/app", "navDashboard", "Tableau de bord", "dashboard"),
-        makeLink("/app/documents", "navDocuments", "Documents", "folder"),
-        makeLink("/app/budget", "navBudget", "Budget", "dashboard"),
-        makeLink("/app/notifications", "navNotifications", "Notifications", "bell"),
+      LINKS.home(),
+      section("steering", ["edition", "budget", "documents"]),
+      section("volunteers", ["applications", "teams"]),
+      section("athletes", ["entries", "transport", "roadbook", "physio", "results"]),
+      section("preprogram", ["u14", "nationalRaces"]),
+      section("accessDay", ["accreditations", "vip", "cashDesk", "attendance", "emergencyExports"]),
+      section("communication", ["calendar", "tasks", "partners", "press"]),
+      section("website", ["news", "emagazine", "links"]),
+      section("administration", ["users", "settings"]),
+    ].filter(Boolean);
+  }
+
+  if (has("gestionnaire")) {
+    return [
+      LINKS.home(),
+      section("mySpace", personalLinkKeys(roles)),
+      section("steering", [has("budget") && "budget", "documents"]),
+      section("volunteers", ["applications", "teams"]),
+      section("athletes", [
+        has("chef_transport_athletes") && "transport",
+        "roadbook",
+        "physio",
+        canSeeStatistics && "results",
       ]),
-      makeSection("navSectionVolunteers", "Bénévoles", [
-        makeLink("/app/benevoles", "navVolunteersLink", "Bénévoles", "users"),
-        makeLink("/app/postes", "navTeamsAndPosts", "Équipes & postes", "grid"),
-        makeLink("/app/presences", "navAttendance", "Présences", "check"),
-      ]),
-      makeSection("navSectionAccreditations", "Accréditations", [
-        makeLink("/app/accreditations", "navAccreditationBadges", "Badges & zones", "ticket"),
-        makeLink("/app/presse", "navPress", "Presse", "badge"),
-        makeLink("/app/vip", "navVip", "VIP", "ticket"),
-        makeLink("/app/athlete-roadbook", "navAthleteRoadbook", "Roadbook athlètes", "folder"),
-        makeLink("/app/kine", "navPhysio", "Kiné", "users"),
-        makeLink("/app/caisse", "navCashDesk", "Caisse & entrées", "check"),
-      ]),
-      makeSection("navSectionCommunication", "Communication", [
-        makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
-      ]),
-      makeSection("navSectionPreprogram", "Pré-programme", [...preProgrammeLinks, ...nationalRacesLinks]),
-      makeSection("navSectionWebsite", "Site web", [
-        makeLink("/app/website", "navWebsiteOverviewAdmin", "Vue d’ensemble", "grid"),
-        makeLink("/app/website/edition", "navWebsiteEdition", "Édition courante", "calendar"),
-        makeLink("/app/website/emagazine", "navWebsiteEmagazine", "E-magazine", "folder"),
-        makeLink("/app/website/links", "navWebsiteLinks", "Page liens (QR)", "spark"),
-        makeLink("/app/website/news", "navWebsiteNews", "Actualités", "spark"),
-        makeLink("/app/website/sponsors", "navWebsitePartners", "Partenaires", "badge"),
-        makeLink("/app/website/press", "navWebsitePressReleases", "Communiqués presse", "folder"),
-      ]),
-      makeSection("navSectionSettings", "Réglages", [
-        makeLink("/app/roles", "navRolesAccess", "Rôles & accès", "shield"),
-        makeLink("/app/edition-meeting", "navEditionSettings", "Édition du meeting", "calendar"),
-        makeLink("/app/invitations", "navInvitations", "Invitations", "spark"),
-        makeLink("/app/certificat", "navCertificateSettings", "Certificat bénévole", "badge"),
-        makeLink("/app/profil", "navMyProfile", "Mon profil", "profile"),
-      ]),
-    ];
+      section("preprogram", ["u14", has("commission_athletes") && "nationalRaces"]),
+      section("accessDay", ["accreditations", "vip", "cashDesk", "attendance", "emergencyExports"]),
+      section("communication", ["calendar", "tasks", "partners", "press"]),
+      section("website", has("gestionnaire_site") ? ["news", "emagazine", "links"] : []),
+    ].filter(Boolean);
   }
 
-  if (roles.includes("gestionnaire")) {
-    const personalLinks = [];
-
-    if (roles.includes("chef_equipe")) {
-      personalLinks.push(makeLink("/app/equipe", "navMyTeam", "Mon équipe", "users"));
-    }
-
-    if (roles.includes("benevole")) {
-      personalLinks.push(
-        makeLink("/app/mon-dossier-benevole", "navMyVolunteerFile", "Mon dossier bénévole", "badge"),
-        makeLink("/app/mes-affectations", "navMyAssignments", "Mes affectations", "pin"),
-        makeLink("/app/mes-documents", "navMyDocuments", "Mes documents", "folder"),
-      );
-    }
-
-    if (roles.includes("parent_u14")) {
-      personalLinks.push(makeLink("/app/mes-enfants", "navMyChildren", "Mes enfants", "child"));
-    }
-
-    if (roles.includes("athlete_preprogram")) {
-      personalLinks.push(makeLink("/app/mon-inscription", "navMyNationalRace", "Mon inscription", "spark"));
-    }
-
-    const navigation = [
-      makeSection("navSectionOverview", "Vue générale", [
-        makeLink("/app", "navOverview", "Vue d'ensemble", "dashboard"),
-        makeLink("/app/documents", "navDocuments", "Documents", "folder"),
-        ...(roles.includes("budget") ? [makeLink("/app/budget", "navBudget", "Budget", "dashboard")] : []),
-        makeLink("/app/notifications", "navNotifications", "Notifications", "bell"),
-      ]),
-      makeSection("navSectionVolunteers", "Bénévoles", [
-        makeLink("/app/benevoles", "navVolunteersLink", "Bénévoles", "users"),
-        makeLink("/app/presences", "navAttendance", "Présences", "check"),
-      ]),
-      makeSection("navSectionAccreditations", "Accréditations", [
-        makeLink("/app/accreditations", "navAccreditationBadges", "Badges & zones", "ticket"),
-        makeLink("/app/presse", "navPress", "Presse", "badge"),
-        makeLink("/app/vip", "navVip", "VIP", "ticket"),
-        makeLink("/app/athlete-roadbook", "navAthleteRoadbook", "Roadbook athlètes", "folder"),
-        makeLink("/app/kine", "navPhysio", "Kiné", "users"),
-        makeLink("/app/caisse", "navCashDesk", "Caisse & entrées", "check"),
-      ]),
-      makeSection("navSectionCommunication", "Communication", [
-        makeLink("/app/communication", "navCommunication", "Calendrier & partenaires", "calendar"),
-      ]),
-      makeSection(
-        "navSectionPreprogram",
-        "Pré-programme",
-        roles.includes("commission_athletes") ? [...preProgrammeLinks, ...nationalRacesLinks] : preProgrammeLinks,
-      ),
-    ];
-
-    if (roles.includes("gestionnaire_site")) {
-      navigation.push(
-        makeSection("navSectionWebsite", "Site web", [
-          makeLink("/app/website", "navWebsiteOverviewManager", "Site web — vue d'ensemble", "grid"),
-          makeLink("/app/website/edition", "navWebsiteEdition", "Édition courante", "calendar"),
-          makeLink("/app/website/emagazine", "navWebsiteEmagazine", "E-magazine", "folder"),
-        makeLink("/app/website/links", "navWebsiteLinks", "Page liens (QR)", "spark"),
-          makeLink("/app/website/news", "navWebsiteNews", "Actualités", "spark"),
-          makeLink("/app/website/sponsors", "navWebsitePartners", "Partenaires", "badge"),
-          makeLink("/app/website/press", "navWebsitePressReleases", "Communiqués presse", "folder"),
-        ]),
-      );
-    }
-
-    if (personalLinks.length) {
-      navigation.push(makeSection("navSectionMyAccess", "Mes accès", personalLinks));
-    }
-
-    navigation.push(
-      makeSection("navSectionSettings", "Réglages", [makeLink("/app/profil", "navMyProfile", "Mon profil", "profile")]),
-    );
-
-    return navigation;
-  }
-
-  const links = [makeLink("/app", "navOverview", "Vue d'ensemble", "dashboard"), makeLink("/app/notifications", "navNotifications", "Notifications", "bell")];
-
-  if (roles.includes("budget")) {
-    links.push(makeLink("/app/budget", "navBudget", "Budget", "dashboard"));
-  }
-
-  if (roles.includes("chef_equipe")) {
-    links.push(
-      makeLink("/app/equipe", "navMyTeam", "Mon équipe", "users"),
-      makeLink("/app/presences", "navAttendance", "Présences", "check"),
-    );
-  }
-
-  if (roles.includes("benevole")) {
-    links.push(
-      makeLink("/app/mon-dossier-benevole", "navMyVolunteerFile", "Mon dossier bénévole", "badge"),
-      makeLink("/app/mes-affectations", "navMyAssignments", "Mes affectations", "pin"),
-      makeLink("/app/mes-documents", "navMyDocuments", "Mes documents", "folder"),
-    );
-  }
-
-  if (roles.includes("gestionnaire_site")) {
-    links.push(
-      makeLink("/app/website", "navWebsiteOverviewManager", "Site web — vue d'ensemble", "grid"),
-      makeLink("/app/website/edition", "navWebsiteEdition", "Édition courante", "calendar"),
-      makeLink("/app/website/emagazine", "navWebsiteEmagazine", "E-magazine", "folder"),
-      makeLink("/app/website/links", "navWebsiteLinks", "Page liens (QR)", "spark"),
-      makeLink("/app/website/news", "navWebsiteNews", "Actualités", "spark"),
-      makeLink("/app/website/sponsors", "navWebsitePartners", "Partenaires", "badge"),
-      makeLink("/app/website/press", "navWebsitePressReleases", "Communiqués presse", "folder"),
-    );
-  }
-
-  if (roles.includes("parent_u14")) {
-    links.push(makeLink("/app/mes-enfants", "navMyChildren", "Mes enfants", "child"));
-  }
-
-  if (roles.includes("athlete_preprogram")) {
-    links.push(makeLink("/app/mon-inscription", "navMyNationalRace", "Mon inscription", "spark"));
-  }
-
-  if (roles.includes("commission_athletes")) {
-    links.push(...nationalRacesLinks);
-  }
-
-  if (roles.includes("chef_transport_athletes")) {
-    links.push(makeLink("/app/athlete-portal/transport", "navAthleteTransport", "Transport athlètes", "users"));
-  }
-
-  if (roles.includes("kine")) {
-    links.push(makeLink("/app/kine", "navPhysio", "Kiné", "users"));
-  }
-
-  if (roles.includes("benevole_transport_athletes")) {
-    links.push(makeLink("/app/athlete-portal/mes-transport", "navMyTransports", "Mes transports", "pin"));
-  }
-
-  links.push(makeLink("/app/profil", "navMyProfile", "Mon profil", "profile"));
-
-  return links;
-}
-
-function buildAthletePortalNavigation(roles, portalSettings, { canImport }) {
-  const isAdmin = roles.includes("admin") || roles.includes("meeting_director");
-  const links = [makeLink("/app/athlete-portal/athletes", "navAthletes", "Vue d'ensemble", "users")];
-
-  if (canImport) {
-    links.push(makeLink("/app/athlete-portal/import", "navAthleteImport", "Import Excel", "folder"));
-  }
-
-  if (roles.includes("chef_transport_athletes") || roles.includes("admin")) {
-    links.push(makeLink("/app/athlete-portal/transport", "navAthleteTransport", "Transport", "users"));
-  }
-
-  // Admins/gestionnaires are transport volunteers by default (in addition to
-  // whoever actually holds benevole_transport_athletes) so the chief always
-  // has someone to fall back on assigning a lot to.
-  if (roles.includes("benevole_transport_athletes") || roles.includes("admin") || roles.includes("gestionnaire")) {
-    links.push(makeLink("/app/athlete-portal/mes-transport", "navMyTransports", "Mes transports", "pin"));
-  }
-
-  if (roles.includes("admin")) {
-    links.push(makeLink("/app/athlete-portal/settings", "navPortalSettings", "Réglages portal", "shield"));
-  }
-
-  return links;
+  // Rôles « métier » (budget, site, kiné, transport, commission) et rôles
+  // personnels (bénévole, chef d'équipe, parent, athlète pré-programme).
+  return [
+    LINKS.home(),
+    section("mySpace", personalLinkKeys(roles)),
+    section("steering", [has("budget") && "budget"]),
+    section("athletes", [
+      canAccessEntries && "entries",
+      has("chef_transport_athletes") && "transport",
+      has("kine") && "physio",
+      canSeeStatistics && "results",
+    ]),
+    section("preprogram", [has("commission_athletes") && "nationalRaces"]),
+    section("website", has("gestionnaire_site") ? ["news", "emagazine", "links"] : []),
+  ].filter(Boolean);
 }
 
 // Module Statistiques (base athlètes, résultats, records, Hall of Winners) :
@@ -274,23 +232,11 @@ function canAccessStatistics(roles = []) {
   return STATISTICS_ACCESS_ROLES.some((role) => roles.includes(role));
 }
 
-function buildStatisticsNavigation(roles) {
-  if (!canAccessStatistics(roles)) return [];
-
-  return [
-    makeLink("/app/statistics/registry", "navAthleteRegistry", "Base athlètes", "users"),
-    makeLink("/app/statistics/results", "navMeetingResults", "Résultats meeting", "calendar"),
-    makeLink("/app/statistics/records", "navMeetingRecords", "Records meeting", "star"),
-    makeLink("/app/statistics/winners", "navHallOfWinners", "Hall of Winners", "trophy"),
-  ];
-}
-
 export {
+  APP_ROUTES,
   STATISTICS_ACCESS_ROLES,
   buildNavigation,
   buildNavigationFromRoles,
-  buildAthletePortalNavigation,
-  buildStatisticsNavigation,
   canAccessStatistics,
   getActiveRoles,
   getDefaultRouteByRoles,

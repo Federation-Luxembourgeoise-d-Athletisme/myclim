@@ -1864,6 +1864,74 @@ textarea {
   transform: none;
 }
 
+/* En-tête du back-office : « Voir comme » (admin), cloche, Mon compte. */
+.shell-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.shell-header .notif-bell {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+
+.view-switcher--inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.view-switcher--inline select {
+  min-width: 190px;
+}
+
+.shell-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid #c5d9f1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1a4aa1;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(26, 74, 161, 0.1);
+}
+
+.shell-account--active {
+  border-color: #1a4aa1;
+}
+
+.shell-account__avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #1a4aa1;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+@media (max-width: 620px) {
+  .shell-account__label {
+    display: none;
+  }
+
+  .shell-account {
+    padding-right: 4px;
+  }
+}
+
 .content-toolbar {
   display: flex;
   justify-content: space-between;

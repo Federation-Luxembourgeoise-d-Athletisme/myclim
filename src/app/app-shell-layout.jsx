@@ -8,7 +8,7 @@ import {
   normalizeEditionId,
   useActiveEdition,
 } from "./edition";
-import { buildAthletePortalNavigation, buildNavigationFromRoles, buildStatisticsNavigation, getActiveRoles, getPrimaryRole } from "./navigation";
+import { APP_ROUTES, buildNavigationFromRoles, getActiveRoles, getDefaultRouteByRoles, getPrimaryRole } from "./navigation";
 import { canAccessAthletePortal, canImportAthletes, useAthletePortalSettings } from "./athlete-portal-hooks";
 import { useTeamConfiguration } from "./config-hooks";
 import { useDocumentsCollection } from "./documents-hooks";
@@ -63,6 +63,33 @@ function NavIcon({ icon }) {
   );
 }
 
+// « Voir comme » (admin) : les rôles simulés pour chaque profil. Un
+// gestionnaire est aussi bénévole dans la pratique, d'où « Mon espace ».
+const VIEW_AS_ROLES = {
+  admin: ["admin"],
+  gestionnaire: ["gestionnaire", "benevole"],
+  budget: ["budget"],
+  chef_equipe: ["chef_equipe"],
+  benevole: ["benevole"],
+  parent_u14: ["parent_u14"],
+  athlete_preprogram: ["athlete_preprogram"],
+  commission_athletes: ["commission_athletes"],
+  kine: ["kine"],
+  chef_transport_athletes: ["chef_transport_athletes"],
+  benevole_transport_athletes: ["benevole_transport_athletes"],
+  gestionnaire_site: ["gestionnaire_site"],
+  meeting_director: ["meeting_director"],
+};
+
+function getInitials(name) {
+  return String(name || "")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
 function AppShell(props) {
   const { cmcmLogo } = props;
   const { t } = useLanguage();
@@ -70,78 +97,41 @@ function AppShell(props) {
   const location = useLocation();
   const navigate = useNavigate();
   const roles = getActiveRoles(userProfile);
-  const { activeEditionLabel } = useActiveEdition();
+  const { activeEditionId, activeEditionLabel } = useActiveEdition();
   const { settings: portalSettings, loading: portalSettingsLoading } = useAthletePortalSettings();
   const [preferredViewAsRole, setPreferredViewAsRole] = useState(() => getPrimaryRole(userProfile));
   const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
     typeof window === "undefined" ? true : window.innerWidth > 1100,
   );
+  const isAdmin = roles.includes("admin");
   const primaryRole = getPrimaryRole(userProfile);
-  const viewAsRole = roles.includes("admin")
-    ? (roles.includes(preferredViewAsRole) ? preferredViewAsRole : primaryRole)
-    : primaryRole;
+  const viewAsRole = isAdmin && VIEW_AS_ROLES[preferredViewAsRole] ? preferredViewAsRole : primaryRole;
   const effectiveRoles = useMemo(() => {
-    if (!roles.includes("admin")) return roles;
-    if (viewAsRole === "admin") return roles;
-    return [viewAsRole];
-  }, [roles, viewAsRole]);
+    if (!isAdmin || viewAsRole === "admin") return roles;
+    return VIEW_AS_ROLES[viewAsRole];
+  }, [isAdmin, roles, viewAsRole]);
 
-  const portalCanImport = useMemo(
-    () => canImportAthletes(effectiveRoles, portalSettings),
-    [effectiveRoles, portalSettings],
+  // Statistiques et engagés font partie de la section « Athlètes » du menu :
+  // navigation.js a seulement besoin de savoir si ce rôle voit le portail.
+  const athletePortalAccess = useMemo(
+    () => ({
+      canAccess: !portalSettingsLoading && canAccessAthletePortal(effectiveRoles, portalSettings),
+      canImport: canImportAthletes(effectiveRoles, portalSettings),
+    }),
+    [effectiveRoles, portalSettings, portalSettingsLoading],
   );
-  const portalSection = useMemo(() => {
-    if (portalSettingsLoading || !canAccessAthletePortal(effectiveRoles, portalSettings)) return null;
-    return {
-      type: "section",
-      titleKey: "navSectionAthletePortal",
-      title: "Athlete Portal",
-      links: buildAthletePortalNavigation(effectiveRoles, portalSettings, { canImport: portalCanImport }),
-    };
-  }, [effectiveRoles, portalCanImport, portalSettings, portalSettingsLoading]);
-  const statisticsSection = useMemo(() => {
-    const links = buildStatisticsNavigation(effectiveRoles);
-    if (!links.length) return null;
-    return {
-      type: "section",
-      titleKey: "navSectionStatistics",
-      title: "Statistiques",
-      links,
-    };
-  }, [effectiveRoles]);
-
-  const mainNavigation = useMemo(() => {
-    const nav = buildNavigationFromRoles(effectiveRoles);
-
-    if (statisticsSection && Array.isArray(nav)) {
-      const settingsIndex = nav.findIndex((item) => item.type === "section" && item.titleKey === "navSectionSettings");
-      if (settingsIndex >= 0) {
-        nav.splice(settingsIndex, 0, statisticsSection);
-      } else {
-        nav.push(statisticsSection);
-      }
-    }
-
-    if (portalSection && Array.isArray(nav)) {
-      const settingsIndex = nav.findIndex((item) => item.type === "section" && item.titleKey === "navSectionSettings");
-      if (settingsIndex >= 0) {
-        nav.splice(settingsIndex, 0, portalSection);
-      } else {
-        nav.push(portalSection);
-      }
-    }
-
-    return nav;
-  }, [effectiveRoles, portalSection, statisticsSection]);
-
-  const navigation = mainNavigation;
+  const navigation = useMemo(
+    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess }),
+    [athletePortalAccess, effectiveRoles],
+  );
+  const linkLabel = (link) => (t(link.labelKey) || link.label).replace("{edition}", activeEditionId || "");
   const flatNavigation = useMemo(() => flattenNavigationItems(navigation), [navigation]);
   const [openSections, setOpenSections] = useState({});
   const displayName = getDisplayName(userProfile, currentUser?.email);
-  const currentRouteLabelKey =
-    flatNavigation.find((item) => item.to === location.pathname)?.labelKey ||
-    flatNavigation.find((item) => item.to !== "/app" && isRouteMatch(location.pathname, item.to))?.labelKey;
-  const currentRouteLabel = currentRouteLabelKey ? t(currentRouteLabelKey) : t("shellMenuLabel");
+  const currentRouteLink =
+    flatNavigation.find((item) => item.to === location.pathname) ||
+    flatNavigation.find((item) => item.to !== "/app" && isRouteMatch(location.pathname, item.to));
+  const currentRouteLabel = currentRouteLink ? linkLabel(currentRouteLink) : t("shellMenuLabel");
 
   useEffect(() => {
     function syncSidebarWithViewport() {
@@ -172,19 +162,7 @@ function AppShell(props) {
 
   function handleViewAsChange(nextRole) {
     setPreferredViewAsRole(nextRole);
-
-    const defaultRouteByRole = {
-      admin: "/app",
-      budget: "/app/budget",
-      gestionnaire: "/app/benevoles",
-      chef_equipe: "/app/equipe",
-      benevole: "/app/mes-affectations",
-      parent_u14: "/app/mes-enfants",
-      athlete_preprogram: "/app/mon-inscription",
-      commission_athletes: "/app/courses-nationales",
-    };
-
-    navigate(defaultRouteByRole[nextRole] || "/app");
+    navigate(nextRole === "admin" ? APP_ROUTES.home : getDefaultRouteByRoles(VIEW_AS_ROLES[nextRole] || []));
   }
 
   async function handleLogout() {
@@ -269,7 +247,7 @@ function AppShell(props) {
                             >
                               <span className="nav-link__label">
                                 <NavIcon icon={link.icon} />
-                                <span>{t(link.labelKey) || link.label}</span>
+                                <span>{linkLabel(link)}</span>
                               </span>
                               <span aria-hidden="true" className="nav-link__chevron">
                                 ›
@@ -290,7 +268,7 @@ function AppShell(props) {
                 >
                   <span className="nav-link__label">
                     <NavIcon icon={item.icon} />
-                    <span>{t(item.labelKey) || item.label}</span>
+                    <span>{linkLabel(item)}</span>
                   </span>
                   <span aria-hidden="true" className="nav-link__chevron">
                     ›
@@ -326,7 +304,28 @@ function AppShell(props) {
         />
       ) : null}
       <main className="content">
-        <NotificationBell />
+        <div className="shell-header">
+          {isAdmin ? (
+            <label className="view-switcher view-switcher--inline">
+              <span>{t("shellViewAsLabel")}</span>
+              <select value={viewAsRole} onChange={(event) => handleViewAsChange(event.target.value)}>
+                {Object.keys(VIEW_AS_ROLES).map((role) => (
+                  <option key={role} value={role}>{formatRoleLabel(role, t)}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <NotificationBell />
+          <NavLink
+            className={({ isActive }) => `shell-account${isActive ? " shell-account--active" : ""}`}
+            to={APP_ROUTES.account}
+            title={t("navMyAccount")}
+            aria-label={t("navMyAccount")}
+          >
+            <span className="shell-account__avatar" aria-hidden="true">{getInitials(displayName) || "?"}</span>
+            <span className="shell-account__label">{t("navMyAccount")}</span>
+          </NavLink>
+        </div>
         {!isSidebarOpen ? (
           <button
             className="shell-sidebar-rail"
@@ -347,24 +346,6 @@ function AppShell(props) {
           </button>
           <span className="shell-mobile-bar__route">{currentRouteLabel}</span>
         </div>
-        {roles.includes("admin") ? (
-          <div className="content-toolbar">
-            <label className="view-switcher">
-              <span>{t("shellViewAsLabel")}</span>
-              <select value={viewAsRole} onChange={(event) => handleViewAsChange(event.target.value)}>
-                {roles.includes("admin") ? <option value="admin">{t("roleLabelAdmin")}</option> : null}
-                {roles.includes("budget") ? <option value="budget">{t("roleLabelBudget")}</option> : null}
-                {roles.includes("chef_equipe") ? <option value="chef_equipe">{t("roleLabelTeamLead")}</option> : null}
-                {roles.includes("benevole") ? <option value="benevole">{t("roleLabelVolunteer")}</option> : null}
-                {roles.includes("parent_u14") ? <option value="parent_u14">{t("roleLabelParentU14")}</option> : null}
-                {roles.includes("athlete_preprogram") ? <option value="athlete_preprogram">{t("roleLabelAthletePreprogram")}</option> : null}
-              </select>
-            </label>
-            {viewAsRole === "admin" ? (
-              <p className="content-toolbar__hint">{t("shellAdminViewHint")}</p>
-            ) : null}
-          </div>
-        ) : null}
         {location.state?.accessDeniedMessage ? (
           <div className="notice-card notice-card--warn">
             <strong>{t("shellAccessDeniedTitle")}</strong>
@@ -657,7 +638,7 @@ function DashboardHome(props) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">{t("navOverview")}</p>
+          <p className="eyebrow">{t("navHome")}</p>
           <h1>{t("dashboardWelcome")} {getDisplayName(userProfile, currentUser?.email)}</h1>
           <p>{t("dashboardIntro")}</p>
         </div>
