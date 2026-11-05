@@ -4,8 +4,6 @@
 //  - Tâches (/app/taches) ;
 //  - Partenaires › Contreparties (/app/partenaires/contreparties).
 import { Route, Routes, useLocation } from "react-router-dom";
-import { useAuth } from "../../context/auth-context";
-import { useTasks } from "./com-data.js";
 import { ComCalendarPage } from "./com-calendar-page.jsx";
 import { ComEventsPage } from "./com-events-page.jsx";
 import { ComGalleryPage } from "./com-gallery-page.jsx";
@@ -41,19 +39,15 @@ function PartnersRoutes() {
 }
 
 export function CommunicationModule({ area = "calendar" }) {
-  const { currentUser } = useAuth();
-  const uid = currentUser?.uid || "";
-  const tasks = useTasks();
   const location = useLocation();
-  const openTasks = tasks.filter((t) => t.assigneUid === uid && t.statut !== "done").length;
-  // La page d'une publication prend toute la largeur (elle a son propre
-  // mini-calendrier) ; les contreparties sont un onglet de Partenaires, sans
-  // la navigation du module.
-  const fullWidth = area === "partners" || location.pathname.includes("/calendrier/publication/");
+  // Seul le Calendrier a ses onglets (calendrier, événements, rubriques,
+  // galerie, import). Tâches et Partenaires sont des liens du menu principal ;
+  // la page d'une publication prend toute la largeur (mini-calendrier).
+  const fullWidth = area !== "calendar" || location.pathname.includes("/calendrier/publication/");
 
   return (
     <div className={`com-module ${fullWidth ? "is-full" : ""}`}>
-      {fullWidth ? null : <ComNav openTasks={openTasks} />}
+      {fullWidth ? null : <ComNav />}
       <div className="com-main">
         {area === "tasks" ? <ComTasksPage /> : area === "partners" ? <PartnersRoutes /> : <CalendarRoutes />}
       </div>

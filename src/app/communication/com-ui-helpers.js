@@ -4,11 +4,9 @@ import { useEffect, useRef, useState } from "react";
 // Libellés { fr, en } : voir pick() dans com-i18n.js.
 export const COM_SECTIONS = [
   { to: "/app/calendrier", label: { fr: "Calendrier éditorial", en: "Editorial calendar" }, end: true },
-  { to: "/app/taches", label: { fr: "Tâches", en: "Tasks" } },
   { to: "/app/calendrier/evenements", label: { fr: "Événements", en: "Events" } },
   { to: "/app/calendrier/rubriques", label: { fr: "Rubriques récurrentes", en: "Recurring series" } },
   { to: "/app/calendrier/galerie", label: { fr: "Galerie photos", en: "Photo gallery" } },
-  { to: "/app/partenaires/contreparties", label: { fr: "Partenaires", en: "Partners" } },
   { to: "/app/calendrier/import", label: { fr: "Importer (Excel)", en: "Import (Excel)" } },
 ];
 
