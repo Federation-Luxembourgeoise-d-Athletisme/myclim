@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { collection, deleteField, doc, getDoc, getDocs, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
+import { collection, deleteField, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import {
   ACTIVE_EDITION_DOC_PATH,
@@ -378,6 +378,42 @@ function TodoItem({ to, children }) {
   );
 }
 
+// Prochaines échéances de l'Accueil.
+const DEADLINE_TASK_LIMIT = 5;
+
+function toDateOrNull(value) {
+  if (!value) return null;
+  const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+// Tâches de communication pas encore faites (lisibles par admin et
+// gestionnaires seulement, d'où enabled).
+function useOpenCommunicationTasks(enabled) {
+  const [tasks, setTasks] = useState([]);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    return onSnapshot(
+      collection(db, "com_tasks"),
+      (snapshot) => {
+        setTasks(
+          snapshot.docs
+            .map((entry) => ({ id: entry.id, ...entry.data() }))
+            .filter((task) => task.statut !== "done" && task.echeance),
+        );
+      },
+      () => setTasks([]),
+    );
+  }, [enabled]);
+  return enabled ? tasks : [];
+}
+
 function DashboardHome(props) {
   const { Panel } = props;
   const { t } = useLanguage();
@@ -511,6 +547,45 @@ function DashboardHome(props) {
   const volunteerDataLoading = teamsLoading || documentsLoading;
   const leadDataLoading = teamsLoading || documentsLoading;
 
+  // Prochaines échéances : jour du meeting pour tous ; ouverture du
+  // pré-programme et tâches de communication pour l'admin et les gestionnaires.
+  const { language } = useLanguage();
+  const { activeEditionId, preprogramOpeningDate } = useActiveEdition();
+  const { editions: meetingEditions } = useMeetingEditions();
+  const canReadPlanning = roles.includes("admin") || roles.includes("gestionnaire");
+  const showPlanningDeadlines = canReadPlanning && ["admin", "gestionnaire"].includes(activeRole);
+  const openCommunicationTasks = useOpenCommunicationTasks(canReadPlanning);
+  const deadlines = useMemo(() => {
+    const today = startOfToday();
+    const items = [];
+    const activeEdition = (meetingEditions || []).find((edition) => String(edition.year) === String(activeEditionId));
+    const meetingDate = toDateOrNull(activeEdition?.date);
+    if (meetingDate && meetingDate >= today) {
+      items.push({ id: "meeting", date: meetingDate, label: t("dashboardDeadlineMeeting").replace("{edition}", activeEditionId), to: APP_ROUTES.edition });
+    }
+    if (showPlanningDeadlines) {
+      if (preprogramOpeningDate && !Number.isNaN(preprogramOpeningDate.getTime()) && preprogramOpeningDate >= today) {
+        items.push({ id: "preprogram", date: preprogramOpeningDate, label: t("dashboardDeadlinePreprogram"), to: APP_ROUTES.u14 });
+      }
+      [...openCommunicationTasks]
+        .sort((left, right) => String(left.echeance).localeCompare(String(right.echeance)))
+        .slice(0, DEADLINE_TASK_LIMIT)
+        .forEach((task) => {
+          const date = toDateOrNull(`${task.echeance}T00:00:00`);
+          if (!date) return;
+          items.push({ id: `task-${task.id}`, date, label: task.titre || t("navTasks"), to: APP_ROUTES.tasks, late: date < today });
+        });
+    }
+    return items.sort((left, right) => left.date - right.date);
+  }, [activeEditionId, meetingEditions, openCommunicationTasks, preprogramOpeningDate, showPlanningDeadlines, t]);
+  const formatDeadlineDate = (date) =>
+    date.toLocaleDateString(language === "fr" ? "fr-LU" : language === "de" ? "de-LU" : "en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "long",
+      ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+    });
+
   function renderTodoPanel(subtitleKey, items) {
     return (
       <section className="panel-grid">
@@ -609,6 +684,25 @@ function DashboardHome(props) {
       </section>
 
       {renderRoleSummary()}
+
+      <section className="panel-grid">
+        <Panel title={t("dashboardDeadlinesTitle")} subtitle={t("dashboardDeadlinesSubtitle")}>
+          {deadlines.length ? (
+            <ul className="compact-list dashboard-todo">
+              {deadlines.map((deadline) => (
+                <TodoItem key={deadline.id} to={deadline.to}>
+                  <strong>{formatDeadlineDate(deadline.date)}</strong>
+                  {deadline.late ? <span className="status-pill status-pill--warn"> {t("dashboardDeadlineLate")}</span> : null}
+                  {" — "}
+                  {deadline.label}
+                </TodoItem>
+              ))}
+            </ul>
+          ) : (
+            <p className="panel-note">{t("dashboardDeadlinesNone")}</p>
+          )}
+        </Panel>
+      </section>
 
       <article className="info-card install-app-card">
         <h3>{t("dashboardInstallTitle")}</h3>
