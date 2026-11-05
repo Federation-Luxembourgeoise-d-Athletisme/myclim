@@ -244,7 +244,7 @@
   function renderMaps() {
     document.getElementById("maps").innerHTML = PLAN_MAPS.map((m) => `<button data-m="${m.key}" class="${m.key === map ? "on" : ""}">${m.label}</button>`).join("");
     document.getElementById("legend-vis").innerHTML = PLAN_MAPS.map((m) => `<b>${m.short}</b>${m.label}`).join("<br />")
-      + `<div class="note"><b>3 niveaux</b>La piste est en contrebas. On entre par les arcades, en haut des tribunes basses (Hall d'entrée à droite). La galerie (R+1) est au-dessus : ce qui s'y trouve (VIP, espace bénévoles) est entouré en violet avec l'étiquette GALERIE. On y entre par la porte du salon de presse ; l'espace bénévoles a son escalier en colimaçon, dans la buvette.</div>`;
+      + `<div class="note"><b>3 niveaux</b>La piste est en contrebas. On entre par les arcades, en haut des tribunes basses (Hall d'entrée à droite). La galerie (R+1) est au-dessus : ce qui s'y trouve (VIP, espace bénévoles) est entouré en violet avec l'étiquette GALERIE. Les VIP y entrent par la porte du salon de presse, les bénévoles par l'escalier en colimaçon de la buvette.</div>`;
   }
 
   function renderCanvas() {
@@ -266,7 +266,7 @@
     document.getElementById("stage-title").innerHTML = `<b>${m.label}</b> · ${m.who}`;
     const { rdc, etage } = legendItems(map);
     const block = (lines) => lines.map((l) => `<div>${l.k}<span>${l.t}</span></div>`).join("");
-    document.getElementById("legend").innerHTML = `<h3>Légende de ce plan</h3>${block(rdc)}${etage.length ? `<h3 class="up">Galerie (R+1) : entrée par la porte du salon de presse</h3>${block(etage)}` : ""}`;
+    document.getElementById("legend").innerHTML = `<h3>Légende de ce plan</h3>${block(rdc)}${etage.length ? `<h3 class="up">Galerie (R+1) : VIP par le salon de presse, bénévoles par l'escalier en colimaçon</h3>${block(etage)}` : ""}`;
   }
 
   function renderList() {

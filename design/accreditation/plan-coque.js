@@ -59,10 +59,10 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "w2", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 690), maps: on("web", "vol") },
   { id: "w3", kind: "mark", label: "WC", desc: "Toilettes", color: "#3a7ca5", level: "rdc", ...at(732, 1010), maps: on("web", "vol") },
 
-  // Galerie (R+1) : on y entre par la porte du salon de presse ; l'espace bénévoles par l'escalier en colimaçon de la buvette
-  { id: "m11", kind: "mark", label: "↑ Galerie", desc: "Entrée de la galerie (R+1) par la porte du salon de presse", color: "#4a5d6c", level: "rdc", ...at(705, 575), maps: on("web", "vol", "acc") },
-  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (R+1)", color: "#4a5d6c", level: "rdc", ...at(420, 190), maps: on("vol", "acc") },
-  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027), en haut de l'escalier en colimaçon", color: "#27a9e1", level: "etage", ...at(420, 138), maps: on("vol", "acc") },
+  // Galerie (R+1) : les VIP entrent par la porte du salon de presse, les bénévoles par l'escalier en colimaçon de la buvette
+  { id: "m11", kind: "mark", label: "↑ Galerie VIP", desc: "Entrée des VIP vers la galerie (R+1), par la porte du salon de presse", color: "#b8912a", level: "rdc", ...at(705, 575), maps: on("vol", "acc") },
+  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (R+1)", color: "#4a5d6c", level: "rdc", ...at(420, 203), maps: on("vol", "acc") },
+  { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027), en haut de l'escalier en colimaçon", color: "#27a9e1", level: "etage", ...at(420, 122), maps: on("vol", "acc") },
 
   // Points de contrôle des badges
   { id: "c1", kind: "ctrl", label: "A", desc: "", color: "#0a2540", level: "rdc", ...at(780, 940), maps: on("ctrl") },
