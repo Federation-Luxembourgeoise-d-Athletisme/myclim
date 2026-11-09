@@ -24,6 +24,15 @@ const REVENUE_SECTION_ORDER = [
 ];
 
 const DERIVED_ROW_IDS = new Set(["exp-40", "rev-11"]);
+
+// Le coût du meet director est contractuellement 10 % des montants versés aux
+// athlètes (déplacement, engagement, prize money, primes de performance, extra
+// appearance fee). La ligne est donc calculée, verrouillée et affichée en tête
+// du bloc Athlètes.
+const MEET_DIRECTOR_ROW_ID = "exp-14";
+const MEET_DIRECTOR_RATE = 0.1;
+const MEET_DIRECTOR_SOURCE_ROW_IDS = ["exp-8", "exp-9", "exp-10", "exp-11", "exp-12"];
+const MEET_DIRECTOR_FIELDS = ["currentForecast", "currentActual"];
 const CANONICAL_HISTORICAL_EDITIONS = new Set(["2024", "2025", "2026"]);
 
 const BUDGET_SEED_SOURCES = {
@@ -247,6 +256,7 @@ function normalizeBudgetRow(row = {}, side, index = 0) {
     isCustom: Boolean(row.isCustom),
     isDerived: DERIVED_ROW_IDS.has(safeId),
     isSummary: isBudgetSummaryRow(label),
+    isComputedLocked: safeId === MEET_DIRECTOR_ROW_ID,
   };
 }
 
@@ -437,12 +447,43 @@ function recalculateBudgetCollectionFormulas(rows = []) {
   return nextRows;
 }
 
+function applyMeetDirectorCost(rows = []) {
+  const directorRow = rows.find((row) => row.id === MEET_DIRECTOR_ROW_ID);
+  if (!directorRow) return rows;
+
+  const sourceRows = rows.filter((row) => MEET_DIRECTOR_SOURCE_ROW_IDS.includes(row.id));
+
+  return rows.map((row) => {
+    if (row.id !== MEET_DIRECTOR_ROW_ID) return row;
+
+    const nextRow = { ...row, section: "Athlètes", isComputedLocked: true };
+    MEET_DIRECTOR_FIELDS.forEach((fieldName) => {
+      const values = sourceRows.map((sourceRow) => toBudgetNumber(sourceRow[fieldName])).filter((value) => value != null);
+      // Pas de réalisé saisi sur les lignes liées → pas de réalisé pour le meet director non plus.
+      nextRow[fieldName] = values.length
+        ? Number((values.reduce((sum, value) => sum + value, 0) * MEET_DIRECTOR_RATE).toFixed(2))
+        : null;
+      nextRow[getFormulaFieldName(fieldName)] = "";
+      nextRow[getFormulaErrorFieldName(fieldName)] = "";
+    });
+    return nextRow;
+  });
+}
+
 function recalculateBudgetFormulas(budget) {
   if (!budget) return budget;
 
+  let expenses = recalculateBudgetCollectionFormulas(budget.expenses || []);
+  // Les éditions figées gardent les montants de l'Excel d'origine.
+  if (!isBudgetLockedEdition(budget.editionId)) {
+    expenses = applyMeetDirectorCost(expenses);
+    // Second passage : une formule peut elle-même pointer sur la ligne du meet director.
+    expenses = recalculateBudgetCollectionFormulas(expenses);
+  }
+
   return {
     ...structuredClone(budget),
-    expenses: recalculateBudgetCollectionFormulas(budget.expenses || []),
+    expenses,
     revenues: recalculateBudgetCollectionFormulas(budget.revenues || []),
   };
 }
@@ -888,6 +929,10 @@ function getVisibleBudgetRows(rows = []) {
 
 function groupRowsBySection(rows = [], order = []) {
   const visibleRows = [...getVisibleBudgetRows(rows)].sort((left, right) => {
+    const leftPinned = left.id === MEET_DIRECTOR_ROW_ID;
+    const rightPinned = right.id === MEET_DIRECTOR_ROW_ID;
+    if (leftPinned !== rightPinned) return leftPinned ? -1 : 1;
+
     const leftRowNumber = Number(left.rowNumber || 0);
     const rightRowNumber = Number(right.rowNumber || 0);
 

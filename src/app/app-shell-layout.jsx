@@ -22,6 +22,7 @@ import { ACCREDITATION_CONFIGURATION_DOC_PATH, TEAM_CONFIGURATION_DOC_PATH } fro
 import { getDisplayName, normalizeRole } from "./utils";
 import { LanguageSwitch } from "./language";
 import { NotificationBell } from "./notifications/notifications-ui";
+import { InstallAppBanner } from "./install-app-banner";
 import { useLanguage } from "./language-context";
 import { db } from "../services/firebase";
 
@@ -609,16 +610,103 @@ function DashboardHome(props) {
     }
 
     if (activeRole === "benevole") {
-      return renderTodoPanel("dashboardVolunteerPrioritiesSubtitle", (
+      const hasMission = Boolean(nextVolunteerRole || userProfile?.assignedRole);
+      const volunteerTiles = [
+        {
+          to: APP_ROUTES.myAssignments,
+          label: t("navMyAssignments"),
+          hint: t("volunteerHomeAssignmentsHint"),
+          tone: "red",
+          icon: (
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="4" y="5" width="16" height="15" rx="3" />
+              <path d="M8 3v4M16 3v4M4 10h16M8.5 14.5l2 2 4-4" />
+            </svg>
+          ),
+        },
+        {
+          to: APP_ROUTES.myDocuments,
+          label: t("navMyDocuments"),
+          hint: t("volunteerHomeDocumentsHint"),
+          badge: !documentsLoading && myDocumentsCount > 0 ? myDocumentsCount : null,
+          tone: "blue",
+          icon: (
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+              <path d="M14 3v5h5M9 13h6M9 17h4" />
+            </svg>
+          ),
+        },
+        ...(volunteerApplication
+          ? [
+              {
+                to: `${APP_ROUTES.myAssignments}/mon-dossier`,
+                label: t("navMyVolunteerFile"),
+                hint: t("volunteerHomeFileHint"),
+                tone: "navy",
+                icon: (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+                  </svg>
+                ),
+              },
+            ]
+          : []),
+      ];
+
+      return (
         <>
-          <TodoItem to={APP_ROUTES.myAssignments}>{volunteerDataLoading ? t("dashboardLoadingAssignment") : `${t("dashboardCurrentAssignment")}: ${volunteerAssignmentSummary}`}</TodoItem>
-          <TodoItem to={APP_ROUTES.myAssignments}>{t("dashboardPlannedShift")}: {volunteerShiftSummary}</TodoItem>
-          <TodoItem to={`${APP_ROUTES.myAssignments}/mon-dossier`}>{t("dashboardVolunteerFileStatus")}: {formatVolunteerApplicationStatus(volunteerApplication?.status, t)}</TodoItem>
-          <TodoItem to={APP_ROUTES.myDocuments}>{documentsLoading ? t("dashboardLoadingMissionDocuments") : t("dashboardDocumentsAvailableForTeams").replace("{count}", myDocumentsCount)}</TodoItem>
-          <TodoItem>{t("dashboardBriefingLabel")}: {volunteerBriefingSummary}</TodoItem>
-          <TodoItem>{t("dashboardVolunteerDepartureReminder")}</TodoItem>
+          <section className="volunteer-mission" aria-labelledby="volunteer-mission-title">
+            <div className="volunteer-mission__top">
+              <span className="volunteer-mission__eyebrow">{t("volunteerHomeMissionLabel")}</span>
+              {volunteerApplication ? (
+                <span className="volunteer-mission__status">{formatVolunteerApplicationStatus(volunteerApplication.status, t)}</span>
+              ) : null}
+            </div>
+            <h2 id="volunteer-mission-title" className={hasMission ? "" : "volunteer-mission__role--pending"}>
+              {volunteerDataLoading ? t("dashboardLoadingAssignment") : volunteerAssignmentSummary}
+            </h2>
+            {!volunteerDataLoading && !hasMission ? (
+              <p className="volunteer-mission__pending">{t("volunteerHomeNoMissionYet")}</p>
+            ) : null}
+            <dl className="volunteer-mission__facts">
+              <div>
+                <dt>{t("dashboardPlannedShift")}</dt>
+                <dd>{volunteerShiftSummary}</dd>
+              </div>
+              <div>
+                <dt>{t("dashboardBriefingLabel")}</dt>
+                <dd>{nextVolunteerRole?.briefingTime || t("assignmentsToBeConfirmed")}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <nav className="volunteer-tiles" aria-label={t("dashboardQuickAccessTitle")}>
+            {volunteerTiles.map((tile) => (
+              <NavLink key={tile.to} to={tile.to} className={`volunteer-tile volunteer-tile--${tile.tone}`}>
+                <span className="volunteer-tile__icon">{tile.icon}</span>
+                <span className="volunteer-tile__text">
+                  <strong>{tile.label}</strong>
+                  <span>{tile.hint}</span>
+                </span>
+                {tile.badge ? <span className="volunteer-tile__badge">{tile.badge}</span> : null}
+                <svg className="volunteer-tile__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </NavLink>
+            ))}
+          </nav>
+
+          <p className="volunteer-reminder">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7.5v5l3 2" />
+            </svg>
+            <span>{t("dashboardVolunteerDepartureReminder")}</span>
+          </p>
         </>
-      ));
+      );
     }
 
     if (activeRole === "gestionnaire") {
@@ -675,13 +763,22 @@ function DashboardHome(props) {
 
   return (
     <div className="page">
-      <section className="page-header">
-        <div>
-          <p className="eyebrow">{t("navHome")}</p>
-          <h1>{t("dashboardWelcome")} {getDisplayName(userProfile, currentUser?.email)}</h1>
-          <p>{t("dashboardIntro")}</p>
-        </div>
-      </section>
+      {activeRole === "benevole" ? (
+        <section className="volunteer-greeting">
+          <h1>
+            {t("volunteerHomeHello")} {String(userProfile?.firstName || "").trim() || getDisplayName(userProfile, currentUser?.email)}
+          </h1>
+          <p>{t("volunteerHomeIntro")}</p>
+        </section>
+      ) : (
+        <section className="page-header">
+          <div>
+            <p className="eyebrow">{t("navHome")}</p>
+            <h1>{t("dashboardWelcome")} {getDisplayName(userProfile, currentUser?.email)}</h1>
+            <p>{t("dashboardIntro")}</p>
+          </div>
+        </section>
+      )}
 
       {renderRoleSummary()}
 
@@ -704,42 +801,9 @@ function DashboardHome(props) {
         </Panel>
       </section>
 
-      <article className="info-card install-app-card">
-        <h3>{t("dashboardInstallTitle")}</h3>
-        <p>{t("dashboardInstallIntro")}</p>
-        <section className="install-app-grid" aria-label={t("dashboardInstallInstructionsAria")}>
-          <article className="install-app-step">
-            <strong className="install-app-step__title">
-              <span className="install-app-step__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M15.2 3.6c.7-.8 1.2-1.8 1.1-2.9-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.8 1.1.1 2-.5 2.7-1.4Z" />
-                  <path d="M17.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.7.8-3.5.8s-1.9-.8-3.1-.8c-1.6 0-3 .9-3.8 2.3-1.6 2.7-.4 6.8 1.1 8.9.7 1 1.6 2.2 2.8 2.1 1.1 0 1.6-.7 3-.7 1.4 0 1.9.7 3 .7 1.2 0 2-.9 2.7-1.9.8-1.2 1.2-2.3 1.2-2.4-.1-.1-2-.8-2-3.7Z" />
-                </svg>
-              </span>
-              {t("dashboardInstallOnIphone")}
-            </strong>
-            <p>{t("dashboardInstallIphoneSteps")}</p>
-          </article>
-          <article className="install-app-step">
-            <strong className="install-app-step__title">
-              <span className="install-app-step__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M7.1 8.1h9.8c.6 0 1 .5 1 1v6.8c0 .6-.4 1-1 1h-.7v2.3c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-2.3h-4.8v2.3c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-2.3h-.7c-.6 0-1-.4-1-1V9.1c0-.5.4-1 1-1Z" />
-                  <path d="M8.7 6.8a3.4 3.4 0 0 1 6.6 0Z" />
-                  <path d="M9.2 4.2 8 2.7m8 1.5 1.2-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <circle cx="10" cy="11.1" r=".7" />
-                  <circle cx="14" cy="11.1" r=".7" />
-                </svg>
-              </span>
-              {t("dashboardInstallOnAndroid")}
-            </strong>
-            <p>{t("dashboardInstallAndroidSteps")}</p>
-          </article>
-        </section>
-        <p className="install-app-note">{t("dashboardInstallNote")}</p>
-      </article>
+      <InstallAppBanner />
 
-      {volunteerApplication ? (
+      {volunteerApplication && activeRole !== "benevole" ? (
         <section className="panel-grid panel-grid--2">
           <Panel
             title={t("navMyVolunteerFile")}
