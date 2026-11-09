@@ -12,6 +12,13 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["netlify", "dev"],
       "port": 8888
+    },
+    {
+      "name": "myclim-dev-emulators",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": ["vite", "--port", "5174", "--strictPort"],
+      "env": { "VITE_USE_FIREBASE_EMULATORS": "true" },
+      "port": 5174
     }
   ]
 }
