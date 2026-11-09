@@ -6475,6 +6475,37 @@ tr.row--warning > td {
   white-space: nowrap;
 }
 
+.budget-locked-badge {
+  gap: 0.2rem;
+  margin-left: 0.35rem;
+  border-color: rgba(86, 101, 108, 0.22);
+  background: #f3f1ec;
+  color: #56656c;
+  cursor: help;
+}
+
+.budget-cell-value--locked {
+  color: #56656c;
+  cursor: help;
+}
+
+.budget-drawer__locked-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f3f1ec;
+  font-size: 0.84rem;
+  color: #56656c;
+}
+
+.budget-drawer__locked-note svg {
+  flex: none;
+  margin-top: 3px;
+}
+
 .budget-cell-value {
   display: block;
   width: 100%;

@@ -999,6 +999,18 @@ function buildBudgetPrintDocument({
   </html>`;
 }
 
+const MEET_DIRECTOR_HINT =
+  "Calculé automatiquement : 10 % de Frais déplacement + Engagement + Prize money + Primes performance exceptionnelle + Extra apparence fee.";
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
 function BudgetAmountField({ row, fieldName, onValueChange, collectionKey, isEditable }) {
   const formulaFieldName = `${fieldName}Formula`;
   const formulaErrorFieldName = `${fieldName}FormulaError`;
@@ -1011,6 +1023,14 @@ function BudgetAmountField({ row, fieldName, onValueChange, collectionKey, isEdi
 
   if (!isEditable) {
     return <span className="budget-cell-value">{formatCurrency(row[fieldName])}</span>;
+  }
+
+  if (row.isComputedLocked) {
+    return (
+      <span className="budget-cell-value budget-cell-value--locked" title={MEET_DIRECTOR_HINT}>
+        {formatCurrency(row[fieldName])}
+      </span>
+    );
   }
 
   return (
@@ -1526,12 +1546,18 @@ function BudgetLineDrawer({
         {!hasComparison && variance == null ? "Aucun réalisé saisi pour cette ligne." : null}
       </p>
 
-      {isEditable ? renderTextField("label", "Libellé") : null}
+      {row.isComputedLocked && (isEditable || canStartEditing) ? (
+        <p className="budget-drawer__locked-note">
+          <LockIcon /> {MEET_DIRECTOR_HINT} Ligne verrouillée : modifie les lignes liées pour la faire évoluer.
+        </p>
+      ) : null}
+
+      {isEditable && !row.isComputedLocked ? renderTextField("label", "Libellé") : null}
       {renderTextField("details", "Détail", { multiline: true, placeholder: "Fournisseur, devis, quantités…" })}
       {renderTextField("actualReference", "Facture / repère", { placeholder: "N° de facture, note…" })}
       {renderTextField("comment", "Commentaire", { multiline: true })}
 
-      {isEditable && sectionNames.length > 1 ? (
+      {isEditable && !row.isComputedLocked && sectionNames.length > 1 ? (
         <label className="field budget-drawer__field">
           <span>Bloc</span>
           <select value={row.section} onChange={(event) => onValueChange(collectionKey, row.id, "section", event.target.value)}>
@@ -1568,7 +1594,7 @@ function BudgetLineDrawer({
       ) : null}
 
       <footer className="budget-drawer__footer">
-        {isEditable ? (
+        {isEditable && row.isComputedLocked ? null : isEditable ? (
           <button
             type="button"
             className="button button--ghost-danger"
@@ -1832,7 +1858,8 @@ function BudgetLinesWorkspace({
                         onDragOver={isEditable ? (event) => onRowDragOver(event, collectionKey, row.id) : undefined}
                         onDrop={isEditable ? (event) => onRowDrop(event, collectionKey, section.sectionName, row.id) : undefined}
                       >
-                        {isEditable ? (
+                        {isEditable && row.isComputedLocked ? <td className="budget-lines-table__handle" /> : null}
+                        {isEditable && !row.isComputedLocked ? (
                           <td className="budget-lines-table__handle">
                             <button
                               className={`budget-drag-handle ${dragState?.rowId === row.id ? "budget-drag-handle--active" : ""}`}
@@ -1856,6 +1883,11 @@ function BudgetLinesWorkspace({
                           >
                             {row.label || "Sans libellé"}
                             {row.isCustom ? <span className="budget-custom-badge">Ajoutée</span> : null}
+                            {row.isComputedLocked && (isEditable || canStartEditing) ? (
+                              <span className="budget-custom-badge budget-locked-badge" title={MEET_DIRECTOR_HINT}>
+                                <LockIcon /> 10 % auto
+                              </span>
+                            ) : null}
                           </button>
                           {row.details ? <small>{row.details}</small> : null}
                         </td>
@@ -2248,6 +2280,10 @@ function BudgetTrackingPage({ Panel }) {
 
       const collectionKey = type === "expenses" ? "expenses" : "revenues";
       const isNumericField = fieldName.includes("Forecast") || fieldName.includes("Actual");
+      const targetRow = currentBudget[collectionKey].find((row) => row.id === rowId);
+      if (targetRow?.isComputedLocked && (isNumericField || fieldName === "label" || fieldName === "section")) {
+        return currentBudget;
+      }
       const nextBudget = {
         ...currentBudget,
         [collectionKey]: currentBudget[collectionKey].map((row) =>
