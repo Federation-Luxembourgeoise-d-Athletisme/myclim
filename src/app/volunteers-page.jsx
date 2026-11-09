@@ -16,6 +16,23 @@ import { useLanguage } from "./language-context";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 
+const LANGUAGE_CODES = {
+  français: "FR",
+  anglais: "EN",
+  allemand: "DE",
+  luxembourgeois: "LU",
+  portugais: "PT",
+  italien: "IT",
+  espagnol: "ES",
+  néerlandais: "NL",
+};
+
+// Codes courts pour la liste dense (FR EN LU…) ; le nom complet reste en infobulle.
+function getLanguageCode(language) {
+  const name = String(language || "").trim();
+  return LANGUAGE_CODES[name.toLowerCase()] || name.slice(0, 3);
+}
+
 // view : onglet affiché quand la page est un onglet de Candidatures ou
 // d'Équipes & affectations ("meeting", "assigned-posts", "support",
 // "alerts") ; sans view, la page garde ses propres onglets.
@@ -576,28 +593,14 @@ function VolunteersPage(props) {
         </div>
       ) : null}
 
-      <section className="status-legend">
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Candidature reçue")}>{t("statusReceived")}</span>
-          <p>{t("statusReceivedDesc")}</p>
-        </article>
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Affecté")}>{t("statusAssigned")}</span>
-          <p>{t("statusAssignedDesc")}</p>
-        </article>
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Informé")}>{t("statusInformed")}</span>
-          <p>{t("statusInformedDesc")}</p>
-        </article>
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Confirmé")}>{t("statusConfirmed")}</span>
-          <p>{t("statusConfirmedDesc")}</p>
-        </article>
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Annulé")}>{t("statusCancelledLabel")}</span>
-          <p>{t("statusCancelledDesc")}</p>
-        </article>
-      </section>
+      {/* Légende compacte : le détail de chaque statut est en infobulle. */}
+      <div className="status-legend-compact">
+        <span className={getWorkflowStatusClass("Candidature reçue")} title={t("statusReceivedDesc")}>{t("statusReceived")}</span>
+        <span className={getWorkflowStatusClass("Affecté")} title={t("statusAssignedDesc")}>{t("statusAssigned")}</span>
+        <span className={getWorkflowStatusClass("Informé")} title={t("statusInformedDesc")}>{t("statusInformed")}</span>
+        <span className={getWorkflowStatusClass("Confirmé")} title={t("statusConfirmedDesc")}>{t("statusConfirmed")}</span>
+        <span className={getWorkflowStatusClass("Annulé")} title={t("statusCancelledDesc")}>{t("statusCancelledLabel")}</span>
+      </div>
 
       <Panel
         title={
@@ -651,7 +654,7 @@ function VolunteersPage(props) {
           </button>
         </div>
 
-        <div className="admin-toolbar">
+        <div className="admin-toolbar admin-toolbar--compact">
           <label className="field">
             <span>{t("searchLabel")}</span>
             <input
@@ -669,6 +672,20 @@ function VolunteersPage(props) {
               ))}
             </select>
           </label>
+          {activeVolunteerView === "meeting" ? (
+            <>
+              <label className="field">
+                <span>{t("sortModeLabel")}</span>
+                <select value={volunteerSortMode} onChange={(event) => setVolunteerSortMode(event.target.value)}>
+                  <option value="alphabetical">{t("sortAlphabetical")}</option>
+                  <option value="team">{t("sortByTeam")}</option>
+                </select>
+              </label>
+              <NavLink className="sheet-toolbar-link" to="/app/equipes/affectations">
+                {t("editInAssignments")}
+              </NavLink>
+            </>
+          ) : null}
           {activeVolunteerView === "assigned-posts" ? (
             <>
               <label className="field">
@@ -753,36 +770,24 @@ function VolunteersPage(props) {
 
         {activeVolunteerView === "meeting" ? (
           <div className="section-stack">
-            <div className="section-intro">
-              <h3>{t("meetingSectionTitle")}</h3>
-              <p>{t("meetingSectionDesc")}</p>
-            </div>
-
-            <div className="admin-toolbar">
-              <label className="field">
-                <span>{t("sortModeLabel")}</span>
-                <select value={volunteerSortMode} onChange={(event) => setVolunteerSortMode(event.target.value)}>
-                  <option value="alphabetical">{t("sortAlphabetical")}</option>
-                  <option value="team">{t("sortByTeam")}</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="table-wrap">
-              <table className="data-table data-table--admin">
+            <div className="table-wrap table-wrap--sheet">
+              <table className="data-table data-table--sheet">
                 <thead>
                   <tr>
                     <th>{t("colVolunteer")}</th>
-                    <th>{t("colContact")}</th>
+                    <th>{t("colEmail")}</th>
+                    <th>{t("colPhone")}</th>
                     <th>{t("colLanguages")}</th>
                     <th>{t("colStatus")}</th>
-                    <th>{t("colMission")}</th>
+                    <th>{t("colTeams")}</th>
+                    <th>{t("colPreferences")}</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {visibleMeetingVolunteers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="table-empty-state">
+                      <td colSpan={8} className="table-empty-state">
                         {t("emptyMeetingVolunteers")}
                       </td>
                     </tr>
@@ -796,96 +801,68 @@ function VolunteersPage(props) {
                     <Fragment key={volunteer.id}>
                       {showGroupDivider ? (
                         <tr className="table-group-row">
-                          <td colSpan={5}>
+                          <td colSpan={8}>
                             <strong>{primaryRole || t("unassignedGroupLabel")}</strong>
                           </td>
                         </tr>
                       ) : null}
                       <tr>
-                        <td>
-                          <div className="table-stack">
-                            <button
-                              className="name-link-button"
-                              type="button"
-                              onClick={() => setSelectedVolunteerId(volunteer.id)}
-                            >
-                              {volunteer.firstName} {volunteer.lastName} ({volunteer.age} {t("ageUnit")})
+                        <td className="sheet-name">
+                          <button className="sheet-link" type="button" onClick={() => setSelectedVolunteerId(volunteer.id)}>
+                            {volunteer.lastName} {volunteer.firstName}
+                          </button>
+                          {Number.isFinite(volunteer.age) ? <span className="sheet-muted"> {volunteer.age}</span> : null}
+                        </td>
+                        <td className="sheet-ellipsis" title={volunteer.email}>{volunteer.email}</td>
+                        <td className="sheet-nowrap">{volunteer.phone}</td>
+                        <td className="sheet-nowrap" title={volunteer.languages.join(", ")}>
+                          {volunteer.languages.map(getLanguageCode).join(" ")}
+                        </td>
+                        <td className="sheet-nowrap">
+                          <span
+                            className={`sheet-status ${getWorkflowStatusClass(volunteer.workflowStatus)}`}
+                            title={getVolunteerStatusHistoryTitle(volunteer)}
+                          >
+                            {getStatusLabel(volunteer.workflowStatus)}
+                          </span>
+                        </td>
+                        <td className="sheet-ellipsis">
+                          {getVolunteerAssignedRoles(volunteer).length === 0 ? (
+                            <span className="sheet-muted">—</span>
+                          ) : (
+                            getVolunteerAssignedRoles(volunteer).map((assignedRole, roleIndex) => (
+                              <Fragment key={`${volunteer.id}-${assignedRole}`}>
+                                {roleIndex > 0 ? ", " : ""}
+                                {assignedRole}
+                                <span className="sheet-muted"> ({getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)})</span>
+                              </Fragment>
+                            ))
+                          )}
+                        </td>
+                        <td className="sheet-ellipsis sheet-muted" title={volunteer.missionPreferences.join(", ")}>
+                          {volunteer.missionPreferences.join(", ")}
+                        </td>
+                        <td className="sheet-nowrap sheet-actions">
+                          {volunteer.workflowStatus === "Annulé" ? (
+                            <button type="button" onClick={() => updateVolunteerStatus(volunteer.id, "Candidature reçue")}>
+                              {t("reactivateShort")}
                             </button>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="table-stack">
-                            <span>{volunteer.email}</span>
-                            <span>{volunteer.phone}</span>
-                          </div>
-                        </td>
-                        <td>{volunteer.languages.join(", ")}</td>
-                        <td>
-                          <div className="status-cell">
-                            <span
-                              className={getWorkflowStatusClass(volunteer.workflowStatus)}
-                              title={getVolunteerStatusHistoryTitle(volunteer)}
-                            >
-                              {getStatusLabel(volunteer.workflowStatus)}
-                            </span>
-
-                            <div className="status-cell__actions">
-                              {volunteer.workflowStatus === "Annulé" ? (
-                                <button
-                                  type="button"
-                                  className="button button--secondary button--small"
-                                  onClick={() => updateVolunteerStatus(volunteer.id, "Candidature reçue")}
-                                >
-                                  {t("reactivateAction")}
+                          ) : (
+                            <>
+                              {volunteer.workflowStatus === "Affecté" || volunteer.workflowStatus === "Informé" ? (
+                                <button type="button" onClick={() => updateVolunteerStatus(volunteer.id, "Confirmé")}>
+                                  {t("confirmAction")}
                                 </button>
-                              ) : (
-                                <>
-                                  {volunteer.workflowStatus === "Affecté" || volunteer.workflowStatus === "Informé" ? (
-                                    <button
-                                      type="button"
-                                      className="button button--secondary button--small"
-                                      onClick={() => updateVolunteerStatus(volunteer.id, "Confirmé")}
-                                    >
-                                      {t("confirmAction")}
-                                    </button>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    className="button button--danger-soft button--small"
-                                    onClick={() => updateVolunteerStatus(volunteer.id, "Annulé")}
-                                  >
-                                    {t("cancelAction")}
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="role-assignment-cell">
-                            {getVolunteerAssignedRoles(volunteer).length === 0 ? (
-                              <span className="role-assignment-row__name">{t("unassignedGroupLabel")}</span>
-                            ) : (
-                              getVolunteerAssignedRoles(volunteer).map((assignedRole) => (
-                                <div key={`${volunteer.id}-${assignedRole}`} className="role-assignment-row">
-                                  <span className="role-assignment-row__name">{assignedRole}</span>
-                                  <span className="role-assignment-row__team-role-display">
-                                    {getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)}
-                                  </span>
-                                </div>
-                              ))
-                            )}
-                            {volunteer.workflowStatus !== "Annulé" ? (
-                              <NavLink className="role-assignment-cell__link" to="/app/equipes/affectations">
-                                {t("editInAssignments")}
-                              </NavLink>
-                            ) : null}
-                            {volunteer.missionPreferences.length ? (
-                              <p className="mission-preferences-hint">
-                                {t("statedPreferences")}: {volunteer.missionPreferences.join(", ")}
-                              </p>
-                            ) : null}
-                          </div>
+                              ) : null}
+                              <button
+                                className="sheet-actions__danger"
+                                type="button"
+                                onClick={() => updateVolunteerStatus(volunteer.id, "Annulé")}
+                              >
+                                {t("cancelShort")}
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     </Fragment>
