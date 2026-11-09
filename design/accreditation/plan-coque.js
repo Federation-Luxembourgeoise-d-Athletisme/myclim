@@ -43,8 +43,8 @@ const PLAN_DEFAULT_ELEMENTS = [
   // Hall d'entrée : l'entrée est aussi le point info et contact (secours, objets trouvés)
   { id: "m1", kind: "mark", label: "Entrée · Info", desc: "Entrée principale et point info : le contact en cas de besoin (secours, objets trouvés)", color: "#0f8a5f", level: "rdc", ...at(935, 790), maps: on("web", "vol", "acc") },
   { id: "m9", kind: "mark", label: "Billetterie", desc: "Caisse et contrôle des billets (un seul point)", color: "#0f8a5f", level: "rdc", ...at(860, 690), maps: on("web", "vol") },
-  { id: "m7", kind: "mark", label: "VIP", desc: "Accueil VIP et retrait des badges VIP", color: "#b8912a", level: "rdc", ...at(830, 880), maps: on("vol") },
-  { id: "m8", kind: "mark", label: "Staff", desc: "Accueil bénévoles, juges et presse, retrait des badges", color: "#27a9e1", level: "rdc", ...at(930, 905), maps: on("vol", "acc") },
+  { id: "m7", kind: "mark", label: "VIP", desc: "Accueil VIP et retrait des badges VIP", color: "#b8912a", level: "rdc", ...at(800, 862), maps: on("vol") },
+  { id: "m8", kind: "mark", label: "Staff", desc: "Accueil bénévoles, juges et presse, retrait des badges", color: "#27a9e1", level: "rdc", ...at(928, 850), maps: on("vol", "acc") },
 
   // Stands (niveau des arcades)
   { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 335), maps: on("web", "vol") },
@@ -99,7 +99,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
   // Piste et tribunes : ovales centrés sur (420, 826), lignes droites de 634 à 1018 (mesures du plan)
   const oval = (r) => `M${420 - r} 634 A${r} ${r} 0 0 1 ${420 + r} 634 L${420 + r} 1018 A${r} ${r} 0 0 1 ${420 - r} 1018 Z`;
   // Les arcades : tout le niveau d'entrée, jusqu'à la buvette et au couloir de l'amphithéâtre
-  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L770 655 L773 630 L892 602 C860 585 830 555 798 520 C770 490 735 440 713 403 C700 380 676 330 658 283 L625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
+  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L716 930 L716 640 L773 630 L892 602 C860 585 830 555 798 520 C770 490 735 440 713 403 C700 380 676 330 658 283 L625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
   const label = (x, y, text, size = 22, fill = "#7d8d99") =>
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="${size}" letter-spacing="2" fill="${fill}">${text}</text>`;
   return `<svg class="plan-base" viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
@@ -113,9 +113,9 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     ${label(885, 330, "GYMNASE", 26, "#a9b5be")}
 
     <!-- Hall d'entrée -->
-    <path d="M773 630 L892 602 L968 723 L988 935 L848 860 L790 905 L772 930 L772 745 L770 655 Z" fill="#eaf4ee" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
+    <path d="M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z" fill="#eaf4ee" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
     ${label(880, 650, "HALL D'ENTRÉE", 18, "#6b8a75")}
-    <path d="M1015 790 L985 810 L1015 830 Z M1015 804 L1020 804 L1020 816 L1015 816 Z" fill="#0f8a5f" />
+    <path d="M1018 810 L1004 830 L1018 850 Z" fill="#0f8a5f" />
 
     <!-- Arcades -->
     <path d="${arcades}" fill="#f4f6f8" />
@@ -124,22 +124,14 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="${arcades}" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
     <!-- Le mur qui sépare du gymnase (bord de la rampe), tracé sur la ligne indiquée par Margot -->
     <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
-    <!-- Cage d'escalier vers la galerie (accès VIP) : seulement ses murs extérieurs -->
-    <path d="M729 580 L747 565 L760 575 L773 630 L770 655 L733 661 Z" fill="#dfe5ea" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
-    <path d="M738 622 L766 622 M738 629 L767 629 M738 636 L768 636 M738 643 L768 643 M738 650 L768 650" stroke="#9aa8b3" stroke-width="2" />
 
-    <!-- Amphithéâtre, comme sur le plan d'architecte : bâtiment arrondi, scène côté buvette,
-         gradins en éventail ; on y entre par les deux sas (en haut et en bas, côté gymnase) -->
-    <path d="M590 60 C548 80 538 160 560 195 C575 215 600 228 625 222 C645 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
-    <rect x="563" y="96" width="12" height="68" rx="3" fill="#9aa8b3" />
-    <path d="M594 84 Q622 130 596 196 M604 76 Q640 130 604 206 M614 68 Q658 130 610 214" fill="none" stroke="#b9c5ce" stroke-width="3" />
+    <!-- Amphithéâtre : fond léger, ses murs viennent du plan d'architecte -->
+    <path d="M590 60 C548 80 538 160 560 195 C575 215 600 228 625 222 C645 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" />
     ${label(600, 26, "AMPHITHÉÂTRE", 16)}
 
     <!-- Buvette (en haut, avec l'escalier en colimaçon) et bâtiment du bas -->
-    <path d="M300 296 L561 296 L485 227 L456 190 L380 190 L351 227 Z" fill="#dfe5ea" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
-    <circle cx="418" cy="168" r="21" fill="#fff" stroke="#9aa8b3" stroke-width="3" />
-    <path d="M418 168 L418 149 M418 168 L434 178 M418 168 L402 178" stroke="#9aa8b3" stroke-width="3" />
-    <path d="M300 1352 L561 1352 L485 1420 L456 1458 L380 1458 L351 1420 Z" fill="#dfe5ea" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
+    <path d="M300 296 L561 296 L485 227 L456 190 L380 190 L351 227 Z" fill="#e4e9ed" />
+    <path d="M300 1352 L561 1352 L485 1420 L456 1458 L380 1458 L351 1420 Z" fill="#e4e9ed" />
 
     <!-- Tribunes, avec les passages vers la piste aux deux bouts -->
     <path d="${oval(262)}" fill="#c9d3db" />
@@ -159,6 +151,9 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="${oval(192)}" fill="#cfe0f3" />
     <path d="${oval(155)}" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="12 9" />
     <path d="${oval(131)}" fill="${infield}" />
+
+    <!-- Murs du plan d'architecte (plan-coque-murs.js), par-dessus le fond -->
+    <path d="${typeof PLAN_WALLS === "string" ? PLAN_WALLS : ""}" fill="none" stroke="#4a5d6c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" />
   </svg>`;
 }
 
