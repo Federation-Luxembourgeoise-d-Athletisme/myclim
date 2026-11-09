@@ -232,13 +232,18 @@
     : el.kind === "area" ? `<div class="area" style="background:${color}1f;border-color:${color};color:${color}">${esc(el.label)}</div>`
     : el.kind === "door" ? `<div class="door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></div>`
     : `<div class="pill" style="background:${color}">${esc(el.label)}</div>`;
-  // Zones dessinées. Fond « piste » : couleur de piste d'athlétisme + couloirs blancs + pictos
+  // Zones dessinées. Fond « piste » : couleur de piste d'athlétisme (bleue, comme à la Coque) + couloirs blancs + pictos
   // (enfant qui court, haie) pour comprendre d'un coup d'œil que c'est un espace pour essayer l'athlétisme.
   let shapeCount = 0;
   const PICTOS = {
-    runner: `<circle cx="4" cy="-22" r="6" fill="#fff" /><path d="M2 -14 L-3 4 M-14 -7 L-1 -11 L9 -3 M-3 4 L-13 17 M-3 4 L8 12 L13 23" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />`,
-    hurdle: `<path d="M-16 -6 L16 -6 M-16 1 L16 1 M-13 -6 L-13 18 M13 -6 L13 18" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" />`,
+    // petit sprinteur « cute » : grosse tête, buste penché en avant, bras et jambes lancés, traits de vitesse
+    runner: `<path d="M-34 -16 L-24 -16 M-38 -5 L-26 -5 M-33 6 L-24 6" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8" />
+      <circle cx="9" cy="-21" r="9.5" fill="#fff" />
+      <path d="M5 -10 L-3 6 M3 -7 L13 -1 L19 -10 M1 -6 L-9 -10 L-15 -2 M-3 6 L9 9 L7 21 M-3 6 L-11 15 L-21 14" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />`,
+    hurdle: `<path d="M-16 -6 L16 -6 M-13 -6 L-13 17 M13 -6 L13 17 M-17 17 L-9 17 M9 17 L17 17" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" /><path d="M-16 -1 L16 -1" stroke="#ffd34d" stroke-width="4" stroke-linecap="round" />`,
+    star: `<path d="M0 -10 L3 -3 L10 0 L3 3 L0 10 L-3 3 L-10 0 L-3 -3 Z" fill="#ffd34d" />`,
   };
+
   const shapesSvg = (list, crop = false) => {
     const shapes = list.filter((el) => el.kind === "area" && el.shape);
     if (!shapes.length) return "";
@@ -248,8 +253,8 @@
       const pts = el.shape.map(([dx, dy]) => `${X + dx},${Y + dy}`).join(" ");
       if (el.bg !== "piste") return `<polygon points="${pts}" fill="${el.color}2e" stroke="${el.color}" stroke-width="3" stroke-dasharray="10 6" stroke-linejoin="round" />`;
       const id = `piste-${++shapeCount}`;
-      return `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="60" height="26" patternTransform="rotate(-28)"><rect width="60" height="26" fill="#e2683f" /><line x1="0" y1="13" x2="60" y2="13" stroke="#fff" stroke-width="2.4" stroke-opacity=".85" /></pattern></defs>
-        <polygon points="${pts}" fill="url(#${id})" fill-opacity=".9" stroke="#c4472a" stroke-width="3" stroke-linejoin="round" />
+      return `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="60" height="26" patternTransform="rotate(-28)"><rect width="60" height="26" fill="#2f78c4" /><line x1="0" y1="13" x2="60" y2="13" stroke="#fff" stroke-width="2.4" stroke-opacity=".85" /></pattern></defs>
+        <polygon points="${pts}" fill="url(#${id})" fill-opacity=".9" stroke="#1d5a9e" stroke-width="3" stroke-linejoin="round" />
         ${(el.pictos || []).map(([t, dx, dy, sc = 1.4]) => `<g transform="translate(${X + dx} ${Y + dy}) scale(${sc})">${PICTOS[t] || ""}</g>`).join("")}`;
     }).join("")}</svg>`;
   };
