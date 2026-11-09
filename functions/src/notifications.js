@@ -212,7 +212,7 @@ export const notifyVolunteerApplication = onDocumentCreated({ document: "volunte
     type: "volunteer_application",
     title: { fr: "Nouveau bénévole", en: "New volunteer" },
     body: { fr: `${name} vient de s'inscrire comme bénévole.`, en: `${name} just signed up as a volunteer.` },
-    path: "/app/benevoles",
+    path: "/app/candidatures",
   });
 });
 
