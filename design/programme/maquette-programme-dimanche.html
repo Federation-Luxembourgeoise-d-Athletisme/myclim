@@ -36,6 +36,15 @@ select,input,textarea{font:inherit;font-size:12.5px;border:1px solid #cfd9e6;bor
 .hcell.race{background:#eef1f5}
 .hcell small{display:block;font-weight:500;color:var(--dim)}
 .hcell.extra{color:#6b4f00}
+.hcell.general{background:#eaf3ee;color:#1d6b3f}
+.hcell.subrole{background:#f3f6fb}
+.hcell .grp{display:block;font-size:9.5px;font-weight:600;color:var(--blue);text-transform:none;letter-spacing:0}
+.col.general{background:#f6fbf8}
+.pending{display:inline-block;font-size:9px;font-weight:700;color:#8a5a00;background:#fff3d6;border-radius:3px;padding:0 4px;margin-top:2px}
+.cols-admin{display:grid;gap:4px;margin-top:6px}
+.cols-admin .r{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.cols-admin .r input{width:100%}
+.tl .d.gen{border-left-style:dashed}
 .tcol{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--line)}
 .tlabel{height:var(--row);font-size:10px;color:var(--dim);text-align:right;padding-right:5px;line-height:var(--row)}
 .tlabel.hour{color:var(--ink);font-weight:700}
@@ -107,15 +116,16 @@ select,input,textarea{font:inherit;font-size:12.5px;border:1px solid #cfd9e6;bor
   <div id="team-view" style="display:none"></div>
 
   <div class="q">
-    <b>Questions pour toi</b>
+    <b>Décisions (09/11)</b>
     <ol>
-      <li><b>Colonnes Entrance :</b> l'an dernier il y avait 6 colonnes Entrance (VIP &amp; bénévoles, billets, runner inside, desk U12/U14, cartes boissons, guidage athlètes). Dans MyCLIM, ce sont 6 équipes, ou une équipe « Accueil &amp; billetterie » avec des sous-rôles qui deviennent des colonnes ?</li>
-      <li><b>Colonne « Programme piste » :</b> les horaires ici sont un <i>exemple</i>. Dans l'app ils viendront du timetable de l'édition. On y met aussi le pré-programme (U12/U14, nationales, Business Race) ?</li>
-      <li><b>Lieux :</b> on prend la liste des lieux de la Coque des plans (hall d'entrée, échauffement, salon VIP, call room…) en liste déroulante, ou du texte libre ?</li>
-      <li><b>Bénévoles :</b> dans leur espace, ils voient seulement leur équipe (vue de droite), ou aussi les activités « tout le monde » (arrivée, repas, briefing général) ?</li>
-      <li><b>Colonnes en plus</b> (non bénévoles) de l'an dernier pour le dimanche : Briefings, Installation, Shirt Canon. On ajoute aussi Apex, TV, Officials, Speakers comme le samedi ?</li>
+      <li><b>Entrance</b> = sous-rôles de l'équipe <i>Accueil &amp; billetterie</i>, une colonne chacun. <span class="pending">à revoir avec la resp. bénévoles</span></li>
+      <li><b>Programme piste</b> : repris du timetable de l'édition, pré-programme compris (horaires d'exemple ici).</li>
+      <li><b>Lieu</b> : liste des lieux de la Coque, ou texte libre.</li>
+      <li><b>Bénévoles et chefs d'équipe</b> voient leur équipe + la colonne « Général » (arrivée, repas…).</li>
+      <li><b>Colonnes libres</b> gérables ici (ajouter, renommer, supprimer) : Apex, TV, Officials, Speakers ajoutées.</li>
     </ol>
   </div>
+</div>
 </div>
 
 <script>
@@ -139,7 +149,8 @@ const RACES = [
   { title: "Programme principal", start: "15:15", end: "17:45" },
   { title: "Remise des prix · fin", start: "17:45", end: "18:15" },
 ];
-const KEY = "myclim-maquette-programme-dimanche";
+const KEY = "myclim-maquette-programme-dimanche-v2";
+const PLACES = ["Hall d'entrée", "Billetterie", "Entrée · info", "Arcades", "Buvette", "Bar & food (mur du gymnase)", "Discovery corner", "Amphithéâtre", "Échauffement", "Call room", "Piste (R-1)", "Mixed zone", "Salon VIP / Judges room", "Galerie (R+1)", "Zone bénévoles (galerie)", "Salle de presse", "Parking"];
 let data, selId = null, hidden = new Set(), view = "grid";
 
 const toMin = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + (m || 0); };
@@ -151,8 +162,15 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch
 async function load(fresh) {
   if (!fresh) { try { const s = localStorage.getItem(KEY); if (s) { data = JSON.parse(s); return; } } catch {} }
   data = await (await fetch("./sunday-2026.json")).json();
+  // Réponses de Margot (09/11) : les colonnes Entrance sont des sous-rôles de l'équipe
+  // Accueil & billetterie (à confirmer avec la resp. bénévoles) ; une colonne Général
+  // pour ce qui concerne tout le monde ; colonnes libres Apex, TV, Officials, Speakers.
+  for (const c of data.columns) if (c.name.startsWith("Entrance – ")) { c.kind = "subrole"; c.team = "Accueil & billetterie"; c.name = c.name.replace("Entrance – ", ""); }
+  data.columns.unshift({ id: "general", name: "Général · tout le monde", kind: "general" });
+  for (const n of ["Apex", "TV", "Officials", "Speakers"]) data.columns.push({ id: "x-" + n.toLowerCase(), name: n, kind: "extra" });
+  for (const a of data.activities) if (/^ARRIVAL OF LUNEX/.test(a.title)) a.cols = ["general"];
   // Petit ajout pour montrer la catégorie Repas, absente du dimanche 2026.
-  data.activities.push({ id: "meal1", title: "Repas bénévoles (par roulement)", start: "12:30", end: "13:30", cols: data.columns.filter((c) => c.kind === "team").map((c) => c.id), category: "meal", place: "Salle bénévoles (galerie)", owner: "", note: "Exemple ajouté pour la maquette." });
+  data.activities.push({ id: "meal1", title: "Repas bénévoles (par roulement)", start: "12:30", end: "13:30", cols: ["general"], category: "meal", place: "Salle bénévoles (galerie)", owner: "", note: "Exemple ajouté pour la maquette." });
   save();
 }
 
@@ -191,7 +209,8 @@ function renderGrid() {
   const grid = document.getElementById("grid");
   grid.style.gridTemplateColumns = `46px 150px repeat(${cols.length}, 128px)`;
   let html = `<div class="hcell time"></div><div class="hcell race">Programme piste<small>exemple · timetable de l'édition</small></div>`;
-  html += cols.map((c) => `<div class="hcell ${c.kind}" title="${esc(c.name)}">${esc(c.name)}<small>${c.kind === "extra" ? "colonne libre" : "équipe"}</small></div>`).join("");
+  const kindLabel = (c) => c.kind === "extra" ? "<small>colonne libre</small>" : c.kind === "general" ? "<small>visible par toutes les équipes</small>" : c.kind === "subrole" ? "" : "<small>équipe</small>";
+  html += cols.map((c) => `<div class="hcell ${c.kind}" title="${esc(c.name)}">${c.kind === "subrole" ? `<span class="grp">${esc(c.team)} ›</span>` : ""}${esc(c.name)}${kindLabel(c)}</div>`).join("");
   let times = "";
   for (let i = 0; i < rows; i++) { const m = START + i * STEP; times += `<div class="tlabel ${m % 60 === 0 ? "hour" : ""}">${m % 30 === 0 ? toTime(m) : ""}</div>`; }
   const slots = Array.from({ length: rows }, (_, i) => `<div class="slot ${(START + (i + 1) * STEP) % 60 === 0 ? "hour" : ""}" data-t="${toTime(START + i * STEP)}"></div>`).join("");
@@ -201,7 +220,7 @@ function renderGrid() {
   for (const c of cols) {
     const acts = data.activities.filter((a) => a.cols.includes(c.id) && !hidden.has(a.category));
     const { lane, count } = laneLayout(acts);
-    html += `<div class="col" data-col="${c.id}">${slots}${acts.map((a) => blockHtml(a, lane.get(a.id), count)).join("")}</div>`;
+    html += `<div class="col ${c.kind === "general" ? "general" : ""}" data-col="${c.id}">${slots}${acts.map((a) => blockHtml(a, lane.get(a.id), count)).join("")}</div>`;
   }
   grid.innerHTML = html;
 }
@@ -212,7 +231,11 @@ function renderPanel() {
   if (!a) {
     const n = data.activities.length;
     p.innerHTML = `<h2>Activité</h2><p class="empty">Clique sur un bloc pour le modifier, ou sur une case vide pour ajouter une activité à cette heure dans cette colonne.</p>
-      <p class="hint">${n} activités · ${data.columns.length} colonnes · grille de 8:00 à 20:00 par 15 min.</p>`;
+      <p class="hint">${n} activités · ${data.columns.length} colonnes · grille de 8:00 à 20:00 par 15 min.</p>
+      <h2 style="margin-top:14px">Colonnes libres</h2>
+      <p class="hint">Les équipes et sous-rôles viennent d'Équipes. Ici, les colonnes hors bénévoles (staff, prestataires…).</p>
+      <div class="cols-admin">${data.columns.filter((c) => c.kind === "extra").map((c) => `<div class="r"><input data-rename="${c.id}" value="${esc(c.name)}"><button class="btn danger" data-delcol="${c.id}" title="Supprimer la colonne">×</button></div>`).join("")}
+      <div class="r"><input id="newcol" placeholder="Nouvelle colonne (ex. Sécurité)"><button class="btn" id="addcol">Ajouter</button></div></div>`;
     return;
   }
   const opt = (v, cur) => Array.from({ length: (END - START) / STEP + 1 }, (_, i) => toTime(START + i * STEP)).map((t) => `<option ${t === cur ? "selected" : ""}>${t}</option>`).join("");
@@ -223,23 +246,23 @@ function renderPanel() {
     <div class="row2"><label class="f"><span>Début</span><select data-k="start">${opt(0, a.start)}</select></label>
     <label class="f"><span>Fin</span><select data-k="end">${opt(0, a.end)}</select></label></div>
     <label class="f"><span>Catégorie</span><select data-k="category">${Object.entries(CATS).map(([k, c]) => `<option value="${k}" ${k === a.category ? "selected" : ""}>${c.label}</option>`).join("")}</select></label>
-    <div class="row2"><label class="f"><span>Lieu (Coque)</span><input data-k="place" value="${esc(a.place)}" placeholder="Hall d'entrée…"></label>
+    <div class="row2"><label class="f"><span>Lieu (liste ou texte libre)</span><input data-k="place" list="places" value="${esc(a.place)}" placeholder="Hall d'entrée…"><datalist id="places">${PLACES.map((x) => `<option value="${esc(x)}">`).join("")}</datalist></label>
     <label class="f"><span>Responsable</span><input data-k="owner" value="${esc(a.owner)}" placeholder="JB, David…"></label></div>
     <label class="f"><span>Note / consignes</span><textarea data-k="note">${esc(a.note)}</textarea></label>
-    <div class="f"><span>Colonnes (${a.cols.length}) <a href="#" id="all-teams" class="hint">toutes les équipes</a></span><div class="collist">${colBox("team", "Équipes")}${colBox("extra", "Colonnes libres")}</div></div>
+    <div class="f"><span>Colonnes (${a.cols.length}) <a href="#" id="all-teams" class="hint">toutes les équipes</a></span><div class="collist">${colBox("general", "Général")}${colBox("team", "Équipes")}${colBox("subrole", "Accueil & billetterie · sous-rôles")}${colBox("extra", "Colonnes libres")}</div></div>
     <div class="actions"><button class="btn" id="dup">Dupliquer</button><button class="btn danger" id="del">Supprimer</button><span class="spacer"></span><button class="btn" id="close">Fermer</button></div>`;
 }
 
 function renderTeam() {
   const pick = document.getElementById("team-pick");
-  if (!pick.options.length) pick.innerHTML = data.columns.filter((c) => c.kind === "team").map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  if (!pick.options.length) pick.innerHTML = data.columns.filter((c) => c.kind === "team" || c.kind === "subrole").map((c) => `<option value="${c.id}">${c.kind === "subrole" ? esc(c.team) + " › " : ""}${esc(c.name)}</option>`).join("");
   const col = data.columns.find((c) => c.id === pick.value) || data.columns[0];
-  const acts = data.activities.filter((a) => a.cols.includes(col.id)).sort((a, b) => toMin(a.start) - toMin(b.start));
+  const acts = data.activities.filter((a) => a.cols.includes(col.id) || a.cols.includes("general")).sort((a, b) => toMin(a.start) - toMin(b.start));
   document.getElementById("team-view").innerHTML = `<div class="team">
     <div class="eyebrow">Ce que voient le chef d'équipe et les bénévoles · lecture seule</div>
-    <h2>${esc(col.name)} — dimanche</h2>
-    <p class="note">Dans leur espace MyCLIM et sur la page imprimée de l'équipe. La colonne « Programme piste » reste disponible en lien.</p>
-    <div class="tl">${acts.map((a) => { const c = CATS[a.category] || CATS.other; return `<div class="t">${a.start} – ${a.end}</div><div class="d" style="border-left-color:${c.bd};background:${c.bg}"><b>${esc(a.title)}</b><span>${[a.place, a.owner && "Resp. " + a.owner, a.note].filter(Boolean).map(esc).join(" · ") || c.label}</span></div>`; }).join("") || `<p class="empty">Aucune activité.</p>`}</div></div>`;
+    <h2>${col.kind === "subrole" ? esc(col.team) + " › " : ""}${esc(col.name)} — dimanche</h2>
+    <p class="note">Leur équipe + les activités générales (bordure pointillée). Dans leur espace MyCLIM et sur la page imprimée de l'équipe.</p>
+    <div class="tl">${acts.map((a) => { const c = CATS[a.category] || CATS.other; const gen = a.cols.includes("general") && !a.cols.includes(col.id); return `<div class="t">${a.start} – ${a.end}</div><div class="d ${gen ? "gen" : ""}" style="border-left-color:${c.bd};background:${c.bg}"><b>${esc(a.title)}${gen ? " <span class=\"hint\">· général</span>" : ""}</b><span>${[a.place, a.owner && "Resp. " + a.owner, a.note].filter(Boolean).map(esc).join(" · ") || c.label}</span></div>`; }).join("") || `<p class="empty">Aucune activité.</p>`}</div></div>`;
 }
 
 function render() {
@@ -265,6 +288,8 @@ document.getElementById("grid").addEventListener("click", (e) => {
   if (col?.dataset.col && slot) newActivity(col.dataset.col, slot.dataset.t);
 });
 document.getElementById("panel").addEventListener("input", (e) => {
+  const rid = e.target.dataset.rename;
+  if (rid) { const c = data.columns.find((x) => x.id === rid); if (c) { c.name = e.target.value; save(); renderGrid(); } return; }
   const a = data.activities.find((x) => x.id === selId); if (!a) return;
   const k = e.target.dataset.k;
   if (k) { a[k] = e.target.value; if (k === "start" && toMin(a.end) <= toMin(a.start)) a.end = toTime(toMin(a.start) + STEP); save(); renderGrid(); if (k === "category" || k === "start") renderPanel(); }
@@ -272,11 +297,29 @@ document.getElementById("panel").addEventListener("input", (e) => {
   if (c) { a.cols = e.target.checked ? [...a.cols, c] : a.cols.filter((x) => x !== c); save(); renderGrid(); renderPanel(); }
 });
 document.getElementById("panel").addEventListener("click", (e) => {
+  const del = e.target.dataset.delcol;
+  if (del) {
+    const c = data.columns.find((x) => x.id === del);
+    const used = data.activities.filter((a) => a.cols.includes(del)).length;
+    if (c && confirm(`Supprimer la colonne « ${c.name} » ? ${used} activité(s) y sont rattachées.`)) {
+      data.columns = data.columns.filter((x) => x !== c);
+      for (const a of data.activities) a.cols = a.cols.filter((x) => x !== del);
+      data.activities = data.activities.filter((a) => a.cols.length);
+      save(); render();
+    }
+    return;
+  }
+  if (e.target.id === "addcol") {
+    const name = document.getElementById("newcol").value.trim();
+    if (!name) return;
+    data.columns.push({ id: "x-" + Date.now(), name, kind: "extra" });
+    save(); render(); return;
+  }
   const a = data.activities.find((x) => x.id === selId);
   if (e.target.id === "close") { selId = null; render(); }
   if (e.target.id === "del" && a && confirm(`Supprimer « ${a.title} » (${a.cols.length} colonne(s)) ?`)) { data.activities = data.activities.filter((x) => x !== a); selId = null; save(); render(); }
   if (e.target.id === "dup" && a) { const d = { ...a, id: "n" + Date.now(), cols: [...a.cols] }; data.activities.push(d); selId = d.id; save(); render(); }
-  if (e.target.id === "all-teams" && a) { e.preventDefault(); const teams = data.columns.filter((c) => c.kind === "team").map((c) => c.id); a.cols = [...new Set([...a.cols, ...teams])]; save(); render(); }
+  if (e.target.id === "all-teams" && a) { e.preventDefault(); const teams = data.columns.filter((c) => c.kind === "team" || c.kind === "subrole").map((c) => c.id); a.cols = [...new Set([...a.cols, ...teams])]; save(); render(); }
 });
 document.getElementById("cats").addEventListener("click", (e) => { const k = e.target.closest(".cat")?.dataset.k; if (!k) return; hidden.has(k) ? hidden.delete(k) : hidden.add(k); render(); });
 document.getElementById("view").addEventListener("click", (e) => { const v = e.target.dataset.v; if (!v) return; view = v; document.querySelectorAll("#view button").forEach((b) => b.classList.toggle("on", b.dataset.v === v)); render(); });
