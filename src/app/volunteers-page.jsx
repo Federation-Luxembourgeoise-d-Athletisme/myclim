@@ -54,6 +54,10 @@ function VolunteersPage(props) {
   const [assignedRoleFilter, setAssignedRoleFilter] = useState("Tous");
   const [teamRoleFilter, setTeamRoleFilter] = useState("Tous");
   const [mailFilter, setMailFilter] = useState("Tous");
+  // Filtres du tableau : équipe ("Tous", "__none__" = sans équipe, ou nom), langue, préférence.
+  const [teamFilter, setTeamFilter] = useState("Tous");
+  const [languageFilter, setLanguageFilter] = useState("Tous");
+  const [preferenceFilter, setPreferenceFilter] = useState("Tous");
   const [selectedVolunteerId, setSelectedVolunteerId] = useState(null);
   const [volunteers, setVolunteers] = useState([]);
   const [teamRoleConfigs, setTeamRoleConfigs] = useState(defaultTeamRoles);
@@ -266,10 +270,57 @@ function VolunteersPage(props) {
       const matchesSearch = haystack.includes(search.toLowerCase());
       const matchesStatus =
         statusFilter === "Tous" || volunteer.workflowStatus === statusFilter;
+      const assignedRoles = getVolunteerAssignedRoles(volunteer);
+      const matchesTeam =
+        teamFilter === "Tous" ||
+        (teamFilter === "__none__" ? assignedRoles.length === 0 : assignedRoles.includes(teamFilter));
+      const matchesLanguage =
+        languageFilter === "Tous" || (volunteer.languages || []).includes(languageFilter);
+      const matchesPreference =
+        preferenceFilter === "Tous" || (volunteer.missionPreferences || []).includes(preferenceFilter);
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesTeam && matchesLanguage && matchesPreference;
     });
-  }, [getVolunteerAssignedRoles, search, statusFilter, volunteers]);
+  }, [
+    getVolunteerAssignedRoles,
+    languageFilter,
+    preferenceFilter,
+    search,
+    statusFilter,
+    teamFilter,
+    volunteers,
+  ]);
+
+  const languageOptions = useMemo(
+    () =>
+      [...new Set(volunteers.flatMap((volunteer) => volunteer.languages || []))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "fr")),
+    [volunteers],
+  );
+
+  const preferenceOptions = useMemo(
+    () =>
+      [...new Set(volunteers.flatMap((volunteer) => volunteer.missionPreferences || []))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "fr")),
+    [volunteers],
+  );
+
+  const hasSheetFilters =
+    search !== "" ||
+    statusFilter !== (initialStatusFilter || "Tous") ||
+    teamFilter !== "Tous" ||
+    languageFilter !== "Tous" ||
+    preferenceFilter !== "Tous";
+
+  function resetSheetFilters() {
+    setSearch("");
+    setStatusFilter(initialStatusFilter || "Tous");
+    setTeamFilter("Tous");
+    setLanguageFilter("Tous");
+    setPreferenceFilter("Tous");
+  }
 
   const compactRoleOptions = useMemo(() => {
     return [...new Set(volunteers.flatMap((volunteer) => getVolunteerAssignedRoles(volunteer)))].sort((a, b) =>
@@ -675,12 +726,50 @@ function VolunteersPage(props) {
           {activeVolunteerView === "meeting" ? (
             <>
               <label className="field">
+                <span>{t("teamFilterLabel")}</span>
+                <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
+                  <option value="Tous">{t("allLabel")}</option>
+                  <option value="__none__">{t("noTeamOption")}</option>
+                  {compactRoleOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>{t("languageFilterLabel")}</span>
+                <select value={languageFilter} onChange={(event) => setLanguageFilter(event.target.value)}>
+                  <option value="Tous">{t("allLabel")}</option>
+                  {languageOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>{t("preferenceFilterLabel")}</span>
+                <select value={preferenceFilter} onChange={(event) => setPreferenceFilter(event.target.value)}>
+                  <option value="Tous">{t("allLabel")}</option>
+                  {preferenceOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
                 <span>{t("sortModeLabel")}</span>
                 <select value={volunteerSortMode} onChange={(event) => setVolunteerSortMode(event.target.value)}>
                   <option value="alphabetical">{t("sortAlphabetical")}</option>
                   <option value="team">{t("sortByTeam")}</option>
                 </select>
               </label>
+              <span className="sheet-toolbar-count">
+                {t("sheetVolunteerCount")
+                  .replace("{count}", filteredVolunteers.length)
+                  .replace("{total}", volunteers.length)}
+                {hasSheetFilters ? (
+                  <button className="sheet-link" type="button" onClick={resetSheetFilters}>
+                    {t("resetFilters")}
+                  </button>
+                ) : null}
+              </span>
               <NavLink className="sheet-toolbar-link" to="/app/equipes/affectations">
                 {t("editInAssignments")}
               </NavLink>

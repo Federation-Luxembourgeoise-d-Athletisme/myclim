@@ -8300,3 +8300,6 @@ tr.row--warning > td {
   .mdp-gridwrap { max-height: none; overflow: visible; border: 0; }
 }
 .mdp-team--volunteer { margin-bottom: 16px; max-width: none; }
+
+/* Tableau des bénévoles : compteur et remise à zéro des filtres */
+.sheet-toolbar-count { align-self: end; margin-bottom: 6px; display: inline-flex; gap: 10px; align-items: baseline; font-size: 13px; color: #5b6475; white-space: nowrap; }
