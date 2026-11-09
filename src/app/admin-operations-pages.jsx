@@ -1001,7 +1001,6 @@ function TeamsPage(props) {
   const [selectedRoleId, setSelectedRoleId] = useState(defaultTeamRoles[0]?.id ?? "");
   const [localTeamTab, setActiveTeamTab] = useState("configuration");
   const activeTeamTab = view || localTeamTab;
-  const [teamDetailTab, setTeamDetailTab] = useState("settings");
   const [teamAssignments, setTeamAssignments] = useState(defaultTeamAssignments);
   const [supportTasks, setSupportTasks] = useState(() => normalizeTeamConfigurationPayload({}).supportTasks);
   const [subRoleDraft, setSubRoleDraft] = useState("");
@@ -1194,17 +1193,6 @@ function TeamsPage(props) {
     [selectedRole, teamAssignments],
   );
 
-  const selectedRoleSubRoleCounts = useMemo(() => {
-    if (!selectedRole) return [];
-
-    return selectedRole.subRoles
-      .map((subRole) => ({
-        subRole,
-        count: selectedRoleMembers.filter((member) => member.teamRole === subRole).length,
-      }))
-      .filter((item) => item.count > 0);
-  }, [selectedRole, selectedRoleMembers]);
-
   function updateRole(field, value) {
     setRoles((current) =>
       current.map((role) => (role.id === selectedRole.id ? { ...role, [field]: value } : role)),
@@ -1354,339 +1342,237 @@ function TeamsPage(props) {
 
       {activeTeamTab === "configuration" ? (
         selectedRole ? (
-          <section className="admin-stack">
-            {teamsLoading || volunteerApplicationsLoading ? (
-              <p className="status-note">Chargement des équipes...</p>
+          <section className="teams-pro">
+            {teamsLoading || volunteerApplicationsLoading || teamsStatus ? (
+              <p className="teams-pro__status">
+                {teamsLoading || volunteerApplicationsLoading ? "Chargement des équipes…" : teamsStatus}
+              </p>
             ) : null}
-            {teamsStatus ? <p className="status-note">{teamsStatus}</p> : null}
-            <Panel
-              title="Équipes disponibles"
-              subtitle="Sélectionne une équipe à configurer."
-              actions={
-                <button className="button button--secondary button--small" type="button" onClick={addRole}>
-                  + Ajouter une équipe
-                </button>
-              }
-            >
-              <div className="role-chip-grid role-chip-grid--compact">
-                {roles.map((role) => (
-                  <button
-                    key={role.id}
-                    className={`role-chip role-chip--compact ${selectedRoleId === role.id ? "role-chip--active" : ""}`}
-                    type="button"
-                    onClick={() => setSelectedRoleId(role.id)}
-                  >
-                    <strong>{role.roleName}</strong>
-                    <span>
-                      {role.neededCount} pers. • {role.expectedLeadCount} chef(s)
-                    </span>
+            <div className="teams-pro__layout">
+              <aside className="teams-pro__list">
+                <div className="teams-pro__head">
+                  <h3>
+                    Équipes <span className="teams-pro__count">{roles.length}</span>
+                  </h3>
+                  <button className="teams-pro__add" type="button" onClick={addRole}>
+                    + Ajouter
                   </button>
-                ))}
-              </div>
-            </Panel>
-
-            <div className="admin-stack">
-              {teamDetailTab === "settings" ? (
-              <Panel
-                title={
-                  <span className="panel-tab-switch">
-                    <button
-                      type="button"
-                      className="panel-tab panel-tab--active"
-                      onClick={() => setTeamDetailTab("settings")}
-                    >
-                      Paramétrage
-                    </button>
-                    <button
-                      type="button"
-                      className="panel-tab"
-                      onClick={() => setTeamDetailTab("composition")}
-                    >
-                      Composition actuelle ({selectedRoleMembers.length})
-                    </button>
-                  </span>
-                }
-                subtitle={`${selectedRole.roleName} — définis ici les volumes idéaux, les sous-rôles, les langues attendues et les horaires d'équipe.`}
-              >
-                <div className="team-stats-inline" aria-live="polite">
-                  <div>
-                    <strong>{selectedRole.neededCount}</strong>
-                    <span>Personnes attendues</span>
-                  </div>
-                  <div>
-                    <strong>{selectedRole.expectedLeadCount}</strong>
-                    <span>Chefs attendus</span>
-                  </div>
-                  <div>
-                    <strong>{selectedRoleMembers.length}</strong>
-                    <span>Déjà affectées</span>
-                  </div>
-                  <div>
-                    <strong>{Math.max(selectedRole.neededCount - selectedRoleMembers.length, 0)}</strong>
-                    <span>Écart à l'idéal</span>
-                  </div>
                 </div>
-                <div className="field-grid">
-                  <AuthFormField label="Nom du rôle">
+                <table className="data-table data-table--sheet teams-pro__table">
+                  <thead>
+                    <tr>
+                      <th>Équipe</th>
+                      <th title="Bénévoles placés / besoin (hors remplaçants)">Placés</th>
+                      <th title="Chefs d'équipe placés / attendus">Chefs</th>
+                      <th>Poste</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roles.map((role, roleIndex) => {
+                      const stats = roleStats.at(roleIndex);
+                      return (
+                        <tr
+                          key={role.id}
+                          className={role.id === selectedRole.id ? "teams-pro__row--active" : ""}
+                          onClick={() => setSelectedRoleId(role.id)}
+                        >
+                          <td className="sheet-name">
+                            <button className="sheet-link" type="button" onClick={() => setSelectedRoleId(role.id)}>
+                              {role.roleName}
+                            </button>
+                          </td>
+                          <td className={`sheet-nowrap ${stats?.remaining ? "teams-pro__miss" : "teams-pro__ok"}`}>
+                            {stats?.activeMembers ?? 0}/{role.neededCount}
+                          </td>
+                          <td className={`sheet-nowrap ${stats?.leadGap ? "teams-pro__miss" : "teams-pro__ok"}`}>
+                            {stats?.leaders ?? 0}/{role.expectedLeadCount}
+                          </td>
+                          <td className="sheet-nowrap sheet-muted">{role.shiftTime || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </aside>
+
+              <div className="teams-pro__detail">
+                <div className="teams-pro__head">
+                  <h3>{selectedRole.roleName || "Équipe sans nom"}</h3>
+                  <span className="sheet-muted">
+                    {selectedRoleMembers.filter((member) => member.teamRole !== "Remplaçant").length}/
+                    {selectedRole.neededCount} placés ·{" "}
+                    {selectedRoleMembers.filter((member) => member.teamRole === "Chef d'équipe").length}/
+                    {selectedRole.expectedLeadCount} chef(s)
+                  </span>
+                </div>
+
+                <div className="teams-pro__form">
+                  <label className="teams-pro__field teams-pro__field--wide">
+                    <span>Nom de l'équipe</span>
+                    <input value={selectedRole.roleName} onChange={(event) => updateRoleName(event.target.value)} />
+                  </label>
+                  <label className="teams-pro__field">
+                    <span>Besoin (pers.)</span>
                     <input
-                      value={selectedRole.roleName}
-                      onChange={(event) => updateRoleName(event.target.value)}
-                    />
-                  </AuthFormField>
-                  <AuthFormField label="Nombre de personnes attendues (idéal)">
-                    <input
-                      type="number"
                       min="0"
+                      type="number"
                       value={selectedRole.neededCount}
                       onChange={(event) => updateRole("neededCount", Number(event.target.value))}
                     />
-                  </AuthFormField>
-                  <AuthFormField label="Nombre de chefs d'équipe attendus (idéal)">
+                  </label>
+                  <label className="teams-pro__field">
+                    <span>Chefs attendus</span>
                     <input
-                      type="number"
                       min="0"
+                      type="number"
                       value={selectedRole.expectedLeadCount}
                       onChange={(event) => updateRole("expectedLeadCount", Number(event.target.value))}
                     />
-                  </AuthFormField>
-                </div>
-
-                <div className="field">
-                  <span>Sous-rôles dans l'équipe</span>
-                  <div className="team-subrole-editor">
-                    <input
-                      placeholder="Ex. Responsable matériel"
-                      value={subRoleDraft}
-                      onChange={(event) => setSubRoleDraft(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addSubRole();
-                        }
-                      }}
-                    />
-                    <button className="button button--secondary" type="button" onClick={addSubRole}>
-                      Ajouter le sous-rôle
-                    </button>
-                  </div>
-                  <small>
-                    Ces nombres et sous-rôles servent de repère idéal uniquement. Ils ne bloquent aucune affectation.
-                  </small>
-                  <div className="team-subrole-list">
-                    {selectedRole.subRoles.length > 0 ? (
-                      selectedRole.subRoles.map((subRole) => (
-                        <button
-                          key={`${selectedRole.id}-${subRole}`}
-                          className="team-subrole-chip"
-                          type="button"
-                          onClick={() => removeSubRole(subRole)}
-                        >
-                          {subRole} ×
-                        </button>
-                      ))
-                    ) : (
-                      <span className="team-subrole-empty">Aucun sous-rôle défini pour l'instant.</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="field">
-                  <span>Conditions de langue</span>
-                  <div className="choice-grid choice-grid--2">
-                    {["Français", "Anglais", "Allemand", "Luxembourgeois"].map((language) => (
-                      <label key={language} className="selection-card selection-card--compact">
-                        <input
-                          checked={selectedRole.requiredLanguages.includes(language)}
-                          type="checkbox"
-                          onChange={() => toggleRoleLanguage(language)}
-                        />
-                        <div>
-                          <strong>{language}</strong>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="field-grid">
-                  <AuthFormField label="Horaire du briefing">
+                  </label>
+                  <label className="teams-pro__field">
+                    <span>Briefing</span>
                     <input
                       type="time"
                       value={selectedRole.briefingTime}
                       onChange={(event) => updateRole("briefingTime", event.target.value)}
                     />
-                  </AuthFormField>
-                  <AuthFormField label="Horaire de mise en place">
+                  </label>
+                  <label className="teams-pro__field">
+                    <span>Mise en place</span>
                     <input
                       type="time"
                       value={selectedRole.setupTime}
                       onChange={(event) => updateRole("setupTime", event.target.value)}
                     />
-                  </AuthFormField>
-                </div>
-
-                <div className="field-grid">
-                  <AuthFormField label="Début du poste">
+                  </label>
+                  <label className="teams-pro__field">
+                    <span>Début du poste</span>
                     <input
                       type="time"
                       value={String(selectedRole.shiftTime || "").split(" - ")[0] || ""}
                       onChange={(event) => updateRoleShiftBoundary("start", event.target.value)}
                     />
-                  </AuthFormField>
-                  <AuthFormField label="Fin du poste">
+                  </label>
+                  <label className="teams-pro__field">
+                    <span>Fin du poste</span>
                     <input
                       type="time"
                       value={String(selectedRole.shiftTime || "").split(" - ")[1] || ""}
                       onChange={(event) => updateRoleShiftBoundary("end", event.target.value)}
                     />
-                  </AuthFormField>
+                  </label>
+                  <div className="teams-pro__field teams-pro__field--full">
+                    <span>Langues demandées</span>
+                    <div className="teams-pro__checks">
+                      {["Français", "Anglais", "Allemand", "Luxembourgeois"].map((language) => (
+                        <label key={language}>
+                          <input
+                            checked={selectedRole.requiredLanguages.includes(language)}
+                            type="checkbox"
+                            onChange={() => toggleRoleLanguage(language)}
+                          />
+                          {language}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="teams-pro__field teams-pro__field--full">
+                    <span>Sous-rôles (repère, ne bloque aucune affectation)</span>
+                    <div className="teams-pro__subroles">
+                      {selectedRole.subRoles.map((subRole) => (
+                        <button
+                          key={`${selectedRole.id}-${subRole}`}
+                          className="teams-pro__tag"
+                          title="Retirer ce sous-rôle"
+                          type="button"
+                          onClick={() => removeSubRole(subRole)}
+                        >
+                          {subRole} ×
+                        </button>
+                      ))}
+                      <input
+                        placeholder="+ sous-rôle (Entrée pour ajouter)"
+                        value={subRoleDraft}
+                        onBlur={addSubRole}
+                        onChange={(event) => setSubRoleDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addSubRole();
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <label className="teams-pro__field teams-pro__field--full">
+                    <span>Informations pour l'équipe</span>
+                    <textarea
+                      placeholder={selectedRole.teamInfoPlaceholder || "Informations générales pour l'équipe"}
+                      rows="3"
+                      value={selectedRole.teamInfo}
+                      onChange={(event) => updateRole("teamInfo", event.target.value)}
+                    />
+                  </label>
                 </div>
 
-                <AuthFormField label="Information générale pour l'équipe">
-                  <textarea
-                    rows="4"
-                    value={selectedRole.teamInfo}
-                    placeholder={selectedRole.teamInfoPlaceholder || "Informations générales pour l'équipe"}
-                    onChange={(event) => updateRole("teamInfo", event.target.value)}
-                  />
-                </AuthFormField>
-
-                <div className="admin-preview">
-                  <div>
-                    <strong>Résumé du rôle</strong>
-                    <p>{selectedRole.roleName}</p>
-                  </div>
-                  <div>
-                    <strong>Objectif idéal</strong>
-                    <p>
-                      {selectedRole.neededCount} personnes dont {selectedRole.expectedLeadCount} chef(s)
-                      d'équipe
-                    </p>
-                  </div>
-                  <div>
-                    <strong>Langues</strong>
-                    <p>{selectedRole.requiredLanguages.join(", ") || "Aucune condition"}</p>
-                  </div>
-                  <div>
-                    <strong>Horaires</strong>
-                    <p>
-                      Briefing {selectedRole.briefingTime}, mise en place {selectedRole.setupTime},
-                      poste {selectedRole.shiftTime}
-                    </p>
-                  </div>
-                  <div>
-                    <strong>Informations équipe</strong>
-                    <p>{selectedRole.teamInfo || selectedRole.teamInfoPlaceholder || "Non renseigné"}</p>
-                  </div>
-                  <div>
-                    <strong>Sous-rôles</strong>
-                    <p>{selectedRole.subRoles.join(", ") || "Aucun sous-rôle"}</p>
-                  </div>
+                <div className="teams-pro__head teams-pro__head--section">
+                  <h3>
+                    Composition <span className="teams-pro__count">{selectedRoleMembers.length}</span>
+                  </h3>
+                  <NavLink className="sheet-toolbar-link" to="/app/equipes/affectations">
+                    Modifier dans Affectations →
+                  </NavLink>
                 </div>
-              </Panel>
-              ) : (
-              <Panel
-                title={
-                  <span className="panel-tab-switch">
-                    <button
-                      type="button"
-                      className="panel-tab"
-                      onClick={() => setTeamDetailTab("settings")}
-                    >
-                      Paramétrage
-                    </button>
-                    <button
-                      type="button"
-                      className="panel-tab panel-tab--active"
-                      onClick={() => setTeamDetailTab("composition")}
-                    >
-                      Composition actuelle ({selectedRoleMembers.length})
-                    </button>
-                  </span>
-                }
-                subtitle={`${selectedRole.roleName} — chefs d'équipe, bénévoles, remplaçants et sous-rôles déjà affectés.`}
-              >
-                <div className="team-composition-summary">
-                  <div className="team-summary-pill">
-                    <strong>{selectedRoleMembers.length}</strong>
-                    <span>Total affectés</span>
-                  </div>
-                  <div className="team-summary-pill">
-                    <strong>
-                      {selectedRoleMembers.filter((member) => member.teamRole === "Chef d'équipe").length}
-                    </strong>
-                    <span>Chefs réels</span>
-                  </div>
-                  <div className="team-summary-pill">
-                    <strong>
-                      {selectedRoleMembers.filter((member) => member.teamRole === "Bénévole").length}
-                    </strong>
-                    <span>Bénévoles</span>
-                  </div>
-                  <div className="team-summary-pill">
-                    <strong>
-                      {selectedRoleMembers.filter((member) => member.teamRole === "Remplaçant").length}
-                    </strong>
-                    <span>Remplaçants</span>
-                  </div>
-                </div>
-
-                {selectedRoleSubRoleCounts.length > 0 ? (
-                  <div className="team-subrole-stats">
-                    {selectedRoleSubRoleCounts.map((item) => (
-                      <div key={`${selectedRole.id}-stat-${item.subRole}`} className="team-summary-pill">
-                        <strong>{item.count}</strong>
-                        <span>{item.subRole}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <p className="panel-note">
-                  La composition se lit ici. Pour ajouter, retirer un membre ou changer sa fonction, passez par{" "}
-                  <NavLink to="/app/equipes/affectations">Affectations</NavLink>.
-                </p>
-
-                <div className="table-wrap">
-                  <table className="data-table data-table--admin">
+                <div className="table-wrap table-wrap--sheet">
+                  <table className="data-table data-table--sheet">
                     <thead>
                       <tr>
                         <th>Membre</th>
-                        <th>Coordonnées</th>
+                        <th>Fonction</th>
+                        <th>Statut</th>
+                        <th>E-mail</th>
+                        <th>Téléphone</th>
                         <th>Langues</th>
-                        <th>Statut candidature</th>
-                        <th>Rôle dans l'équipe</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedRoleMembers.map((member) => (
-                        <tr key={member.assignmentEntryId || `${member.id}-${member.assignedRoleId}`}>
-                          <td>
-                            <div className="table-stack">
-                              <strong>
-                                {member.firstName} {member.lastName}
-                              </strong>
-                              <span className={getWorkflowStatusClass(member.workflowStatus)}>
+                      {selectedRoleMembers.length === 0 ? (
+                        <tr>
+                          <td className="sheet-muted" colSpan={6}>
+                            Personne dans cette équipe pour l'instant.
+                          </td>
+                        </tr>
+                      ) : null}
+                      {[...selectedRoleMembers]
+                        .sort(
+                          (left, right) =>
+                            Number(right.teamRole === "Chef d'équipe") - Number(left.teamRole === "Chef d'équipe") ||
+                            `${left.lastName} ${left.firstName}`.localeCompare(`${right.lastName} ${right.firstName}`, "fr"),
+                        )
+                        .map((member) => (
+                          <tr key={member.assignmentEntryId || `${member.id}-${member.assignedRoleId}`}>
+                            <td className="sheet-name">
+                              {member.lastName} {member.firstName}
+                            </td>
+                            <td className="sheet-nowrap">{member.teamRole}</td>
+                            <td className="sheet-nowrap">
+                              <span className={`sheet-status ${getWorkflowStatusClass(member.workflowStatus)}`}>
                                 {member.workflowStatus}
                               </span>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="table-stack">
-                              <span>{member.email}</span>
-                              <span>{member.phone}</span>
-                            </div>
-                          </td>
-                          <td>{member.languages.join(", ")}</td>
-                          <td>{member.workflowStatus}</td>
-                          <td>{member.teamRole}</td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="sheet-ellipsis" title={member.email}>
+                              {member.email}
+                            </td>
+                            <td className="sheet-nowrap">{member.phone}</td>
+                            <td className="sheet-ellipsis" title={member.languages.join(", ")}>
+                              {member.languages.join(", ")}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
-              </Panel>
-              )}
+              </div>
             </div>
           </section>
         ) : null

@@ -8161,3 +8161,48 @@ tr.row--warning > td {
 .admin-toolbar--compact .field span { font-size: 11px; }
 .admin-toolbar--compact input, .admin-toolbar--compact select { padding: 5px 8px; font-size: 13px; min-height: 0; }
 .admin-toolbar--compact .sheet-toolbar-link { margin-bottom: 6px; }
+
+/* ── Équipes & affectations › Équipes: list + compact detail ── */
+.teams-pro { display: grid; gap: 8px; }
+.teams-pro__status { margin: 0; font-size: 12px; color: #5b6b7c; }
+.teams-pro__layout { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.teams-pro__list, .teams-pro__detail { background: #fff; border: 1px solid #dfe6ee; border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.teams-pro__list { position: sticky; top: 12px; }
+.teams-pro__head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.teams-pro__head h3 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.teams-pro__head .sheet-muted { font-size: 12px; }
+.teams-pro__head--section { margin-top: 14px; }
+.teams-pro__count { font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 999px; background: #eef2f6; color: #5b6b7c; }
+.teams-pro__add { margin-left: auto; border: 1px solid #cfd9e6; background: #fff; border-radius: 6px; padding: 3px 9px; font-size: 12px; font-weight: 600; color: #1a4aa1; cursor: pointer; }
+.teams-pro__add:hover { background: #eef4fb; }
+.teams-pro__table { min-width: 0; }
+.teams-pro__table tbody tr { cursor: pointer; }
+.data-table--sheet tbody tr.teams-pro__row--active td { background: #e3edf9; }
+.teams-pro__row--active .sheet-link { color: #1a4aa1; }
+.teams-pro__miss { color: #b0182b; font-weight: 600; }
+.teams-pro__ok { color: #1d7a46; font-weight: 600; }
+.teams-pro__form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 10px; }
+.teams-pro__field { display: grid; gap: 2px; min-width: 0; }
+.teams-pro__field--wide { grid-column: span 2; }
+.teams-pro__field--full { grid-column: 1 / -1; }
+.teams-pro__field > span { font-size: 11px; font-weight: 600; color: #5b6b7c; }
+.teams-pro__field input:not([type="checkbox"]), .teams-pro__field textarea, .teams-pro__subroles input { width: 100%; min-height: 0; padding: 4px 8px; font-size: 13px; border: 1px solid #cfd9e6; border-radius: 6px; background: #fff; box-shadow: none; }
+.teams-pro__field textarea { resize: vertical; }
+.teams-pro__checks { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.teams-pro__checks label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.teams-pro__checks input { width: auto; margin: 0; }
+.teams-pro__subroles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.teams-pro__subroles input { flex: 1 1 200px; width: auto; }
+.teams-pro__tag { border: 1px solid #cfd9e6; background: #f6f8fb; border-radius: 4px; padding: 1px 7px; font-size: 12px; color: #13213a; cursor: pointer; }
+.teams-pro__tag:hover { border-color: #b0182b; color: #b0182b; }
+@media (max-width: 900px) {
+  .teams-pro__layout { grid-template-columns: 1fr; }
+  .teams-pro__list { position: static; }
+  .teams-pro__form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.teams-pro__detail .sheet-ellipsis { max-width: 160px; }
+.data-table--sheet th:last-child, .data-table--sheet td:last-child { border-right: 0; }
+.table-wrap--sheet { overflow-x: auto; overflow-y: auto; }
+/* Composition: fixed columns so the table fits the detail panel. */
+.teams-pro__detail .data-table--sheet { min-width: 0; table-layout: fixed; width: 100%; }
+.teams-pro__detail .data-table--sheet td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
