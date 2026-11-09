@@ -30,6 +30,7 @@ import { SitePreProgramme } from "./site/site-preprogramme";
 import { SiteGallery } from "./site/site-gallery";
 import { VolunteersPage as VolunteersPageScreen } from "./app/volunteers-page";
 import { VolunteerAssignmentsPage as VolunteerAssignmentsPageScreen } from "./app/volunteer-assignments-page";
+import { MeetingDayProgrammePage } from "./app/meeting-day-programme-page";
 import { AccreditationsPage as AccreditationsPageScreen } from "./app/accreditations-page";
 import {
   AppShell as AppShellScreen,
@@ -258,6 +259,7 @@ const APPLICATIONS_TABS = [
 const TEAMS_TABS = [
   { to: "/app/equipes", end: true, label: "Équipes" },
   { to: "/app/equipes/affectations", label: "Affectations" },
+  { to: "/app/equipes/programme-dimanche", label: "Programme du dimanche" },
   { to: "/app/equipes/recapitulatif", label: "Récapitulatif" },
   { to: "/app/equipes/autour-du-meeting", label: "Autour du meeting" },
 ];
@@ -663,6 +665,7 @@ export default function App() {
                 <Route path="equipes" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navTeamsAssignments" title="Équipes & affectations" tabs={TEAMS_TABS} />}>
                   <Route index element={<TeamsPage view="configuration" />} />
                   <Route path="affectations" element={<VolunteerAssignmentsPage />} />
+                  <Route path="programme-dimanche" element={<MeetingDayProgrammePage />} />
                   <Route path="recapitulatif" element={<TeamsPage view="overview" />} />
                   <Route path="autour-du-meeting" element={<MeetingSupportPage />} />
                 </Route>
