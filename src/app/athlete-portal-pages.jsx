@@ -3992,16 +3992,6 @@ function AthleteRegistryPage({ Panel, maintenance }) {
 
   // One line per fiche with its computed stats and cleanup flags, for the
   // filters, sorts, analysis and the « À nettoyer » list.
-  const registryRows = useMemo(
-    () => registry.map((entry) => ({
-      entry,
-      stats: getRegistryEntryStats(entry),
-      suspectReasons: getRegistrySuspectReasons(entry),
-    })),
-    [registry],
-  );
-  const registryFilterState = useRegistryFilters(registryRows);
-  const suspectRows = useMemo(() => registryRows.filter((row) => row.suspectReasons.length), [registryRows]);
 
   // The open fiche and the other fiche with the same WAID, merged as one person.
   function handleMergeSameWaid(otherEntry) {
@@ -4024,6 +4014,19 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     () => buildCurrentAthletesByRegistryId(athletes, registryLookup),
     [athletes, registryLookup],
   );
+
+  const registryRows = useMemo(
+    () => registry.map((entry) => ({
+      entry,
+      stats: getRegistryEntryStats(entry),
+      suspectReasons: getRegistrySuspectReasons(entry, {
+        linkedCount: (currentAthletesByRegistryId.get(entry._docId) || []).length,
+      }),
+    })),
+    [currentAthletesByRegistryId, registry],
+  );
+  const registryFilterState = useRegistryFilters(registryRows);
+  const suspectRows = useMemo(() => registryRows.filter((row) => row.suspectReasons.length), [registryRows]);
 
   const selectedRegistryEntry = useMemo(
     () => registry.find((entry) => entry._docId === selectedRegistryDocId) || null,
@@ -4277,31 +4280,47 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     }
   }
 
-  // Deleting a fiche linked to an entry of the current edition would break that
-  // link: those must be corrected or merged instead.
-  async function handleDeleteRegistryEntries(entries) {
-    const linked = entries.filter((entry) => (currentAthletesByRegistryId.get(entry._docId) || []).length > 0);
+  // A fiche linked to an entry of the current edition is only deleted together
+  // with that entry (withLinkedEntries), e.g. an imported line such as
+  // "1 Platz Kenya"; otherwise it is kept and must be corrected or merged.
+  async function handleDeleteRegistryEntries(entries, { withLinkedEntries = false } = {}) {
+    const linkedOf = (entry) => currentAthletesByRegistryId.get(entry._docId) || [];
+    const linked = withLinkedEntries ? [] : entries.filter((entry) => linkedOf(entry).length > 0);
     const deletable = entries.filter((entry) => !linked.includes(entry));
+    const linkedAthletes = withLinkedEntries ? deletable.flatMap(linkedOf) : [];
     if (!deletable.length) {
-      setCleanupStatus("Ces fiches sont liées à des engagés de l'édition en cours : corrige le nom ou fusionne-les plutôt.");
+      setCleanupStatus("Ces fiches sont liées à des engagés de l'édition en cours : utilise « Supprimer avec l'engagé » si l'engagé est lui aussi faux, sinon corrige le nom ou fusionne.");
       return false;
     }
     const names = deletable.slice(0, 8).map((entry) => [entry.firstName, entry.lastName].filter(Boolean).join(" ") || entry._docId).join("\n");
     const more = deletable.length > 8 ? `\n… et ${deletable.length - 8} autre(s)` : "";
     const skipped = linked.length ? `\n\n${linked.length} fiche(s) liée(s) à des engagés seront gardées.` : "";
-    if (!window.confirm(`Supprimer définitivement ${deletable.length} fiche(s) de la base athlètes ?\n\n${names}${more}${skipped}`)) return false;
+    const athleteLines = linkedAthletes
+      .slice(0, 8)
+      .map((athlete) => `• ${[athlete.firstName, athlete.lastName].filter(Boolean).join(" ")} — ${athlete.event || "épreuve ?"}${athlete.status ? ` (${athlete.status})` : ""}`)
+      .join("\n");
+    const athletesNote = linkedAthletes.length
+      ? `\n\nAinsi que ${linkedAthletes.length} engagé(s) de l'édition en cours :\n${athleteLines}`
+      : "";
+    if (!window.confirm(`Supprimer définitivement ${deletable.length} fiche(s) de la base athlètes ?\n\n${names}${more}${athletesNote}${skipped}`)) return false;
 
     setCleanupDeleting(true);
     setCleanupStatus("");
     try {
-      for (let index = 0; index < deletable.length; index += 400) {
+      const refs = [
+        ...deletable.map((entry) => doc(db, ATHLETE_REGISTRY_COLLECTION, entry._docId)),
+        ...linkedAthletes.map((athlete) => doc(db, ATHLETES_COLLECTION, athlete.id)),
+      ];
+      for (let index = 0; index < refs.length; index += 400) {
         const batch = writeBatch(db);
-        deletable.slice(index, index + 400).forEach((entry) => batch.delete(doc(db, ATHLETE_REGISTRY_COLLECTION, entry._docId)));
+        refs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
         await batch.commit();
       }
       if (deletable.some((entry) => entry._docId === selectedRegistryDocId)) setSelectedRegistryDocId("");
       setSelectedRegistryIds((current) => current.filter((docId) => !deletable.some((entry) => entry._docId === docId)));
-      setCleanupStatus(`✅ ${deletable.length} fiche(s) supprimée(s).${linked.length ? ` ${linked.length} gardée(s) car liée(s) à des engagés.` : ""}`);
+      setCleanupStatus(
+        `✅ ${deletable.length} fiche(s) supprimée(s)${linkedAthletes.length ? ` et ${linkedAthletes.length} engagé(s)` : ""}.${linked.length ? ` ${linked.length} gardée(s) car liée(s) à des engagés.` : ""}`,
+      );
       return true;
     } catch (error) {
       setCleanupStatus(`❌ ${error.message}`);

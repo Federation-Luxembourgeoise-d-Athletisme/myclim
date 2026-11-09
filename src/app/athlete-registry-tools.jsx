@@ -413,9 +413,21 @@ function AthleteRegistryCleanupPanel(props) {
                       </td>
                       <td className="sheet-nowrap sheet-actions">
                         <button type="button" onClick={() => onOpen(entry._docId)}>Ouvrir / corriger</button>
-                        <button type="button" className="sheet-actions__danger" disabled={deleting} onClick={() => onDelete([entry])}>
-                          Supprimer
-                        </button>
+                        {linked ? (
+                          <button
+                            type="button"
+                            className="sheet-actions__danger"
+                            disabled={deleting}
+                            title="Supprime la fiche et la ligne d'engagé liée de l'édition en cours (à utiliser si cet engagé est lui aussi une erreur d'import)"
+                            onClick={() => onDelete([entry], { withLinkedEntries: true })}
+                          >
+                            Supprimer avec l&apos;engagé
+                          </button>
+                        ) : (
+                          <button type="button" className="sheet-actions__danger" disabled={deleting} onClick={() => onDelete([entry])}>
+                            Supprimer
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

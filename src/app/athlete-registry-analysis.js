@@ -71,7 +71,8 @@ const EVENT_WORD_PATTERN =
 const DISTANCE_PATTERN = /\b\d+\s?(m|km|mh|x\d+)\b|^\d+$/i;
 
 // Raisons pour lesquelles une fiche a l'air fausse (vide = fiche saine).
-function getRegistrySuspectReasons(entry) {
+// linkedCount = engagés de l'édition en cours liés à la fiche.
+function getRegistrySuspectReasons(entry, { linkedCount = 0 } = {}) {
   const reasons = [];
   const lastName = String(entry?.lastName || "").trim();
   const firstName = String(entry?.firstName || "").trim();
@@ -85,7 +86,7 @@ function getRegistrySuspectReasons(entry) {
   if (fullName && fullName.replace(/[^\p{L}]/gu, "").length <= 2) reasons.push("Nom trop court");
   if (entry?.nationality && !/^[A-Z]{3}$/.test(String(entry.nationality).trim())) reasons.push("Nationalité non standard");
   const editions = Array.isArray(entry?.editions) ? entry.editions : [];
-  if (!editions.length && !entry?.waid) reasons.push("Ni résultat ni WAID");
+  if (!editions.length && !entry?.waid && !linkedCount) reasons.push("Ni résultat ni WAID");
 
   return [...new Set(reasons)];
 }
