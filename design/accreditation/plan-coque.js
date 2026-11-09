@@ -68,7 +68,7 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "wh2", kind: "mark", label: "WC ♂", desc: "Toilettes hommes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("vol", "acc") },
 
   // Accès réservés depuis les arcades
-  { id: "m11", kind: "door", label: "Galerie VIP", desc: "Accès VIP à la galerie : par le salon de presse, puis la cage d'escalier", color: "#b8912a", angle: 0, level: "rdc", ...at(712, 607), maps: on("vol", "acc") },
+  { id: "m11", kind: "mark", label: "VIP", desc: "Accès VIP à la galerie : l'entrée à gauche de l'escalier", color: "#b8912a", level: "rdc", ...at(700, 605), maps: on("vol", "acc") },
   { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(436, 138), maps: on("vol", "acc") },
   { id: "d1", kind: "door", label: "Amphi", desc: "Entrée de l'amphithéâtre (salle aussi utilisée par les bénévoles)", color: "#4a5d6c", angle: 0, level: "rdc", ...at(550, 166), maps: on("vol") },
   { id: "m14", kind: "mark", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
@@ -124,9 +124,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="${arcades}" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
     <!-- Le mur qui sépare du gymnase (bord de la rampe), tracé sur la ligne indiquée par Margot -->
     <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
-    <!-- Salon de presse (pièce contre la tribune) et sa cage d'escalier vers la galerie (accès VIP) -->
-    <path d="M635 480 L713 480 C720 520 727 552 729 580 L729 625 L684 625 C680 580 668 525 635 480 Z" fill="#fff" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
-    ${label(700, 545, "PRESSE", 13, "#9aa8b3")}
+    <!-- Cage d'escalier vers la galerie (accès VIP) : seulement ses murs extérieurs -->
     <path d="M729 580 L747 565 L760 575 L773 630 L770 655 L733 661 Z" fill="#dfe5ea" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
     <path d="M738 622 L766 622 M738 629 L767 629 M738 636 L768 636 M738 643 L768 643 M738 650 L768 650" stroke="#9aa8b3" stroke-width="2" />
 
