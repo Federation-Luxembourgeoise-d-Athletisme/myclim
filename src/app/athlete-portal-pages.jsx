@@ -1110,8 +1110,10 @@ function AthletePortalOverview({ Panel }) {
   // Same "Courante / Test" switch as the Athletes page — without it, this
   // page always shows the real edition and never the test-edition data an
   // admin is rehearsing an import against.
-  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
-  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedViewEditionId, setViewEditionId] = useState("");
+  const viewEditionId = pickedViewEditionId || activeEditionId;
   const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, viewEditionId);
   const { people: accompanyingPersons, loading: staffLoading } = useAccompanyingPersons(!settingsLoading, viewEditionId);
 
@@ -2393,8 +2395,10 @@ function AthletesListPage({ Panel }) {
   // Admins/meeting directors can switch to "test" to inspect a rehearsal
   // import without it ever mixing into the real roster (e-magazine, transport
   // and everyone else always see the current edition only).
-  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
-  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedViewEditionId, setViewEditionId] = useState("");
+  const viewEditionId = pickedViewEditionId || activeEditionId;
   const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, viewEditionId);
   const { people: accompanyingPersons } = useAccompanyingPersons(canViewUnifiedProfile, viewEditionId);
   const staffByRole = useMemo(() => {
@@ -3312,8 +3316,10 @@ function AthleteImportPage({ Panel }) {
   // Defaults to the real current edition, but can be pointed at "test" to
   // rehearse an import (partial columns, real files, etc.) without it ever
   // reaching the live roster shown elsewhere in the app.
-  const [targetEditionId, setTargetEditionId] = useState(activeEditionId);
-  useEffect(() => { setTargetEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedTargetEditionId, setTargetEditionId] = useState("");
+  const targetEditionId = pickedTargetEditionId || activeEditionId;
   const { athletes } = useAthletes(true, targetEditionId);
   const { people: accompanyingPersons } = useAccompanyingPersons(true, targetEditionId);
   const { history: importHistory, loading: historyLoading } = useAthleteImportHistory(canImport, targetEditionId);
