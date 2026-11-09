@@ -25,54 +25,54 @@ const ATHLETE_REGISTRY_COLLECTION = "athleteRegistry";
 
 const ALL_ATHLETE_FIELDS = [
   // Core identity
-  { key: "event",         label: "Event",             group: "identity" },
-  { key: "lastName",      label: "Last name",          group: "identity" },
-  { key: "firstName",     label: "First name",         group: "identity" },
-  { key: "nationality",   label: "Nationality",        group: "identity" },
-  { key: "birthYear",     label: "Birth year",         group: "identity" },
+  { key: "event",         label: "Épreuve",           group: "identity" },
+  { key: "lastName",      label: "Nom",                group: "identity" },
+  { key: "firstName",     label: "Prénom",             group: "identity" },
+  { key: "nationality",   label: "Nationalité",        group: "identity" },
+  { key: "birthYear",     label: "Année de naissance", group: "identity" },
 
   // Excel-imported performance (from start list / lanes file)
-  { key: "status",        label: "Status (ok/out)",    group: "excel" },
-  { key: "worldRanking",  label: "World Ranking",      group: "excel" },
-  { key: "pb",            label: "PB (Excel raw)",     group: "excel" },
+  { key: "status",        label: "Statut (ok/out)",    group: "excel" },
+  { key: "worldRanking",  label: "Classement mondial", group: "excel" },
+  { key: "pb",            label: "PB (Excel brut)",    group: "excel" },
   { key: "pbIndoor",      label: "PB Indoor (Excel)",  group: "excel" },
   { key: "pbOutdoor",     label: "PB Outdoor (Excel)", group: "excel" },
-  { key: "sb",            label: "SB (Excel raw)",     group: "excel" },
+  { key: "sb",            label: "SB (Excel brut)",    group: "excel" },
 
   // World Athletics — source of truth
   { key: "waid",              label: "WAID",                    group: "wa" },
-  { key: "waUrl",             label: "WA Profile URL",          group: "wa" },
+  { key: "waUrl",             label: "Lien profil WA",          group: "wa" },
   { key: "waPbIndoor",        label: "WA PB Indoor",            group: "wa" },
   { key: "waPbOutdoor",       label: "WA PB Outdoor",           group: "wa" },
-  { key: "waIndoorSb",        label: "WA SB Indoor (prev yr)",  group: "wa" },
-  { key: "waIndoorSbCurrent", label: "WA SB Indoor (curr yr)",  group: "wa" },
+  { key: "waIndoorSb",        label: "WA SB Indoor (année préc.)", group: "wa" },
+  { key: "waIndoorSbCurrent", label: "WA SB Indoor (année en cours)", group: "wa" },
   { key: "waOutdoorSb",       label: "WA SB Outdoor",           group: "wa" },
-  { key: "waFetchedAt",       label: "WA last sync",            group: "wa" },
+  { key: "waFetchedAt",       label: "Dernière synchro WA",     group: "wa" },
 
   // Heat/lane (from lanes file)
-  { key: "heat",          label: "Heat",               group: "lanes" },
-  { key: "lane",          label: "Lane",               group: "lanes" },
+  { key: "heat",          label: "Série",              group: "lanes" },
+  { key: "lane",          label: "Couloir",            group: "lanes" },
 
   // Travel logistics (from travel file)
   { key: "manager",         label: "Manager",          group: "travel" },
-  { key: "arrival",         label: "Arrival (raw)",    group: "travel" },
-  { key: "arrivalDay",      label: "Arr. Day",         group: "travel" },
-  { key: "arrivalTime",     label: "Arr. Time",        group: "travel" },
-  { key: "arrivalFlight",   label: "Arr. Flight",      group: "travel" },
-  { key: "arrivalFrom",     label: "Arr. From",        group: "travel" },
-  { key: "departure",       label: "Departure (raw)",  group: "travel" },
-  { key: "departureDay",    label: "Dep. Day",         group: "travel" },
-  { key: "departureTime",   label: "Dep. Time",        group: "travel" },
-  { key: "departureFlight", label: "Dep. Flight",      group: "travel" },
-  { key: "departureTo",     label: "Dep. To",          group: "travel" },
+  { key: "arrival",         label: "Arrivée (brut)",   group: "travel" },
+  { key: "arrivalDay",      label: "Arr. jour",        group: "travel" },
+  { key: "arrivalTime",     label: "Arr. heure",       group: "travel" },
+  { key: "arrivalFlight",   label: "Arr. vol",         group: "travel" },
+  { key: "arrivalFrom",     label: "Arr. depuis",      group: "travel" },
+  { key: "departure",       label: "Départ (brut)",    group: "travel" },
+  { key: "departureDay",    label: "Dép. jour",        group: "travel" },
+  { key: "departureTime",   label: "Dép. heure",       group: "travel" },
+  { key: "departureFlight", label: "Dép. vol",         group: "travel" },
+  { key: "departureTo",     label: "Dép. vers",        group: "travel" },
 ];
 
 const FIELD_GROUPS = [
-  { key: "identity", label: "Identity" },
-  { key: "excel",    label: "Excel import" },
+  { key: "identity", label: "Identité" },
+  { key: "excel",    label: "Import Excel" },
   { key: "wa",       label: "World Athletics" },
-  { key: "lanes",    label: "Heats & Lanes" },
-  { key: "travel",   label: "Travel" },
+  { key: "lanes",    label: "Séries & couloirs" },
+  { key: "travel",   label: "Voyages" },
 ];
 
 // Default settings — admin can override everything via the settings page.

@@ -135,6 +135,7 @@ function compareSectionGroups(a, b) {
 function formatSectionLabel(group) {
   if (group.round === "Heat") return group.heat ? `Série ${group.heat}` : "Série";
   if (group.finalGroup) return `Finale ${group.finalGroup}`;
+  if (isFinalRound(group.round)) return "Finale";
   return group.round || "";
 }
 
@@ -223,7 +224,7 @@ function RankBadge({ rank }) {
 }
 
 function GenderTag({ gender }) {
-  const label = gender === "W" ? "Women" : gender === "M" ? "Men" : "Mixed";
+  const label = gender === "W" ? "Femmes" : gender === "M" ? "Hommes" : "Mixte";
   const background = gender === "W" ? "#fce7f3" : gender === "M" ? "#dbeafe" : "#ecfeff";
   const color = gender === "W" ? "#be185d" : gender === "M" ? "#1d4ed8" : "#0f766e";
   return (
@@ -251,7 +252,7 @@ function SeedButton({ onSeed, seeding, seedLog }) {
         disabled={seeding}
         style={{ marginBottom: "0.5rem" }}
       >
-        {seeding ? "Seeding…" : "🌱 Seed historical data"}
+        {seeding ? "Import…" : "🌱 Importer les données historiques"}
       </button>
       {seedLog.length > 0 && (
         <div style={{
@@ -317,7 +318,7 @@ function ResultForm({ year, initial, onSave, onCancel }) {
           </select>
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Round</label>
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Tour</label>
           <input style={inp} value={data.round} onChange={(e) => set("round", e.target.value)} placeholder="Final A / Final B / Heats combines…" />
         </div>
         <div>
@@ -395,7 +396,7 @@ function AthleteNameCell({ lastName, firstName, yob, registryIdx, style }) {
         target="_blank"
         rel="noopener noreferrer"
         style={{ ...style, color: "#1d4ed8", textDecoration: "none", fontWeight: 600 }}
-        title={`World Athletics profile${entry.waid ? ` · WAID ${entry.waid}` : ""}`}
+        title={`Profil World Athletics${entry.waid ? ` · WAID ${entry.waid}` : ""}`}
       >
         {fullName}
         <span style={{ marginLeft: 4, fontSize: "0.68rem", opacity: 0.55 }}>↗</span>
@@ -405,7 +406,7 @@ function AthleteNameCell({ lastName, firstName, yob, registryIdx, style }) {
   if (entry) {
     // In registry but no WA URL yet
     return (
-      <span style={{ ...style, fontWeight: 600 }} title="In athlete database">
+      <span style={{ ...style, fontWeight: 600 }} title="Dans la base athlètes">
         {fullName}
         <span style={{ marginLeft: 4, fontSize: "0.65rem", color: "#6b7280" }}>●</span>
       </span>
@@ -679,18 +680,18 @@ function WinnersComparisonPanel({ editions, allWinners, Panel }) {
   const mismatches = rows.filter((r) => r.nameMismatch || r.markMismatch || !r.inWinners || !r.inResults).length;
 
   async function handleSync() {
-    if (!window.confirm(`Remplacer les winners ${year} par les résultats officiels (rank=1) ?`)) return;
+    if (!window.confirm(`Remplacer les vainqueurs ${year} par les résultats officiels (rang 1) ?`)) return;
     setSyncing(true); setSyncMsg(null);
     try {
       const n = await syncWinnersForYear(year, rank1);
-      setSyncMsg(`✅ ${n} winners synchronisés pour ${year}.`);
+      setSyncMsg(`✅ ${n} vainqueurs synchronisés pour ${year}.`);
     } catch (e) {
       setSyncMsg(`❌ ${e.message}`);
     } finally { setSyncing(false); }
   }
 
   return (
-    <Panel title="Comparaison Winners vs Résultats" subtitle="Divergences entre le PDF Hall of Winners (meetingWinners) et les résultats officiels (meetingResults rank=1)">
+    <Panel title="Comparaison vainqueurs / résultats" subtitle="Divergences entre le PDF Hall of Winners (meetingWinners) et les résultats officiels (meetingResults rank=1)">
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
         <select className="input" value={year ?? ""} onChange={(e) => { setYear(Number(e.target.value)); setSyncMsg(null); }} style={{ minWidth: 120 }}>
           {editions.map((e) => <option key={e.year} value={e.year}>{e.year}</option>)}
@@ -701,7 +702,7 @@ function WinnersComparisonPanel({ editions, allWinners, Panel }) {
           </span>
         )}
         <button className="btn btn--primary" onClick={handleSync} disabled={syncing || loading || rank1.length === 0} style={{ marginLeft: "auto", fontSize: "0.82rem" }}>
-          {syncing ? "Sync…" : `↓ Sync ${year} depuis résultats`}
+          {syncing ? "Synchro…" : `↓ Synchroniser ${year} depuis les résultats`}
         </button>
       </div>
       {syncMsg && <p style={{ fontSize: "0.82rem", marginBottom: 12, color: syncMsg.startsWith("✅") ? "#059669" : "#dc2626" }}>{syncMsg}</p>}
@@ -709,7 +710,7 @@ function WinnersComparisonPanel({ editions, allWinners, Panel }) {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
           <thead>
             <tr style={{ background: "#f9fafb" }}>
-              {["Discipline","G","Résultats (rank=1)","Perfs","Winners (PDF)","Perfs","Statut"].map((h) => (
+              {["Épreuve","G","Résultats (rang 1)","Perfs","Vainqueurs (PDF)","Perfs","Statut"].map((h) => (
                 <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 700, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
               ))}
             </tr>
@@ -839,7 +840,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
       const result = await seedMeetingDatabase((msg) => setSeedLog((prev) => [...prev, msg]));
       setSeedLog((prev) => [...prev, `✅ ${result}`]);
     } catch (err) {
-      setSeedLog((prev) => [...prev, `❌ Error: ${err.message}`]);
+      setSeedLog((prev) => [...prev, `❌ Erreur : ${err.message}`]);
     } finally {
       setSeeding(false);
     }
@@ -848,7 +849,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
   async function handleCloseEdition() {
     if (!effectiveYear || !results.length) return;
     const confirmed = window.confirm(
-      `Close edition ${effectiveYear}? This will update the athlete registry with participation data.`,
+      `Clôturer l'édition ${effectiveYear} ? Les participations seront enregistrées dans la base athlètes.`,
     );
     if (!confirmed) return;
     setClosingYear(effectiveYear);
@@ -857,7 +858,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
       const msg = await closeEdition(effectiveYear, results, (m) => setCloseStatus(m));
       setCloseStatus(msg);
     } catch (err) {
-      setCloseStatus(`Error: ${err.message}`);
+      setCloseStatus(`Erreur : ${err.message}`);
     } finally {
       setClosingYear(null);
     }
@@ -945,24 +946,24 @@ function MeetingHistoryPage({ Panel, maintenance }) {
 
   const adminToolsPanel = (
     <section className="panel-grid panel-grid--1">
-      <Panel title="Admin — Database" subtitle="Import and manage historical data">
+      <Panel title="Admin — Base de données" subtitle="Importer et gérer les données historiques">
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div>
             <p className="panel-note" style={{ marginBottom: "0.5rem" }}>
               Importez l'année sélectionnée depuis le JSON local, puis synchronisez automatiquement
-              les winners et les records.
+              les vainqueurs et les records.
             </p>
             {effectiveYear && !selectedEdition?.cancelled ? (
               <button
                 className="btn btn--primary"
                 style={{ fontSize: "0.82rem" }}
                 onClick={async () => {
-                  if (!window.confirm(`Importer ${effectiveYear} depuis le JSON local, synchroniser les winners puis recalculer tous les records ?`)) return;
+                  if (!window.confirm(`Importer ${effectiveYear} depuis le JSON local, synchroniser les vainqueurs puis recalculer tous les records ?`)) return;
                   setSeedLog([`Import ${effectiveYear} depuis le JSON local…`]);
                   setSeeding(true);
                   try {
                     const summary = await reseedMeetingYearFromJson(effectiveYear, (msg) => setSeedLog((p) => [...p, msg]));
-                    setSeedLog((p) => [...p, `✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} winners, ${summary.records} records.`]);
+                    setSeedLog((p) => [...p, `✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} vainqueurs, ${summary.records} records.`]);
                   } catch (err) {
                     setSeedLog((p) => [...p, `❌ ${err.message}`]);
                   } finally {
@@ -971,7 +972,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                 }}
                 disabled={seeding}
               >
-                Importer {effectiveYear} depuis JSON + winners + records
+                Importer {effectiveYear} depuis le JSON + vainqueurs + records
               </button>
             ) : (
               <p className="panel-note">Sélectionnez une édition active pour lancer l'import.</p>
@@ -979,11 +980,11 @@ function MeetingHistoryPage({ Panel, maintenance }) {
           </div>
           <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "0.75rem" }}>
             <p className="panel-note" style={{ marginBottom: "0.5rem" }}>
-              <strong>Close an edition</strong> to record participation in the athlete registry.
-              Select an edition above, then click the "Close edition" button in the Results panel.
+              <strong>Clôturer une édition</strong> enregistre les participations dans la base athlètes.
+              Choisissez une édition ci-dessus, puis cliquez sur « Clôturer l&apos;édition » dans le panneau Résultats.
             </p>
             <p className="panel-note" style={{ marginBottom: "0.5rem" }}>
-              <strong>Visibilité dans les stats publiques :</strong> cochez/décochez la case "stats" sous chaque année dans le sélecteur d'édition.
+              <strong>Visibilité dans les stats publiques :</strong> cochez/décochez la case « stats » sous chaque année dans le sélecteur d'édition.
             </p>
             <details style={{ marginTop: "0.75rem" }}>
               <summary style={{ cursor: "pointer", fontSize: "0.82rem", fontWeight: 600, color: "#4b5563" }}>
@@ -998,7 +999,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   className="btn btn--danger"
                   style={{ fontSize: "0.82rem", width: "fit-content" }}
                   onClick={async () => {
-                    if (!window.confirm("Supprimer TOUS les winners et re-seeder depuis le JSON ? (les données 2026 seront perdues — relancer Close Edition ensuite)")) return;
+                    if (!window.confirm("Supprimer TOUS les vainqueurs et les réimporter depuis le JSON ? (les données 2026 seront perdues — relancer « Clôturer l'édition » ensuite)")) return;
                     setSeedLog([]);
                     setSeeding(true);
                     try {
@@ -1012,7 +1013,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   }}
                   disabled={seeding}
                 >
-                  🔄 Réinitialiser winners (purge + re-seed)
+                  🔄 Réinitialiser les vainqueurs (purge + réimport)
                 </button>
                 <button
                   className="btn"
@@ -1060,7 +1061,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   setSeeding(true);
                   try {
                     const summary = await reseedMeetingYearFromJson(effectiveYear, (msg) => setSeedLog((p) => [...p, msg]));
-                    setSeedLog((p) => [...p, `✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} winners, ${summary.records} records.`]);
+                    setSeedLog((p) => [...p, `✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} vainqueurs, ${summary.records} records.`]);
                   } catch (err) {
                     setSeedLog((p) => [...p, `❌ ${err.message}`]);
                   } finally {
@@ -1083,17 +1084,17 @@ function MeetingHistoryPage({ Panel, maintenance }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Meeting History</p>
-          <h1>Edition Results</h1>
-          <p>Full results for each edition of the Luxembourg Indoor Meeting.</p>
+          <p className="eyebrow">Historique du meeting</p>
+          <h1>Résultats par édition</h1>
+          <p>Résultats complets de chaque édition du Luxembourg Indoor Meeting.</p>
         </div>
       </section>
 
       {/* Edition picker */}
       <section className="panel-grid panel-grid--1">
-        <Panel title="Select edition">
+        <Panel title="Choisir une édition">
           {editionsLoading ? (
-            <p className="panel-note">Loading editions…</p>
+            <p className="panel-note">Chargement des éditions…</p>
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
               {editions.map((ed) => (
@@ -1191,7 +1192,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   <span style={{
                     background: "#dcfce7", color: "#15803d",
                     padding: "2px 8px", borderRadius: 12, fontWeight: 600, fontSize: "0.75rem",
-                  }}>Closed</span>
+                  }}>Clôturée</span>
                 )}
               </div>
             )
@@ -1202,8 +1203,8 @@ function MeetingHistoryPage({ Panel, maintenance }) {
       {/* Results */}
       <section className="panel-grid panel-grid--1">
         <Panel
-          title={`Results — ${effectiveYear ?? "—"}`}
-          subtitle={resultsLoading ? "Loading…" : `${results.length} entries, ${groups.length} events`}
+          title={`Résultats — ${effectiveYear ?? "—"}`}
+          subtitle={resultsLoading ? "Chargement…" : `${results.length} lignes, ${groups.length} épreuves`}
           actions={
             isAdmin && effectiveYear && !selectedEdition?.cancelled ? (
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -1232,7 +1233,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                       fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap",
                     }}
                   >
-                    {editMode ? "✏️ Mode édition ON" : "✏️ Modifier les résultats"}
+                    {editMode ? "✏️ Mode édition activé" : "✏️ Modifier les résultats"}
                   </button>
                 )}
                 {!selectedEdition?.isClosed && (
@@ -1242,7 +1243,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                     disabled={closingYear === effectiveYear}
                     style={{ whiteSpace: "nowrap" }}
                   >
-                    {closingYear === effectiveYear ? "Closing…" : "🔒 Close edition"}
+                    {closingYear === effectiveYear ? "Clôture…" : "🔒 Clôturer l'édition"}
                   </button>
                 )}
               </div>
@@ -1258,14 +1259,14 @@ function MeetingHistoryPage({ Panel, maintenance }) {
             />
           )}
           {resultsLoading ? (
-            <p className="panel-note">Loading results…</p>
+            <p className="panel-note">Chargement des résultats…</p>
           ) : results.length === 0 ? (
             <div className="notice-card">
-              <strong>No results found for {effectiveYear}</strong>
+              <strong>Aucun résultat pour {effectiveYear}</strong>
               <p>
                 {isAdmin
-                  ? 'Use the "Seed historical data" button in the Admin panel below to import data, or click "+ Ajouter un résultat" to add manually.'
-                  : 'Results for this edition are not yet available.'}
+                  ? "Utilisez « Importer les données historiques » (Réglages › Maintenance) pour importer les données, ou « + Ajouter un résultat » pour saisir à la main."
+                  : "Les résultats de cette édition ne sont pas encore disponibles."}
               </p>
             </div>
           ) : (
@@ -1283,7 +1284,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 36 }}>Rk</th>
+                    <th style={{ width: 36 }}>Rg</th>
                     <th>Épreuve</th>
                     <th data-sticky-col="1" className="col-sticky col-sticky--last">Athlète</th>
                     <th>Nat.</th>
@@ -1371,16 +1372,16 @@ function MeetingRecordsPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Meeting History</p>
-          <h1>Meeting Records</h1>
-          <p>All-time best performances set at the Luxembourg Indoor Meeting.</p>
+          <p className="eyebrow">Historique du meeting</p>
+          <h1>Records du meeting</h1>
+          <p>Meilleures performances de tous les temps réalisées au Luxembourg Indoor Meeting.</p>
         </div>
       </section>
 
       <section className="panel-grid panel-grid--1">
         <Panel
           title="Records"
-          subtitle={loading ? "Loading…" : `${displayed.length} records`}
+          subtitle={loading ? "Chargement…" : `${displayed.length} records`}
           actions={
             <div style={{ display: "flex", gap: "0.5rem" }}>
               {["all", "W", "M"].map((g) => (
@@ -1399,31 +1400,31 @@ function MeetingRecordsPage({ Panel }) {
                     fontSize: "0.82rem",
                   }}
                 >
-                  {g === "all" ? "All" : g === "W" ? "Women" : "Men"}
+                  {g === "all" ? "Tous" : g === "W" ? "Femmes" : "Hommes"}
                 </button>
               ))}
             </div>
           }
         >
           {loading ? (
-            <p className="panel-note">Loading records…</p>
+            <p className="panel-note">Chargement des records…</p>
           ) : records.length === 0 ? (
             <div className="notice-card">
-              <strong>No records found</strong>
-              <p>Seed the historical database to populate records.</p>
+              <strong>Aucun record pour le moment</strong>
+              <p>Importez les données historiques pour remplir les records.</p>
             </div>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Event</th>
+                    <th>Épreuve</th>
                     <th></th>
                     <th>Record</th>
-                    <th>Athlete</th>
+                    <th>Athlète</th>
                     <th>Nat.</th>
                     <th>Date</th>
-                    <th>Year</th>
+                    <th>Année</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1515,23 +1516,23 @@ function MeetingWinnersPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Meeting History</p>
+          <p className="eyebrow">Historique du meeting</p>
           <h1>Hall of Winners</h1>
-          <p>Historical winners for every event at the Luxembourg Indoor Meeting (2003–2026).</p>
+          <p>Vainqueurs de chaque épreuve du Luxembourg Indoor Meeting (2003–2026).</p>
         </div>
       </section>
 
       <section className="panel-grid panel-grid--1">
         <Panel
-          title="Winners"
-          subtitle={loading ? "Loading…" : `${filtered.length} winner entries`}
+          title="Vainqueurs"
+          subtitle={loading ? "Chargement…" : `${filtered.length} victoires`}
         >
           {/* Filters */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem", alignItems: "flex-end" }}>
             {/* Gender */}
             <div>
               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-                GENDER
+                GENRE
               </label>
               <div style={{ display: "flex", gap: "0.4rem" }}>
                 {["all", "W", "M"].map((g) => (
@@ -1550,7 +1551,7 @@ function MeetingWinnersPage({ Panel }) {
                       fontSize: "0.8rem",
                     }}
                   >
-                    {g === "all" ? "All" : g === "W" ? "Women" : "Men"}
+                    {g === "all" ? "Tous" : g === "W" ? "Femmes" : "Hommes"}
                   </button>
                 ))}
               </div>
@@ -1559,7 +1560,7 @@ function MeetingWinnersPage({ Panel }) {
             {/* Discipline */}
             <div>
               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-                EVENT
+                ÉPREUVE
               </label>
               <select
                 className="input"
@@ -1568,7 +1569,7 @@ function MeetingWinnersPage({ Panel }) {
                 style={{ padding: "0.28rem 0.6rem", minWidth: 160 }}
               >
                 {disciplines.map((d) => (
-                  <option key={d} value={d}>{d === "all" ? "All events" : d}</option>
+                  <option key={d} value={d}>{d === "all" ? "Toutes les épreuves" : d}</option>
                 ))}
               </select>
             </div>
@@ -1576,11 +1577,11 @@ function MeetingWinnersPage({ Panel }) {
             {/* Search */}
             <div style={{ flex: 1, minWidth: 200 }}>
               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-                SEARCH
+                RECHERCHER
               </label>
               <input
                 className="input"
-                placeholder="Name, country, year…"
+                placeholder="Nom, pays, année…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -1588,11 +1589,11 @@ function MeetingWinnersPage({ Panel }) {
           </div>
 
           {loading ? (
-            <p className="panel-note">Loading winners…</p>
+            <p className="panel-note">Chargement des vainqueurs…</p>
           ) : filtered.length === 0 ? (
             <div className="notice-card">
-              <strong>No winners found</strong>
-              <p>Try adjusting the filters, or seed the historical database first.</p>
+              <strong>Aucun vainqueur trouvé</strong>
+              <p>Modifiez les filtres, ou importez d&apos;abord les données historiques.</p>
             </div>
           ) : grouped ? (
             // Grouped by discipline
@@ -1600,12 +1601,12 @@ function MeetingWinnersPage({ Panel }) {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Year</th>
-                    <th>Event</th>
-                    <th data-sticky-col="1" className="col-sticky col-sticky--last">Winner</th>
+                    <th>Année</th>
+                    <th>Épreuve</th>
+                    <th data-sticky-col="1" className="col-sticky col-sticky--last">Vainqueur</th>
                     <th>Nat.</th>
-                    <th>Result</th>
-                    <th>Wins</th>
+                    <th>Résultat</th>
+                    <th>Victoires</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1638,7 +1639,7 @@ function MeetingWinnersPage({ Panel }) {
                                 marginLeft: 6, fontSize: "0.68rem", fontWeight: 700,
                                 background: "#fef3c7", color: "#92400e",
                                 padding: "1px 5px", borderRadius: 8,
-                              }} title={`${wins}× winner`}>
+                              }} title={`${wins}× vainqueur`}>
                                 ×{wins}
                               </span>
                             )}
@@ -1675,13 +1676,13 @@ function MeetingWinnersPage({ Panel }) {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Year</th>
-                    <th>Event</th>
+                    <th>Année</th>
+                    <th>Épreuve</th>
                     <th></th>
-                    <th>Winner</th>
+                    <th>Vainqueur</th>
                     <th>Nat.</th>
-                    <th>Result</th>
-                    <th>Wins</th>
+                    <th>Résultat</th>
+                    <th>Victoires</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1704,7 +1705,7 @@ function MeetingWinnersPage({ Panel }) {
                               marginLeft: 6, fontSize: "0.68rem", fontWeight: 700,
                               background: "#fef3c7", color: "#92400e",
                               padding: "1px 5px", borderRadius: 8,
-                            }} title={`${wins}× winner`}>
+                            }} title={`${wins}× vainqueur`}>
                               ×{wins}
                             </span>
                           )}
