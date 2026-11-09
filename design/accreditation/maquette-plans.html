@@ -58,7 +58,7 @@
   .area { width: 100%; height: 100%; box-sizing: border-box; border-radius: 12px; border: 2px dashed; display: grid; place-items: center; text-align: center; font: 800 11px/1.05 Barlow, Arial, sans-serif; padding: 2px; overflow: visible; white-space: nowrap; }
   /* Zone dessinée à main levée (forme) : remplie en couleur légère, son nom posé dessus */
   .shapes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-  .area-label { font: 800 13px/1 Barlow, Arial, sans-serif; letter-spacing: .02em; white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; }
+  .area-label { font: 800 13px/1 Barlow, Arial, sans-serif; letter-spacing: .02em; white-space: nowrap; background: #fff; border-radius: 999px; padding: 4px 9px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
   .mini .area-label { font-size: 8px; }
   .mini .area, .badge-back .area { font-size: 7px; border-width: 1px; border-radius: 6px; }
   .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
@@ -232,11 +232,26 @@
     : el.kind === "area" ? `<div class="area" style="background:${color}1f;border-color:${color};color:${color}">${esc(el.label)}</div>`
     : el.kind === "door" ? `<div class="door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></div>`
     : `<div class="pill" style="background:${color}">${esc(el.label)}</div>`;
+  // Zones dessinées. Fond « piste » : couleur de piste d'athlétisme + couloirs blancs + pictos
+  // (enfant qui court, haie) pour comprendre d'un coup d'œil que c'est un espace pour essayer l'athlétisme.
+  let shapeCount = 0;
+  const PICTOS = {
+    runner: `<circle cx="4" cy="-22" r="6" fill="#fff" /><path d="M2 -14 L-3 4 M-14 -7 L-1 -11 L9 -3 M-3 4 L-13 17 M-3 4 L8 12 L13 23" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />`,
+    hurdle: `<path d="M-16 -6 L16 -6 M-16 1 L16 1 M-13 -6 L-13 18 M13 -6 L13 18" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" />`,
+  };
   const shapesSvg = (list, crop = false) => {
     const shapes = list.filter((el) => el.kind === "area" && el.shape);
     if (!shapes.length) return "";
     const vb = crop ? `0 ${PLAN_CROP.y} ${PLAN_W} ${PLAN_CROP.h}` : `0 0 ${PLAN_W} ${PLAN_H}`;
-    return `<svg class="shapes" viewBox="${vb}" preserveAspectRatio="none">${shapes.map((el) => { const X = (el.x / 100) * PLAN_W, Y = (el.y / 100) * PLAN_H; return `<polygon points="${el.shape.map(([dx, dy]) => `${X + dx},${Y + dy}`).join(" ")}" fill="${el.color}2e" stroke="${el.color}" stroke-width="3" stroke-dasharray="10 6" stroke-linejoin="round" />`; }).join("")}</svg>`;
+    return `<svg class="shapes" viewBox="${vb}" preserveAspectRatio="none">${shapes.map((el) => {
+      const X = (el.x / 100) * PLAN_W, Y = (el.y / 100) * PLAN_H;
+      const pts = el.shape.map(([dx, dy]) => `${X + dx},${Y + dy}`).join(" ");
+      if (el.bg !== "piste") return `<polygon points="${pts}" fill="${el.color}2e" stroke="${el.color}" stroke-width="3" stroke-dasharray="10 6" stroke-linejoin="round" />`;
+      const id = `piste-${++shapeCount}`;
+      return `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="60" height="26" patternTransform="rotate(-28)"><rect width="60" height="26" fill="#e2683f" /><line x1="0" y1="13" x2="60" y2="13" stroke="#fff" stroke-width="2.4" stroke-opacity=".85" /></pattern></defs>
+        <polygon points="${pts}" fill="url(#${id})" fill-opacity=".9" stroke="#c4472a" stroke-width="3" stroke-linejoin="round" />
+        ${(el.pictos || []).map(([t, dx, dy, sc = 1.4]) => `<g transform="translate(${X + dx} ${Y + dy}) scale(${sc})">${PICTOS[t] || ""}</g>`).join("")}`;
+    }).join("")}</svg>`;
   };
   const sizeOf = (el, crop = false) => (el.kind === "area" && !el.shape ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;` : "");
   const areasFirst = (list) => [...list.filter((el) => el.kind === "area"), ...list.filter((el) => el.kind !== "area")];
@@ -361,7 +376,7 @@
       const els = areasFirst(elements.filter((el) => el.maps[key])).map((el) => placed(el, marker(el), crop)).join("");
       return `<div><div class="card">
           <div class="ph"><img src="${A}accreditation-meeting-principal.png" alt="" /><b style="background:${color}">${title}</b></div>
-          <div class="body"><div class="mini${crop ? " crop" : ""}">${planBaseSvg({ crop })}${els}</div><div class="leg">${legendHtml(key)}</div></div>
+          <div class="body"><div class="mini${crop ? " crop" : ""}">${planBaseSvg({ crop })}${shapesSvg(elements.filter((el) => el.maps[key]), crop)}${els}</div><div class="leg">${legendHtml(key)}</div></div>
           ${key === "web" ? `<div class="pf">${["accreditation-sponsor-cmcm.png", "fla-logo.png", "wa-indoor-tour-silver.png", "accreditation-sponsor-ville-luxembourg.png", "accreditation-sponsor-luxembourg.png"].map((f) => `<img src="${A}${f}" alt="" />`).join("")}</div>` : ""}
         </div><div class="pv-cap">${cap}</div></div>`;
     };
