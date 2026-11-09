@@ -121,6 +121,31 @@
       ],
       "cwd": ".claude/worktrees/timetable",
       "port": 5182
+    },
+    {
+      "name": "myclim-maquettes-arborescence",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5184",
+        "--strictPort"
+      ],
+      "cwd": ".claude/worktrees/nouvelle-arborescence-25bf5a",
+      "port": 5184
+    },
+    {
+      "name": "myclim-arborescence-emulators",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5185",
+        "--strictPort"
+      ],
+      "env": { "VITE_USE_FIREBASE_EMULATORS": "true" },
+      "cwd": ".claude/worktrees/nouvelle-arborescence-25bf5a",
+      "port": 5185
     }
   ]
 }
