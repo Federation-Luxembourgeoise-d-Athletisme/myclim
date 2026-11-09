@@ -798,7 +798,7 @@ function EditionSettingsPage(props) {
       .sort((left, right) => Number(right) - Number(left));
 
     return [
-      { value: "test", label: `test — ${t("dashboardTemplateConfiguration")}` },
+      { value: "test", label: `Exemple 2026 — ${t("dashboardTemplateConfiguration")}` },
       ...numericEditionIds.map((editionId) => {
         const edition = (meetingEditions || []).find((entry) => normalizeEditionId(entry.year) === editionId);
         return {
