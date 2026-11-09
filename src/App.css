@@ -8439,3 +8439,9 @@ tr.row--warning > td {
 .table-wrap--athletes .data-table.ath-table thead th { padding-top: 6px; padding-bottom: 6px; }
 .table-wrap--athletes .data-table.ath-table .event-group-header td { padding: 4px 10px; }
 .ath-table .ath-reg button { font-size: 11px !important; }
+/* Withdrawn rows: grey text instead of opacity, so frozen cells stay opaque
+   (with opacity the scrolled columns showed through the name). */
+.ath-table .row--muted td,
+.ath-table .row--muted .col-sticky { opacity: 1; color: #a3afbb; }
+.ath-table .row--muted td * { color: inherit !important; }
+.ath-table .row--muted .status-pill { background: #f1f4f7; }

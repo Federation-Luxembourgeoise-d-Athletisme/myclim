@@ -2662,23 +2662,37 @@ function AthletesListPage({ Panel }) {
   // Run after every render that could change column layout.
   // Measures each `data-sticky-col` <th> width and sets the `left` CSS property
   // on both the <th> and every <td> in that column so they freeze correctly.
+  // Re-measured whenever a frozen header cell changes width (web font loaded,
+  // data arriving, columns shown/hidden): a stale offset left a thin gap
+  // between "Reg." and "Nom" where the scrolled content showed through.
+  // Widths are floored so each frozen cell overlaps the previous one by a sub-pixel
+  // instead of leaving a hairline gap.
   useLayoutEffect(() => {
     const table = tableRef.current;
-    if (!table) return;
+    if (!table) return undefined;
     const theadRow = table.querySelector("thead tr");
-    if (!theadRow) return;
-    const ths = [...theadRow.children];
-    let left = 0;
-    ths.forEach((th, colIdx) => {
-      if (!th.dataset.stickyCol) return;
-      th.style.left = `${left}px`;
-      const w = th.getBoundingClientRect().width;
-      table.querySelectorAll("tbody tr").forEach((row) => {
-        const cell = row.children[colIdx];
-        if (cell) cell.style.left = `${left}px`;
+    if (!theadRow) return undefined;
+
+    function applyStickyOffsets() {
+      const ths = [...theadRow.children];
+      let left = 0;
+      ths.forEach((th, colIdx) => {
+        if (!th.dataset.stickyCol) return;
+        const offset = `${left}px`;
+        th.style.left = offset;
+        table.querySelectorAll("tbody tr").forEach((row) => {
+          const cell = row.children[colIdx];
+          if (cell && cell.classList.contains("col-sticky")) cell.style.left = offset;
+        });
+        left += Math.floor(th.getBoundingClientRect().width);
       });
-      left += w;
-    });
+    }
+
+    applyStickyOffsets();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(() => applyStickyOffsets());
+    [...theadRow.children].filter((th) => th.dataset.stickyCol).forEach((th) => observer.observe(th));
+    return () => observer.disconnect();
   });
 
   // ── Handlers ────────────────────────────────────────────────────────────────
