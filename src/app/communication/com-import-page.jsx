@@ -222,7 +222,7 @@ export function ComImportPage() {
                     `${result.publications} publications et ${result.tasks} tâches créées${result.skipped ? `, ${result.skipped} déjà importées` : ""}.`,
                     `${result.publications} publications and ${result.tasks} tasks created${result.skipped ? `, ${result.skipped} already imported` : ""}.`,
                   )}{" "}
-                  <Link className="com-link" to="/app/communication">
+                  <Link className="com-link" to="/app/calendrier">
                     {tr("Voir le calendrier", "Open the calendar")}
                   </Link>
                 </span>

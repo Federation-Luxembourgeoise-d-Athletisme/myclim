@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Programme du dimanche — maquette</title>
+<style>
+:root{--ink:#13213a;--muted:#5b6b7c;--dim:#8391a3;--line:#dfe6ee;--soft:#f6f8fb;--blue:#1a4aa1;--red:#b0182b;--row:20px}
+*{box-sizing:border-box}
+body{margin:0;font:13px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:#f3f5f8}
+.wrap{max-width:1500px;margin:0 auto;padding:18px 16px 40px}
+h1{font-size:20px;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 14px;max-width:900px}
+.eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ptabs{display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap}
+.ptabs span{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600}
+.ptabs .on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:4px 10px;font:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--ink);color:#fff}
+select,input,textarea{font:inherit;font-size:12.5px;border:1px solid #cfd9e6;border-radius:6px;padding:4px 7px;background:#fff;color:var(--ink)}
+.cats{display:flex;flex-wrap:wrap;gap:5px}
+.cat{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:4px;padding:1px 7px;font-size:11.5px;cursor:pointer;background:#fff;user-select:none}
+.cat i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.cat.off{opacity:.4}
+.btn{border:1px solid #cfd9e6;background:#fff;border-radius:6px;padding:4px 10px;font:inherit;font-size:12px;font-weight:600;color:var(--blue);cursor:pointer}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.danger{color:var(--red)}
+.spacer{margin-left:auto}
+.board{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+.gridwrap{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:calc(100vh - 210px)}
+.grid{display:grid;position:relative}
+.hcell{position:sticky;top:0;z-index:3;background:var(--soft);border-bottom:1px solid var(--line);border-right:1px solid #eef2f6;padding:5px 6px;font-size:10.5px;font-weight:700;color:var(--muted);line-height:1.2;height:44px;overflow:hidden}
+.hcell.time{left:0;z-index:4}
+.hcell.race{background:#eef1f5}
+.hcell small{display:block;font-weight:500;color:var(--dim)}
+.hcell.extra{color:#6b4f00}
+.hcell.general{background:#eaf3ee;color:#1d6b3f}
+.hcell.subrole{background:#f3f6fb}
+.hcell .grp{display:block;font-size:9.5px;font-weight:600;color:var(--blue);text-transform:none;letter-spacing:0}
+.col.general{background:#f6fbf8}
+.pending{display:inline-block;font-size:9px;font-weight:700;color:#8a5a00;background:#fff3d6;border-radius:3px;padding:0 4px;margin-top:2px}
+.cols-admin{display:grid;gap:4px;margin-top:6px}
+.cols-admin .r{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.cols-admin .r input{width:100%}
+.tl .d.gen{border-left-style:dashed}
+.tcol{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--line)}
+.tlabel{height:var(--row);font-size:10px;color:var(--dim);text-align:right;padding-right:5px;line-height:var(--row)}
+.tlabel.hour{color:var(--ink);font-weight:700}
+.col{position:relative;border-right:1px solid #eef2f6;cursor:copy}
+.col.race{background:#f8f9fb;cursor:default}
+.slot{height:var(--row);border-bottom:1px solid #f4f6f9}
+.slot.hour{border-bottom-color:#e6ebf1}
+.block{position:absolute;left:2px;right:2px;border-radius:3px;padding:1px 4px;font-size:10.5px;line-height:1.2;overflow:hidden;cursor:pointer;border-left:3px solid;box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+.block:hover{filter:brightness(.96);z-index:1}
+.block.sel{outline:2px solid var(--ink);z-index:2}
+.block small{color:rgba(19,33,58,.65)}
+.block.multi::after{content:attr(data-n);position:absolute;right:2px;top:1px;font-size:9px;font-weight:700;color:rgba(19,33,58,.55)}
+.block.race{background:#e9edf2;border-left-color:#8391a3;cursor:default}
+.now{position:absolute;left:0;right:0;height:0;border-top:2px dashed var(--red);z-index:2;pointer-events:none}
+.panel{width:330px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;position:sticky;top:12px}
+.panel h2{font-size:14px;margin:0 0 8px}
+.panel .f{display:grid;gap:2px;margin-bottom:8px}
+.panel .f span{font-size:11px;font-weight:600;color:var(--muted)}
+.panel .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.panel textarea{resize:vertical;min-height:54px}
+.panel .f input,.panel .f select,.panel .f textarea{width:100%;min-width:0}
+.collist{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:4px 6px;display:grid;gap:1px}
+.collist label{display:flex;gap:6px;align-items:center;font-size:12px}
+.collist .grp{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-top:4px}
+.empty{color:var(--dim);font-size:12.5px}
+.actions{display:flex;gap:6px;margin-top:6px}
+.team{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px;max-width:720px}
+.team h2{font-size:15px;margin:0 0 2px}
+.tl{display:grid;grid-template-columns:96px 1fr;gap:0;margin-top:10px}
+.tl .t{font-size:12px;font-weight:700;padding:7px 8px 7px 0;border-top:1px solid #eef2f6;white-space:nowrap}
+.tl .d{padding:7px 0 7px 10px;border-top:1px solid #eef2f6;border-left:3px solid}
+.tl .d b{display:block}
+.tl .d span{color:var(--muted);font-size:12px}
+.note{font-size:12.5px;color:var(--muted)}
+.q{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 16px;margin-top:14px;max-width:1000px}
+.q ol{margin:6px 0 0;padding-left:20px}.q li{margin:5px 0}
+.hint{font-size:11.5px;color:var(--dim)}
+@media print{
+  body{background:#fff}.bar,.panel,.q,.ptabs,.lead{display:none}.gridwrap{max-height:none;overflow:visible;border:0}
+  .board{display:block}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Bénévoles · maquette</div>
+  <h1>Programme du dimanche</h1>
+  <p class="lead">Maquette de l'onglet <b>Équipes &amp; affectations › Programme du dimanche</b>, chargée avec le dimanche de l'an dernier (fichier « Task and Organisation », feuille « 3 days »). Clique sur un bloc pour le modifier, sur une case vide pour ajouter une activité. Une activité peut couvrir plusieurs colonnes (le chiffre en haut à droite d'un bloc). Les modifications restent dans ce navigateur.</p>
+
+  <div class="ptabs"><span>Équipes</span><span>Affectations</span><span class="on">Programme du dimanche</span><span>Récapitulatif</span><span>Autour du meeting</span></div>
+
+  <div class="bar">
+    <div class="seg" id="view">
+      <button data-v="grid" class="on">Grille (organisation)</button>
+      <button data-v="team">Vue d'une équipe</button>
+    </div>
+    <select id="team-pick" style="display:none"></select>
+    <div class="cats" id="cats"></div>
+    <span class="spacer"></span>
+    <button class="btn" id="reset" title="Revenir aux données de l'an dernier">Réinitialiser</button>
+    <button class="btn" onclick="window.print()">Imprimer</button>
+    <button class="btn primary" id="add">+ Activité</button>
+  </div>
+
+  <div id="grid-view" class="board">
+    <div class="gridwrap"><div class="grid" id="grid"></div></div>
+    <aside class="panel" id="panel"></aside>
+  </div>
+  <div id="team-view" style="display:none"></div>
+
+  <div class="q">
+    <b>Décisions (09/11)</b>
+    <ol>
+      <li><b>Entrance</b> = sous-rôles de l'équipe <i>Accueil &amp; billetterie</i>, une colonne chacun. <span class="pending">à revoir avec la resp. bénévoles</span></li>
+      <li><b>Programme piste</b> : repris du timetable de l'édition, pré-programme compris (horaires d'exemple ici).</li>
+      <li><b>Lieu</b> : liste des lieux de la Coque, ou texte libre.</li>
+      <li><b>Bénévoles et chefs d'équipe</b> voient leur équipe + la colonne « Général » (arrivée, repas…).</li>
+      <li><b>Colonnes libres</b> gérables ici (ajouter, renommer, supprimer) : Apex, TV, Officials, Speakers ajoutées.</li>
+    </ol>
+  </div>
+</div>
+</div>
+
+<script>
+const START = 8 * 60, END = 20 * 60, STEP = 15;
+const CATS = {
+  briefing: { label: "Briefing", bg: "#e3edfb", bd: "#3c6fd1" },
+  accred:   { label: "Accréditation & t-shirts", bg: "#efe6fb", bd: "#8a56d6" },
+  setup:    { label: "Installation / mise en place", bg: "#fff2d9", bd: "#d99a1e" },
+  race:     { label: "Course / entraînement", bg: "#e2f4e8", bd: "#2e9a5a" },
+  tech:     { label: "Technique / tests", bg: "#fde7e9", bd: "#c8314a" },
+  meal:     { label: "Repas", bg: "#eaf6f6", bd: "#2f9a9a" },
+  other:    { label: "Autre", bg: "#eef1f5", bd: "#8391a3" },
+};
+// Exemple : dans l'app, ces lignes viennent du timetable de l'édition.
+const RACES = [
+  { title: "Échauffement athlètes (piste ouverte)", start: "12:30", end: "14:30" },
+  { title: "Pré-programme : U12 / U14", start: "13:30", end: "14:15" },
+  { title: "Pré-programme : nationales 60 m / 800 m", start: "14:15", end: "14:45" },
+  { title: "Business Race · Influencer Race", start: "14:45", end: "15:00" },
+  { title: "Ouverture · présentation", start: "15:00", end: "15:15" },
+  { title: "Programme principal", start: "15:15", end: "17:45" },
+  { title: "Remise des prix · fin", start: "17:45", end: "18:15" },
+];
+const KEY = "myclim-maquette-programme-dimanche-v2";
+const PLACES = ["Hall d'entrée", "Billetterie", "Entrée · info", "Arcades", "Buvette", "Bar & food (mur du gymnase)", "Discovery corner", "Amphithéâtre", "Échauffement", "Call room", "Piste (R-1)", "Mixed zone", "Salon VIP / Judges room", "Galerie (R+1)", "Zone bénévoles (galerie)", "Salle de presse", "Parking"];
+let data, selId = null, hidden = new Set(), view = "grid";
+
+const toMin = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + (m || 0); };
+const toTime = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rowPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--row"));
+
+function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {} }
+async function load(fresh) {
+  if (!fresh) { try { const s = localStorage.getItem(KEY); if (s) { data = JSON.parse(s); return; } } catch {} }
+  data = await (await fetch("./sunday-2026.json")).json();
+  // Réponses de Margot (09/11) : les colonnes Entrance sont des sous-rôles de l'équipe
+  // Accueil & billetterie (à confirmer avec la resp. bénévoles) ; une colonne Général
+  // pour ce qui concerne tout le monde ; colonnes libres Apex, TV, Officials, Speakers.
+  for (const c of data.columns) if (c.name.startsWith("Entrance – ")) { c.kind = "subrole"; c.team = "Accueil & billetterie"; c.name = c.name.replace("Entrance – ", ""); }
+  data.columns.unshift({ id: "general", name: "Général · tout le monde", kind: "general" });
+  for (const n of ["Apex", "TV", "Officials", "Speakers"]) data.columns.push({ id: "x-" + n.toLowerCase(), name: n, kind: "extra" });
+  for (const a of data.activities) if (/^ARRIVAL OF LUNEX/.test(a.title)) a.cols = ["general"];
+  // Petit ajout pour montrer la catégorie Repas, absente du dimanche 2026.
+  data.activities.push({ id: "meal1", title: "Repas bénévoles (par roulement)", start: "12:30", end: "13:30", cols: ["general"], category: "meal", place: "Salle bénévoles (galerie)", owner: "", note: "Exemple ajouté pour la maquette." });
+  save();
+}
+
+function renderCats() {
+  document.getElementById("cats").innerHTML = Object.entries(CATS).map(([k, c]) =>
+    `<span class="cat ${hidden.has(k) ? "off" : ""}" data-k="${k}"><i style="background:${c.bd}"></i>${c.label}</span>`).join("");
+}
+
+function laneLayout(acts) {
+  // Activités qui se chevauchent dans une même colonne : côte à côte.
+  const sorted = [...acts].sort((a, b) => toMin(a.start) - toMin(b.start));
+  const lanes = []; const out = new Map();
+  for (const a of sorted) {
+    let i = lanes.findIndex((end) => end <= toMin(a.start));
+    if (i < 0) { i = lanes.length; lanes.push(0); }
+    lanes[i] = toMin(a.end); out.set(a.id, i);
+  }
+  return { lane: out, count: Math.max(1, lanes.length) };
+}
+
+function blockHtml(a, lane, count, extraClass = "") {
+  const top = ((toMin(a.start) - START) / STEP) * rowPx();
+  const h = Math.max(((toMin(a.end) - toMin(a.start)) / STEP) * rowPx() - 1, rowPx() - 1);
+  const c = CATS[a.category] || CATS.other;
+  const w = 100 / count;
+  const n = a.cols?.length || 0;
+  const tip = `${a.start}–${a.end} · ${a.title}${a.place ? " · " + a.place : ""}${a.owner ? " · " + a.owner : ""}${n > 1 ? ` · ${n} colonnes` : ""}`;
+  return `<div class="block ${extraClass} ${n > 1 ? "multi" : ""} ${a.id === selId ? "sel" : ""}" data-id="${a.id || ""}" data-n="×${n}" title="${esc(tip)}"
+    style="top:${top}px;height:${h}px;left:calc(${lane * w}% + 2px);width:calc(${w}% - 4px);right:auto;background:${extraClass ? "" : c.bg};border-left-color:${extraClass ? "" : c.bd}">
+    <small>${a.start}</small> ${esc(a.title)}${a.place && h > 30 ? `<br><small>${esc(a.place)}</small>` : ""}</div>`;
+}
+
+function renderGrid() {
+  const rows = (END - START) / STEP;
+  const cols = data.columns;
+  const grid = document.getElementById("grid");
+  grid.style.gridTemplateColumns = `46px 150px repeat(${cols.length}, 128px)`;
+  let html = `<div class="hcell time"></div><div class="hcell race">Programme piste<small>exemple · timetable de l'édition</small></div>`;
+  const kindLabel = (c) => c.kind === "extra" ? "<small>colonne libre</small>" : c.kind === "general" ? "<small>visible par toutes les équipes</small>" : c.kind === "subrole" ? "" : "<small>équipe</small>";
+  html += cols.map((c) => `<div class="hcell ${c.kind}" title="${esc(c.name)}">${c.kind === "subrole" ? `<span class="grp">${esc(c.team)} ›</span>` : ""}${esc(c.name)}${kindLabel(c)}</div>`).join("");
+  let times = "";
+  for (let i = 0; i < rows; i++) { const m = START + i * STEP; times += `<div class="tlabel ${m % 60 === 0 ? "hour" : ""}">${m % 30 === 0 ? toTime(m) : ""}</div>`; }
+  const slots = Array.from({ length: rows }, (_, i) => `<div class="slot ${(START + (i + 1) * STEP) % 60 === 0 ? "hour" : ""}" data-t="${toTime(START + i * STEP)}"></div>`).join("");
+  html += `<div class="tcol">${times}</div>`;
+  const raceLayout = laneLayout(RACES.map((r, i) => ({ ...r, id: "r" + i })));
+  html += `<div class="col race">${slots}${RACES.map((r, i) => blockHtml({ ...r, id: "r" + i }, raceLayout.lane.get("r" + i), raceLayout.count, "race")).join("")}</div>`;
+  for (const c of cols) {
+    const acts = data.activities.filter((a) => a.cols.includes(c.id) && !hidden.has(a.category));
+    const { lane, count } = laneLayout(acts);
+    html += `<div class="col ${c.kind === "general" ? "general" : ""}" data-col="${c.id}">${slots}${acts.map((a) => blockHtml(a, lane.get(a.id), count)).join("")}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function renderPanel() {
+  const p = document.getElementById("panel");
+  const a = data.activities.find((x) => x.id === selId);
+  if (!a) {
+    const n = data.activities.length;
+    p.innerHTML = `<h2>Activité</h2><p class="empty">Clique sur un bloc pour le modifier, ou sur une case vide pour ajouter une activité à cette heure dans cette colonne.</p>
+      <p class="hint">${n} activités · ${data.columns.length} colonnes · grille de 8:00 à 20:00 par 15 min.</p>
+      <h2 style="margin-top:14px">Colonnes libres</h2>
+      <p class="hint">Les équipes et sous-rôles viennent d'Équipes. Ici, les colonnes hors bénévoles (staff, prestataires…).</p>
+      <div class="cols-admin">${data.columns.filter((c) => c.kind === "extra").map((c) => `<div class="r"><input data-rename="${c.id}" value="${esc(c.name)}"><button class="btn danger" data-delcol="${c.id}" title="Supprimer la colonne">×</button></div>`).join("")}
+      <div class="r"><input id="newcol" placeholder="Nouvelle colonne (ex. Sécurité)"><button class="btn" id="addcol">Ajouter</button></div></div>`;
+    return;
+  }
+  const opt = (v, cur) => Array.from({ length: (END - START) / STEP + 1 }, (_, i) => toTime(START + i * STEP)).map((t) => `<option ${t === cur ? "selected" : ""}>${t}</option>`).join("");
+  const colBox = (kind, label) => `<div class="grp">${label}</div>` + data.columns.filter((c) => c.kind === kind)
+    .map((c) => `<label><input type="checkbox" data-c="${c.id}" ${a.cols.includes(c.id) ? "checked" : ""}> ${esc(c.name)}</label>`).join("");
+  p.innerHTML = `<h2>Activité</h2>
+    <label class="f"><span>Titre</span><input data-k="title" value="${esc(a.title)}"></label>
+    <div class="row2"><label class="f"><span>Début</span><select data-k="start">${opt(0, a.start)}</select></label>
+    <label class="f"><span>Fin</span><select data-k="end">${opt(0, a.end)}</select></label></div>
+    <label class="f"><span>Catégorie</span><select data-k="category">${Object.entries(CATS).map(([k, c]) => `<option value="${k}" ${k === a.category ? "selected" : ""}>${c.label}</option>`).join("")}</select></label>
+    <div class="row2"><label class="f"><span>Lieu (liste ou texte libre)</span><input data-k="place" list="places" value="${esc(a.place)}" placeholder="Hall d'entrée…"><datalist id="places">${PLACES.map((x) => `<option value="${esc(x)}">`).join("")}</datalist></label>
+    <label class="f"><span>Responsable</span><input data-k="owner" value="${esc(a.owner)}" placeholder="JB, David…"></label></div>
+    <label class="f"><span>Note / consignes</span><textarea data-k="note">${esc(a.note)}</textarea></label>
+    <div class="f"><span>Colonnes (${a.cols.length}) <a href="#" id="all-teams" class="hint">toutes les équipes</a></span><div class="collist">${colBox("general", "Général")}${colBox("team", "Équipes")}${colBox("subrole", "Accueil & billetterie · sous-rôles")}${colBox("extra", "Colonnes libres")}</div></div>
+    <div class="actions"><button class="btn" id="dup">Dupliquer</button><button class="btn danger" id="del">Supprimer</button><span class="spacer"></span><button class="btn" id="close">Fermer</button></div>`;
+}
+
+function renderTeam() {
+  const pick = document.getElementById("team-pick");
+  if (!pick.options.length) pick.innerHTML = data.columns.filter((c) => c.kind === "team" || c.kind === "subrole").map((c) => `<option value="${c.id}">${c.kind === "subrole" ? esc(c.team) + " › " : ""}${esc(c.name)}</option>`).join("");
+  const col = data.columns.find((c) => c.id === pick.value) || data.columns[0];
+  const acts = data.activities.filter((a) => a.cols.includes(col.id) || a.cols.includes("general")).sort((a, b) => toMin(a.start) - toMin(b.start));
+  document.getElementById("team-view").innerHTML = `<div class="team">
+    <div class="eyebrow">Ce que voient le chef d'équipe et les bénévoles · lecture seule</div>
+    <h2>${col.kind === "subrole" ? esc(col.team) + " › " : ""}${esc(col.name)} — dimanche</h2>
+    <p class="note">Leur équipe + les activités générales (bordure pointillée). Dans leur espace MyCLIM et sur la page imprimée de l'équipe.</p>
+    <div class="tl">${acts.map((a) => { const c = CATS[a.category] || CATS.other; const gen = a.cols.includes("general") && !a.cols.includes(col.id); return `<div class="t">${a.start} – ${a.end}</div><div class="d ${gen ? "gen" : ""}" style="border-left-color:${c.bd};background:${c.bg}"><b>${esc(a.title)}${gen ? " <span class=\"hint\">· général</span>" : ""}</b><span>${[a.place, a.owner && "Resp. " + a.owner, a.note].filter(Boolean).map(esc).join(" · ") || c.label}</span></div>`; }).join("") || `<p class="empty">Aucune activité.</p>`}</div></div>`;
+}
+
+function render() {
+  renderCats();
+  document.getElementById("grid-view").style.display = view === "grid" ? "" : "none";
+  document.getElementById("team-view").style.display = view === "team" ? "" : "none";
+  document.getElementById("team-pick").style.display = view === "team" ? "" : "none";
+  if (view === "grid") { renderGrid(); renderPanel(); } else renderTeam();
+}
+
+function newActivity(colId, start) {
+  const s = toMin(start || "10:00");
+  const a = { id: "n" + Date.now(), title: "Nouvelle activité", start: toTime(s), end: toTime(Math.min(s + 30, END)), cols: colId ? [colId] : [], category: "other", place: "", owner: "", note: "" };
+  data.activities.push(a); selId = a.id; save(); render();
+  document.querySelector('#panel [data-k="title"]')?.select();
+}
+
+document.getElementById("grid").addEventListener("click", (e) => {
+  const b = e.target.closest(".block");
+  if (b && !b.classList.contains("race")) { selId = b.dataset.id; render(); return; }
+  if (b) return;
+  const col = e.target.closest(".col"); const slot = e.target.closest(".slot");
+  if (col?.dataset.col && slot) newActivity(col.dataset.col, slot.dataset.t);
+});
+document.getElementById("panel").addEventListener("input", (e) => {
+  const rid = e.target.dataset.rename;
+  if (rid) { const c = data.columns.find((x) => x.id === rid); if (c) { c.name = e.target.value; save(); renderGrid(); } return; }
+  const a = data.activities.find((x) => x.id === selId); if (!a) return;
+  const k = e.target.dataset.k;
+  if (k) { a[k] = e.target.value; if (k === "start" && toMin(a.end) <= toMin(a.start)) a.end = toTime(toMin(a.start) + STEP); save(); renderGrid(); if (k === "category" || k === "start") renderPanel(); }
+  const c = e.target.dataset.c;
+  if (c) { a.cols = e.target.checked ? [...a.cols, c] : a.cols.filter((x) => x !== c); save(); renderGrid(); renderPanel(); }
+});
+document.getElementById("panel").addEventListener("click", (e) => {
+  const del = e.target.dataset.delcol;
+  if (del) {
+    const c = data.columns.find((x) => x.id === del);
+    const used = data.activities.filter((a) => a.cols.includes(del)).length;
+    if (c && confirm(`Supprimer la colonne « ${c.name} » ? ${used} activité(s) y sont rattachées.`)) {
+      data.columns = data.columns.filter((x) => x !== c);
+      for (const a of data.activities) a.cols = a.cols.filter((x) => x !== del);
+      data.activities = data.activities.filter((a) => a.cols.length);
+      save(); render();
+    }
+    return;
+  }
+  if (e.target.id === "addcol") {
+    const name = document.getElementById("newcol").value.trim();
+    if (!name) return;
+    data.columns.push({ id: "x-" + Date.now(), name, kind: "extra" });
+    save(); render(); return;
+  }
+  const a = data.activities.find((x) => x.id === selId);
+  if (e.target.id === "close") { selId = null; render(); }
+  if (e.target.id === "del" && a && confirm(`Supprimer « ${a.title} » (${a.cols.length} colonne(s)) ?`)) { data.activities = data.activities.filter((x) => x !== a); selId = null; save(); render(); }
+  if (e.target.id === "dup" && a) { const d = { ...a, id: "n" + Date.now(), cols: [...a.cols] }; data.activities.push(d); selId = d.id; save(); render(); }
+  if (e.target.id === "all-teams" && a) { e.preventDefault(); const teams = data.columns.filter((c) => c.kind === "team" || c.kind === "subrole").map((c) => c.id); a.cols = [...new Set([...a.cols, ...teams])]; save(); render(); }
+});
+document.getElementById("cats").addEventListener("click", (e) => { const k = e.target.closest(".cat")?.dataset.k; if (!k) return; hidden.has(k) ? hidden.delete(k) : hidden.add(k); render(); });
+document.getElementById("view").addEventListener("click", (e) => { const v = e.target.dataset.v; if (!v) return; view = v; document.querySelectorAll("#view button").forEach((b) => b.classList.toggle("on", b.dataset.v === v)); render(); });
+document.getElementById("team-pick").addEventListener("change", renderTeam);
+document.getElementById("add").addEventListener("click", () => { view = "grid"; newActivity(null, "10:00"); });
+document.getElementById("reset").addEventListener("click", async () => { if (!confirm("Revenir au dimanche de l'an dernier ? Tes modifications de maquette seront perdues.")) return; await load(true); selId = null; render(); });
+
+load(false).then(render);
+</script>
+</body>
+</html>

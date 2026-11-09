@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { collection, deleteField, doc, getDoc, getDocs, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
+import { collection, deleteField, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import {
   ACTIVE_EDITION_DOC_PATH,
@@ -8,7 +8,7 @@ import {
   normalizeEditionId,
   useActiveEdition,
 } from "./edition";
-import { buildAthletePortalNavigation, buildNavigationFromRoles, buildStatisticsNavigation, getActiveRoles, getPrimaryRole } from "./navigation";
+import { APP_ROUTES, buildNavigationFromRoles, getActiveRoles, getDefaultRouteByRoles, getPrimaryRole } from "./navigation";
 import { canAccessAthletePortal, canImportAthletes, useAthletePortalSettings } from "./athlete-portal-hooks";
 import { useTeamConfiguration } from "./config-hooks";
 import { useDocumentsCollection } from "./documents-hooks";
@@ -64,6 +64,33 @@ function NavIcon({ icon }) {
   );
 }
 
+// « Voir comme » (admin) : les rôles simulés pour chaque profil. Un
+// gestionnaire est aussi bénévole dans la pratique, d'où « Mon espace ».
+const VIEW_AS_ROLES = {
+  admin: ["admin"],
+  gestionnaire: ["gestionnaire", "benevole"],
+  budget: ["budget"],
+  chef_equipe: ["chef_equipe"],
+  benevole: ["benevole"],
+  parent_u14: ["parent_u14"],
+  athlete_preprogram: ["athlete_preprogram"],
+  commission_athletes: ["commission_athletes"],
+  kine: ["kine"],
+  chef_transport_athletes: ["chef_transport_athletes"],
+  benevole_transport_athletes: ["benevole_transport_athletes"],
+  gestionnaire_site: ["gestionnaire_site"],
+  meeting_director: ["meeting_director"],
+};
+
+function getInitials(name) {
+  return String(name || "")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
 function AppShell(props) {
   const { cmcmLogo } = props;
   const { t } = useLanguage();
@@ -71,78 +98,41 @@ function AppShell(props) {
   const location = useLocation();
   const navigate = useNavigate();
   const roles = getActiveRoles(userProfile);
-  const { activeEditionLabel } = useActiveEdition();
+  const { activeEditionId, activeEditionLabel } = useActiveEdition();
   const { settings: portalSettings, loading: portalSettingsLoading } = useAthletePortalSettings();
   const [preferredViewAsRole, setPreferredViewAsRole] = useState(() => getPrimaryRole(userProfile));
   const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
     typeof window === "undefined" ? true : window.innerWidth > 1100,
   );
+  const isAdmin = roles.includes("admin");
   const primaryRole = getPrimaryRole(userProfile);
-  const viewAsRole = roles.includes("admin")
-    ? (roles.includes(preferredViewAsRole) ? preferredViewAsRole : primaryRole)
-    : primaryRole;
+  const viewAsRole = isAdmin && VIEW_AS_ROLES[preferredViewAsRole] ? preferredViewAsRole : primaryRole;
   const effectiveRoles = useMemo(() => {
-    if (!roles.includes("admin")) return roles;
-    if (viewAsRole === "admin") return roles;
-    return [viewAsRole];
-  }, [roles, viewAsRole]);
+    if (!isAdmin || viewAsRole === "admin") return roles;
+    return VIEW_AS_ROLES[viewAsRole];
+  }, [isAdmin, roles, viewAsRole]);
 
-  const portalCanImport = useMemo(
-    () => canImportAthletes(effectiveRoles, portalSettings),
-    [effectiveRoles, portalSettings],
+  // Statistiques et engagés font partie de la section « Athlètes » du menu :
+  // navigation.js a seulement besoin de savoir si ce rôle voit le portail.
+  const athletePortalAccess = useMemo(
+    () => ({
+      canAccess: !portalSettingsLoading && canAccessAthletePortal(effectiveRoles, portalSettings),
+      canImport: canImportAthletes(effectiveRoles, portalSettings),
+    }),
+    [effectiveRoles, portalSettings, portalSettingsLoading],
   );
-  const portalSection = useMemo(() => {
-    if (portalSettingsLoading || !canAccessAthletePortal(effectiveRoles, portalSettings)) return null;
-    return {
-      type: "section",
-      titleKey: "navSectionAthletePortal",
-      title: "Athlete Portal",
-      links: buildAthletePortalNavigation(effectiveRoles, portalSettings, { canImport: portalCanImport }),
-    };
-  }, [effectiveRoles, portalCanImport, portalSettings, portalSettingsLoading]);
-  const statisticsSection = useMemo(() => {
-    const links = buildStatisticsNavigation(effectiveRoles);
-    if (!links.length) return null;
-    return {
-      type: "section",
-      titleKey: "navSectionStatistics",
-      title: "Statistiques",
-      links,
-    };
-  }, [effectiveRoles]);
-
-  const mainNavigation = useMemo(() => {
-    const nav = buildNavigationFromRoles(effectiveRoles);
-
-    if (statisticsSection && Array.isArray(nav)) {
-      const settingsIndex = nav.findIndex((item) => item.type === "section" && item.titleKey === "navSectionSettings");
-      if (settingsIndex >= 0) {
-        nav.splice(settingsIndex, 0, statisticsSection);
-      } else {
-        nav.push(statisticsSection);
-      }
-    }
-
-    if (portalSection && Array.isArray(nav)) {
-      const settingsIndex = nav.findIndex((item) => item.type === "section" && item.titleKey === "navSectionSettings");
-      if (settingsIndex >= 0) {
-        nav.splice(settingsIndex, 0, portalSection);
-      } else {
-        nav.push(portalSection);
-      }
-    }
-
-    return nav;
-  }, [effectiveRoles, portalSection, statisticsSection]);
-
-  const navigation = mainNavigation;
+  const navigation = useMemo(
+    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess }),
+    [athletePortalAccess, effectiveRoles],
+  );
+  const linkLabel = (link) => (t(link.labelKey) || link.label).replace("{edition}", activeEditionId || "");
   const flatNavigation = useMemo(() => flattenNavigationItems(navigation), [navigation]);
   const [openSections, setOpenSections] = useState({});
   const displayName = getDisplayName(userProfile, currentUser?.email);
-  const currentRouteLabelKey =
-    flatNavigation.find((item) => item.to === location.pathname)?.labelKey ||
-    flatNavigation.find((item) => item.to !== "/app" && isRouteMatch(location.pathname, item.to))?.labelKey;
-  const currentRouteLabel = currentRouteLabelKey ? t(currentRouteLabelKey) : t("shellMenuLabel");
+  const currentRouteLink =
+    flatNavigation.find((item) => item.to === location.pathname) ||
+    flatNavigation.find((item) => item.to !== "/app" && isRouteMatch(location.pathname, item.to));
+  const currentRouteLabel = currentRouteLink ? linkLabel(currentRouteLink) : t("shellMenuLabel");
 
   useEffect(() => {
     function syncSidebarWithViewport() {
@@ -173,19 +163,7 @@ function AppShell(props) {
 
   function handleViewAsChange(nextRole) {
     setPreferredViewAsRole(nextRole);
-
-    const defaultRouteByRole = {
-      admin: "/app",
-      budget: "/app/budget",
-      gestionnaire: "/app/benevoles",
-      chef_equipe: "/app/equipe",
-      benevole: "/app/mes-affectations",
-      parent_u14: "/app/mes-enfants",
-      athlete_preprogram: "/app/mon-inscription",
-      commission_athletes: "/app/courses-nationales",
-    };
-
-    navigate(defaultRouteByRole[nextRole] || "/app");
+    navigate(nextRole === "admin" ? APP_ROUTES.home : getDefaultRouteByRoles(VIEW_AS_ROLES[nextRole] || []));
   }
 
   async function handleLogout() {
@@ -270,7 +248,7 @@ function AppShell(props) {
                             >
                               <span className="nav-link__label">
                                 <NavIcon icon={link.icon} />
-                                <span>{t(link.labelKey) || link.label}</span>
+                                <span>{linkLabel(link)}</span>
                               </span>
                               <span aria-hidden="true" className="nav-link__chevron">
                                 ›
@@ -291,7 +269,7 @@ function AppShell(props) {
                 >
                   <span className="nav-link__label">
                     <NavIcon icon={item.icon} />
-                    <span>{t(item.labelKey) || item.label}</span>
+                    <span>{linkLabel(item)}</span>
                   </span>
                   <span aria-hidden="true" className="nav-link__chevron">
                     ›
@@ -327,7 +305,28 @@ function AppShell(props) {
         />
       ) : null}
       <main className="content">
-        <NotificationBell />
+        <div className="shell-header">
+          {isAdmin ? (
+            <label className="view-switcher view-switcher--inline">
+              <span>{t("shellViewAsLabel")}</span>
+              <select value={viewAsRole} onChange={(event) => handleViewAsChange(event.target.value)}>
+                {Object.keys(VIEW_AS_ROLES).map((role) => (
+                  <option key={role} value={role}>{formatRoleLabel(role, t)}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <NotificationBell />
+          <NavLink
+            className={({ isActive }) => `shell-account${isActive ? " shell-account--active" : ""}`}
+            to={APP_ROUTES.account}
+            title={t("navMyAccount")}
+            aria-label={t("navMyAccount")}
+          >
+            <span className="shell-account__avatar" aria-hidden="true">{getInitials(displayName) || "?"}</span>
+            <span className="shell-account__label">{t("navMyAccount")}</span>
+          </NavLink>
+        </div>
         {!isSidebarOpen ? (
           <button
             className="shell-sidebar-rail"
@@ -348,24 +347,6 @@ function AppShell(props) {
           </button>
           <span className="shell-mobile-bar__route">{currentRouteLabel}</span>
         </div>
-        {roles.includes("admin") ? (
-          <div className="content-toolbar">
-            <label className="view-switcher">
-              <span>{t("shellViewAsLabel")}</span>
-              <select value={viewAsRole} onChange={(event) => handleViewAsChange(event.target.value)}>
-                {roles.includes("admin") ? <option value="admin">{t("roleLabelAdmin")}</option> : null}
-                {roles.includes("budget") ? <option value="budget">{t("roleLabelBudget")}</option> : null}
-                {roles.includes("chef_equipe") ? <option value="chef_equipe">{t("roleLabelTeamLead")}</option> : null}
-                {roles.includes("benevole") ? <option value="benevole">{t("roleLabelVolunteer")}</option> : null}
-                {roles.includes("parent_u14") ? <option value="parent_u14">{t("roleLabelParentU14")}</option> : null}
-                {roles.includes("athlete_preprogram") ? <option value="athlete_preprogram">{t("roleLabelAthletePreprogram")}</option> : null}
-              </select>
-            </label>
-            {viewAsRole === "admin" ? (
-              <p className="content-toolbar__hint">{t("shellAdminViewHint")}</p>
-            ) : null}
-          </div>
-        ) : null}
         {location.state?.accessDeniedMessage ? (
           <div className="notice-card notice-card--warn">
             <strong>{t("shellAccessDeniedTitle")}</strong>
@@ -382,6 +363,56 @@ function AppShell(props) {
       </main>
     </div>
   );
+}
+
+// « À traiter aujourd'hui » : une seule liste par rôle, dont chaque ligne
+// ouvre la page concernée (plus de raccourcis qui doublent le menu).
+function TodoItem({ to, children }) {
+  if (!to) return <li>{children}</li>;
+  return (
+    <li>
+      <NavLink className="dashboard-todo__link" to={to}>
+        <span>{children}</span>
+        <span aria-hidden="true">›</span>
+      </NavLink>
+    </li>
+  );
+}
+
+// Prochaines échéances de l'Accueil.
+const DEADLINE_TASK_LIMIT = 5;
+
+function toDateOrNull(value) {
+  if (!value) return null;
+  const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+// Tâches de communication pas encore faites (lisibles par admin et
+// gestionnaires seulement, d'où enabled).
+function useOpenCommunicationTasks(enabled) {
+  const [tasks, setTasks] = useState([]);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    return onSnapshot(
+      collection(db, "com_tasks"),
+      (snapshot) => {
+        setTasks(
+          snapshot.docs
+            .map((entry) => ({ id: entry.id, ...entry.data() }))
+            .filter((task) => task.statut !== "done" && task.echeance),
+        );
+      },
+      () => setTasks([]),
+    );
+  }, [enabled]);
+  return enabled ? tasks : [];
 }
 
 function DashboardHome(props) {
@@ -517,39 +548,72 @@ function DashboardHome(props) {
   const volunteerDataLoading = teamsLoading || documentsLoading;
   const leadDataLoading = teamsLoading || documentsLoading;
 
+  // Prochaines échéances : jour du meeting pour tous ; ouverture du
+  // pré-programme et tâches de communication pour l'admin et les gestionnaires.
+  const { language } = useLanguage();
+  const { activeEditionId, preprogramOpeningDate } = useActiveEdition();
+  const { editions: meetingEditions } = useMeetingEditions();
+  const canReadPlanning = roles.includes("admin") || roles.includes("gestionnaire");
+  const showPlanningDeadlines = canReadPlanning && ["admin", "gestionnaire"].includes(activeRole);
+  const openCommunicationTasks = useOpenCommunicationTasks(canReadPlanning);
+  const deadlines = useMemo(() => {
+    const today = startOfToday();
+    const items = [];
+    const activeEdition = (meetingEditions || []).find((edition) => String(edition.year) === String(activeEditionId));
+    const meetingDate = toDateOrNull(activeEdition?.date);
+    if (meetingDate && meetingDate >= today) {
+      items.push({ id: "meeting", date: meetingDate, label: t("dashboardDeadlineMeeting").replace("{edition}", activeEditionId), to: APP_ROUTES.edition });
+    }
+    if (showPlanningDeadlines) {
+      if (preprogramOpeningDate && !Number.isNaN(preprogramOpeningDate.getTime()) && preprogramOpeningDate >= today) {
+        items.push({ id: "preprogram", date: preprogramOpeningDate, label: t("dashboardDeadlinePreprogram"), to: APP_ROUTES.u14 });
+      }
+      [...openCommunicationTasks]
+        .sort((left, right) => String(left.echeance).localeCompare(String(right.echeance)))
+        .slice(0, DEADLINE_TASK_LIMIT)
+        .forEach((task) => {
+          const date = toDateOrNull(`${task.echeance}T00:00:00`);
+          if (!date) return;
+          items.push({ id: `task-${task.id}`, date, label: task.titre || t("navTasks"), to: APP_ROUTES.tasks, late: date < today });
+        });
+    }
+    return items.sort((left, right) => left.date - right.date);
+  }, [activeEditionId, meetingEditions, openCommunicationTasks, preprogramOpeningDate, showPlanningDeadlines, t]);
+  const formatDeadlineDate = (date) =>
+    date.toLocaleDateString(language === "fr" ? "fr-LU" : language === "de" ? "de-LU" : "en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "long",
+      ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+    });
+
+  function renderTodoPanel(subtitleKey, items) {
+    return (
+      <section className="panel-grid">
+        <Panel title={t("dashboardTodoTitle")} subtitle={t(subtitleKey)}>
+          <ul className="compact-list dashboard-todo">{items}</ul>
+        </Panel>
+      </section>
+    );
+  }
+
   function renderRoleSummary() {
     if (activeRole === "admin") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardAdminPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              <li>{adminDataLoading ? t("dashboardLoadingApplications") : t("dashboardAdminApplicationsToProcess").replace("{count}", pendingApplicationsCount)}</li>
-              <li>{adminDataLoading ? t("dashboardLoadingTeams") : t("dashboardAdminIncompleteTeams").replace("{count}", incompleteTeamsCount)}</li>
-              <li>{documentsLoading ? t("dashboardLoadingDocuments") : t("dashboardAdminDocumentsToReview").replace("{count}", documents.length)}</li>
-              <li>{u14RequestsLoading ? t("dashboardLoadingU14Requests") : t("dashboardAdminU14RequestsToFollow").replace("{count}", submittedU14RequestsCount)}</li>
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardAdminQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/benevoles">{t("dashboardManageVolunteers")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/roles">{t("dashboardManageRoles")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/edition-meeting">{t("navEditionSettings")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/postes">{t("dashboardAdjustTeams")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/accreditations">{t("dashboardProduceBadges")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/website">{t("dashboardManageWebsite")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/athlete-portal/athletes">{t("dashboardManageAthletes")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/statistics/results">{t("dashboardManageResults")}</NavLink>
-            </div>
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardAdminPrioritiesSubtitle", (
+        <>
+          <TodoItem to={APP_ROUTES.applications}>{adminDataLoading ? t("dashboardLoadingApplications") : t("dashboardAdminApplicationsToProcess").replace("{count}", pendingApplicationsCount)}</TodoItem>
+          <TodoItem to={APP_ROUTES.teams}>{adminDataLoading ? t("dashboardLoadingTeams") : t("dashboardAdminIncompleteTeams").replace("{count}", incompleteTeamsCount)}</TodoItem>
+          <TodoItem to={APP_ROUTES.documents}>{documentsLoading ? t("dashboardLoadingDocuments") : t("dashboardAdminDocumentsToReview").replace("{count}", documents.length)}</TodoItem>
+          <TodoItem to={APP_ROUTES.u14}>{u14RequestsLoading ? t("dashboardLoadingU14Requests") : t("dashboardAdminU14RequestsToFollow").replace("{count}", submittedU14RequestsCount)}</TodoItem>
+        </>
+      ));
     }
 
     if (activeRole === "benevole") {
       const hasMission = Boolean(nextVolunteerRole || userProfile?.assignedRole);
       const volunteerTiles = [
         {
-          to: "/app/mes-affectations",
+          to: APP_ROUTES.myAssignments,
           label: t("navMyAssignments"),
           hint: t("volunteerHomeAssignmentsHint"),
           tone: "red",
@@ -561,7 +625,7 @@ function DashboardHome(props) {
           ),
         },
         {
-          to: "/app/mes-documents",
+          to: APP_ROUTES.myDocuments,
           label: t("navMyDocuments"),
           hint: t("volunteerHomeDocumentsHint"),
           badge: !documentsLoading && myDocumentsCount > 0 ? myDocumentsCount : null,
@@ -576,7 +640,7 @@ function DashboardHome(props) {
         ...(volunteerApplication
           ? [
               {
-                to: "/app/mon-dossier-benevole",
+                to: `${APP_ROUTES.myAssignments}/mon-dossier`,
                 label: t("navMyVolunteerFile"),
                 hint: t("volunteerHomeFileHint"),
                 tone: "navy",
@@ -646,86 +710,52 @@ function DashboardHome(props) {
     }
 
     if (activeRole === "gestionnaire") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardManagerPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              <li>{t("dashboardManagerTaskCheckIn")}</li>
-              <li>{t("dashboardManagerTaskLunch")}</li>
-              <li>{t("dashboardManagerTaskAttendance")}</li>
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardManagerQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/benevoles">{t("navVolunteersLink")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/accreditations">{t("navSectionAccreditations")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/presences">{t("navAttendance")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/u14">{t("navSectionPreprogram")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/documents">{t("navDocuments")}</NavLink>
-            </div>
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardManagerPrioritiesSubtitle", (
+        <>
+          <TodoItem to={APP_ROUTES.attendance}>{t("dashboardManagerTaskCheckIn")}</TodoItem>
+          <TodoItem to={APP_ROUTES.attendance}>{t("dashboardManagerTaskLunch")}</TodoItem>
+          <TodoItem to={APP_ROUTES.attendance}>{t("dashboardManagerTaskAttendance")}</TodoItem>
+        </>
+      ));
     }
 
     if (activeRole === "parent_u14") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardParentPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              {parentRowsLoading ? <li>{t("dashboardLoadingU14Requests")}</li> : null}
-              {!parentRowsLoading && parentRequestRows.length === 0 ? <li>{t("dashboardNoU14Request")}</li> : null}
-              {!parentRowsLoading && parentRequestRows.map((child) => (
-                <li key={child.id}>{child.name}: {formatParentRequestStatus(child.status, t)} - {formatParentRequestSchedule(child, t)}</li>
-              ))}
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardParentQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/mes-enfants">{t("navMyChildren")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/profil">{t("navMyProfile")}</NavLink>
-            </div>
-            {!parentRowsLoading && parentRequestRows.length > 0 ? (
-              <p className="panel-note">
-                {t("dashboardParentConfirmedPending")
-                  .replace("{confirmed}", parentConfirmedCount)
-                  .replace("{pending}", parentPendingCount)}
-              </p>
-            ) : null}
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardParentPrioritiesSubtitle", (
+        <>
+          {parentRowsLoading ? <TodoItem>{t("dashboardLoadingU14Requests")}</TodoItem> : null}
+          {!parentRowsLoading && parentRequestRows.length === 0 ? <TodoItem to={APP_ROUTES.myChildren}>{t("dashboardNoU14Request")}</TodoItem> : null}
+          {!parentRowsLoading && parentRequestRows.map((child) => (
+            <TodoItem key={child.id} to={APP_ROUTES.myChildren}>{child.name}: {formatParentRequestStatus(child.status, t)} - {formatParentRequestSchedule(child, t)}</TodoItem>
+          ))}
+          {!parentRowsLoading && parentRequestRows.length > 0 ? (
+            <TodoItem>
+              {t("dashboardParentConfirmedPending")
+                .replace("{confirmed}", parentConfirmedCount)
+                .replace("{pending}", parentPendingCount)}
+            </TodoItem>
+          ) : null}
+        </>
+      ));
     }
 
     if (activeRole === "chef_equipe") {
-      return (
-        <section className="panel-grid panel-grid--2">
-          <Panel title={t("dashboardPrioritiesTitle")} subtitle={t("dashboardTeamLeadPrioritiesSubtitle")}>
-            <ul className="compact-list">
-              <li>
-                {leadDataLoading
-                  ? t("dashboardLoadingTeams")
-                  : totalOpenPositions > 0
-                    ? t("dashboardOpenPositions")
-                        .replace("{count}", totalOpenPositions)
-                        .replace("{roles}", ledRoles.map((role) => role.roleName).join(", "))
-                    : t("dashboardAllTeamsFull")}
-              </li>
-              <li>{leadDataLoading ? t("dashboardLoadingAssignments") : t("dashboardTeamMembersCount").replace("{count}", totalLeadMembers)}</li>
-              <li>{documentsLoading ? t("dashboardLoadingTeamDocuments") : t("dashboardTeamDocumentsAvailable").replace("{count}", leadDocumentsCount)}</li>
-              <li>{leadDataLoading ? t("dashboardLoadingReplacements") : t("dashboardReplacementsIdentified").replace("{count}", totalReplacements)}</li>
-              <li>{t("dashboardTeamLeadDepartureReminder")}</li>
-            </ul>
-          </Panel>
-          <Panel title={t("dashboardQuickAccessTitle")} subtitle={t("dashboardTeamLeadQuickAccessSubtitle")}>
-            <div className="dashboard-action-grid">
-              <NavLink className="button button--secondary button-link" to="/app/equipe">{t("navMyTeam")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/presences">{t("navAttendance")}</NavLink>
-              <NavLink className="button button--secondary button-link" to="/app/mes-documents">{t("navDocuments")}</NavLink>
-            </div>
-          </Panel>
-        </section>
-      );
+      return renderTodoPanel("dashboardTeamLeadPrioritiesSubtitle", (
+        <>
+          <TodoItem to={APP_ROUTES.myTeam}>
+            {leadDataLoading
+              ? t("dashboardLoadingTeams")
+              : totalOpenPositions > 0
+                ? t("dashboardOpenPositions")
+                    .replace("{count}", totalOpenPositions)
+                    .replace("{roles}", ledRoles.map((role) => role.roleName).join(", "))
+                : t("dashboardAllTeamsFull")}
+          </TodoItem>
+          <TodoItem to={APP_ROUTES.myTeam}>{leadDataLoading ? t("dashboardLoadingAssignments") : t("dashboardTeamMembersCount").replace("{count}", totalLeadMembers)}</TodoItem>
+          <TodoItem to={APP_ROUTES.myDocuments}>{documentsLoading ? t("dashboardLoadingTeamDocuments") : t("dashboardTeamDocumentsAvailable").replace("{count}", leadDocumentsCount)}</TodoItem>
+          <TodoItem to={APP_ROUTES.myTeam}>{leadDataLoading ? t("dashboardLoadingReplacements") : t("dashboardReplacementsIdentified").replace("{count}", totalReplacements)}</TodoItem>
+          <TodoItem to={APP_ROUTES.myTeamAttendance}>{t("dashboardTeamLeadDepartureReminder")}</TodoItem>
+        </>
+      ));
     }
 
     return null;
@@ -743,7 +773,7 @@ function DashboardHome(props) {
       ) : (
         <section className="page-header">
           <div>
-            <p className="eyebrow">{t("navOverview")}</p>
+            <p className="eyebrow">{t("navHome")}</p>
             <h1>{t("dashboardWelcome")} {getDisplayName(userProfile, currentUser?.email)}</h1>
             <p>{t("dashboardIntro")}</p>
           </div>
@@ -752,6 +782,25 @@ function DashboardHome(props) {
 
       {renderRoleSummary()}
 
+      <section className="panel-grid">
+        <Panel title={t("dashboardDeadlinesTitle")} subtitle={t("dashboardDeadlinesSubtitle")}>
+          {deadlines.length ? (
+            <ul className="compact-list dashboard-todo">
+              {deadlines.map((deadline) => (
+                <TodoItem key={deadline.id} to={deadline.to}>
+                  <strong>{formatDeadlineDate(deadline.date)}</strong>
+                  {deadline.late ? <span className="status-pill status-pill--warn"> {t("dashboardDeadlineLate")}</span> : null}
+                  {" — "}
+                  {deadline.label}
+                </TodoItem>
+              ))}
+            </ul>
+          ) : (
+            <p className="panel-note">{t("dashboardDeadlinesNone")}</p>
+          )}
+        </Panel>
+      </section>
+
       <InstallAppBanner />
 
       {volunteerApplication && activeRole !== "benevole" ? (
@@ -759,7 +808,7 @@ function DashboardHome(props) {
           <Panel
             title={t("navMyVolunteerFile")}
             subtitle={t("dashboardVolunteerFileSubtitle")}
-            actions={<NavLink className="button button--primary button-link" to="/app/mon-dossier-benevole">{t("dashboardOpenMyFile")}</NavLink>}
+            actions={<NavLink className="button button--primary button-link" to="/app/mes-affectations/mon-dossier">{t("dashboardOpenMyFile")}</NavLink>}
           >
             <ul className="compact-list">
               <li>{t("assignmentsStatusLabel")}: {formatVolunteerApplicationStatus(volunteerApplication.status, t)}</li>
@@ -779,7 +828,7 @@ function DashboardHome(props) {
           <Panel
             title={t("dashboardJoinVolunteersTitle")}
             subtitle={t("dashboardJoinVolunteersSubtitle")}
-            actions={<NavLink className="button button--primary button-link" to="/app/mon-dossier-benevole">{t("dashboardBecomeVolunteer")}</NavLink>}
+            actions={<NavLink className="button button--primary button-link" to="/app/mes-affectations/mon-dossier">{t("dashboardBecomeVolunteer")}</NavLink>}
           >
             <ul className="compact-list">
               <li>{t("dashboardJoinVolunteersPoint1")}</li>

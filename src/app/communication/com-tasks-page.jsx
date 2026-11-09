@@ -11,7 +11,7 @@ import { buildCalendarItems } from "./com-recurrence.js";
 import { Avatar, Dialog, StatusPill, Toast, TypeTag, ValidationBadge } from "./com-ui.jsx";
 import { useToast } from "./com-ui-helpers.js";
 
-const calendarLink = (item) => `/app/communication?pub=${encodeURIComponent(item.id)}&date=${item.date}`;
+const calendarLink = (item) => `/app/calendrier?pub=${encodeURIComponent(item.id)}&date=${item.date}`;
 
 export function ComTasksPage() {
   const { currentUser } = useAuth();
@@ -88,7 +88,7 @@ export function ComTasksPage() {
               return (
                 <div key={p.id} className="com-list__day" style={{ gridTemplateColumns: "72px minmax(0, 1fr) auto", alignItems: "center" }}>
                   <strong>{fmtShort(p.date, lang)}</strong>
-                  <Link to={`/app/communication/publication/${p.id}`} className="com-stack" style={{ gap: 2, color: "inherit", textDecoration: "none" }}>
+                  <Link to={`/app/calendrier/publication/${p.id}`} className="com-stack" style={{ gap: 2, color: "inherit", textDecoration: "none" }}>
                     <b>{p.titre}</b>
                     <span className="com-muted" style={{ fontSize: "0.78rem" }}>
                       {tr("Demandé par", "Requested by")} {by ? memberName(by) : last?.nom || "?"}

@@ -587,9 +587,20 @@ The CMCM Luxembourg Indoor Meeting team`,
 
 // ─── Affectation bénévole ────────────────────────────────────────────────────
 
-export function buildVolunteerRoleAssignmentMail({ email, firstName, assignedRole, teamRole }) {
+// otherTeams : les autres équipes du bénévole, [{ name, role }], quand il est
+// dans plusieurs équipes.
+export function buildVolunteerRoleAssignmentMail({ email, firstName, assignedRole, teamRole, otherTeams = [] }) {
   const displayName = String(firstName || "").trim() || "bonjour";
   const appUrl = `${getAppBaseUrl()}/app`;
+  const othersText = (Array.isArray(otherTeams) ? otherTeams : [])
+    .filter((team) => team?.name)
+    .map((team) => `${team.name} (${team.role || "Bénévole"})`)
+    .join(", ");
+  const othersLine = (label) => (othersText ? `\n${label}: ${othersText}` : "");
+  const othersHtml = (label) =>
+    othersText
+      ? `<p style="margin:16px 0 6px 0;font-size:14px;"><strong>${label}</strong></p><p style="margin:0;font-size:16px;">${othersText}</p>`
+      : "";
 
   return {
     type: "volunteer-role-assigned",
@@ -600,7 +611,7 @@ export function buildVolunteerRoleAssignmentMail({ email, firstName, assignedRol
 Une affectation vient d'être préparée pour vous sur MyCLIM.
 
 Rôle principal : ${assignedRole || "À confirmer"}
-Fonction : ${teamRole || "Bénévole"}
+Fonction : ${teamRole || "Bénévole"}${othersLine("Autres équipes ")}
 
 Connectez-vous à votre espace MyCLIM pour consulter les détails de mission et les informations utiles.
 
@@ -616,7 +627,7 @@ Hello ${displayName},
 A volunteer assignment has been prepared for you on MyCLIM.
 
 Main role: ${assignedRole || "To be confirmed"}
-Function: ${teamRole || "Volunteer"}
+Function: ${teamRole || "Volunteer"}${othersLine("Other teams")}
 
 Log in to your MyCLIM space to view your mission details and useful information.
 
@@ -640,6 +651,7 @@ The CMCM Luxembourg Indoor Meeting team`,
               <p style="margin:0 0 16px 0;font-size:16px;">${assignedRole || "À confirmer"}</p>
               <p style="margin:0 0 6px 0;font-size:14px;"><strong>Fonction</strong></p>
               <p style="margin:0;font-size:16px;">${teamRole || "Bénévole"}</p>
+              ${othersHtml("Autres équipes")}
             </td>
           </tr>
         </table>
@@ -660,6 +672,7 @@ The CMCM Luxembourg Indoor Meeting team`,
           <p style="margin:0 0 12px 0;font-size:16px;">${assignedRole || "To be confirmed"}</p>
           <p style="margin:0 0 6px 0;font-size:14px;"><strong>Function</strong></p>
           <p style="margin:0 0 12px 0;font-size:16px;">${teamRole || "Volunteer"}</p>
+          ${othersHtml("Other teams")}
           <p style="margin:0;font-size:16px;line-height:1.7;">
             Log in to your MyCLIM space to view your mission details and useful information.
           </p>

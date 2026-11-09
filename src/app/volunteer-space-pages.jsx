@@ -11,6 +11,7 @@ import { buildParticipationCertificateMarkup, getRoundedParticipationHours, norm
 import { extractRolesFromProfile, normalizeRole } from "./utils";
 import { buildVipFullName, getVipTourChoiceLabel, VIP_TOUR_OPTIONS } from "./vip-helpers";
 import { useLanguage } from "./language-context";
+import { MyMeetingDayProgramme } from "./my-meeting-day-programme";
 import { useAuth } from "../context/auth-context";
 
 const VIP_TOUR_GUIDE_TEAM_NAME = "Guides VIP";
@@ -150,6 +151,8 @@ function MyAssignmentsPage(props) {
       </section>
       {error ? <p className="status-note">{error}</p> : null}
       {loading ? <p className="status-note">{t("assignmentsLoading")}</p> : null}
+
+      <MyMeetingDayProgramme assignments={availableAssignments} />
 
       {assignmentDetails.length > 1 ? (
         <Panel title={t("assignmentsMissionsPanelTitle")} subtitle={t("assignmentsMissionsPanelSubtitle")}>

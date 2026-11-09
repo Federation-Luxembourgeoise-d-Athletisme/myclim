@@ -6,10 +6,11 @@ import { PUB_TYPE_LABELS, STATUT_LABELS } from "./com-domain.js";
 import { memberName } from "./com-data.js";
 import { pick, useComLang } from "./com-i18n.js";
 
-export function ComNav({ openTasks = 0 }) {
+// Onglets du Calendrier (Tâches et Partenaires ont leur lien dans le menu).
+export function ComNav() {
   const { lang, tr } = useComLang();
   return (
-    <nav className="com-nav" aria-label={tr("Module Communication", "Communication module")}>
+    <nav className="com-nav" aria-label={tr("Calendrier", "Calendar")}>
       {COM_SECTIONS.map((section) => (
         <NavLink
           key={section.to}
@@ -18,11 +19,6 @@ export function ComNav({ openTasks = 0 }) {
           className={({ isActive }) => `com-nav__link ${isActive ? "is-active" : ""}`}
         >
           {pick(section.label, lang)}
-          {section.to.endsWith("/taches") && openTasks > 0 ? (
-            <span className="com-nav__badge" aria-label={tr(`${openTasks} tâches à faire`, `${openTasks} task${openTasks > 1 ? "s" : ""} to do`)}>
-              {openTasks}
-            </span>
-          ) : null}
         </NavLink>
       ))}
     </nav>

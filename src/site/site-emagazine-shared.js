@@ -199,22 +199,22 @@ function normalizePageOrder(pageOrder, config, edition) {
 export function buildEmagazinePageRegistry(config, edition) {
   const officialStartlists = buildOfficialStartlistGroups(edition?.disciplines || [], []);
   return [
-    { id: "cover", kind: "core", title: "Cover", editorAnchor: "emag-cover", sourcePath: "/app/website/emagazine" },
-    { id: "welcome", kind: "core", title: "Welcome", editorAnchor: "emag-welcome", sourcePath: "/app/website/emagazine" },
-    { id: "timetable", kind: "core", title: "Timetable", editorAnchor: null, sourcePath: "/app/website/edition" },
+    { id: "cover", kind: "core", title: "Cover", editorAnchor: "emag-cover", sourcePath: "/app/e-magazine" },
+    { id: "welcome", kind: "core", title: "Welcome", editorAnchor: "emag-welcome", sourcePath: "/app/e-magazine" },
+    { id: "timetable", kind: "core", title: "Timetable", editorAnchor: null, sourcePath: "/app/edition" },
     {
       id: "sponsors",
       kind: "core",
       title: "Sponsor overview",
       editorAnchor: "emag-sponsor-pages",
-      sourcePath: config.sponsorPages.length ? "/app/website/emagazine" : "/app/website/sponsors",
+      sourcePath: config.sponsorPages.length ? "/app/e-magazine" : "/app/partenaires",
     },
     {
       id: "special:influencerRace",
       kind: "special",
       title: config.specialRaces.influencerRace.title || "Influencer Race",
       editorAnchor: "emag-races",
-      sourcePath: "/app/website/emagazine",
+      sourcePath: "/app/e-magazine",
       enabled: config.specialRaces.influencerRace.enabled,
     },
     {
@@ -222,7 +222,7 @@ export function buildEmagazinePageRegistry(config, edition) {
       kind: "special",
       title: config.specialRaces.businessRace.title || "Business Race",
       editorAnchor: "emag-races",
-      sourcePath: "/app/website/emagazine",
+      sourcePath: "/app/e-magazine",
       enabled: config.specialRaces.businessRace.enabled,
     },
     ...config.athletePages.map((page) => ({
@@ -231,7 +231,7 @@ export function buildEmagazinePageRegistry(config, edition) {
       sourceId: page.id,
       title: [page.firstName, page.lastName].filter(Boolean).join(" ") || "Athlete page",
       editorAnchor: null,
-      sourcePath: "/app/website/emagazine",
+      sourcePath: "/app/e-magazine",
     })),
     ...config.highlightPages.map((page) => ({
       id: `highlight:${page.id}`,
@@ -239,7 +239,7 @@ export function buildEmagazinePageRegistry(config, edition) {
       sourceId: page.id,
       title: page.title || "Highlight page",
       editorAnchor: `emag-highlight-${page.id}`,
-      sourcePath: "/app/website/emagazine",
+      sourcePath: "/app/e-magazine",
     })),
     ...config.partnerPages.map((page) => ({
       id: `partner:${page.id}`,
@@ -247,18 +247,18 @@ export function buildEmagazinePageRegistry(config, edition) {
       sourceId: page.id,
       title: page.headline || "Partner page",
       editorAnchor: `emag-partner-${page.id}`,
-      sourcePath: "/app/website/emagazine",
+      sourcePath: "/app/e-magazine",
     })),
     ...officialStartlists.map((group) => ({
       id: `official-startlist:${group.id}`,
       kind: "auto",
       title: group.title,
       editorAnchor: "emag-startlist-photos",
-      sourcePath: "/app/athlete-portal/athletes",
+      sourcePath: "/app/athletes",
     })),
     // FLA clubs and how to join them (list in src/data/flaClubs.json).
     { id: "clubs", kind: "closing", title: "Athletics clubs", editorAnchor: null, sourcePath: "/e-magazine" },
-    { id: "thanks", kind: "closing", title: "Thank you", editorAnchor: null, sourcePath: "/app/website/emagazine" },
+    { id: "thanks", kind: "closing", title: "Thank you", editorAnchor: null, sourcePath: "/app/e-magazine" },
   ];
 }
 

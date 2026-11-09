@@ -524,8 +524,11 @@ function openPrintMarkup(markup) {
   return true;
 }
 
+// view = "emergency" : page « Exports d'urgence » (Accès & jour J), qui
+// partage les données de cette page ; sinon page Documents.
 function DocumentsPage(props) {
-  const { AuthFormField, Panel, getDocumentConsultationUrl } = props;
+  const { AuthFormField, Panel, getDocumentConsultationUrl, view = "documents" } = props;
+  const isEmergencyView = view === "emergency";
   const { currentUser, userProfile } = useAuth();
   const { activeEditionId } = useActiveEdition(Boolean(currentUser?.uid));
   const invoiceConfiguration = useBudgetInvoiceConfiguration();
@@ -913,11 +916,19 @@ function DocumentsPage(props) {
   return (
     <div className="page documents-page documents-page--admin">
       <section className="page-header">
-        <div>
-          <p className="eyebrow">Documents</p>
-          <h1>Espace documentaire</h1>
-          <p>Depots admin, visibilite par equipe et diffusion automatique aux affectes.</p>
-        </div>
+        {isEmergencyView ? (
+          <div>
+            <p className="eyebrow">Accès &amp; jour J</p>
+            <h1>Exports d'urgence</h1>
+            <p>Listes PDF prêtes à imprimer en cas de problème le jour du meeting (réseau, appli, contacts).</p>
+          </div>
+        ) : (
+          <div>
+            <p className="eyebrow">Pilotage</p>
+            <h1>Documents</h1>
+            <p>Documents partagés avec les équipes : visibilité par équipe et diffusion automatique aux affectés.</p>
+          </div>
+        )}
       </section>
       {documentsError || documentStatus ? (
         <div className="documents-page__status">
@@ -926,6 +937,7 @@ function DocumentsPage(props) {
         </div>
       ) : null}
 
+      {isEmergencyView ? null : (
       <section className={`documents-admin-grid ${canUploadInvoices ? "" : "documents-admin-grid--no-invoice"}`}>
         <div className="documents-admin-grid__stack">
           {canUploadInvoices ? (
@@ -1172,7 +1184,9 @@ function DocumentsPage(props) {
           </Panel>
         </div>
       </section>
+      )}
 
+      {isEmergencyView ? (
       <section className="panel-grid panel-grid--2 documents-secondary-grid">
         <Panel
           title="Extractions d'urgence"
@@ -1214,6 +1228,7 @@ function DocumentsPage(props) {
           </div>
         </Panel>
       </section>
+      ) : null}
     </div>
   );
 }

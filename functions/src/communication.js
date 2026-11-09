@@ -107,7 +107,7 @@ ${label} ${message}` : text);
     type: "com_validation",
     title: titles[action],
     body: { fr: withMessage(intros[action].fr, "Message :"), en: withMessage(intros[action].en, "Message:") },
-    path: `/app/communication/publication/${encodeURIComponent(publication.id)}`,
+    path: `/app/calendrier/publication/${encodeURIComponent(publication.id)}`,
     data: { publicationId: publication.id },
   }).catch((error) => logger.error("Validation notification failed", { publicationId: publication.id, error: error?.message }));
 

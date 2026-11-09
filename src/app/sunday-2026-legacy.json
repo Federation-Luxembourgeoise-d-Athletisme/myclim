@@ -1,0 +1,719 @@
+{
+ "columns": [
+  {
+   "id": "c14",
+   "name": "Briefings",
+   "kind": "extra"
+  },
+  {
+   "id": "c15",
+   "name": "Installation",
+   "kind": "extra"
+  },
+  {
+   "id": "c16",
+   "name": "Shirt Canon",
+   "kind": "extra"
+  },
+  {
+   "id": "c17",
+   "name": "Entrance – VIP & bénévoles",
+   "kind": "team"
+  },
+  {
+   "id": "c18",
+   "name": "Entrance – Billets",
+   "kind": "team"
+  },
+  {
+   "id": "c19",
+   "name": "Entrance – Runner inside",
+   "kind": "team"
+  },
+  {
+   "id": "c20",
+   "name": "Entrance – Desk U12/U14 & nationales",
+   "kind": "team"
+  },
+  {
+   "id": "c21",
+   "name": "Entrance – Cartes boissons",
+   "kind": "team"
+  },
+  {
+   "id": "c22",
+   "name": "Entrance – Guidage athlètes ext.",
+   "kind": "team"
+  },
+  {
+   "id": "c23",
+   "name": "Chaperon ALAD",
+   "kind": "team"
+  },
+  {
+   "id": "c24",
+   "name": "VIP",
+   "kind": "team"
+  },
+  {
+   "id": "c25",
+   "name": "Young Volunteer",
+   "kind": "team"
+  },
+  {
+   "id": "c26",
+   "name": "Business Race - Influencer Race",
+   "kind": "team"
+  },
+  {
+   "id": "c27",
+   "name": "Tribune Management",
+   "kind": "team"
+  },
+  {
+   "id": "c28",
+   "name": "Luxbooth",
+   "kind": "team"
+  },
+  {
+   "id": "c29",
+   "name": "Animation",
+   "kind": "team"
+  },
+  {
+   "id": "c30",
+   "name": "Winner Card / VIP Tour",
+   "kind": "team"
+  },
+  {
+   "id": "c31",
+   "name": "Patator",
+   "kind": "team"
+  },
+  {
+   "id": "c32",
+   "name": "Guidance",
+   "kind": "team"
+  },
+  {
+   "id": "c33",
+   "name": "Porte panier",
+   "kind": "team"
+  },
+  {
+   "id": "c34",
+   "name": "Hurdles",
+   "kind": "team"
+  },
+  {
+   "id": "c35",
+   "name": "Blocks",
+   "kind": "team"
+  },
+  {
+   "id": "c36",
+   "name": "Transport",
+   "kind": "team"
+  }
+ ],
+ "activities": [
+  {
+   "id": "a0",
+   "title": "ARRIVAL OF LUNEX AND LAST INSTALLATION",
+   "start": "08:30",
+   "end": "09:00",
+   "cols": [
+    "c14",
+    "c15",
+    "c16",
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22",
+    "c23",
+    "c24",
+    "c25",
+    "c26",
+    "c27",
+    "c28",
+    "c29",
+    "c30",
+    "c31",
+    "c32",
+    "c33",
+    "c34",
+    "c35",
+    "c36"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a1",
+   "title": "Briefing Marc O./JB/Athle.ch/Anne",
+   "start": "09:00",
+   "end": "10:00",
+   "cols": [
+    "c14"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a2",
+   "title": "Check up - cold flames Steffi/LEMON",
+   "start": "14:00",
+   "end": "14:30",
+   "cols": [
+    "c14"
+   ],
+   "category": "tech",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a3",
+   "title": "Installation LuxBooth",
+   "start": "09:00",
+   "end": "10:00",
+   "cols": [
+    "c15"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a4",
+   "title": "Warm-up Track Installation David, JB, Kenny Neal",
+   "start": "10:00",
+   "end": "12:30",
+   "cols": [
+    "c15"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a5",
+   "title": "Accreditation + tee-shirts distribution",
+   "start": "10:30",
+   "end": "11:00",
+   "cols": [
+    "c16",
+    "c27",
+    "c30",
+    "c31",
+    "c33"
+   ],
+   "category": "accred",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a6",
+   "title": "Shirt Canon",
+   "start": "11:00",
+   "end": "12:00",
+   "cols": [
+    "c16"
+   ],
+   "category": "other",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a7",
+   "title": "Accreditation + tee-shirts distribution",
+   "start": "09:00",
+   "end": "09:30",
+   "cols": [
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22"
+   ],
+   "category": "accred",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a8",
+   "title": "Briefing Entrance (VIP + volonteers)",
+   "start": "09:30",
+   "end": "10:30",
+   "cols": [
+    "c17"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a9",
+   "title": "Accreditation + tee-shirts distribution",
+   "start": "11:00",
+   "end": "11:30",
+   "cols": [
+    "c17",
+    "c28",
+    "c29"
+   ],
+   "category": "accred",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a10",
+   "title": "Briefing U12/U14 Runner",
+   "start": "11:30",
+   "end": "12:00",
+   "cols": [
+    "c17"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a11",
+   "title": "Mise en place",
+   "start": "13:00",
+   "end": "13:30",
+   "cols": [
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c36"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a12",
+   "title": "Briefing Entrance (Ticket)",
+   "start": "09:30",
+   "end": "10:30",
+   "cols": [
+    "c18"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a13",
+   "title": "Briefing U12/U14",
+   "start": "10:30",
+   "end": "11:30",
+   "cols": [
+    "c18",
+    "c20"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a14",
+   "title": "Briefing Entrance (Runner inside)",
+   "start": "09:30",
+   "end": "10:30",
+   "cols": [
+    "c19"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a15",
+   "title": "Briefing Signing Zone",
+   "start": "10:30",
+   "end": "11:00",
+   "cols": [
+    "c19"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a16",
+   "title": "Briefing Entrance (desk U12/14 and nationnal )",
+   "start": "09:30",
+   "end": "10:30",
+   "cols": [
+    "c20"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a17",
+   "title": "Briefing Entrance (Drinking card)",
+   "start": "09:30",
+   "end": "10:30",
+   "cols": [
+    "c21"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a18",
+   "title": "Briefing Athlete Guidance Ext",
+   "start": "09:30",
+   "end": "10:30",
+   "cols": [
+    "c22"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a19",
+   "title": "Mise en place",
+   "start": "13:30",
+   "end": "14:00",
+   "cols": [
+    "c22",
+    "c24",
+    "c25",
+    "c27"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a20",
+   "title": "Accreditation + tee-shirts distribution",
+   "start": "13:30",
+   "end": "14:00",
+   "cols": [
+    "c23"
+   ],
+   "category": "accred",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a21",
+   "title": "Briefing Chaperons ALAD",
+   "start": "14:00",
+   "end": "14:30",
+   "cols": [
+    "c23"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a22",
+   "title": "Accreditation + tee-shirts distribution",
+   "start": "10:00",
+   "end": "10:30",
+   "cols": [
+    "c24",
+    "c32"
+   ],
+   "category": "accred",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a23",
+   "title": "Briefing VIP waiters",
+   "start": "10:30",
+   "end": "11:30",
+   "cols": [
+    "c24"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a24",
+   "title": "Accreditation + tee-shirts distribution",
+   "start": "11:30",
+   "end": "12:00",
+   "cols": [
+    "c25",
+    "c26",
+    "c34",
+    "c35",
+    "c36"
+   ],
+   "category": "accred",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a25",
+   "title": "Briefing Young Volunteer",
+   "start": "12:00",
+   "end": "12:30",
+   "cols": [
+    "c25"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a26",
+   "title": "Business Race - Influencer Race",
+   "start": "12:00",
+   "end": "12:30",
+   "cols": [
+    "c26"
+   ],
+   "category": "race",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a27",
+   "title": "Arrivée Influenceurs & Business Race",
+   "start": "13:30",
+   "end": "14:00",
+   "cols": [
+    "c26"
+   ],
+   "category": "race",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a28",
+   "title": "Briefing Tribune Management",
+   "start": "11:00",
+   "end": "11:30",
+   "cols": [
+    "c27"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a29",
+   "title": "Briefing Luxbooth Animation",
+   "start": "11:30",
+   "end": "12:00",
+   "cols": [
+    "c28"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a30",
+   "title": "Mise en place",
+   "start": "14:00",
+   "end": "14:30",
+   "cols": [
+    "c28",
+    "c29",
+    "c30"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a31",
+   "title": "Briefing Animation",
+   "start": "11:30",
+   "end": "12:00",
+   "cols": [
+    "c29"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a32",
+   "title": "Briefing Communication Sponsor / VIP Tour",
+   "start": "11:00",
+   "end": "11:30",
+   "cols": [
+    "c30"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a33",
+   "title": "Briefing Patator",
+   "start": "11:00",
+   "end": "11:30",
+   "cols": [
+    "c31"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a34",
+   "title": "Patator (fold and put away the tee-shirts)",
+   "start": "11:30",
+   "end": "12:00",
+   "cols": [
+    "c31"
+   ],
+   "category": "other",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a35",
+   "title": "Mise en place",
+   "start": "15:00",
+   "end": "15:30",
+   "cols": [
+    "c31"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a36",
+   "title": "Briefing infield guidance",
+   "start": "10:30",
+   "end": "11:00",
+   "cols": [
+    "c32"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a37",
+   "title": "Mise en place",
+   "start": "15:30",
+   "end": "16:00",
+   "cols": [
+    "c32",
+    "c33",
+    "c34",
+    "c35"
+   ],
+   "category": "setup",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a38",
+   "title": "Briefing Porte panier",
+   "start": "11:00",
+   "end": "11:30",
+   "cols": [
+    "c33"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a39",
+   "title": "Briefing Hurdles",
+   "start": "12:00",
+   "end": "12:30",
+   "cols": [
+    "c34"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a40",
+   "title": "Briefing Blocks",
+   "start": "12:00",
+   "end": "12:30",
+   "cols": [
+    "c35"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  },
+  {
+   "id": "a41",
+   "title": "Briefing athlete transportation",
+   "start": "12:00",
+   "end": "12:30",
+   "cols": [
+    "c36"
+   ],
+   "category": "briefing",
+   "place": "",
+   "owner": "",
+   "note": ""
+  }
+ ]
+}

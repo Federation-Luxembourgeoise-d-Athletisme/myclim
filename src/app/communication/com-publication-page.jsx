@@ -32,7 +32,7 @@ export function ComPublicationPage() {
   if (!item || item.annulee) {
     return (
       <>
-        <Link to="/app/communication" className="com-link">
+        <Link to="/app/calendrier" className="com-link">
           ← {tr("Calendrier éditorial", "Editorial calendar")}
         </Link>
         <div className="com-page-header">
@@ -110,7 +110,7 @@ function PublicationPage({ item }) {
   }
 
   function remove() {
-    h.run(() => (item.rubriqueId ? cancelOccurrence(item, uid) : deletePublication(item.id))).then(() => navigate("/app/communication"));
+    h.run(() => (item.rubriqueId ? cancelOccurrence(item, uid) : deletePublication(item.id))).then(() => navigate("/app/calendrier"));
   }
 
   const meta = [
@@ -121,7 +121,7 @@ function PublicationPage({ item }) {
 
   return (
     <div className="com-stack" style={{ gap: 20 }}>
-      <Link to="/app/communication" className="com-link">
+      <Link to="/app/calendrier" className="com-link">
         ← {tr("Calendrier éditorial", "Editorial calendar")}
       </Link>
 
@@ -130,7 +130,7 @@ function PublicationPage({ item }) {
           <div className="com-row">
             <TypeTag type={item.type} />
             {rubrique ? (
-              <Link to="/app/communication/rubriques" className="com-toggle">
+              <Link to="/app/calendrier/rubriques" className="com-toggle">
                 ↻ {tr("Rubrique", "Series")} « {rubrique.titre} » · {ruleText(ruleAt(rubrique, item.occurrenceDate || item.date))}
               </Link>
             ) : null}
@@ -388,7 +388,7 @@ function PublicationPage({ item }) {
               setMoveTo(null);
               // L'occurrence est réenregistrée sous l'identifiant de sa nouvelle date.
               h.run(() => moveSeries(item, rubrique, to, uid), tr("Récurrence déplacée à partir de cette date", "Series moved from this date on")).then(() =>
-                navigate(`/app/communication/publication/${occurrenceId(rubrique.id, to)}`, { replace: true }),
+                navigate(`/app/calendrier/publication/${occurrenceId(rubrique.id, to)}`, { replace: true }),
               );
             }}
           >
@@ -440,7 +440,7 @@ function MiniCalendar({ current, uid, onHide }) {
     setOpening(item.id);
     try {
       if (!item.materialized) await updateItem(item, {}, uid);
-      navigate(`/app/communication/publication/${item.id}`);
+      navigate(`/app/calendrier/publication/${item.id}`);
     } catch (error) {
       console.error(error);
       setOpening(null);

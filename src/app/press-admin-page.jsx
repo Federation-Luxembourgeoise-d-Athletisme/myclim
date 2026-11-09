@@ -950,8 +950,12 @@ function MailingListTab({ Panel, loadMailQueueModule }) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
-function PressAdminPage({ Panel, loadMailQueueModule }) {
-  const [activeTab, setActiveTab] = useState("requests");
+// view : "requests" ou "mailing" quand la page est un onglet de Presse
+// (/app/presse, /app/presse/diffusion) ; sans view, la page garde ses
+// propres onglets.
+function PressAdminPage({ Panel, loadMailQueueModule, view }) {
+  const [localTab, setActiveTab] = useState("requests");
+  const activeTab = view || localTab;
 
   return (
     <div className="admin-stack">
@@ -959,26 +963,34 @@ function PressAdminPage({ Panel, loadMailQueueModule }) {
         <div>
           <p className="eyebrow">Administration</p>
           <h1>Presse</h1>
-          <p>Demandes d'accréditation et liste de diffusion presse pour le CMCM Luxembourg Indoor Meeting.</p>
+          <p>
+            {view === "mailing"
+              ? "Liste de diffusion presse : journalistes et médias à qui envoyer les informations du meeting."
+              : view === "requests"
+                ? "Demandes d'accréditation des journalistes et photographes. Les badges presse s'impriment dans Accréditations."
+                : "Demandes d'accréditation et liste de diffusion presse pour le CMCM Luxembourg Indoor Meeting."}
+          </p>
         </div>
       </section>
 
-      <div className="admin-subtabs">
-        <button
-          className={`admin-subtab ${activeTab === "requests" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => setActiveTab("requests")}
-        >
-          Demandes d'accréditation
-        </button>
-        <button
-          className={`admin-subtab ${activeTab === "mailing" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => setActiveTab("mailing")}
-        >
-          Liste de diffusion
-        </button>
-      </div>
+      {view ? null : (
+        <div className="admin-subtabs">
+          <button
+            className={`admin-subtab ${activeTab === "requests" ? "admin-subtab--active" : ""}`}
+            type="button"
+            onClick={() => setActiveTab("requests")}
+          >
+            Demandes d'accréditation
+          </button>
+          <button
+            className={`admin-subtab ${activeTab === "mailing" ? "admin-subtab--active" : ""}`}
+            type="button"
+            onClick={() => setActiveTab("mailing")}
+          >
+            Liste de diffusion
+          </button>
+        </div>
+      )}
 
       {activeTab === "requests" ? (
         <RequestsTab Panel={Panel} loadMailQueueModule={loadMailQueueModule} />

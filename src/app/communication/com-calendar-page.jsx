@@ -105,7 +105,7 @@ export function ComCalendarPage() {
   // Page de la publication : une occurrence de rubrique y est enregistrée avant d'être ouverte.
   function openPage(item) {
     run(() => (item.materialized ? Promise.resolve() : updateItem(item, {}, uid))).then(() =>
-      navigate(`/app/communication/publication/${item.id}`),
+      navigate(`/app/calendrier/publication/${item.id}`),
     );
   }
 
@@ -160,7 +160,7 @@ export function ComCalendarPage() {
       {!loadingRubriques && rubriques.length === 0 ? (
         <p className="com-empty">
           {tr("Aucune rubrique récurrente pour l'instant.", "No recurring series yet.")}{" "}
-          <Link to="/app/communication/rubriques" className="com-link">
+          <Link to="/app/calendrier/rubriques" className="com-link">
             {tr("Créer une rubrique", "Create a series")}
           </Link>{" "}
           {tr(

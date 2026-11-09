@@ -401,9 +401,28 @@ service cloud.firestore {
 
     // Composition des équipes : lue par tous les bénévoles/chefs d'équipe pour
     // afficher leurs affectations, missions et documents d'équipe.
+    // Programme du jour du meeting (grille du dimanche) : lu par tout compte
+    // connecté (bénévoles et chefs d'équipe y voient leur équipe), modifié par
+    // les organisateurs.
+    match /meetingDayProgrammes/{programmeId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrManager();
+    }
+
     match /appSettings/teamsConfiguration {
       allow read:  if isSignedIn();
       allow write: if isAdminOrManager();
+    }
+
+    // Réglages du portail athlètes (rôles d'accès, champs visibles par rôle) :
+    // lus par la barre de navigation de TOUS les connectés pour savoir s'il
+    // faut afficher le menu Athlètes. Sans cette règle, un bénévole recevait un
+    // refus, et ce refus (combiné au double abonnement du mode dev) plantait
+    // le SDK Firestore (« INTERNAL ASSERTION FAILED: ca9 ») → page d'erreur.
+    // Aucune donnée personnelle dedans ; l'écriture reste admin/meeting director.
+    match /appSettings/athletePortalSettings {
+      allow read:  if isSignedIn();
+      allow write: if canManageAthletePortal();
     }
 
     // Configuration des autorisations de dépôt de facture : doit être lisible

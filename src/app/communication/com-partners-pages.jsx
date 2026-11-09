@@ -108,7 +108,7 @@ export function ComPartnersPage() {
           "Benefits promised in the contracts and how they are progressing. Calendar publications that mention a partner are counted automatically.",
         )}
         actions={
-          <Link to="/app/website/sponsors" className="button button--secondary button--small">
+          <Link to="/app/partenaires" className="button button--secondary button--small">
             {tr("Gérer la liste des partenaires (site web)", "Manage the partner list (website)")}
           </Link>
         }
@@ -143,7 +143,7 @@ export function ComPartnersPage() {
                 [...late, ...risk].map(({ partner, o, g }) => (
                   <Link
                     key={o.id}
-                    to={`/app/communication/partenaires/${partner.id}?ob=${o.id}`}
+                    to={`/app/partenaires/contreparties/${partner.id}?ob=${o.id}`}
                     className="com-list__day"
                     style={{ gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", color: "inherit", textDecoration: "none" }}
                   >
@@ -169,7 +169,7 @@ export function ComPartnersPage() {
                 {upcoming.map((u, k) => (
                   <Link
                     key={k}
-                    to={`/app/communication/partenaires/${u.partner.id}`}
+                    to={`/app/partenaires/contreparties/${u.partner.id}`}
                     className="com-list__day"
                     style={{ gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", color: "inherit", textDecoration: "none" }}
                   >
@@ -197,7 +197,7 @@ export function ComPartnersPage() {
                   const statuts = rows.filter((r) => r.partner.id === p.id).map((r) => r.g.statut);
                   const left = p.contratFin ? daysBetween(today, p.contratFin) : null;
                   return (
-                    <Link key={p.id} to={`/app/communication/partenaires/${p.id}`} className="com-partner-card">
+                    <Link key={p.id} to={`/app/partenaires/contreparties/${p.id}`} className="com-partner-card">
                       <span className="com-partner-card__head">
                         {p.logoUrl ? <img src={p.logoUrl} alt="" /> : null}
                         <span className="com-stack" style={{ gap: 2, minWidth: 0 }}>
@@ -278,7 +278,7 @@ export function ComPartnerDetailPage() {
           title={tr("Partenaire introuvable", "Partner not found")}
           description={tr("Il a peut-être été supprimé de la liste des partenaires du site.", "It may have been removed from the website's partner list.")}
         />
-        <Link to="/app/communication/partenaires" className="com-link">
+        <Link to="/app/partenaires/contreparties" className="com-link">
           {tr("← Tous les partenaires", "← All partners")}
         </Link>
       </>
@@ -301,7 +301,7 @@ export function ComPartnerDetailPage() {
 
   return (
     <>
-      <Link to="/app/communication/partenaires" className="com-link">
+      <Link to="/app/partenaires/contreparties" className="com-link">
         {tr("← Tous les partenaires", "← All partners")}
       </Link>
       <ComPageHeader
@@ -554,7 +554,7 @@ function ObligationCard({ ob, progress: g, rubriques, today, open, onToggle, onU
                   {g.publications.map((p) => (
                     <li key={p.id}>
                       <span className="com-mini__date">{fmtShort(p.date, lang)}</span>
-                      <Link to={`/app/communication/publication/${p.id}`} className="com-chip__title" style={{ color: "inherit" }}>
+                      <Link to={`/app/calendrier/publication/${p.id}`} className="com-chip__title" style={{ color: "inherit" }}>
                         {p.titre}
                       </Link>
                       <StatusPill statut={p.statut} />

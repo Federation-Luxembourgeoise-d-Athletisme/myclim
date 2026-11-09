@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { arrayUnion, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getWorkflowStatusClass } from "./common-helpers";
 import {
@@ -9,35 +10,58 @@ import {
 } from "./seed-data";
 import { mapVolunteerApplicationToAdminVolunteer } from "./volunteer-helpers";
 import { useVolunteerAlertLog, useVolunteerApplicationsList } from "./volunteer-hooks";
-import { defaultTeamRoles, getAvailableTeamRoles, normalizeSubRoles, normalizeTeamConfigurationPayload } from "./team-config";
+import { defaultTeamRoles, normalizeSubRoles, normalizeTeamConfigurationPayload } from "./team-config";
 import { db } from "../services/firebase";
 import { useLanguage } from "./language-context";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 
+const LANGUAGE_CODES = {
+  français: "FR",
+  anglais: "EN",
+  allemand: "DE",
+  luxembourgeois: "LU",
+  portugais: "PT",
+  italien: "IT",
+  espagnol: "ES",
+  néerlandais: "NL",
+};
+
+// Codes courts pour la liste dense (FR EN LU…) ; le nom complet reste en infobulle.
+function getLanguageCode(language) {
+  const name = String(language || "").trim();
+  return LANGUAGE_CODES[name.toLowerCase()] || name.slice(0, 3);
+}
+
+// view : onglet affiché quand la page est un onglet de Candidatures ou
+// d'Équipes & affectations ("meeting", "assigned-posts", "support",
+// "alerts") ; sans view, la page garde ses propres onglets.
+// initialStatusFilter : filtre de statut au chargement (onglet « À traiter »).
 function VolunteersPage(props) {
   const {
-    loadMailQueueModule,
+    initialStatusFilter,
     Panel,
     syncVolunteerAssignmentToUserProfile,
     syncVolunteerAssignmentsToTeamConfiguration,
+    view,
   } = props;
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("Tous");
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter || "Tous");
   const [volunteerSortMode, setVolunteerSortMode] = useState("alphabetical");
-  const [activeVolunteerView, setActiveVolunteerView] = useState("meeting");
+  const [localVolunteerView, setActiveVolunteerView] = useState("meeting");
+  const activeVolunteerView = view || localVolunteerView;
   const [assignedRoleFilter, setAssignedRoleFilter] = useState("Tous");
   const [teamRoleFilter, setTeamRoleFilter] = useState("Tous");
   const [mailFilter, setMailFilter] = useState("Tous");
+  // Filtres du tableau : équipe ("Tous", "__none__" = sans équipe, ou nom), langue, préférence.
+  const [teamFilter, setTeamFilter] = useState("Tous");
+  const [languageFilter, setLanguageFilter] = useState("Tous");
+  const [preferenceFilter, setPreferenceFilter] = useState("Tous");
   const [selectedVolunteerId, setSelectedVolunteerId] = useState(null);
   const [volunteers, setVolunteers] = useState([]);
   const [teamRoleConfigs, setTeamRoleConfigs] = useState(defaultTeamRoles);
-  const [rolePickerOpenByVolunteer, setRolePickerOpenByVolunteer] = useState({});
-  const [teamRoleEditorOpenByKey, setTeamRoleEditorOpenByKey] = useState({});
   const [volunteerActionStatus, setVolunteerActionStatus] = useState(null);
-  const [selectedVolunteerIds, setSelectedVolunteerIds] = useState(() => new Set());
-  const [isSendingBulk, setIsSendingBulk] = useState(false);
   const [visibleListCountByKey, setVisibleListCountByKey] = useState({});
   const {
     applications: volunteerApplications,
@@ -52,10 +76,6 @@ function VolunteersPage(props) {
 
   function clearVolunteerActionStatus() {
     setVolunteerActionStatus(null);
-  }
-
-  function setVolunteerInfoStatus(message) {
-    setVolunteerActionStatus({ tone: "info", message });
   }
 
   function setVolunteerErrorStatus(message, detail = "") {
@@ -96,11 +116,6 @@ function VolunteersPage(props) {
     }));
   }
 
-  const roleOptions = useMemo(
-    () => teamRoleConfigs.map((role) => role.roleName),
-    [teamRoleConfigs],
-  );
-
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setVolunteers(volunteerApplications.map((application) => mapVolunteerApplicationToAdminVolunteer(application)));
@@ -138,11 +153,6 @@ function VolunteersPage(props) {
     );
   }, []);
 
-  const getPrimaryAssignedRole = useCallback(
-    (volunteer) => getVolunteerAssignedRoles(volunteer)[0] || "",
-    [getVolunteerAssignedRoles],
-  );
-
   const getVolunteerTeamRoleAssignments = useCallback(
     (volunteer, assignedRoles = getVolunteerAssignedRoles(volunteer)) => {
       const rawAssignments =
@@ -169,56 +179,6 @@ function VolunteersPage(props) {
     (volunteer, assignedRole) => getVolunteerTeamRoleAssignments(volunteer)[assignedRole] || "Bénévole",
     [getVolunteerTeamRoleAssignments],
   );
-
-  function getTeamConfigByRoleName(roleName) {
-    return (
-      teamRoleConfigs.find(
-        (role) => role.roleName.trim().toLowerCase() === String(roleName || "").trim().toLowerCase(),
-      ) ?? null
-    );
-  }
-
-  function getVolunteerTeamRoleOptions(volunteer, assignedRole = getPrimaryAssignedRole(volunteer)) {
-    return getAvailableTeamRoles(
-      getTeamConfigByRoleName(assignedRole),
-      [getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)],
-    );
-  }
-
-  function buildVolunteerAssignmentPatch(volunteer, nextAssignedRoles) {
-    const primaryRole = nextAssignedRoles[0] || "";
-    const currentAssignments = getVolunteerTeamRoleAssignments(volunteer, getVolunteerAssignedRoles(volunteer));
-    const nextTeamRoleAssignments = nextAssignedRoles.reduce((accumulator, assignedRole, index) => {
-      const fallbackRole = index === 0 ? volunteer.teamRole : "Bénévole";
-      accumulator[assignedRole] = String(currentAssignments[assignedRole] || fallbackRole || "Bénévole");
-      return accumulator;
-    }, {});
-    const nextPrimaryTeamRole = primaryRole ? nextTeamRoleAssignments[primaryRole] || "Bénévole" : "Bénévole";
-    const nextTeamRoleOptions = getAvailableTeamRoles(
-      getTeamConfigByRoleName(primaryRole),
-      [nextPrimaryTeamRole],
-    );
-    // "Affecté" is only reached once the assignment email has actually been sent
-    // (see markVolunteerInformed). Any change to the mission here — picking, adding,
-    // removing a role — puts the volunteer back to "Candidature reçue" until that
-    // email goes out (or stays "Annulé" if they withdrew), so a stale badge never
-    // survives an assignment change.
-    const nextWorkflowStatus = volunteer.workflowStatus === "Annulé" ? "Annulé" : "Candidature reçue";
-
-    return {
-      assignedRole: primaryRole,
-      assignedRoles: nextAssignedRoles,
-      workflowStatus: nextWorkflowStatus,
-      teamRole: nextTeamRoleOptions.includes(nextPrimaryTeamRole) ? nextPrimaryTeamRole : "Bénévole",
-      teamRoleAssignments: nextTeamRoleAssignments,
-      teamEmailSent: false,
-      // Kept for history only — never overwritten once set — so the team can still see
-      // what a volunteer was originally lined up for even after their mission changes.
-      ...(primaryRole && !volunteer.firstAssignedRole
-        ? { firstAssignedRole: primaryRole, firstAssignedAt: serverTimestamp() }
-        : {}),
-    };
-  }
 
   function buildVolunteerAlertEntry(volunteer, reason, alertType = "withdrawal") {
     const previousRoles = getVolunteerAssignedRoles(volunteer);
@@ -310,10 +270,57 @@ function VolunteersPage(props) {
       const matchesSearch = haystack.includes(search.toLowerCase());
       const matchesStatus =
         statusFilter === "Tous" || volunteer.workflowStatus === statusFilter;
+      const assignedRoles = getVolunteerAssignedRoles(volunteer);
+      const matchesTeam =
+        teamFilter === "Tous" ||
+        (teamFilter === "__none__" ? assignedRoles.length === 0 : assignedRoles.includes(teamFilter));
+      const matchesLanguage =
+        languageFilter === "Tous" || (volunteer.languages || []).includes(languageFilter);
+      const matchesPreference =
+        preferenceFilter === "Tous" || (volunteer.missionPreferences || []).includes(preferenceFilter);
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesTeam && matchesLanguage && matchesPreference;
     });
-  }, [getVolunteerAssignedRoles, search, statusFilter, volunteers]);
+  }, [
+    getVolunteerAssignedRoles,
+    languageFilter,
+    preferenceFilter,
+    search,
+    statusFilter,
+    teamFilter,
+    volunteers,
+  ]);
+
+  const languageOptions = useMemo(
+    () =>
+      [...new Set(volunteers.flatMap((volunteer) => volunteer.languages || []))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "fr")),
+    [volunteers],
+  );
+
+  const preferenceOptions = useMemo(
+    () =>
+      [...new Set(volunteers.flatMap((volunteer) => volunteer.missionPreferences || []))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "fr")),
+    [volunteers],
+  );
+
+  const hasSheetFilters =
+    search !== "" ||
+    statusFilter !== (initialStatusFilter || "Tous") ||
+    teamFilter !== "Tous" ||
+    languageFilter !== "Tous" ||
+    preferenceFilter !== "Tous";
+
+  function resetSheetFilters() {
+    setSearch("");
+    setStatusFilter(initialStatusFilter || "Tous");
+    setTeamFilter("Tous");
+    setLanguageFilter("Tous");
+    setPreferenceFilter("Tous");
+  }
 
   const compactRoleOptions = useMemo(() => {
     return [...new Set(volunteers.flatMap((volunteer) => getVolunteerAssignedRoles(volunteer)))].sort((a, b) =>
@@ -526,103 +533,6 @@ function VolunteersPage(props) {
     }
   }
 
-  async function assignVolunteer(id, role) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const currentRoles = getVolunteerAssignedRoles(volunteer);
-    const secondaryRoles = currentRoles.slice(1).filter((assignedRole) => assignedRole !== role);
-    const nextAssignedRoles = role ? [role, ...secondaryRoles] : [];
-    await persistVolunteerPatchWithAlertsAndSync(id, buildVolunteerAssignmentPatch(volunteer, nextAssignedRoles), {
-      alertReason: "Affectation retirée depuis la vue bénévoles.",
-      message:
-        "L'affectation a bien ete mise a jour, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible d'enregistrer la nouvelle affectation du benevole.",
-    });
-  }
-
-  async function addVolunteerRole(id, role) {
-    if (!role) return;
-    clearVolunteerActionStatus();
-
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const currentRoles = getVolunteerAssignedRoles(volunteer);
-    if (currentRoles.includes(role)) return;
-
-    if (
-      currentRoles.length >= 1 &&
-      !window.confirm("Êtes-vous sûr de vouloir attribuer deux rôles à la même personne ?")
-    ) {
-      return;
-    }
-
-    await persistVolunteerPatchAndSync(id, buildVolunteerAssignmentPatch(volunteer, [...currentRoles, role]), {
-      message:
-        "Le role supplementaire a ete enregistre, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible d'ajouter ce role au benevole.",
-    });
-    setRolePickerOpenByVolunteer((current) => ({ ...current, [id]: false }));
-  }
-
-  async function removeVolunteerRole(id, role) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const nextAssignedRoles = getVolunteerAssignedRoles(volunteer).filter(
-      (assignedRole) => assignedRole !== role,
-    );
-
-    await persistVolunteerPatchWithAlertsAndSync(id, buildVolunteerAssignmentPatch(volunteer, nextAssignedRoles), {
-      alertReason: `Retrait du poste ${role}.`,
-      message:
-        "Le retrait de poste a bien ete enregistre, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible de retirer ce poste du benevole.",
-    });
-  }
-
-  async function updateVolunteerAssignedTeamRole(id, assignedRole, teamRole) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const assignedRoles = getVolunteerAssignedRoles(volunteer);
-    const nextTeamRoleAssignments = {
-      ...getVolunteerTeamRoleAssignments(volunteer, assignedRoles),
-      [assignedRole]: teamRole,
-    };
-    const primaryRole = assignedRoles[0] || "";
-
-    // Unlike changing the mission itself (buildVolunteerAssignmentPatch), adjusting just
-    // the function within the same role is considered a minor correction — it doesn't
-    // reset the workflow status or require re-sending the assignment email.
-    await persistVolunteerPatchAndSync(id, {
-      teamRoleAssignments: nextTeamRoleAssignments,
-      teamRole: primaryRole ? nextTeamRoleAssignments[primaryRole] || "Bénévole" : "Bénévole",
-    }, {
-      message:
-        "Le role dans l'equipe a bien ete mis a jour, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible de mettre a jour le role d'equipe du benevole.",
-    });
-  }
-
-  function toggleRolePicker(id) {
-    setRolePickerOpenByVolunteer((current) => ({
-      ...current,
-      [id]: !current[id],
-    }));
-  }
-
-  function toggleTeamRoleEditor(key) {
-    setTeamRoleEditorOpenByKey((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
-  }
-
   function getStatusLabel(status) {
     switch (status) {
       case "Candidature reçue":
@@ -711,163 +621,6 @@ function VolunteersPage(props) {
     });
   }
 
-  async function markVolunteerInformed(id) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-    if (!getVolunteerAssignedRoles(volunteer).length) {
-      setVolunteerErrorStatus("Attribue d'abord un rôle au bénévole avant de l'informer.");
-      return;
-    }
-
-    const internallyAssignedVolunteer = {
-      ...volunteer,
-      teamEmailSent: false,
-      assignmentStatus: volunteer.assignmentStatus || "Proposé",
-    };
-
-    const nextVolunteer = {
-      ...volunteer,
-      workflowStatus: volunteer.workflowStatus === "Annulé" ? "Annulé" : "Affecté",
-      teamEmailSent: true,
-      assignmentStatus: volunteer.assignmentStatus || "Proposé",
-    };
-
-    let mailSent = false;
-
-    try {
-      const { buildVolunteerRoleAssignmentMail, enqueueTransactionalMail } = await loadMailQueueModule();
-      await syncVolunteerInternalAssignmentState(internallyAssignedVolunteer, {
-        message:
-          "L'affectation est enregistree, mais la synchronisation interne complete a echoue avant l'envoi du mail.",
-      });
-
-      if (volunteer.email) {
-        await enqueueTransactionalMail(
-          buildVolunteerRoleAssignmentMail({
-            email: volunteer.email,
-            firstName: volunteer.firstName,
-            assignedRole: nextVolunteer.assignedRole,
-            teamRole: nextVolunteer.teamRole,
-          }),
-        );
-        mailSent = true;
-      }
-
-      const persistedVolunteer = await persistVolunteerPatchAndSync(
-        id,
-        {
-          workflowStatus: nextVolunteer.workflowStatus,
-          teamEmailSent: true,
-          lastMailSentRole: nextVolunteer.assignedRole,
-          lastMailSentTeamRole: nextVolunteer.teamRole,
-          lastMailSentAt: serverTimestamp(),
-        },
-        {
-          message:
-            "Le mail est parti, mais la mise a jour finale du statut d'information n'a pas pu etre synchronisee partout.",
-          persistenceErrorMessage: "Le mail est parti, mais l'enregistrement final du statut a echoue.",
-        },
-      );
-      if (persistedVolunteer) {
-        setVolunteerInfoStatus(`Le mail d'affectation a été préparé pour ${volunteer.firstName} ${volunteer.lastName}.`);
-      }
-    } catch (error) {
-      console.error("Impossible d'informer le bénévole.", error);
-      const detail = getActionErrorDetail(error);
-      setVolunteerErrorStatus(
-        mailSent
-          ? `Le mail a bien été envoyé à ${volunteer.firstName} ${volunteer.lastName}, mais la synchronisation interne a échoué.`
-          : "L'affectation interne est bien conservee, mais le mail n'a pas pu etre envoye dans cet environnement local.",
-        detail,
-      );
-    }
-  }
-
-  function volunteerNeedsInforming(volunteer) {
-    return getVolunteerAssignedRoles(volunteer).length > 0 && !volunteer.teamEmailSent;
-  }
-
-  async function sendBulkInformMails() {
-    const toSend = meetingVolunteers.filter((v) => selectedVolunteerIds.has(v.id));
-    if (!toSend.length) return;
-
-    setIsSendingBulk(true);
-    clearVolunteerActionStatus();
-    let successCount = 0;
-    let failCount = 0;
-    const errorDetails = [];
-
-    for (const volunteer of toSend) {
-      try {
-        const { buildVolunteerRoleAssignmentMail, enqueueTransactionalMail } = await loadMailQueueModule();
-        const internallyAssignedVolunteer = {
-          ...volunteer,
-          teamEmailSent: false,
-          assignmentStatus: volunteer.assignmentStatus || "Proposé",
-        };
-        const nextVolunteer = {
-          ...volunteer,
-          workflowStatus: volunteer.workflowStatus === "Annulé" ? "Annulé" : "Affecté",
-          teamEmailSent: true,
-          assignmentStatus: volunteer.assignmentStatus || "Proposé",
-        };
-        await syncVolunteerInternalAssignmentState(internallyAssignedVolunteer, {
-          message:
-            "Certaines affectations ont bien ete enregistrees, mais leur synchronisation interne complete a echoue.",
-        });
-        if (volunteer.email) {
-          await enqueueTransactionalMail(
-            buildVolunteerRoleAssignmentMail({
-              email: volunteer.email,
-              firstName: volunteer.firstName,
-              assignedRole: nextVolunteer.assignedRole,
-              teamRole: nextVolunteer.teamRole,
-            }),
-          );
-        }
-        const persistedVolunteer = await persistVolunteerPatchAndSync(
-          volunteer.id,
-          {
-            workflowStatus: nextVolunteer.workflowStatus,
-            teamEmailSent: true,
-            lastMailSentRole: nextVolunteer.assignedRole,
-            lastMailSentTeamRole: nextVolunteer.teamRole,
-            lastMailSentAt: serverTimestamp(),
-          },
-          {
-            message:
-              "Le mail est parti, mais la mise a jour finale du statut d'information n'a pas pu etre synchronisee partout.",
-            persistenceErrorMessage: "Le mail est parti, mais l'enregistrement final du statut a echoue.",
-          },
-        );
-        if (persistedVolunteer) {
-          successCount += 1;
-        } else {
-          failCount += 1;
-        }
-      } catch (error) {
-        failCount += 1;
-        errorDetails.push(`${volunteer.firstName} ${volunteer.lastName}`.trim() + `: ${getActionErrorDetail(error)}`);
-      }
-    }
-
-    if (failCount) {
-      setVolunteerErrorStatus(
-        `${successCount} mail(s) envoyé(s), ${failCount} échec(s).`,
-        errorDetails.join(" | "),
-      );
-    } else {
-      setVolunteerInfoStatus(
-      failCount
-        ? `${successCount} mail(s) envoyé(s), ${failCount} échec(s).`
-        : `${successCount} mail(s) envoyé(s) avec succès.`,
-      );
-    }
-    setSelectedVolunteerIds(new Set());
-    setIsSendingBulk(false);
-  }
-
   function updateSupportTask(id, slot, task) {
     const volunteer = volunteers.find((entry) => entry.id === id);
     if (!volunteer) return;
@@ -900,24 +653,14 @@ function VolunteersPage(props) {
         </div>
       ) : null}
 
-      <section className="status-legend">
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Candidature reçue")}>{t("statusReceived")}</span>
-          <p>{t("statusReceivedDesc")}</p>
-        </article>
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Affecté")}>{t("statusAssigned")}</span>
-          <p>{t("statusAssignedDesc")}</p>
-        </article>
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Confirmé")}>{t("statusConfirmed")}</span>
-          <p>{t("statusConfirmedDesc")}</p>
-        </article>
-        <article className="status-legend__item">
-          <span className={getWorkflowStatusClass("Annulé")}>{t("statusCancelledLabel")}</span>
-          <p>{t("statusCancelledDesc")}</p>
-        </article>
-      </section>
+      {/* Légende compacte : le détail de chaque statut est en infobulle. */}
+      <div className="status-legend-compact">
+        <span className={getWorkflowStatusClass("Candidature reçue")} title={t("statusReceivedDesc")}>{t("statusReceived")}</span>
+        <span className={getWorkflowStatusClass("Affecté")} title={t("statusAssignedDesc")}>{t("statusAssigned")}</span>
+        <span className={getWorkflowStatusClass("Informé")} title={t("statusInformedDesc")}>{t("statusInformed")}</span>
+        <span className={getWorkflowStatusClass("Confirmé")} title={t("statusConfirmedDesc")}>{t("statusConfirmed")}</span>
+        <span className={getWorkflowStatusClass("Annulé")} title={t("statusCancelledDesc")}>{t("statusCancelledLabel")}</span>
+      </div>
 
       <Panel
         title={
@@ -939,7 +682,7 @@ function VolunteersPage(props) {
               : t("panelSubtitleSupport")
         }
       >
-        <div className="admin-subtabs">
+        <div className="admin-subtabs" style={view ? { display: "none" } : undefined}>
           <button
             className={`admin-subtab ${activeVolunteerView === "meeting" ? "admin-subtab--active" : ""}`}
             type="button"
@@ -971,7 +714,7 @@ function VolunteersPage(props) {
           </button>
         </div>
 
-        <div className="admin-toolbar">
+        <div className="admin-toolbar admin-toolbar--compact">
           <label className="field">
             <span>{t("searchLabel")}</span>
             <input
@@ -989,6 +732,58 @@ function VolunteersPage(props) {
               ))}
             </select>
           </label>
+          {activeVolunteerView === "meeting" ? (
+            <>
+              <label className="field">
+                <span>{t("teamFilterLabel")}</span>
+                <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
+                  <option value="Tous">{t("allLabel")}</option>
+                  <option value="__none__">{t("noTeamOption")}</option>
+                  {compactRoleOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>{t("languageFilterLabel")}</span>
+                <select value={languageFilter} onChange={(event) => setLanguageFilter(event.target.value)}>
+                  <option value="Tous">{t("allLabel")}</option>
+                  {languageOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>{t("preferenceFilterLabel")}</span>
+                <select value={preferenceFilter} onChange={(event) => setPreferenceFilter(event.target.value)}>
+                  <option value="Tous">{t("allLabel")}</option>
+                  {preferenceOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>{t("sortModeLabel")}</span>
+                <select value={volunteerSortMode} onChange={(event) => setVolunteerSortMode(event.target.value)}>
+                  <option value="alphabetical">{t("sortAlphabetical")}</option>
+                  <option value="team">{t("sortByTeam")}</option>
+                </select>
+              </label>
+              <span className="sheet-toolbar-count">
+                {t("sheetVolunteerCount")
+                  .replace("{count}", filteredVolunteers.length)
+                  .replace("{total}", volunteers.length)}
+                {hasSheetFilters ? (
+                  <button className="sheet-link" type="button" onClick={resetSheetFilters}>
+                    {t("resetFilters")}
+                  </button>
+                ) : null}
+              </span>
+              <NavLink className="sheet-toolbar-link" to="/app/equipes/affectations">
+                {t("editInAssignments")}
+              </NavLink>
+            </>
+          ) : null}
           {activeVolunteerView === "assigned-posts" ? (
             <>
               <label className="field">
@@ -1073,87 +868,30 @@ function VolunteersPage(props) {
 
         {activeVolunteerView === "meeting" ? (
           <div className="section-stack">
-            <div className="section-intro">
-              <h3>{t("meetingSectionTitle")}</h3>
-              <p>{t("meetingSectionDesc")}</p>
-            </div>
-
-            <div className="admin-toolbar">
-              <label className="field">
-                <span>{t("sortModeLabel")}</span>
-                <select value={volunteerSortMode} onChange={(event) => setVolunteerSortMode(event.target.value)}>
-                  <option value="alphabetical">{t("sortAlphabetical")}</option>
-                  <option value="team">{t("sortByTeam")}</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="bulk-mail-bar">
-              <div className="bulk-mail-bar__selectors">
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() =>
-                    setSelectedVolunteerIds(
-                      new Set(meetingVolunteers.filter((v) => getVolunteerAssignedRoles(v).length > 0).map((v) => v.id)),
-                    )
-                  }
-                >
-                  {t("selectAll")}
-                </button>
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => setSelectedVolunteerIds(new Set(meetingVolunteers.filter(volunteerNeedsInforming).map((v) => v.id)))}
-                >
-                  {t("selectNeedsInfo")}
-                </button>
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => setSelectedVolunteerIds(new Set())}
-                >
-                  {t("deselectAll")}
-                </button>
-              </div>
-              {selectedVolunteerIds.size > 0 ? (
-                <button
-                  className="button button--primary"
-                  type="button"
-                  disabled={isSendingBulk}
-                  onClick={sendBulkInformMails}
-                >
-                  {isSendingBulk
-                    ? t("sendingInProgress")
-                    : t("sendToSelected").replace("{count}", selectedVolunteerIds.size)}
-                </button>
-              ) : null}
-            </div>
-
-            <div className="table-wrap">
-              <table className="data-table data-table--admin">
+            <div className="table-wrap table-wrap--sheet">
+              <table className="data-table data-table--sheet">
                 <thead>
                   <tr>
-                    <th style={{ width: "32px" }} />
                     <th>{t("colVolunteer")}</th>
                     <th>{t("colRequestDate")}</th>
-                    <th>{t("colContact")}</th>
+                    <th>{t("colEmail")}</th>
+                    <th>{t("colPhone")}</th>
                     <th>{t("colLanguages")}</th>
                     <th>{t("colStatus")}</th>
-                    <th>{t("colMission")}</th>
+                    <th>{t("colTeams")}</th>
+                    <th>{t("colPreferences")}</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {visibleMeetingVolunteers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="table-empty-state">
+                      <td colSpan={9} className="table-empty-state">
                         {t("emptyMeetingVolunteers")}
                       </td>
                     </tr>
                   ) : null}
                   {visibleMeetingVolunteers.map((volunteer, index) => {
-                    const hasRole = getVolunteerAssignedRoles(volunteer).length > 0;
-                    const needsInfo = hasRole && !volunteer.teamEmailSent;
                     const primaryRole = getVolunteerAssignedRoles(volunteer)[0] || "";
                     const previousVolunteer = visibleMeetingVolunteers[index - 1];
                     const previousRole = previousVolunteer ? getVolunteerAssignedRoles(previousVolunteer)[0] || "" : null;
@@ -1162,248 +900,71 @@ function VolunteersPage(props) {
                     <Fragment key={volunteer.id}>
                       {showGroupDivider ? (
                         <tr className="table-group-row">
-                          <td colSpan={7}>
+                          <td colSpan={9}>
                             <strong>{primaryRole || t("unassignedGroupLabel")}</strong>
                           </td>
                         </tr>
                       ) : null}
-                      <tr className={selectedVolunteerIds.has(volunteer.id) ? "row--selected" : ""}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedVolunteerIds.has(volunteer.id)}
-                            disabled={!hasRole}
-                            title={hasRole ? undefined : t("selectionNeedsRole")}
-                            onChange={(event) => {
-                              setSelectedVolunteerIds((current) => {
-                                const next = new Set(current);
-                                if (event.target.checked) next.add(volunteer.id);
-                                else next.delete(volunteer.id);
-                                return next;
-                              });
-                            }}
-                          />
+                      <tr>
+                        <td className="sheet-name">
+                          <button className="sheet-link" type="button" onClick={() => setSelectedVolunteerId(volunteer.id)}>
+                            {volunteer.lastName} {volunteer.firstName}
+                          </button>
+                          {Number.isFinite(volunteer.age) ? <span className="sheet-muted"> {volunteer.age}</span> : null}
                         </td>
-                        <td>
-                          <div className="table-stack">
-                            <button
-                              className="name-link-button"
-                              type="button"
-                              onClick={() => setSelectedVolunteerId(volunteer.id)}
-                            >
-                              {volunteer.firstName} {volunteer.lastName} ({volunteer.age} {t("ageUnit")})
-                            </button>
-                          </div>
+                        <td className="sheet-nowrap" title={formatVolunteerTimestamp(volunteer.submittedAt) || undefined}>
+                          {formatVolunteerRequestAge(volunteer.submittedAt) || <span className="sheet-muted">—</span>}
                         </td>
-                        <td>
-                          {formatVolunteerTimestamp(volunteer.submittedAt) ? (
-                            <div className="table-stack">
-                              <span>{formatVolunteerTimestamp(volunteer.submittedAt)}</span>
-                              <span>{formatVolunteerRequestAge(volunteer.submittedAt)}</span>
-                            </div>
+                        <td className="sheet-ellipsis" title={volunteer.email}>{volunteer.email}</td>
+                        <td className="sheet-nowrap">{volunteer.phone}</td>
+                        <td className="sheet-nowrap" title={volunteer.languages.join(", ")}>
+                          {volunteer.languages.map(getLanguageCode).join(" ")}
+                        </td>
+                        <td className="sheet-nowrap">
+                          <span
+                            className={`sheet-status ${getWorkflowStatusClass(volunteer.workflowStatus)}`}
+                            title={getVolunteerStatusHistoryTitle(volunteer)}
+                          >
+                            {getStatusLabel(volunteer.workflowStatus)}
+                          </span>
+                        </td>
+                        <td className="sheet-ellipsis">
+                          {getVolunteerAssignedRoles(volunteer).length === 0 ? (
+                            <span className="sheet-muted">—</span>
                           ) : (
-                            "-"
+                            getVolunteerAssignedRoles(volunteer).map((assignedRole, roleIndex) => (
+                              <Fragment key={`${volunteer.id}-${assignedRole}`}>
+                                {roleIndex > 0 ? ", " : ""}
+                                {assignedRole}
+                                <span className="sheet-muted"> ({getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)})</span>
+                              </Fragment>
+                            ))
                           )}
                         </td>
-                        <td>
-                          <div className="table-stack">
-                            <span>{volunteer.email}</span>
-                            <span>{volunteer.phone}</span>
-                          </div>
+                        <td className="sheet-ellipsis sheet-muted" title={volunteer.missionPreferences.join(", ")}>
+                          {volunteer.missionPreferences.join(", ")}
                         </td>
-                        <td>{volunteer.languages.join(", ")}</td>
-                        <td>
-                          <div className="status-cell">
-                            <span
-                              className={getWorkflowStatusClass(volunteer.workflowStatus)}
-                              title={getVolunteerStatusHistoryTitle(volunteer)}
-                            >
-                              {getStatusLabel(volunteer.workflowStatus)}
-                            </span>
-
-                            {hasRole && needsInfo && volunteer.workflowStatus !== "Confirmé" ? (
-                              <button
-                                type="button"
-                                className="button button--primary button--small"
-                                onClick={() => markVolunteerInformed(volunteer.id)}
-                              >
-                                {t("sendAssignmentEmail")}
-                              </button>
-                            ) : null}
-
-                            {hasRole && !needsInfo && volunteer.workflowStatus !== "Annulé" && volunteer.workflowStatus !== "Confirmé" ? (
-                              <button
-                                type="button"
-                                className="status-cell__mail-sent"
-                                title={t("alreadyInformedTooltip").replace(
-                                  "{date}",
-                                  formatVolunteerTimestamp(volunteer.lastMailSentAt)
-                                    ? ` (${formatVolunteerTimestamp(volunteer.lastMailSentAt)})`
-                                    : "",
-                                )}
-                                onClick={() => markVolunteerInformed(volunteer.id)}
-                              >
-                                {t("alreadyInformed")}
-                              </button>
-                            ) : null}
-
-                            <div className="status-cell__actions">
-                              {volunteer.workflowStatus === "Annulé" ? (
-                                <button
-                                  type="button"
-                                  className="button button--secondary button--small"
-                                  onClick={() => updateVolunteerStatus(volunteer.id, "Candidature reçue")}
-                                >
-                                  {t("reactivateAction")}
+                        <td className="sheet-nowrap sheet-actions">
+                          {volunteer.workflowStatus === "Annulé" ? (
+                            <button type="button" onClick={() => updateVolunteerStatus(volunteer.id, "Candidature reçue")}>
+                              {t("reactivateShort")}
+                            </button>
+                          ) : (
+                            <>
+                              {volunteer.workflowStatus === "Affecté" || volunteer.workflowStatus === "Informé" ? (
+                                <button type="button" onClick={() => updateVolunteerStatus(volunteer.id, "Confirmé")}>
+                                  {t("confirmAction")}
                                 </button>
-                              ) : (
-                                <>
-                                  {volunteer.workflowStatus === "Affecté" ? (
-                                    <button
-                                      type="button"
-                                      className="button button--secondary button--small"
-                                      onClick={() => updateVolunteerStatus(volunteer.id, "Confirmé")}
-                                    >
-                                      {t("confirmAction")}
-                                    </button>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    className="button button--danger-soft button--small"
-                                    onClick={() => updateVolunteerStatus(volunteer.id, "Annulé")}
-                                  >
-                                    {t("cancelAction")}
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="role-assignment-cell">
-                            {getVolunteerAssignedRoles(volunteer).length === 0 ? (
-                              <select
-                                value=""
-                                disabled={volunteer.workflowStatus === "Annulé"}
-                                onChange={(event) => assignVolunteer(volunteer.id, event.target.value)}
+                              ) : null}
+                              <button
+                                className="sheet-actions__danger"
+                                type="button"
+                                onClick={() => updateVolunteerStatus(volunteer.id, "Annulé")}
                               >
-                                <option value="">{t("chooseRoleOption")}</option>
-                                {roleOptions.map((option) => (
-                                  <option key={option}>{option}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              getVolunteerAssignedRoles(volunteer).map((assignedRole, roleIndex) => {
-                                const teamRoleKey = `${volunteer.id}-${assignedRole}`;
-                                const isTeamRoleEditorOpen = teamRoleEditorOpenByKey[teamRoleKey];
-                                return (
-                                <div key={`${teamRoleKey}-row`} className="role-assignment-row">
-                                  <span
-                                    className="role-assignment-row__name"
-                                    title={
-                                      roleIndex === 0
-                                        ? t("primaryRoleTitle").replace("{role}", assignedRole)
-                                        : assignedRole
-                                    }
-                                  >
-                                    {assignedRole}
-                                  </span>
-                                  {isTeamRoleEditorOpen ? (
-                                    <select
-                                      autoFocus
-                                      className="role-assignment-row__team-role"
-                                      value={getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)}
-                                      disabled={volunteer.workflowStatus === "Annulé"}
-                                      onChange={(event) => {
-                                        updateVolunteerAssignedTeamRole(
-                                          volunteer.id,
-                                          assignedRole,
-                                          event.target.value,
-                                        );
-                                        toggleTeamRoleEditor(teamRoleKey);
-                                      }}
-                                      onBlur={() =>
-                                        setTeamRoleEditorOpenByKey((current) => ({ ...current, [teamRoleKey]: false }))
-                                      }
-                                    >
-                                      {getVolunteerTeamRoleOptions(volunteer, assignedRole).map((teamRole) => (
-                                        <option key={`${teamRoleKey}-team-role-${teamRole}`}>
-                                          {teamRole}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <span className="role-assignment-row__team-role-display">
-                                      {getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)}
-                                      <button
-                                        type="button"
-                                        className="role-assignment-row__edit"
-                                        disabled={volunteer.workflowStatus === "Annulé"}
-                                        onClick={() => toggleTeamRoleEditor(teamRoleKey)}
-                                        aria-label={t("editFunctionAria")
-                                          .replace("{name}", `${volunteer.firstName} ${volunteer.lastName}`)
-                                          .replace("{role}", assignedRole)}
-                                        title={t("editFunctionTooltip")}
-                                      >
-                                        ✎
-                                      </button>
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    className="role-assignment-row__remove"
-                                    disabled={volunteer.workflowStatus === "Annulé"}
-                                    onClick={() => removeVolunteerRole(volunteer.id, assignedRole)}
-                                    aria-label={t("removeRoleAria")
-                                      .replace("{role}", assignedRole)
-                                      .replace("{name}", `${volunteer.firstName} ${volunteer.lastName}`)}
-                                    title={t("removeRoleTitle").replace("{role}", assignedRole)}
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                                );
-                              })
-                            )}
-                            {getVolunteerAssignedRoles(volunteer).length > 0 &&
-                            roleOptions.filter((option) => !getVolunteerAssignedRoles(volunteer).includes(option)).length > 0 ? (
-                              rolePickerOpenByVolunteer[volunteer.id] ? (
-                                <select
-                                  autoFocus
-                                  defaultValue=""
-                                  disabled={volunteer.workflowStatus === "Annulé"}
-                                  onChange={(event) => addVolunteerRole(volunteer.id, event.target.value)}
-                                  onBlur={() =>
-                                    setRolePickerOpenByVolunteer((current) => ({
-                                      ...current,
-                                      [volunteer.id]: false,
-                                    }))
-                                  }
-                                >
-                                  <option value="">{t("chooseRoleToAdd")}</option>
-                                  {roleOptions
-                                    .filter((option) => !getVolunteerAssignedRoles(volunteer).includes(option))
-                                    .map((option) => (
-                                      <option key={`${volunteer.id}-extra-${option}`}>{option}</option>
-                                    ))}
-                                </select>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="button button--secondary button--small"
-                                  disabled={volunteer.workflowStatus === "Annulé"}
-                                  onClick={() => toggleRolePicker(volunteer.id)}
-                                >
-                                  {t("addRoleButton")}
-                                </button>
-                              )
-                            ) : null}
-                            {volunteer.missionPreferences.length ? (
-                              <p className="mission-preferences-hint">
-                                {t("statedPreferences")}: {volunteer.missionPreferences.join(", ")}
-                              </p>
-                            ) : null}
-                          </div>
+                                {t("cancelShort")}
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     </Fragment>
