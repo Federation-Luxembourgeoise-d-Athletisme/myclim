@@ -127,13 +127,16 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <!-- Le mur qui sépare du gymnase (bord de la rampe), tracé sur la ligne indiquée par Margot -->
     <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
 
-    <!-- Amphithéâtre : fond léger, ses murs viennent du plan d'architecte -->
-    <path d="M590 60 C548 80 538 160 560 195 C575 215 600 228 625 222 C645 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" />
+    <!-- Amphithéâtre simplifié : son contour, la scène (côté buvette) et des rangées en éventail -->
+    <path d="M590 60 C548 80 538 160 560 195 C575 215 600 228 625 222 C645 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" stroke="#4a5d6c" stroke-width="4" stroke-linejoin="round" />
+    <rect x="562" y="100" width="9" height="62" rx="2" fill="#9aa8b3" />
+    <path d="M592 86 Q616 131 592 186 M608 76 Q640 131 606 200 M624 68 Q660 131 620 212" fill="none" stroke="#b9c5ce" stroke-width="3" />
     ${label(600, 26, "AMPHITHÉÂTRE", 16)}
 
     <!-- Buvette (en haut, avec l'escalier en colimaçon) et bâtiment du bas -->
-    <path d="M300 296 L561 296 L485 227 L456 190 L380 190 L351 227 Z" fill="#e4e9ed" />
-    <path d="M300 1352 L561 1352 L485 1420 L456 1458 L380 1458 L351 1420 Z" fill="#e4e9ed" />
+    <path d="M300 296 L561 296 L485 227 L456 190 L380 190 L351 227 Z" fill="#e4e9ed" stroke="#4a5d6c" stroke-width="3" stroke-linejoin="round" />
+    <circle cx="418" cy="172" r="16" fill="#fff" stroke="#4a5d6c" stroke-width="3" />
+    <path d="M300 1352 L561 1352 L485 1420 L456 1458 L380 1458 L351 1420 Z" fill="#e4e9ed" stroke="#4a5d6c" stroke-width="3" stroke-linejoin="round" />
 
     <!-- Tribunes, avec les passages vers la piste aux deux bouts -->
     <path d="${oval(262)}" fill="#c9d3db" />
