@@ -29,6 +29,9 @@ import { getActiveRoles } from "./navigation";
 import { useAccreditationConfiguration, useJudgeRoster, useTeamConfiguration } from "./config-hooks";
 import { normalizeComparableValue } from "./u14-helpers";
 import { useAuth } from "../context/auth-context";
+import { useActiveEdition } from "./edition";
+import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print";
+import { getVipRegistrationDocRef, useVipRegistrations } from "./vip-registrations-hooks";
 import { db } from "../services/firebase";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
@@ -89,6 +92,12 @@ function AccreditationsPage(props) {
   const canManageJudges = activeRoles.includes("admin");
   const { roles, teamAssignments, loading: teamsLoading, error: teamsError } = useTeamConfiguration();
   const { judges, loading: judgesLoading, error: judgesError } = useJudgeRoster();
+  const { activeEditionId, loading: editionLoading } = useActiveEdition(canOperatePrinting);
+  const { registrations: vipRegistrations, error: vipRegistrationsError } = useVipRegistrations(
+    activeEditionId,
+    canOperatePrinting && !editionLoading,
+  );
+  const [vipPrintError, setVipPrintError] = useState("");
   const {
     zones: storedZones,
     roleZoneAssignments: storedRoleZoneAssignments,
@@ -1392,6 +1401,38 @@ function AccreditationsPage(props) {
     openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
   }
 
+  // Badges VIP : la mise en file se fait aussi depuis VIP › Inscrits (statut du badge).
+  async function updateVipBadgeStatus(registrations, badgePrintStatus, extra = {}) {
+    setVipPrintError("");
+    try {
+      await Promise.all(
+        registrations.map((registration) =>
+          updateDoc(getVipRegistrationDocRef(registration), {
+            badgePrintStatus,
+            ...extra,
+            updatedAt: serverTimestamp(),
+          }),
+        ),
+      );
+    } catch (updateError) {
+      console.error("VIP badge status update failed", updateError);
+      setVipPrintError("Le statut des badges VIP n'a pas pu être enregistré.");
+    }
+  }
+
+  async function finalizeVipPrintQueue() {
+    if (!queuedVip.length) return;
+    openPrintWindow(
+      buildVipBadgePrintMarkup(buildVipBadgeItems(queuedVip), {
+        editionYear: /^d{4}$/.test(activeEditionId) ? activeEditionId : "",
+      }),
+    );
+    await updateVipBadgeStatus(queuedVip, "imprime", {
+      badgePrintedAt: new Date().toISOString(),
+      badgePrintedBy: getCurrentOperatorLabel(),
+    });
+  }
+
   async function finalizeJudgePrintQueue() {
     const queuedJudges = judges.filter((judge) => judge.printStatus === "Dans la file" && !judge.destroyedAt);
     if (!queuedJudges.length) return;
@@ -1511,6 +1552,15 @@ function AccreditationsPage(props) {
   const queuedPress = acceptedPressRegistrations.filter(
     (registration) => registration.printStatus === "Dans la file" && !registration.destroyedAt,
   );
+  const queuedVip = vipRegistrations
+    .filter((registration) => registration.badgePrintStatus === "en_file")
+    .sort((left, right) =>
+      `${left.lastName || ""} ${left.firstName || ""}`.localeCompare(`${right.lastName || ""} ${right.firstName || ""}`, "fr"),
+    );
+  const unprintedVip = vipRegistrations.filter(
+    (registration) => (registration.badgePrintStatus || "non_imprime") === "non_imprime",
+  );
+  const queuedVipBadgeCount = buildVipBadgeItems(queuedVip).length;
   const selectedNonNominativeZoneLabels = selectedNonNominativeTemplate
     ? sortedZones
         .filter((zone) => selectedNonNominativeTemplate.defaultZoneIds.includes(zone.id))
@@ -3206,6 +3256,71 @@ function AccreditationsPage(props) {
                 disabled={!queuedPress.length}
               >
                 Générer les 2 PDF ({queuedPress.length})
+              </button>
+            </div>
+          </Panel>
+
+          <Panel
+            title="File d'impression VIP"
+            subtitle="Badge VIP réduit (8 par A4, recto-verso identique) : entreprise, nom, QR codes e-magazine, résultats live et contact. Un badge de plus pour l'accompagnant quand il est nommé. La mise en file se fait ici ou dans VIP › Inscrits."
+          >
+            {vipRegistrationsError || vipPrintError ? (
+              <p className="form-error">{vipPrintError || vipRegistrationsError}</p>
+            ) : null}
+            <div className="table-wrap">
+              <table className="data-table data-table--admin">
+                <thead>
+                  <tr>
+                    <th>Personne</th>
+                    <th>Entreprise</th>
+                    <th>Accompagnant</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {queuedVip.map((registration) => (
+                    <tr key={`vip-queue-${registration.sourceCollection}-${registration.id}`}>
+                      <td>{`${registration.firstName || ""} ${registration.lastName || ""}`.trim() || "—"}</td>
+                      <td>{registration.organization || "—"}</td>
+                      <td>
+                        {`${registration.guestFirstName || ""} ${registration.guestLastName || ""}`.trim() || "—"}
+                      </td>
+                      <td>
+                        <button
+                          className="button button--ghost-danger button--small"
+                          type="button"
+                          onClick={() => updateVipBadgeStatus([registration], "non_imprime")}
+                        >
+                          Retirer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!queuedVip.length ? (
+                    <tr>
+                      <td colSpan="4">Aucun invité VIP n'est actuellement dans la file d'impression.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="table-actions table-actions--inline">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => updateVipBadgeStatus(unprintedVip, "en_file")}
+                disabled={!unprintedVip.length}
+              >
+                Mettre en file les inscrits sans badge ({unprintedVip.length})
+              </button>
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={finalizeVipPrintQueue}
+                disabled={!queuedVip.length}
+              >
+                Générer le PDF ({queuedVipBadgeCount} badge{queuedVipBadgeCount > 1 ? "s" : ""})
               </button>
             </div>
           </Panel>
