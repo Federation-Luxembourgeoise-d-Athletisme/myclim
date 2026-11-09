@@ -558,6 +558,15 @@ function VolunteersPage(props) {
       : date.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
   }
 
+  function formatVolunteerRequestAge(value) {
+    if (!value) return null;
+    const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const startOfDay = (input) => new Date(input.getFullYear(), input.getMonth(), input.getDate()).getTime();
+    const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000);
+    return days <= 0 ? t("requestedTodayLabel") : t("requestedDaysAgoLabel").replace("{count}", days);
+  }
+
   function getVolunteerStatusHistoryTitle(volunteer) {
     const lines = [t("statusBadgeTooltip")];
     if (volunteer.firstAssignedRole) {
@@ -864,6 +873,7 @@ function VolunteersPage(props) {
                 <thead>
                   <tr>
                     <th>{t("colVolunteer")}</th>
+                    <th>{t("colRequestDate")}</th>
                     <th>{t("colEmail")}</th>
                     <th>{t("colPhone")}</th>
                     <th>{t("colLanguages")}</th>
@@ -876,7 +886,7 @@ function VolunteersPage(props) {
                 <tbody>
                   {visibleMeetingVolunteers.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="table-empty-state">
+                      <td colSpan={9} className="table-empty-state">
                         {t("emptyMeetingVolunteers")}
                       </td>
                     </tr>
@@ -890,7 +900,7 @@ function VolunteersPage(props) {
                     <Fragment key={volunteer.id}>
                       {showGroupDivider ? (
                         <tr className="table-group-row">
-                          <td colSpan={8}>
+                          <td colSpan={9}>
                             <strong>{primaryRole || t("unassignedGroupLabel")}</strong>
                           </td>
                         </tr>
@@ -901,6 +911,9 @@ function VolunteersPage(props) {
                             {volunteer.lastName} {volunteer.firstName}
                           </button>
                           {Number.isFinite(volunteer.age) ? <span className="sheet-muted"> {volunteer.age}</span> : null}
+                        </td>
+                        <td className="sheet-nowrap" title={formatVolunteerTimestamp(volunteer.submittedAt) || undefined}>
+                          {formatVolunteerRequestAge(volunteer.submittedAt) || <span className="sheet-muted">—</span>}
                         </td>
                         <td className="sheet-ellipsis" title={volunteer.email}>{volunteer.email}</td>
                         <td className="sheet-nowrap">{volunteer.phone}</td>

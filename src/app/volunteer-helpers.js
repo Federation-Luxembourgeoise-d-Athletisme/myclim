@@ -299,6 +299,7 @@ function mapVolunteerApplicationToAdminVolunteer(application = {}) {
     lastMailSentRole: String(application?.lastMailSentRole || ""),
     lastMailSentTeamRole: String(application?.lastMailSentTeamRole || ""),
     lastMailSentAt: application?.lastMailSentAt || null,
+    submittedAt: application?.submittedAt || null,
   };
 }
 
