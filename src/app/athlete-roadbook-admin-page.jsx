@@ -227,7 +227,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
         title={`Édition ${edition?.year || editionId || "—"}`}
         subtitle="Repris automatiquement de Site web → Édition courante (rien à ressaisir ici)."
         actions={
-          <Link className="button button--secondary button--small" to="/app/website/edition">
+          <Link className="button button--secondary button--small" to="/app/edition">
             Modifier l'édition
           </Link>
         }

@@ -29,6 +29,8 @@ import { SiteNewsListPage, SiteNewsArticlePage } from "./site/site-news";
 import { SitePreProgramme } from "./site/site-preprogramme";
 import { SiteGallery } from "./site/site-gallery";
 import { VolunteersPage as VolunteersPageScreen } from "./app/volunteers-page";
+import { VolunteerAssignmentsPage as VolunteerAssignmentsPageScreen } from "./app/volunteer-assignments-page";
+import { MeetingDayProgrammePage } from "./app/meeting-day-programme-page";
 import { AccreditationsPage as AccreditationsPageScreen } from "./app/accreditations-page";
 import {
   AppShell as AppShellScreen,
@@ -61,8 +63,10 @@ import {
   normalizeComparableValue,
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
-import { RequireAuth, RequireRouteAccess } from "./app/route-guards";
-import { STATISTICS_ACCESS_ROLES } from "./app/navigation";
+import { LegacyRedirect, RequireAuth, RequireRouteAccess } from "./app/route-guards";
+import { TabbedPage } from "./app/page-tabs";
+import { useActiveEdition } from "./app/edition";
+import { LEGACY_APP_REDIRECTS, STATISTICS_ACCESS_ROLES } from "./app/navigation";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./app/seed-data";
 import { getU14CategoryFromBirthDate } from "./app/utils";
 import { db } from "./services/firebase";
@@ -96,7 +100,6 @@ const AthleteTransportVolunteerPageScreen = lazyNamed(() => import("./app/athlet
 const MeetingHistoryPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingHistoryPage");
 const MeetingRecordsPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingRecordsPage");
 const MeetingWinnersPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingWinnersPage");
-const WebsiteDashboardPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteDashboardPage");
 const WebsiteNewsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteNewsPage");
 const WebsiteSponsorsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteSponsorsPage");
 const WebsitePressPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsitePressPage");
@@ -199,6 +202,68 @@ function getDocumentConsultationUrl(document) {
   return "";
 }
 
+// Pages regroupées en onglets : chaque onglet garde sa propre adresse.
+const PRESS_TABS = [
+  { to: "/app/presse", end: true, label: "Demandes d'accréditation", allowedRoles: ["admin", "gestionnaire"] },
+  { to: "/app/presse/diffusion", label: "Liste de diffusion", allowedRoles: ["admin", "gestionnaire"] },
+  { to: "/app/presse/communiques", label: "Communiqués" },
+];
+
+const PARTNERS_TABS = [
+  { to: "/app/partenaires", end: true, label: "Liste & logos" },
+  { to: "/app/partenaires/contreparties", label: "Contreparties", allowedRoles: ["admin", "gestionnaire"] },
+];
+
+const EDITION_TABS = [
+  { to: "/app/edition", end: true, label: "Infos & lieu" },
+  { to: "/app/edition/programme", label: "Programme horaire" },
+  { to: "/app/edition/disciplines", label: "Disciplines & prize money" },
+  { to: "/app/edition/liens", label: "Liens (live, SELTEC)" },
+  { to: "/app/edition/changer", label: "Changer d'édition", allowedRoles: ["admin"] },
+];
+
+const USERS_TABS = [
+  { to: "/app/utilisateurs", end: true, label: "Utilisateurs & rôles" },
+  { to: "/app/utilisateurs/inviter", label: "Inviter" },
+];
+
+const RESULTS_TABS = [
+  { to: "/app/resultats", end: true, label: "Résultats" },
+  { to: "/app/resultats/records", label: "Records" },
+  { to: "/app/resultats/hall-of-winners", label: "Hall of Winners" },
+  { to: "/app/resultats/base-athletes", label: "Base athlètes" },
+];
+
+const ENTRIES_TABS = [
+  { to: "/app/athletes", end: true, label: "Athlètes & staff" },
+  { to: "/app/athletes/import", label: "Importer un Excel", allowedRoles: ["admin", "meeting_director"] },
+];
+
+const SETTINGS_TABS = [
+  { to: "/app/reglages", end: true, label: "Certificat bénévole" },
+  { to: "/app/reglages/portail-athletes", label: "Portail athlètes" },
+  { to: "/app/reglages/maintenance", label: "Maintenance" },
+];
+
+const MY_ASSIGNMENTS_TABS = [
+  { to: "/app/mes-affectations", end: true, label: "Mes missions" },
+  { to: "/app/mes-affectations/mon-dossier", label: "Mon dossier bénévole" },
+];
+
+const APPLICATIONS_TABS = [
+  { to: "/app/candidatures", end: true, label: "À traiter" },
+  { to: "/app/candidatures/tous", label: "Tous les bénévoles" },
+  { to: "/app/candidatures/alertes", label: "Alertes" },
+];
+
+const TEAMS_TABS = [
+  { to: "/app/equipes", end: true, label: "Équipes" },
+  { to: "/app/equipes/affectations", label: "Affectations" },
+  { to: "/app/equipes/programme-dimanche", label: "Programme du dimanche" },
+  { to: "/app/equipes/recapitulatif", label: "Récapitulatif" },
+  { to: "/app/equipes/autour-du-meeting", label: "Autour du meeting" },
+];
+
 function AppShell() {
   return <AppShellScreen cmcmLogo={cmcmLogo} />;
 }
@@ -253,9 +318,11 @@ function DataTable({ columns = [], rows = [] }) {
   );
 }
 
-function VolunteersPage() {
+function VolunteersPage({ view, initialStatusFilter }) {
   return (
     <VolunteersPageScreen
+      view={view}
+      initialStatusFilter={initialStatusFilter}
       loadMailQueueModule={loadMailQueueModule}
       Panel={Panel}
       syncVolunteerAssignmentToUserProfile={syncVolunteerAssignmentToUserProfile}
@@ -264,9 +331,10 @@ function VolunteersPage() {
   );
 }
 
-function TeamsPage() {
+function TeamsPage({ view }) {
   return (
     <TeamsPageScreen
+      view={view}
       AuthFormField={AuthFormField}
       DataTable={DataTable}
       Panel={Panel}
@@ -275,8 +343,31 @@ function TeamsPage() {
   );
 }
 
-function RoleManagementPage() {
-  return <RoleManagementPageScreen AuthFormField={AuthFormField} Panel={Panel} />;
+// Équipes & affectations › Autour du meeting : les tâches (créneaux) et les
+// bénévoles qui se proposent pour les faire, sur la même page.
+// Équipes & affectations › Affectations : le seul écran pour affecter,
+// changer la fonction, retirer et informer les bénévoles.
+function VolunteerAssignmentsPage() {
+  return (
+    <VolunteerAssignmentsPageScreen
+      loadMailQueueModule={loadMailQueueModule}
+      syncVolunteerAssignmentToUserProfile={syncVolunteerAssignmentToUserProfile}
+      syncVolunteerAssignmentsToTeamConfiguration={syncVolunteerAssignmentsToTeamConfiguration}
+    />
+  );
+}
+
+function MeetingSupportPage() {
+  return (
+    <div className="page">
+      <TeamsPage view="support" />
+      <VolunteersPage view="support" />
+    </div>
+  );
+}
+
+function RoleManagementPage({ maintenance }) {
+  return <RoleManagementPageScreen AuthFormField={AuthFormField} Panel={Panel} maintenance={maintenance} />;
 }
 
 function CertificateSettingsPage() {
@@ -287,12 +378,13 @@ function BudgetTrackingPage() {
   return <BudgetTrackingPageScreen Panel={Panel} />;
 }
 
-function DocumentsPage() {
+function DocumentsPage({ view }) {
   return (
     <DocumentsPageScreen
       AuthFormField={AuthFormField}
       Panel={Panel}
       getDocumentConsultationUrl={getDocumentConsultationUrl}
+      view={view}
     />
   );
 }
@@ -313,8 +405,8 @@ function CashDeskAdminPage() {
   return <CashDeskAdminPageScreen Panel={Panel} />;
 }
 
-function PressAdminPage() {
-  return <PressAdminPageScreen Panel={Panel} loadMailQueueModule={loadMailQueueModule} />;
+function PressAdminPage({ view }) {
+  return <PressAdminPageScreen Panel={Panel} loadMailQueueModule={loadMailQueueModule} view={view} />;
 }
 
 function AthletesListPage() {
@@ -329,8 +421,8 @@ function AthletePortalSettingsPage() {
   return <AthletePortalSettingsPageScreen Panel={Panel} />;
 }
 
-function AthleteRegistryPage() {
-  return <AthleteRegistryPageScreen Panel={Panel} />;
+function AthleteRegistryPage({ maintenance }) {
+  return <AthleteRegistryPageScreen Panel={Panel} maintenance={maintenance} />;
 }
 
 function AthleteTransportChiefPage() {
@@ -341,8 +433,28 @@ function AthleteTransportVolunteerPage() {
   return <AthleteTransportVolunteerPageScreen Panel={Panel} />;
 }
 
-function MeetingHistoryPage() {
-  return <MeetingHistoryPageScreen Panel={Panel} />;
+function MeetingHistoryPage({ maintenance }) {
+  return <MeetingHistoryPageScreen Panel={Panel} maintenance={maintenance} />;
+}
+
+// Réglages › Maintenance : les outils qui suppriment ou réécrivent des
+// données, sortis des pages de tous les jours.
+function MaintenancePage() {
+  return (
+    <div className="page">
+      <section className="page-header">
+        <div>
+          <p>Outils à utiliser avec précaution : ils suppriment ou réécrivent des données. Chacun demande une confirmation.</p>
+        </div>
+      </section>
+      <h3>Profils en doublon</h3>
+      <RoleManagementPage maintenance="only" />
+      <h3>Base athlètes</h3>
+      <AthleteRegistryPage maintenance="only" />
+      <h3>Résultats du meeting : import et données historiques</h3>
+      <MeetingHistoryPage maintenance="only" />
+    </div>
+  );
 }
 
 function MeetingRecordsPage() {
@@ -351,10 +463,6 @@ function MeetingRecordsPage() {
 
 function MeetingWinnersPage() {
   return <MeetingWinnersPageScreen Panel={Panel} />;
-}
-
-function WebsiteDashboardPage() {
-  return <WebsiteDashboardPageScreen Panel={Panel} />;
 }
 
 function WebsiteNewsPage() {
@@ -369,8 +477,23 @@ function WebsitePressPage() {
   return <WebsitePressPageScreen Panel={Panel} />;
 }
 
-function WebsiteEditionPage() {
-  return <WebsiteEditionPageScreen Panel={Panel} />;
+function WebsiteEditionPage({ section }) {
+  return <WebsiteEditionPageScreen Panel={Panel} section={section} />;
+}
+
+// Édition {année} : réglages de l'édition (site, e-magazine, roadbook, page
+// liens) et bascule d'une édition à l'autre.
+function EditionPage() {
+  const { activeEditionId } = useActiveEdition();
+  return (
+    <TabbedPage
+      eyebrowKey="navSectionSteering"
+      titleKey="navEdition"
+      title="Édition"
+      titleValues={{ edition: activeEditionId || "" }}
+      tabs={EDITION_TABS}
+    />
+  );
 }
 
 function WebsiteLinksPage() {
@@ -516,41 +639,58 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route path="/app" element={<AppShell />}>
               <Route index element={<DashboardHome />} />
+              {Object.entries(LEGACY_APP_REDIRECTS).map(([from, to]) => (
+                <Route key={from} path={from} element={<LegacyRedirect to={to} />} />
+              ))}
               <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
-                <Route path="roles" element={<RoleManagementPage />} />
-                <Route path="edition-meeting" element={<EditionSettingsPage />} />
-                <Route path="invitations" element={<InvitationAdminPage />} />
-                <Route path="postes" element={<TeamsPage />} />
-                <Route path="certificat" element={<CertificateSettingsPage />} />
+                <Route path="utilisateurs" element={<TabbedPage eyebrowKey="navSectionAdministration" titleKey="navUsersRoles" title="Utilisateurs & rôles" tabs={USERS_TABS} />}>
+                  <Route index element={<RoleManagementPage maintenance="hide" />} />
+                  <Route path="inviter" element={<InvitationAdminPage />} />
+                </Route>
+                <Route path="reglages" element={<TabbedPage eyebrowKey="navSectionAdministration" titleKey="navSettings" title="Réglages" tabs={SETTINGS_TABS} />}>
+                  <Route index element={<CertificateSettingsPage />} />
+                  <Route path="portail-athletes" element={<AthletePortalSettingsPage />} />
+                  <Route path="maintenance" element={<MaintenancePage />} />
+                </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "budget"]} />}>
                 <Route path="budget" element={<BudgetTrackingPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
-                <Route path="benevoles" element={<VolunteersPage />} />
+                <Route path="candidatures" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navApplications" title="Candidatures" tabs={APPLICATIONS_TABS} />}>
+                  <Route index element={<VolunteersPage key="to-process" view="meeting" initialStatusFilter="Candidature reçue" />} />
+                  <Route path="tous" element={<VolunteersPage key="all" view="meeting" />} />
+                  <Route path="alertes" element={<VolunteersPage view="alerts" />} />
+                </Route>
+                <Route path="equipes" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navTeamsAssignments" title="Équipes & affectations" tabs={TEAMS_TABS} />}>
+                  <Route index element={<TeamsPage view="configuration" />} />
+                  <Route path="affectations" element={<VolunteerAssignmentsPage />} />
+                  <Route path="programme-dimanche" element={<MeetingDayProgrammePage />} />
+                  <Route path="recapitulatif" element={<TeamsPage view="overview" />} />
+                  <Route path="autour-du-meeting" element={<MeetingSupportPage />} />
+                </Route>
                 <Route path="u14/*" element={<U14Page />} />
-              </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
                 <Route path="accreditations/*" element={<AccreditationsPage />} />
-              </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
                 <Route path="documents" element={<DocumentsPage />} />
+                <Route path="exports-urgence" element={<DocumentsPage view="emergency" />} />
                 <Route path="vip" element={<VipPage />} />
-                <Route path="presse" element={<PressAdminPage />} />
-                <Route path="athlete-roadbook" element={<AthleteRoadbookAdminPage />} />
+                <Route path="roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
-                <Route path="communication/*" element={<CommunicationModule />} />
+                <Route path="calendrier/*" element={<CommunicationModule area="calendar" />} />
+                <Route path="taches" element={<CommunicationModule area="tasks" />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "kine"]} />}>
                 <Route path="kine" element={<PhysioPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "chef_equipe"]} />}>
-                <Route path="equipe" element={<TeamPage />} />
+                <Route path="mon-equipe" element={<TeamPage />} />
                 <Route path="presences" element={<PresencePage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "benevole", "chef_equipe"]} />}>
-                <Route path="mon-dossier-benevole" element={<VolunteerProfilePage />} />
-                <Route path="mes-affectations" element={<MyAssignmentsPage />} />
+                <Route path="mes-affectations" element={<TabbedPage eyebrowKey="navSectionMySpace" titleKey="navMyAssignments" title="Mes affectations" tabs={MY_ASSIGNMENTS_TABS} />}>
+                  <Route index element={<MyAssignmentsPage />} />
+                  <Route path="mon-dossier" element={<VolunteerProfilePage />} />
+                </Route>
                 <Route path="mes-documents" element={<MyDocumentsPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "parent_u14"]} />}>
@@ -562,49 +702,62 @@ export default function App() {
               <Route element={<RequireRouteAccess allowedRoles={["admin", "athlete_preprogram"]} />}>
                 <Route path="mon-inscription" element={<MyNationalRacePage />} />
               </Route>
-              <Route path="profil" element={<ProfilePage />} />
+              <Route path="presse" element={<TabbedPage eyebrowKey="navSectionCommunication" titleKey="navPress" title="Presse" tabs={PRESS_TABS} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
+                  <Route index element={<PressAdminPage view="requests" />} />
+                  <Route path="diffusion" element={<PressAdminPage view="mailing" />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
+                  <Route path="communiques" element={<WebsitePressPage />} />
+                </Route>
+              </Route>
+              <Route path="partenaires" element={<TabbedPage eyebrowKey="navSectionCommunication" titleKey="navPartners" title="Partenaires" tabs={PARTNERS_TABS} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
+                  <Route index element={<WebsiteSponsorsPage />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
+                  <Route path="contreparties/*" element={<CommunicationModule area="partners" />} />
+                </Route>
+              </Route>
+              <Route path="edition" element={<EditionPage />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
+                  <Route index element={<WebsiteEditionPage section="info" />} />
+                  <Route path="programme" element={<WebsiteEditionPage section="schedule" />} />
+                  <Route path="disciplines" element={<WebsiteEditionPage section="disciplines" />} />
+                  <Route path="liens" element={<WebsiteEditionPage section="links" />} />
+                </Route>
+                <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
+                  <Route path="changer" element={<EditionSettingsPage />} />
+                </Route>
+              </Route>
+              <Route path="mon-compte" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
-              <Route path="athlete-portal">
-                <Route index element={<Navigate replace to="athletes" />} />
+              <Route path="athletes" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navEntries" title="Engagés" tabs={ENTRIES_TABS} />}>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
-                  <Route path="athletes" element={<AthletesListPage />} />
+                  <Route index element={<AthletesListPage />} />
                 </Route>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
                   <Route path="import" element={<AthleteImportPage />} />
                 </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["admin"]} />}>
-                  <Route path="settings" element={<AthletePortalSettingsPage />} />
-                </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["admin", "chef_transport_athletes"]} />}>
-                  <Route path="transport" element={<AthleteTransportChiefPage />} />
-                </Route>
-                <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
-                  <Route path="mes-transport" element={<AthleteTransportVolunteerPage />} />
-                </Route>
-                <Route path="registry" element={<Navigate replace to="/app/statistics/registry" />} />
-                <Route path="history" element={<Navigate replace to="/app/statistics/results" />} />
-                <Route path="records" element={<Navigate replace to="/app/statistics/records" />} />
-                <Route path="winners" element={<Navigate replace to="/app/statistics/winners" />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "chef_transport_athletes"]} />}>
+                <Route path="transport" element={<AthleteTransportChiefPage />} />
+              </Route>
+              <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
+                <Route path="mes-transports" element={<AthleteTransportVolunteerPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
-                <Route path="statistics">
-                  <Route index element={<Navigate replace to="results" />} />
-                  <Route path="registry" element={<AthleteRegistryPage />} />
-                  <Route path="results" element={<MeetingHistoryPage />} />
+                <Route path="resultats" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navResultsRecords" title="Résultats & records" tabs={RESULTS_TABS} />}>
+                  <Route index element={<MeetingHistoryPage maintenance="hide" />} />
                   <Route path="records" element={<MeetingRecordsPage />} />
-                  <Route path="winners" element={<MeetingWinnersPage />} />
+                  <Route path="hall-of-winners" element={<MeetingWinnersPage />} />
+                  <Route path="base-athletes" element={<AthleteRegistryPage maintenance="hide" />} />
                 </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
-                <Route path="website">
-                <Route index element={<WebsiteDashboardPage />} />
-                <Route path="edition" element={<WebsiteEditionPage />} />
-                <Route path="emagazine" element={<WebsiteEmagazinePage />} />
-                <Route path="links" element={<WebsiteLinksPage />} />
-                <Route path="news" element={<WebsiteNewsPage />} />
-                  <Route path="sponsors" element={<WebsiteSponsorsPage />} />
-                  <Route path="press" element={<WebsitePressPage />} />
-                </Route>
+                <Route path="actualites" element={<WebsiteNewsPage />} />
+                <Route path="e-magazine" element={<WebsiteEmagazinePage />} />
+                <Route path="page-liens" element={<WebsiteLinksPage />} />
               </Route>
             </Route>
           </Route>

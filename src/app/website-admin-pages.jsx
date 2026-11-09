@@ -1063,42 +1063,42 @@ export function WebsiteDashboardPage({ Panel }) {
 
   const sections = [
     {
-      to: "/app/website/edition",
+      to: "/app/edition",
       icon: "📅",
       title: "Édition courante",
       desc: "Date, lieu, liens live, disciplines, timetable",
       cta: "Configurer l'édition",
     },
     {
-      to: "/app/website/emagazine",
+      to: "/app/e-magazine",
       icon: "📖",
       title: "E-magazine",
       desc: "Welcome page, highlights, partner ads, startlists",
       cta: "Configure magazine",
     },
     {
-      to: "/app/website/links",
+      to: "/app/page-liens",
       icon: "🔗",
       title: "Page liens (QR)",
       desc: "Liens grand public derrière le QR code : photos, billets, accès, réseaux",
       cta: "Configurer la page",
     },
     {
-      to: "/app/website/news",
+      to: "/app/actualites",
       icon: "📰",
       title: "News",
       desc: `${publishedNews} published, ${draftNews} draft`,
       cta: "Manage news",
     },
     {
-      to: "/app/website/sponsors",
+      to: "/app/partenaires",
       icon: "🤝",
       title: "Partners & Sponsors",
       desc: `${activeSponsors} active sponsor${activeSponsors !== 1 ? "s" : ""}`,
       cta: "Manage partners",
     },
     {
-      to: "/app/website/press",
+      to: "/app/presse/communiques",
       icon: "📄",
       title: "Press Releases",
       desc: `${publishedReleases} published`,
@@ -1161,7 +1161,21 @@ const FIELD_EVENTS = new Set(["High Jump", "Pole Vault", "Long Jump", "Triple Ju
 
 const ROUND_OPTIONS = ["Final", "Final A", "Final B", "Final 1", "Final 2", "Heats", "Heats combinées", "Semi-Final"];
 
-export function WebsiteEditionPage({ Panel }) {
+// Onglets de la page Édition (/app/edition/...) : chaque onglet n'affiche
+// que sa partie. Sans section, toute la configuration est affichée.
+const EDITION_SECTION_TITLES = {
+  info: ["Infos & lieu", "Date, lieu et chiffres affichés sur le site, l'e-magazine et le roadbook"],
+  schedule: ["Programme horaire", "Déroulé public du pré-programme et timetable du meeting"],
+  disciplines: ["Disciplines & prize money", "Grilles de prize money et disciplines au programme"],
+  links: ["Liens (live, SELTEC)", "Streaming, résultats live et lien SELTEC des courses nationales"],
+};
+
+export function WebsiteEditionPage({ Panel, section }) {
+  const show = (part) => !section || section === part;
+  const [sectionTitle, sectionSubtitle] = EDITION_SECTION_TITLES[section] || [
+    "Édition courante — Configuration site",
+    "Date, lieu, liens live, disciplines et timetable affichés sur le site public",
+  ];
   const { editions, loading: editionsLoading } = useMeetingEditions();
   const { siteEditionYear } = useSiteEditionYear();
 
@@ -1351,7 +1365,7 @@ export function WebsiteEditionPage({ Panel }) {
   const inp = { padding: "6px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: "0.8rem", fontFamily: "inherit" };
 
   return (
-    <Panel title="Édition courante — Configuration site" subtitle="Date, lieu, liens live, disciplines et timetable affichés sur le site public">
+    <Panel title={sectionTitle} subtitle={sectionSubtitle}>
       {/* Edition selector */}
       <div style={{ marginBottom: 24 }}>
         <label style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#546770", display: "block", marginBottom: 8 }}>
@@ -1394,6 +1408,7 @@ export function WebsiteEditionPage({ Panel }) {
         <div style={{ display: "grid", gap: 24 }}>
 
           {/* ── Infos de base ── */}
+          {show("info") ? (
           <div style={{ padding: "16px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
             <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#374151", marginBottom: 14 }}>Infos de base</div>
             <div style={{ fontSize: "0.78rem", color: "#6b7280", marginBottom: 12 }}>
@@ -1475,8 +1490,10 @@ export function WebsiteEditionPage({ Panel }) {
               {infoSaving ? "…" : "Sauvegarder"}
             </button>
           </div>
+          ) : null}
 
           {/* ── Liens Live ── */}
+          {show("links") ? (
           <div style={{ padding: "16px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#374151" }}>Liens Live — site public</div>
 
@@ -1627,15 +1644,19 @@ export function WebsiteEditionPage({ Panel }) {
               </div>
             </div>
           </div>
+          ) : null}
 
           {/* ── Pré-programme : déroulé public ── */}
+          {show("schedule") ? (
           <PreprogrammeScheduleEditor
             key={effectiveYear}
             schedule={selectedEdition.preprogrammeSchedule}
             onSave={(lines) => updateEdition(effectiveYear, { preprogrammeSchedule: lines })}
           />
 
+          ) : null}
           {/* ── Disciplines ── */}
+          {show("disciplines") ? (
           <div style={{ padding: "16px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
             <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#374151", marginBottom: 4 }}>
               Prize money systems
@@ -1768,8 +1789,10 @@ export function WebsiteEditionPage({ Panel }) {
               </table>
             </div>
           </div>
+          ) : null}
 
           {/* ── Timetable ── */}
+          {show("schedule") ? (
           <div style={{ padding: "16px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
             {/* Header + status toggle */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
@@ -2039,6 +2062,7 @@ export function WebsiteEditionPage({ Panel }) {
               )}
             </div>
           </div>
+          ) : null}
 
         </div>
       )}

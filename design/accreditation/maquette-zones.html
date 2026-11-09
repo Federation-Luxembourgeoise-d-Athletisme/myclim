@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Zones d'accès — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Zones d'accès : qui entre où (par sous-rôle), et les points de contrôle qui en découlent. */
+  :root { --ink: #0b1b2b; --muted: #4a5d6c; --dim: #8a9aa7; --line: #e3e9ee; --surface: #eef2f5; --navy: #233f8f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Barlow, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--surface); }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+  header h1 { margin: 0; font: 800 24px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+  .seg { display: inline-flex; background: var(--surface); border-radius: 999px; padding: 3px; }
+  .seg button { border: 0; background: transparent; border-radius: 999px; padding: 8px 16px; font: 700 14px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  main { padding: 18px 24px 60px; }
+  .note { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 980px; line-height: 1.45; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+  h2 { font: 800 17px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
+
+  /* Liste des zones (modifiable) */
+  .zones-edit { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; margin-bottom: 16px; align-items: center; }
+  .zones-edit label { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border-radius: 8px; padding: 4px 6px 4px 4px; }
+  .zones-edit i { font: 800 15px/1 "Barlow Condensed", Arial, sans-serif; font-style: normal; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; background: var(--ink); color: #fff; }
+  .zones-edit input { font: 600 14px Barlow, Arial, sans-serif; border: 1px solid transparent; background: transparent; padding: 4px 6px; border-radius: 6px; width: 130px; }
+  .zones-edit input:focus { border-color: #a9d6f0; background: #fff; outline: none; }
+  .zones-edit button { border: 1px dashed #b9c5ce; background: #fff; border-radius: 8px; padding: 7px 12px; font: 700 13px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+
+  /* Matrice rôles x zones */
+  .matrix { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: center; }
+  th { font: 700 12px/1.15 Barlow, Arial, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; background: #fafbfc; position: sticky; top: 0; }
+  th b { display: block; font: 800 17px/1 "Barlow Condensed", Arial, sans-serif; color: var(--ink); }
+  td:first-child, th:first-child { text-align: left; }
+  tr.cat td { background: #f6f8fa; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
+  tr.cat .tag { display: inline-block; color: #fff; padding: 4px 9px; border-radius: 5px; }
+  tr.cat small { font: 600 12px Barlow, Arial, sans-serif; color: var(--dim); text-transform: none; letter-spacing: 0; margin-left: 8px; }
+  td.role { font-weight: 600; padding-left: 22px; }
+  .cell { width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid #d4dce2; background: #fff; cursor: pointer; display: inline-grid; place-items: center; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; color: transparent; }
+  .cell.on { color: #fff; border-color: transparent; }
+  .cell:hover { border-color: #9aa8b3; }
+  .printed { font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; letter-spacing: .08em; white-space: nowrap; }
+  .printed.all { font-size: 19px; }
+  .printed.none { color: var(--dim); font-family: Barlow, Arial, sans-serif; font-weight: 600; font-size: 12.5px; letter-spacing: 0; }
+  .bulk { font: 600 11.5px Barlow, Arial, sans-serif; color: var(--dim); }
+  .bulk button { border: 0; background: none; color: var(--muted); font: 700 11.5px Barlow, Arial, sans-serif; cursor: pointer; padding: 0 3px; text-decoration: underline; }
+
+  /* Points de contrôle */
+  .cp-layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; }
+  .cp-list { display: grid; gap: 10px; }
+  .cp { padding: 12px 14px; display: grid; grid-template-columns: 54px 1fr; gap: 12px; cursor: pointer; border: 2px solid transparent; }
+  .cp.sel { border-color: var(--navy); }
+  .cp .letter { width: 54px; height: 54px; border-radius: 10px; background: var(--navy); color: #fff; display: grid; place-items: center; font: 800 34px/1 "Barlow Condensed", Arial, sans-serif; }
+  .cp input[type=text] { font: 700 15px Barlow, Arial, sans-serif; border: 1px solid transparent; padding: 3px 6px; margin-left: -6px; border-radius: 6px; width: 100%; }
+  .cp input[type=text]:focus { border-color: #a9d6f0; outline: none; }
+  .cp .guards { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; font-size: 12.5px; color: var(--muted); align-items: center; }
+  .cp .guards label { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); padding: 3px 8px; border-radius: 999px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  .cp .who { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cp .who span { font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 999px; color: #fff; }
+
+  /* Affiche A4 du point de contrôle (format réduit à l'écran) */
+  .poster { width: 210mm; height: 297mm; background: #fff; box-shadow: 0 2mm 8mm rgba(10, 30, 50, .15); padding: 12mm; display: flex; flex-direction: column; gap: 7mm; zoom: .62; }
+  .poster .top { display: flex; align-items: stretch; background: var(--navy); color: #fff; border-radius: 4mm; overflow: hidden; }
+  .poster .top .zl { flex: 1; padding: 7mm 9mm; }
+  .poster .top .zl small { display: block; font: 700 12pt/1 Barlow, Arial, sans-serif; letter-spacing: .14em; text-transform: uppercase; opacity: .8; margin-bottom: 3mm; }
+  .poster .top .zl div { font: 800 21pt/1.25 "Barlow Condensed", Arial, sans-serif; }
+  .poster .top .big { width: 70mm; display: grid; place-items: center; font: 800 150pt/1 "Barlow Condensed", Arial, sans-serif; background: rgba(255,255,255,.08); }
+  .poster .title { font: 800 26pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; color: var(--navy); }
+  .poster .title span { color: var(--muted); font-weight: 600; font-size: 17pt; text-transform: none; letter-spacing: 0; display: block; margin-top: 2mm; }
+  .poster .allowed { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5mm 8mm; align-content: start; }
+  .poster .grp { display: grid; grid-template-columns: 9mm 1fr; gap: 3.5mm; align-items: start; break-inside: avoid; }
+  .poster .grp i { width: 9mm; height: 20mm; border-radius: 1.5mm; display: block; }
+  .poster .grp b { display: block; font: 800 20pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  .poster .grp span { display: block; font: 600 12.5pt/1.3 Barlow, Arial, sans-serif; color: var(--muted); margin-top: 1mm; }
+  .poster .foot { font: 600 11pt/1.4 Barlow, Arial, sans-serif; color: var(--muted); border-top: .4mm solid var(--line); padding-top: 4mm; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Zones d&apos;accès · maquette</h1>
+    <p>Les zones de chaque sous-rôle décident de ce qui s&apos;imprime sur le badge et de qui passe à chaque point de contrôle.</p>
+  </div>
+  <div class="seg" id="tabs">
+    <button class="on" data-tab="matrix">Accès par rôle</button>
+    <button data-tab="cps">Points de contrôle</button>
+  </div>
+</header>
+
+<main>
+  <section id="tab-matrix">
+    <p class="note">Clique sur une case pour donner ou retirer une zone. Les accès de départ viennent des badges 2026. La dernière colonne montre ce qui s&apos;imprime au verso du badge (∞ = toutes les zones). Les noms des zones se modifient directement ci-dessous.</p>
+    <div class="card zones-edit" id="zones-edit"></div>
+    <div class="card matrix"><table id="matrix"></table></div>
+  </section>
+
+  <section id="tab-cps" hidden>
+    <p class="note">Pour chaque point de contrôle, coche la ou les zones qu&apos;il garde. La liste des personnes autorisées se calcule toute seule à partir des accès par rôle, rangée par couleur de badge : le contrôleur regarde la bande de couleur, puis le sous-rôle. Les emplacements et zones de départ sont une proposition à valider.</p>
+    <div class="cp-layout">
+      <div class="cp-list" id="cp-list"></div>
+      <div><h2>Affiche du point sélectionné (A4)</h2><div class="poster" id="poster"></div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const CATEGORIES = {
+    Organisation: "#e30613", Athlete: "#0f8a5f", Coach: "#f07c00", Judge: "#0a2540", Press: "#5b2bb5",
+    Photographer: "#9157e6", Volunteer: "#27a9e1", Technical: "#4a5056", "To classify": "#9aa8b3",
+  };
+  const ALL = "all";
+  // Accès des badges 2026, rangés dans les catégories 2027 (la catégorie « To classify » reste à trancher).
+  const ROLES = [
+    ["Organisation", "Organisation", ALL], ["Organisation", "FLA Executive Board", ALL], ["Organisation", "Ball-crew manager", ALL],
+    ["Organisation", "Tribune management", []], ["Organisation", "Lunex supervisor", [6]],
+    ["Athlete", "Athlete", [1, 2, 5, 6]], ["Athlete", "Special Olympics", [1, 2, 5]], ["Athlete", "Business race athlete", [1, 5, 6]],
+    ["Athlete", "Influencer race guests", [1, 5, 6]], ["Athlete", "U12/U14 team", [1]],
+    ["Coach", "Coach", [2, 3]], ["Coach", "Special Olympics coach", [2, 3]], ["Coach", "U12/U14 coach", [1]],
+    ["Judge", "Judges", [1, 2, 4, 5]],
+    ["Press", "Press", [5]], ["Press", "Press media", [5]], ["Press", "Young reporter", []],
+    ["Photographer", "Photographer", [1, 5]], ["Photographer", "Official photographer", ALL], ["Photographer", "Cameraman RTL", [5]],
+    ["Volunteer", "Hurdles team", [1]], ["Volunteer", "Block-start team", [1]], ["Volunteer", "Ball crew", [1]],
+    ["Volunteer", "In-field assistance", [1]], ["Volunteer", "Cheerleaders", [1]], ["Volunteer", "Entrance", []],
+    ["Volunteer", "CAB bar", []], ["Volunteer", "Animation team", []], ["Volunteer", "Volunteer VIP", [6]],
+    ["Technical", "Seltec", ALL], ["Technical", "TV (Apart TV)", [1, 3, 5, 6]], ["Technical", "Athlete presentation", [1]],
+    ["To classify", "Medical", ALL], ["To classify", "ALAD", ALL], ["To classify", "ALAD chaperon", ALL], ["To classify", "Physio", [1, 2, 5]],
+  ];
+  const zones = ["Infield", "Warm-up", "Coaching Zone", "Judges Room", "Mixed Zone", "VIP Zone"];
+  const roles = ROLES.map(([category, name, z], i) => ({ id: i, category, name, zones: new Set(z === ALL ? zones.map((_, n) => n + 1) : z) }));
+  const checkpoints = [
+    { letter: "A", place: "Warm-up entrance (gym side)", guards: [2] },
+    { letter: "B", place: "VIP Zone entrance", guards: [6] },
+    { letter: "C", place: "Mixed Zone, entry side", guards: [5] },
+    { letter: "D", place: "Judges Room corridor", guards: [4] },
+    { letter: "E", place: "Press tribune", guards: [5] },
+    { letter: "F", place: "Infield access, athlete presentation", guards: [1] },
+  ];
+  let selectedCp = 0;
+
+  const hasAll = (role) => zones.every((_, n) => role.zones.has(n + 1));
+  const printed = (role) => {
+    if (hasAll(role)) return `<span class="printed all">∞</span>`;
+    if (!role.zones.size) return `<span class="printed none">aucune zone</span>`;
+    return `<span class="printed">${zones.map((_, n) => (role.zones.has(n + 1) ? n + 1 : "·")).join(" ")}</span>`;
+  };
+
+  function renderZonesEdit() {
+    document.getElementById("zones-edit").innerHTML = zones
+      .map((name, i) => `<label><i>${i + 1}</i><input data-zone="${i}" value="${name}" /></label>`)
+      .join("") + `<button id="add-zone">+ Ajouter une zone</button>`;
+  }
+
+  function renderMatrix() {
+    const head = `<thead><tr><th>Rôle</th>${zones.map((z, i) => `<th><b>${i + 1}</b>${z}</th>`).join("")}<th>Au verso</th></tr></thead>`;
+    const body = Object.keys(CATEGORIES).map((category) => {
+      const color = CATEGORIES[category];
+      const list = roles.filter((r) => r.category === category);
+      if (!list.length) return "";
+      const rows = list.map((r) => `<tr>
+          <td class="role">${r.name}</td>
+          ${zones.map((_, n) => `<td><span class="cell${r.zones.has(n + 1) ? " on" : ""}" data-role="${r.id}" data-zone="${n + 1}" style="${r.zones.has(n + 1) ? `background:${color}` : ""}">${n + 1}</span></td>`).join("")}
+          <td>${printed(r)}</td></tr>`).join("");
+      return `<tr class="cat"><td colspan="${zones.length + 2}"><span class="tag" style="background:${color}">${category}</span><small>${list.length} sous-rôle${list.length > 1 ? "s" : ""}</small>
+        <span class="bulk"> · toute la catégorie : <button data-bulk="${category}" data-mode="all">toutes les zones</button><button data-bulk="${category}" data-mode="none">aucune</button></span></td></tr>${rows}`;
+    }).join("");
+    document.getElementById("matrix").innerHTML = head + `<tbody>${body}</tbody>`;
+  }
+
+  const allowedFor = (cp) => roles.filter((r) => cp.guards.length && cp.guards.every((z) => r.zones.has(z)));
+
+  function renderCheckpoints() {
+    document.getElementById("cp-list").innerHTML = checkpoints.map((cp, i) => {
+      const allowed = allowedFor(cp);
+      return `<div class="card cp${i === selectedCp ? " sel" : ""}" data-cp="${i}">
+        <div class="letter">${cp.letter}</div>
+        <div>
+          <input type="text" data-place="${i}" value="${cp.place}" />
+          <div class="guards">Garde :${zones.map((z, n) => `<label><input type="checkbox" data-guard="${i}" data-zone="${n + 1}" ${cp.guards.includes(n + 1) ? "checked" : ""} />${n + 1}. ${z}</label>`).join("")}</div>
+          <div class="who">${allowed.length ? allowed.map((r) => `<span style="background:${CATEGORIES[r.category]}">${r.name}</span>`).join("") : `<em style="color:var(--dim);font-size:13px">Personne : coche au moins une zone.</em>`}</div>
+        </div></div>`;
+    }).join("");
+    renderPoster();
+  }
+
+  function renderPoster() {
+    const cp = checkpoints[selectedCp];
+    const allowed = allowedFor(cp);
+    const groups = Object.keys(CATEGORIES)
+      .map((category) => [category, allowed.filter((r) => r.category === category)])
+      .filter(([, list]) => list.length);
+    document.getElementById("poster").innerHTML = `
+      <div class="top">
+        <div class="zl"><small>Access zones</small>${zones.map((z, n) => `<div style="opacity:${cp.guards.includes(n + 1) ? 1 : .45}">${n + 1} · ${z}</div>`).join("")}</div>
+        <div class="big">${cp.letter}</div>
+      </div>
+      <div class="title">Control point ${cp.letter} · zone ${cp.guards.join(" + ") || "—"}<span>${cp.place}</span></div>
+      <div class="allowed">${groups.map(([category, list]) => {
+        const everyone = list.length === roles.filter((r) => r.category === category).length;
+        return `<div class="grp"><i style="background:${CATEGORIES[category]}"></i><div><b>${category}</b><span>${everyone ? "All" : list.map((r) => r.name).join(" · ")}</span></div></div>`;
+      }).join("")}</div>
+      <div class="foot">Check the colour band first, then the role printed on the badge, then the zone number on the back. No badge, no access.</div>`;
+  }
+
+  document.getElementById("matrix").addEventListener("click", (event) => {
+    const cell = event.target.closest(".cell");
+    const bulk = event.target.dataset.bulk;
+    if (cell) {
+      const role = roles[Number(cell.dataset.role)];
+      const zone = Number(cell.dataset.zone);
+      role.zones.has(zone) ? role.zones.delete(zone) : role.zones.add(zone);
+    } else if (bulk) {
+      roles.filter((r) => r.category === bulk).forEach((r) => {
+        r.zones = new Set(event.target.dataset.mode === "all" ? zones.map((_, n) => n + 1) : []);
+      });
+    } else return;
+    renderMatrix();
+    renderCheckpoints();
+  });
+
+  document.getElementById("zones-edit").addEventListener("input", (event) => {
+    if (event.target.dataset.zone === undefined) return;
+    zones[Number(event.target.dataset.zone)] = event.target.value;
+    renderMatrix();
+    renderCheckpoints();
+  });
+  document.getElementById("zones-edit").addEventListener("click", (event) => {
+    if (event.target.id !== "add-zone") return;
+    zones.push(`Zone ${zones.length + 1}`);
+    renderZonesEdit();
+    renderMatrix();
+    renderCheckpoints();
+  });
+
+  document.getElementById("cp-list").addEventListener("click", (event) => {
+    const card = event.target.closest(".cp");
+    if (!card) return;
+    selectedCp = Number(card.dataset.cp);
+    if (event.target.dataset.guard !== undefined) {
+      const cp = checkpoints[Number(event.target.dataset.guard)];
+      const zone = Number(event.target.dataset.zone);
+      cp.guards = event.target.checked ? [...cp.guards, zone].sort() : cp.guards.filter((z) => z !== zone);
+    }
+    if (event.target.matches("input[type=text]")) { renderPoster(); document.querySelectorAll(".cp").forEach((c, i) => c.classList.toggle("sel", i === selectedCp)); return; }
+    renderCheckpoints();
+  });
+  document.getElementById("cp-list").addEventListener("input", (event) => {
+    if (event.target.dataset.place === undefined) return;
+    checkpoints[Number(event.target.dataset.place)].place = event.target.value;
+    renderPoster();
+  });
+
+  document.getElementById("tabs").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b === button));
+    document.getElementById("tab-matrix").hidden = button.dataset.tab !== "matrix";
+    document.getElementById("tab-cps").hidden = button.dataset.tab !== "cps";
+  });
+
+  renderZonesEdit();
+  renderMatrix();
+  renderCheckpoints();
+</script>
+</body>
+</html>

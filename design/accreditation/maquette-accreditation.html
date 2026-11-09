@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Accréditations 2027 — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Piste B retenue : bande verticale = catégorie. Format réel 100 x 143.5 mm (4 par A4). */
+  :root { --ink: #0b1b2b; --muted: #4a5d6c; --dim: #8a9aa7; --line: #e3e9ee; --surface: #eef2f5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Barlow, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--surface); }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 22px 32px; display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+  header h1 { margin: 0; font: 800 26px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+  .toggles button { border: 1px solid rgba(0,0,0,.16); background: #fff; border-radius: 999px; padding: 8px 16px; font: 600 14px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+  .toggles button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  main { padding: 28px 32px 60px; }
+  h2 { font: 800 19px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px; }
+  .note { color: var(--muted); font-size: 14px; margin: 0 0 18px; max-width: 900px; }
+  section { margin-bottom: 44px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 24px; }
+  .cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
+  .cap b { color: var(--ink); }
+  .legend-cats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .legend-cats span { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px 6px 6px; font-size: 13px; font-weight: 600; }
+  .legend-cats i { width: 18px; height: 18px; border-radius: 50%; display: block; }
+
+  /* Coins droits (coupe au massicot). 100 x 143.5 mm = 2 x 2 sur A4 dans la zone imprimable (5 mm de marge). */
+  .badge { width: 100mm; height: 143.5mm; overflow: hidden; background: #fff; display: flex; position: relative; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
+  /* Trou du porte-badge, en haut au centre : rien d'important dessous. Repère de maquette, non imprimé. */
+  .hole { position: absolute; top: 4mm; left: 50%; width: 14mm; height: 3.2mm; margin-left: -7mm; border-radius: 2mm; border: .3mm dashed #9aa8b3; background: rgba(238, 242, 245, .7); }
+  body.print .hole { display: none; }
+  .strip { width: 17mm; flex: none; color: #fff; display: grid; place-items: center; }
+  .strip span { writing-mode: vertical-rl; transform: rotate(180deg); font: 800 32pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .top { padding: 11mm 4mm 0; display: grid; justify-items: center; gap: 2.5mm; }
+  .top .wa { height: 12mm; }
+  .top .logo { width: 56mm; height: 21mm; object-fit: contain; }
+  .who { padding: 6mm 4mm 0; }
+  .role { font: 700 12pt/1.1 Barlow, Arial, sans-serif; text-transform: uppercase; letter-spacing: .06em; }
+  .last { font: 800 38pt/.9 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; margin-top: 2mm; overflow-wrap: anywhere; }
+  .first { font: 600 22pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: var(--muted); }
+  /* Recto : QR codes utiles à la personne, pas d'accès (ils sont au verso) */
+  .qrs { margin: auto 4mm 3mm; display: flex; justify-content: flex-start; gap: 1.5mm; }
+  .qrs .qr { width: 15.5mm; }
+  .qr { text-align: center; font-size: 4.8pt; line-height: 1.1; color: var(--muted); }
+  .qr img { width: 100%; aspect-ratio: 1; display: block; margin-bottom: .7mm; border: .3mm solid var(--line); border-radius: 1.2mm; padding: .6mm; background: #fff; }
+  .qr b { display: block; font-size: 5.6pt; color: var(--ink); }
+  .partners { background: #fff; padding: 2mm 3mm 2.5mm; border-top: .3mm solid var(--line); }
+  .partners small { display: block; text-align: center; font-size: 5pt; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 1.4mm; }
+  .partner-logos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6mm 2.5mm; align-items: center; }
+  .partner-logos img { width: 100%; height: 8mm; object-fit: contain; display: block; }
+  .partner-logos img.zoom { transform: scale(1.9); }
+
+  /* Verso : même bande catégorie, pour retrouver le badge retourné */
+  .back .main { padding: 11mm 4mm 4mm; gap: 2.5mm; }
+  .back .h { display: flex; justify-content: space-between; align-items: baseline; border-bottom: .3mm solid #dfe6ec; padding-bottom: 2mm; }
+  .back .h b { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  .back .h span { font-size: 5.6pt; color: #6c7f8d; text-transform: uppercase; letter-spacing: .12em; }
+  /* Verso : uniquement les zones autorisées, chiffre + nom */
+  .back .allowed { display: grid; gap: 1.5mm; }
+  .back .allowed div { display: flex; align-items: center; gap: 2.2mm; font: 700 11pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+  .back .allowed i { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; font-style: normal; width: 7.5mm; height: 7.5mm; border-radius: 1.4mm; display: grid; place-items: center; flex: none; color: #fff; }
+  .back .allowed small { font: 600 7pt/1 Barlow, Arial, sans-serif; text-transform: none; letter-spacing: 0; color: #6c7f8d; }
+  .back .allowed.compact { grid-template-columns: 1fr 1fr; }
+  .back .allowed.compact div { font-size: 9pt; }
+  .back .allowed.compact i { width: 6mm; height: 6mm; font-size: 11pt; }
+  .back .no-zone { padding: 2.5mm; border-radius: 2mm; background: #f2f5f8; font-size: 7.5pt; line-height: 1.35; color: var(--muted); }
+  .back .no-zone b { display: block; font: 800 12pt/1.1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: var(--ink); margin-bottom: .6mm; }
+  .back .plan { flex: 1; min-height: 0; position: relative; }
+  .plan-box { position: absolute; inset: 0; margin: auto; height: 100%; max-width: 100%; aspect-ratio: 1020 / 1440; }
+  .plan-base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .pt { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
+  .pt i { font-style: normal; display: grid; place-items: center; }
+  .pz { width: 4.6mm; height: 4.6mm; border-radius: 50%; background: #fff; border: .35mm solid #c3ccd3; color: #a9b5be; font: 800 8pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .pz.on { color: #fff; border: .45mm solid #fff; box-shadow: 0 0 0 .2mm rgba(0,0,0,.25); }
+  .pc { width: 3.6mm; height: 3.6mm; border-radius: .8mm; background: #0a2540; color: #fff; font: 800 6.5pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .pm { padding: .5mm 1.4mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Barlow, Arial, sans-serif; }
+  /* À l'étage : contour violet en pointillés, comme dans l'éditeur de plans */
+
+  /* Fond du recto (au choix dans l'en-tête) : motif très léger dans la couleur de la catégorie */
+  .main { position: relative; z-index: 1; }
+  .bgs { position: absolute; top: 0; right: 0; bottom: 0; left: 17mm; overflow: hidden; pointer-events: none; z-index: 0; }
+  .vip .bgs { left: 11mm; }
+  .bgs svg { position: absolute; display: none; }
+  body[data-bg="lion"] .bg-lion, body[data-bg="tete"] .bg-tete, body[data-bg="griffes"] .bg-griffes, body[data-bg="piste"] .bg-piste { display: block; }
+  /* Tête de lion sans rond, descendue sous le logo : elle passe derrière le nom et les QR codes */
+  .bg-tete { width: 60mm; right: -10mm; top: 58mm; opacity: .1; }
+  .vip .bg-tete { width: 38mm; right: -6mm; top: 14mm; }
+  .bg-lion { width: 98mm; right: -30mm; top: 46mm; opacity: .09; }
+  .vip .bg-lion { width: 62mm; right: -14mm; top: 4mm; }
+  .bg-griffes { width: 52mm; right: -4mm; top: 34mm; opacity: .12; }
+  .vip .bg-griffes { width: 34mm; right: 4mm; top: 0; }
+  .bg-piste { width: 120mm; right: -42mm; top: 30mm; opacity: .13; }
+  .vip .bg-piste { width: 80mm; right: -26mm; top: -6mm; }
+  .back .rules { font-size: 5pt; color: #6c7f8d; line-height: 1.3; border-top: .3mm solid #dfe6ec; padding-top: 1.5mm; }
+
+  /* Vue feuille A4 : 2 x 2 badges, comme l'impression de l'app */
+  /* Badges bord à bord : une seule coupe entre deux badges. Marge de 5 mm partout, non imprimée. */
+  .sheet { width: 210mm; height: 297mm; background: #fff; padding: 5mm; display: grid; grid-template-columns: repeat(2, 100mm); grid-auto-rows: 143.5mm; gap: 0; align-content: start; position: relative; box-shadow: 0 2mm 8mm rgba(10, 30, 50, .15); }
+  .sheet .badge, .sheet .vip { box-shadow: none; outline: .2mm solid #9aa8b3; outline-offset: -.1mm; }
+  .sheet::before { content: ""; position: absolute; inset: 0; border: 5mm solid rgba(227, 6, 19, .06); pointer-events: none; }
+  .sheets { display: flex; flex-wrap: wrap; gap: 28px; }
+
+  /* VIP : format réduit paysage 90 x 65 mm, recto seul, 8 par A4 */
+  .vip { width: 100mm; height: 71.75mm; overflow: hidden; background: #fff; display: flex; position: relative; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
+  .vip .strip { width: 11mm; }
+  .vip .strip span { font-size: 24pt; letter-spacing: .12em; }
+  .vip .main { padding: 8.5mm 3mm 0 3.5mm; }
+  .vip .hole { top: 2.6mm; }
+  .vip .head { display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
+  .vip .head .logo { height: 10.5mm; width: auto; }
+  .vip .head .wa { height: 9mm; }
+  .vip .event { font-size: 4.8pt; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-top: 1.4mm; }
+  .vip .body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; padding: 1.8mm 0 1.6mm; }
+  .vip .who { padding: 0; min-width: 0; }
+  .vip .company { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
+  .vip .last { font-size: 28pt; margin-top: 1mm; }
+  .vip .first { font-size: 16pt; }
+  .vip .qrcol { display: flex; gap: 2.5mm; }
+  .vip .qr { width: 13mm; }
+  .vip .qr img { width: 10.5mm; margin: 0 auto .4mm; padding: .4mm; }
+  .vip .qr b { font-size: 4.4pt; }
+  .vip .partners { margin: 0 -3mm 0 -3.5mm; padding: 1.4mm 3mm 1.6mm; }
+  .vip .partner-logos { grid-template-columns: repeat(6, 1fr); gap: 2mm; }
+  .vip .partner-logos img { height: 5.5mm; }
+  .sheet.vip-sheet { grid-auto-rows: 71.75mm; }
+  .subroles { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 22px; max-width: 1000px; }
+  .subrole-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .subrole-row:last-child { border-bottom: 0; }
+  .subrole-row b { color: #fff; border-radius: 6px; padding: 4px 8px; font: 800 13px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .03em; text-align: center; }
+  .subrole-row b.unsorted { background: #fff; color: var(--muted); border: 1px dashed #b9c5ce; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body data-bg="tete">
+<header>
+  <div>
+    <h1>Accréditations 2027 · Piste B</h1>
+    <p>Recto : catégorie, nom, QR codes · Verso : zones autorisées et plan</p>
+  </div>
+  <div class="toggles" id="bg">
+    <button data-bg="none">Sans fond</button>
+    <button class="on" data-bg="tete">Tête de lion</button>
+    <button data-bg="lion">Lion (rond)</button>
+    <button data-bg="griffes">Griffes</button>
+    <button data-bg="piste">Lignes de piste</button>
+  </div>
+  <div class="toggles" id="view">
+    <button class="on" data-view="badges">Tous les badges</button>
+    <button data-view="sheet">Feuille A4</button>
+  </div>
+</header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Lion du meeting, repris du logo officiel (assets/logos/meeting-principal.svg) -->
+  <symbol id="lion" viewBox="0 0 443.44 443.44"><g id="lion-paths"></g></symbol>
+  <!-- Tête de lion seule : le disque du logo moins les deux demi-lunes de couleur, sans l'anneau -->
+  <symbol id="tete" viewBox="40 0 320 443.44">
+    <mask id="tete-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="443.44" height="443.44">
+      <circle cx="221.72" cy="221.72" r="210.3" fill="#fff" />
+      <g id="tete-cut" fill="#000"></g>
+      <g id="tete-keep" fill="#fff"></g>
+    </mask>
+    <rect width="443.44" height="443.44" fill="currentColor" mask="url(#tete-mask)" />
+  </symbol>
+  <symbol id="griffes" viewBox="0 0 100 140">
+    <path d="M78 4 C70 42 52 86 20 136 L27 138 C60 90 78 46 84 6 Z" />
+    <path d="M94 18 C86 54 70 94 42 138 L49 139 C78 96 94 58 99 20 Z" />
+    <path d="M62 0 C54 30 40 66 14 110 L20 112 C47 70 62 34 67 2 Z" />
+  </symbol>
+  <symbol id="piste" viewBox="0 0 120 120">
+    <g fill="none" stroke="currentColor" stroke-width="1.6">
+      <ellipse cx="80" cy="80" rx="74" ry="56" /><ellipse cx="80" cy="80" rx="64" ry="47" />
+      <ellipse cx="80" cy="80" rx="54" ry="38" /><ellipse cx="80" cy="80" rx="44" ry="29" />
+    </g>
+  </symbol>
+</svg>
+<main>
+  <div id="badges">
+    <section>
+      <h2>Les catégories</h2>
+      <p class="note">Une couleur par catégorie, visible de loin. Les QR codes changent selon la catégorie (réglage existant dans l&apos;app). Le logo du meeting garde la règle actuelle de l'app : couleurs normales = toutes zones, bleu = avec Infield, rouge = sans Infield, noir = aucune zone.</p>
+      <div class="legend-cats" id="cat-legend"></div>
+      <div class="subroles" id="subroles"></div>
+      <div class="grid" id="fronts"></div>
+    </section>
+    <section>
+      <h2>Versos</h2>
+      <p class="note">Le verso reprend la bande de couleur, pour qu&apos;on reconnaisse la catégorie même retourné. Il ne liste que les zones autorisées, avec leur numéro et leur nom.</p>
+      <div class="grid" id="backs"></div>
+    </section>
+    <section>
+      <h2>VIP · format réduit</h2>
+      <p class="note">Comme en 2026, le badge VIP est à part : nom de l&apos;entreprise, nom de la personne, 3 QR codes (e-magazine, résultats live, contact) et partenaires. En 2027 il passe en 100 × 72 mm paysage, recto-verso identique, pour en imprimer 8 par A4 (contre 4 en A6 l&apos;an dernier). Il garde la bande dorée pour rester dans la même famille.</p>
+      <div class="grid" id="vips"></div>
+    </section>
+  </div>
+  <div id="sheet" hidden>
+    <section>
+      <h2>Feuille A4 d'impression</h2>
+      <p class="note">4 badges de 100 × 143,5 mm par feuille, bord à bord : une seule coupe droite entre deux badges, 6 coupes par feuille. La bande rose de 5 mm sur le pourtour est la marge que l&apos;imprimante n&apos;imprime pas (repère, non imprimé). Le petit rectangle en pointillés en haut de chaque badge marque le trou du porte-badge : le contenu commence en dessous.</p>
+      <div class="sheets" id="sheets"></div>
+    </section>
+    <section>
+      <h2>Feuille A4 VIP</h2>
+      <p class="note">8 badges VIP par feuille, recto-verso avec le même contenu des deux côtés. Le PDF fait 2 pages : la page 2 inverse gauche et droite sur chaque ligne, pour que chaque verso tombe derrière son recto. À imprimer en recto-verso « retourner sur le bord long ».</p>
+      <div class="sheets" id="vip-sheet"></div>
+    </section>
+  </div>
+</main>
+<script src="plan-coque-murs.js"></script>
+<script src="plan-coque.js"></script>
+<script>
+  const A = "../../src/assets/";
+  const ZONES = ["Infield", "Warm-up", "Coaching", "Judges Room", "Mixed Zone", "VIP"];
+  // Où se trouve chaque zone : le plan du verso réunit plusieurs niveaux, la liste le précise
+  const ZONE_WHERE = ["piste", "arcades", "piste", "salon VIP", "entrée piste", "galerie R+1"];
+  const CATEGORIES = {
+    Organisation: "#e30613",
+    Athlete: "#0f8a5f",
+    Coach: "#f07c00",
+    Judge: "#0a2540",
+    Press: "#5b2bb5",
+    Photographer: "#9157e6",
+    Volunteer: "#27a9e1",
+    Technical: "#4a5056",
+    VIP: "#b8912a",
+  };
+  // Une catégorie (couleur de la bande) regroupe des sous-rôles (écrits sur le badge).
+  // Proposition à partir des rôles des badges 2026, à valider.
+  const SUBROLES = {
+    Organisation: ["Organisation", "FLA Executive Board", "Ball-crew manager", "Tribune management", "Lunex supervisor"],
+    Athlete: ["Athlete", "Special Olympics", "Business race athlete", "Influencer race guests", "U12/U14 team"],
+    Coach: ["Coach", "Special Olympics coach", "U12/U14 coach"],
+    Judge: ["Judges"],
+    Press: ["Press", "Press media", "Young reporter"],
+    Photographer: ["Photographer", "Official photographer", "Cameraman RTL"],
+    Volunteer: ["Hurdles team", "Block-start team", "Ball crew", "In-field assistance", "Entrance", "CAB bar", "Cheerleaders", "Animation team", "Volunteer VIP"],
+    Technical: ["Seltec", "TV (Apart TV)", "Athlete presentation"],
+    VIP: ["VIP (small badge)"],
+  };
+  const UNSORTED_ROLES = ["Medical", "ALAD", "ALAD chaperon", "Physio"];
+  const LEVELS = {
+    all: { label: "Toutes zones", logo: "accreditation-meeting-principal.png" },
+    infield: { label: "Infield autorisé", logo: "accreditation-meeting-bleu.png" },
+    noInfield: { label: "Sans infield", logo: "accreditation-meeting-rouge.png" },
+    none: { label: "Aucune zone", logo: "accreditation-meeting-noir.png" },
+  };
+  const QR = {
+    results: ["accreditation-qr-results-live-athlete.png", "Live results", "Follow the results"],
+    roadbook: ["accreditation-qr-roadbook.png", "Roadbook", "Volunteer info"],
+    athleteRoadbook: ["accreditation-qr-roadbook-athlete.png", "Roadbook", "Meeting info"],
+    photos: ["accreditation-qr-photos.png", "Live photos", "Gallery"],
+    emag: ["accreditation-qr-emagazine-athlete.png", "E-magazine", "Stories"],
+  };
+  const PARTNERS = [
+    "fla-logo.png",
+    "accreditation-sponsor-european-athletics.svg",
+    "accreditation-sponsor-coque.png",
+    "accreditation-sponsor-ville-luxembourg.png",
+    "accreditation-sponsor-cmcm.png",
+    "accreditation-sponsor-luxembourg.png",
+  ];
+  const PEOPLE = [
+    { category: "Organisation", role: "FLA Executive Board", lastName: "Esposito", firstName: "Carmela", zones: [1, 2, 3, 4, 5, 6], qrs: ["results"] },
+    { category: "Athlete", role: "Accreditation", lastName: "", firstName: "", zones: [1, 2, 5], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
+    { category: "Coach", role: "Accreditation", lastName: "", firstName: "", zones: [2, 3], qrs: ["athleteRoadbook", "results", "photos", "emag"] },
+    { category: "Judge", role: "Referee", lastName: "Hoffmann", firstName: "Nina", zones: [1, 4], qrs: ["results"] },
+    { category: "Press", role: "Journalist · RTL", lastName: "Klein", firstName: "Sophie", zones: [5], qrs: [] },
+    { category: "Photographer", role: "Photographer · FLA", lastName: "Becker", firstName: "Tom", zones: [1, 5], qrs: [] },
+    { category: "Volunteer", role: "Hurdles team", lastName: "Muller", firstName: "Alex", zones: [1], qrs: ["results", "roadbook", "photos"] },
+    { category: "Technical", role: "Seltec", lastName: "Wagner", firstName: "Mara", zones: [1, 4, 5], qrs: ["results"] },
+  ];
+  const VIPS = [
+    { company: "CMCM", lastName: "Schmit", firstName: "Laure" },
+    { company: "Ville de Luxembourg", lastName: "Wagner", firstName: "Paul" },
+    { company: "European Athletics", lastName: "Dupont", firstName: "Claire" },
+    { company: "Coque", lastName: "Reuter", firstName: "Marc" },
+    { company: "Luxembourg for Tourism", lastName: "Kieffer", firstName: "Anne" },
+    { company: "FLA", lastName: "Weber", firstName: "Jo" },
+    { company: "CMCM", lastName: "Hansen", firstName: "Lea" },
+    { company: "Partner", lastName: "Thill", firstName: "Sven" },
+  ];
+  const VIP_QRS = [
+    [`${A}accreditation-qr-emagazine-athlete.png`, "E-magazine"],
+    [`${A}accreditation-qr-results-live-athlete.png`, "Live results"],
+    ["assets/vip-qr-contact.png", "Contact"],
+  ];
+
+  const levelOf = (z) => (z.length === ZONES.length ? "all" : !z.length ? "none" : z.includes(1) ? "infield" : "noInfield");
+  const strip = (p) => `<div class="strip" style="background:${CATEGORIES[p.category]}"><span>${p.category}</span></div>`;
+  const backgrounds = (color) => `<div class="bgs" style="color:${color}">
+      <svg class="bg-lion" fill="currentColor"><use href="#lion" /></svg>
+      <svg class="bg-tete" viewBox="40 0 320 443.44"><use href="#tete" /></svg>
+      <svg class="bg-griffes" viewBox="0 0 100 140" fill="currentColor"><use href="#griffes" /></svg>
+      <svg class="bg-piste" viewBox="0 0 120 120"><use href="#piste" /></svg>
+    </div>`;
+
+  // Même plan que l'éditeur (plan-coque.js) : plan simplifié + repères cochés « accréditations ».
+  // Les zones autorisées prennent la couleur de la catégorie, les autres restent grises.
+  const planSvg = (p) => {
+    const cat = CATEGORIES[p.category];
+    const markers = loadPlanElements().filter((el) => el.maps?.acc).map((el) => {
+      const on = el.kind === "zone" && p.zones.includes(el.num);
+      const inner = el.kind === "zone"
+        ? `<i class="pz${on ? " on" : ""}" style="${on ? `background:${cat}` : ""}">${el.num}</i>`
+        : el.kind === "ctrl" ? `<i class="pc">${el.label}</i>`
+        : `<i class="pm" style="background:${el.color}">${el.label}</i>`;
+      const { x, y } = planPos(el, true);
+      if (y < 0 || y > 100) return "";
+      return `<span class="pt${el.level === "etage" ? " up" : ""}" style="left:${x}%;top:${y}%">${inner}</span>`;
+    }).join("");
+    const base = planBaseSvg({
+      crop: true,
+      infield: p.zones.includes(1) ? `${cat}40` : "#eef1f4",
+      warmup: p.zones.includes(2) ? `${cat}40` : "#e6ebef",
+    });
+    return `<div class="plan-box">${base}${markers}</div>`;
+  };
+
+  const front = (p) => {
+    const cat = CATEGORIES[p.category];
+    const lv = LEVELS[levelOf(p.zones)];
+    const name = p.lastName
+      ? `<div class="last">${p.lastName}</div><div class="first">${p.firstName}</div>`
+      : `<div class="last">${p.category}</div>`;
+    return `<div class="badge"><div class="hole"></div>${strip(p)}${backgrounds(cat)}
+      <div class="main">
+        <div class="top"><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /><img class="logo" src="${A}${lv.logo}" alt="" /></div>
+        <div class="who"><div class="role" style="color:${cat}">${p.role}</div>${name}</div>
+        ${p.qrs.length ? `<div class="qrs">${p.qrs.map((k) => `<div class="qr"><img src="${A}${QR[k][0]}" alt="" /><b>${QR[k][1]}</b>${QR[k][2]}</div>`).join("")}</div>` : ""}
+        <div class="partners" style="${p.qrs.length ? "" : "margin-top:auto"}"><small>Partners</small>
+          <div class="partner-logos">${PARTNERS.map((f) => `<img src="${A}${f}" alt=""${/cmcm|sponsor-luxembourg/.test(f) ? ' class="zoom"' : ""} />`).join("")}</div>
+        </div>
+      </div></div>`;
+  };
+
+  const back = (p) => {
+    const cat = CATEGORIES[p.category];
+    const allowed = p.zones.map((n) => `<div><i style="background:${cat}">${n}</i><span>${ZONES[n - 1]} <small>${ZONE_WHERE[n - 1]}</small></span></div>`).join("");
+    const access = p.zones.length
+      ? `<div class="allowed${p.zones.length > 3 ? " compact" : ""}">${allowed}</div>`
+      : `<div class="no-zone"><b>No restricted zone</b>Access to public areas and your own post only.</div>`;
+    return `<div class="badge back"><div class="hole"></div>${strip(p)}
+      <div class="main">
+        <div class="h"><b>Access zones</b><span>Coque · Luxembourg</span></div>
+        ${access}
+        <div class="plan">${planSvg(p)}</div>
+        <div class="rules">Personal, non-transferable badge. Wear it visibly at all times. It may be withdrawn in case of misuse.</div>
+      </div></div>`;
+  };
+
+  const vip = (v) => `<div class="vip"><div class="hole"></div>${strip({ category: "VIP" })}${backgrounds(CATEGORIES.VIP)}
+      <div class="main">
+        <div class="head"><img class="logo" src="${A}accreditation-meeting-principal.png" alt="" /><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /></div>
+        <div class="event">CMCM Luxembourg Indoor Meeting 2027 · Coque</div>
+        <div class="body">
+          <div class="who">
+            <div class="company" style="color:${CATEGORIES.VIP}">${v.company}</div>
+            <div class="last">${v.lastName}</div><div class="first">${v.firstName}</div>
+          </div>
+          <div class="qrcol">${VIP_QRS.map(([src, title]) => `<div class="qr"><img src="${src}" alt="" /><b>${title}</b></div>`).join("")}</div>
+        </div>
+        <div class="partners"><div class="partner-logos">${PARTNERS.map((f) => `<img src="${A}${f}" alt=""${/cmcm|sponsor-luxembourg/.test(f) ? ' class="zoom"' : ""} />`).join("")}</div></div>
+      </div></div>`;
+
+  const caption = (p) => `<div class="cap"><b>${p.category}</b> · ${LEVELS[levelOf(p.zones)].label}</div>`;
+
+  document.getElementById("subroles").innerHTML = Object.entries(SUBROLES)
+    .map(([category, roles]) => `<div class="subrole-row"><b style="background:${CATEGORIES[category]}">${category}</b><span>${roles.join(" · ")}</span></div>`)
+    .join("") + `<div class="subrole-row"><b class="unsorted">À classer</b><span>${UNSORTED_ROLES.join(" · ")}</span></div>`;
+
+  document.getElementById("cat-legend").innerHTML = Object.entries(CATEGORIES)
+    .map(([name, color]) => `<span><i style="background:${color}"></i>${name}</span>`)
+    .join("");
+  document.getElementById("fronts").innerHTML = PEOPLE.map((p) => `<div>${front(p)}${caption(p)}</div>`).join("");
+  document.getElementById("backs").innerHTML = PEOPLE.map((p) => `<div>${back(p)}${caption(p)}</div>`).join("");
+
+  // Le verso d'une feuille est en miroir horizontal, pour tomber derrière le bon recto en impression recto-verso.
+  const page = PEOPLE.slice(0, 4);
+  const mirrored = [page[1], page[0], page[3], page[2]];
+  document.getElementById("sheets").innerHTML = `
+    <div><div class="sheet">${page.map(front).join("")}</div><div class="cap"><b>Recto</b></div></div>
+    <div><div class="sheet">${mirrored.map(back).join("")}</div><div class="cap"><b>Verso</b> (miroir, pour l'impression recto-verso)</div></div>`;
+
+  document.getElementById("vips").innerHTML = VIPS.slice(0, 3).map((v) => `<div>${vip(v)}</div>`).join("");
+  // Recto et verso VIP identiques. Impression recto-verso « bord long » : sur chaque ligne,
+  // gauche et droite s'inversent au verso, pour que chaque badge retombe derrière lui-même.
+  // Une case vide garde la place quand le dernier badge est seul sur sa ligne.
+  const vipBack = VIPS.flatMap((_, i) => (i % 2 ? [] : [VIPS[i + 1] ?? null, VIPS[i]]));
+  document.getElementById("vip-sheet").innerHTML = `
+    <div><div class="sheet vip-sheet">${VIPS.map(vip).join("")}</div><div class="cap"><b>Page 1 · Recto</b></div></div>
+    <div><div class="sheet vip-sheet">${vipBack.map((v) => (v ? vip(v) : "<div></div>")).join("")}</div><div class="cap"><b>Page 2 · Verso</b> (gauche/droite inversés)</div></div>`;
+
+  // Lion du logo officiel (charte graphique, version condensée). Tous les tracés dans l'ordre :
+  // le rouge et le bleu prennent la couleur de la catégorie, le blanc (lion, dents, yeux) reste blanc
+  // et recouvre la couleur en dessous, comme dans le vrai logo.
+  fetch("assets/logos/meeting-principal.svg")
+    .then((response) => response.text())
+    .then((text) => {
+      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+      document.getElementById("lion-paths").innerHTML = [...doc.querySelectorAll("path")]
+        .map((path) => `<path d="${path.getAttribute("d")}" fill="${path.classList.contains("cls-1") ? "#fff" : "currentColor"}" />`)
+        .join("");
+      // Tête de lion : on retire les tracés rouges/bleus du disque, puis on remet les petits détails blancs
+      // posés dessus (sauf le dernier tracé, qui est l'anneau autour du logo).
+      const paths = [...doc.querySelectorAll("path")];
+      const lastColored = paths.findLastIndex((path) => !path.classList.contains("cls-1"));
+      document.getElementById("tete-cut").innerHTML = paths
+        .filter((path) => !path.classList.contains("cls-1"))
+        .map((path) => `<path d="${path.getAttribute("d")}" />`).join("");
+      document.getElementById("tete-keep").innerHTML = paths
+        .slice(lastColored + 1, -1)
+        .map((path) => `<path d="${path.getAttribute("d")}" />`).join("");
+    });
+
+  document.getElementById("bg").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    document.querySelectorAll("#bg button").forEach((b) => b.classList.toggle("on", b === button));
+    document.body.dataset.bg = button.dataset.bg;
+  });
+
+  document.getElementById("view").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    document.querySelectorAll("#view button").forEach((b) => b.classList.toggle("on", b === button));
+    document.getElementById("badges").hidden = button.dataset.view !== "badges";
+    document.getElementById("sheet").hidden = button.dataset.view !== "sheet";
+  });
+</script>
+</body>
+</html>

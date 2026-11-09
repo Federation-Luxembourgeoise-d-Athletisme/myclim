@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Pistes accréditations 2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Pistes de design pour les badges 2027. Format réel : 92 x 135.5 mm (4 par A4, comme l'impression actuelle). */
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 12mm; background: #e7ecf0; font-family: Barlow, Arial, sans-serif; color: #0b1b2b; }
+  h2 { font: 800 22pt/1 "Barlow Condensed", Arial, sans-serif; margin: 0 0 1mm; text-transform: uppercase; letter-spacing: .02em; }
+  .intro { margin: 0 0 5mm; font-size: 10.5pt; color: #4a5d6c; max-width: 250mm; }
+  .row { display: flex; gap: 6mm; margin-bottom: 14mm; align-items: flex-start; }
+  .cap { font-size: 8.5pt; color: #4a5d6c; margin-top: 2mm; text-align: center; }
+  .badge { width: 92mm; height: 135.5mm; border-radius: 5mm; overflow: hidden; position: relative; background: #fff; display: flex; flex-direction: column; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
+  .cond { font-family: "Barlow Condensed", Arial Narrow, Arial, sans-serif; }
+  .partners { margin-top: auto; background: #fff; padding: 2mm 4mm 2.5mm; border-top: .3mm solid #e3e9ee; }
+  .partners img { width: 100%; height: 12mm; object-fit: contain; display: block; }
+  .partners small { display: block; text-align: center; font-size: 5pt; letter-spacing: .14em; text-transform: uppercase; color: #8a9aa7; margin-bottom: .8mm; }
+
+  /* Pastilles de zones numérotées : lisibles d'un coup d'œil par les contrôleurs */
+  .zones { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.4mm; }
+  .zone { aspect-ratio: 1; border-radius: 1.6mm; display: grid; place-items: center; font: 800 17pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .zone.off { position: relative; }
+  .zone.off::after { content: ""; position: absolute; left: 18%; right: 18%; top: 50%; height: .5mm; background: currentColor; transform: rotate(-45deg); opacity: .55; }
+  .zone-legend { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.4mm; margin-top: .8mm; font-size: 4.6pt; text-align: center; line-height: 1.05; text-transform: uppercase; letter-spacing: .02em; }
+
+  /* ---------- Piste A : bandeau couleur = niveau d'accès ---------- */
+  .a .head { padding: 4mm 5mm 3.5mm; color: #fff; display: grid; justify-items: center; gap: 2mm; }
+  .a .head .wa { height: 10mm; filter: brightness(0) invert(1); opacity: .95; }
+  .a .head .logo { background: #fff; border-radius: 3mm; padding: 2mm 4mm; width: 62mm; height: 22mm; display: grid; place-items: center; }
+  .a .head .logo img { height: 17mm; width: 100%; object-fit: contain; display: block; }
+  .a .level { font: 800 9pt/1 "Barlow Condensed", Arial, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+  .a .body { flex: 1; padding: 5mm 5mm 4mm; display: flex; flex-direction: column; gap: 3mm; }
+  .a .body > :last-child { margin-top: auto; }
+  .a .role { font: 700 10pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .1em; }
+  .a .last { font: 800 30pt/.9 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  .a .first { font: 600 15pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: #4a5d6c; margin-top: .6mm; }
+  .a .zone.on { color: #fff; }
+  .a .zone.off { background: #fff; border: .4mm solid #cfd9e1; color: #b3c0ca; }
+
+  /* ---------- Piste B : la catégorie en grand, bande verticale ---------- */
+  .b { flex-direction: row; }
+  .b .strip { width: 17mm; flex: none; color: #fff; display: grid; place-items: center; }
+  .b .strip span { writing-mode: vertical-rl; transform: rotate(180deg); font: 800 32pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .b .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .b .top { padding: 4mm 4mm 0; display: grid; justify-items: center; gap: 2.5mm; }
+  .b .top .wa { height: 8.5mm; }
+  .b .top .logo { width: 56mm; height: 21mm; object-fit: contain; }
+  .b .who { padding: 4mm 4mm 0; }
+  .b .role { font: 700 8.5pt/1.1 Barlow, Arial, sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+  .b .last { font: 800 24pt/.9 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; margin-top: 1.5mm; }
+  .b .first { font: 600 14pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: #4a5d6c; }
+  .b .access { margin: auto 4mm 3mm; padding: 2.5mm; border-radius: 2.5mm; background: #f2f5f8; }
+  .b .access .t { font-size: 5.5pt; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #6c7f8d; margin-bottom: 1.5mm; display: flex; justify-content: space-between; }
+  .b .zone { font-size: 14pt; }
+  .b .zone.on { background: #0b1b2b; color: #fff; }
+  .b .zone.off { background: #fff; color: #c4ced6; }
+  .b .partners { margin-top: 0; }
+
+  /* ---------- Piste C : fond sombre, esprit piste ---------- */
+  .c { background: #0a1c2e; color: #fff; }
+  .c .track { position: absolute; inset: 0; pointer-events: none; opacity: .5;
+    background: repeating-linear-gradient(118deg, transparent 0 9mm, rgba(255,255,255,.05) 9mm 9.6mm); }
+  .c .glow { position: absolute; width: 90mm; height: 90mm; right: -38mm; top: -30mm; border-radius: 50%; opacity: .55; filter: blur(2mm); }
+  .c > * { position: relative; }
+  .c .top { padding: 4.5mm 5mm 0; display: flex; justify-content: space-between; align-items: center; }
+  .c .top .wa { height: 9mm; filter: brightness(0) invert(1); }
+  .c .top .year { font: 800 11pt/1 "Barlow Condensed", Arial, sans-serif; letter-spacing: .1em; }
+  .c .logo { margin: 4mm 5mm 0; background: #fff; border-radius: 3mm; height: 23mm; display: grid; place-items: center; padding: 2mm; }
+  .c .logo img { height: 18mm; width: 100%; object-fit: contain; display: block; }
+  .c .who { padding: 5mm 5mm 0; }
+  .c .role { display: inline-block; font: 800 9pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .12em; padding: 1.2mm 2.2mm; border-radius: 1mm; color: #0a1c2e; }
+  .c .last { font: 800 27pt/.88 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; margin-top: 2.5mm; }
+  .c .first { font: 600 15pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; color: #9fb3c4; margin-top: .6mm; }
+  .c .access { margin: auto 5mm 3.5mm; }
+  .c .access .t { font-size: 5.5pt; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #9fb3c4; margin-bottom: 1.5mm; }
+  .c .zone.on { color: #0a1c2e; }
+  .c .zone.off { background: rgba(255,255,255,.06); color: rgba(255,255,255,.28); border: .3mm solid rgba(255,255,255,.14); }
+  .c .zone-legend { color: #9fb3c4; }
+
+  /* ---------- Verso commun ---------- */
+  .back { padding: 5mm; gap: 3mm; }
+  .back .h { display: flex; justify-content: space-between; align-items: baseline; border-bottom: .3mm solid #dfe6ec; padding-bottom: 2mm; }
+  .back .h b { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  .back .h span { font-size: 6pt; color: #6c7f8d; text-transform: uppercase; letter-spacing: .12em; }
+  .back .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 3mm; font-size: 6.6pt; }
+  .back .legend div { display: flex; align-items: center; gap: 1.6mm; }
+  .back .legend i { font: 800 9pt/1 "Barlow Condensed", Arial, sans-serif; font-style: normal; width: 4.6mm; height: 4.6mm; border-radius: 1mm; display: grid; place-items: center; color: #fff; background: #0b1b2b; flex: none; }
+  .back .plan { flex: 1; min-height: 0; overflow: hidden; }
+  .back .plan img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .back .qrs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5mm; }
+  .back .qr { text-align: center; font-size: 4.8pt; line-height: 1.1; color: #4a5d6c; }
+  .back .qr img { width: 13mm; margin-inline: auto; aspect-ratio: 1; display: block; margin-bottom: .6mm; }
+  .back .qr b { display: block; font-size: 5.4pt; color: #0b1b2b; }
+  .back .rules { font-size: 5.2pt; color: #6c7f8d; line-height: 1.3; border-top: .3mm solid #dfe6ec; padding-top: 1.6mm; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const A = "../../src/assets/";
+  const ZONES = ["Infield", "Warm-up", "Coaching", "Judges Room", "Mixed Zone", "VIP"];
+  // Même règle d'accès que l'app : toutes zones / avec Infield / sans Infield / aucune zone.
+  const LEVELS = {
+    all: { label: "Toutes zones", color: "#c9a227", logo: "accreditation-meeting-principal.png" },
+    infield: { label: "Infield autorisé", color: "#0d8fd3", logo: "accreditation-meeting-bleu.png" },
+    noInfield: { label: "Sans infield", color: "#e30613", logo: "accreditation-meeting-rouge.png" },
+    none: { label: "Aucune zone", color: "#2b2f33", logo: "accreditation-meeting-noir.png" },
+  };
+  const CATEGORIES = { Organisation: "#0a2540", Athlète: "#e30613", Presse: "#7b3fe4", Bénévole: "#0d8fd3" };
+  const PEOPLE = [
+    { category: "Organisation", role: "Comité directeur FLA", lastName: "Esposito", firstName: "Carmela", zones: [1, 2, 3, 4, 5, 6] },
+    { category: "Athlète", role: "Athlète", lastName: "", firstName: "", zones: [1, 2, 5, 6] },
+    { category: "Presse", role: "Photographe", lastName: "Becker", firstName: "Tom", zones: [2, 5] },
+    { category: "Bénévole", role: "Transport", lastName: "Muller", firstName: "Alex", zones: [] },
+  ];
+  const levelOf = (z) => (z.length === ZONES.length ? "all" : !z.length ? "none" : z.includes(1) ? "infield" : "noInfield");
+  const zonesHtml = (z) =>
+    `<div class="zones">${ZONES.map((_, i) => `<div class="zone ${z.includes(i + 1) ? "on" : "off"}" style="${z.includes(i + 1) ? `background:var(--acc)` : ""}">${i + 1}</div>`).join("")}</div>
+     <div class="zone-legend">${ZONES.map((n) => `<span>${n}</span>`).join("")}</div>`;
+  const partners = `<div class="partners"><small>Partenaires et institutions</small><img src="${A}accreditation-sponsors-strip.png" alt="" /></div>`;
+  const nameHtml = (p) =>
+    p.lastName
+      ? `<div class="last">${p.lastName}</div><div class="first">${p.firstName}</div>`
+      : `<div class="last">${p.role}</div><div class="first">Non nominatif</div>`;
+
+  const pisteA = (p) => {
+    const lv = LEVELS[levelOf(p.zones)];
+    return `<div class="badge a" style="--acc:${lv.color}">
+      <div class="head" style="background:${lv.color}">
+        <img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" />
+        <div class="logo"><img src="${A}accreditation-meeting-principal.png" alt="" /></div>
+        <div class="level">${lv.label}</div>
+      </div>
+      <div class="body">
+        <div><div class="role" style="color:${lv.color === "#c9a227" ? "#9a7a10" : lv.color}">${p.lastName ? p.role : "Accréditation"}</div></div>
+        <div>${nameHtml(p)}</div>
+        <div>${zonesHtml(p.zones)}</div>
+      </div>${partners}</div>`;
+  };
+
+  const pisteB = (p) => {
+    const cat = CATEGORIES[p.category];
+    const lv = LEVELS[levelOf(p.zones)];
+    return `<div class="badge b" style="--acc:${cat}">
+      <div class="strip" style="background:${cat}"><span>${p.category}</span></div>
+      <div class="main">
+        <div class="top"><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /><img class="logo" src="${A}${lv.logo}" alt="" /></div>
+        <div class="who"><div class="role" style="color:${cat}">${p.lastName ? p.role : "Accréditation"}</div>${nameHtml(p)}</div>
+        <div class="access"><div class="t"><span>Zones d'accès</span><span>${lv.label}</span></div>${zonesHtml(p.zones)}</div>
+        ${partners}
+      </div></div>`;
+  };
+
+  const pisteC = (p) => {
+    const lv = LEVELS[levelOf(p.zones)];
+    const acc = lv.color === "#2b2f33" ? "#9fb3c4" : lv.color;
+    return `<div class="badge c" style="--acc:${acc}">
+      <div class="track"></div><div class="glow" style="background:radial-gradient(circle, ${acc}, transparent 65%)"></div>
+      <div class="top"><img class="wa" src="${A}wa-indoor-tour-silver.png" alt="" /><div class="year">LUXEMBOURG · 2027</div></div>
+      <div class="logo"><img src="${A}accreditation-meeting-principal.png" alt="" /></div>
+      <div class="who"><span class="role" style="background:${acc}">${p.lastName ? p.role : "Accréditation"}</span>${nameHtml(p)}</div>
+      <div class="access"><div class="t">Zones d'accès · ${lv.label}</div>${zonesHtml(p.zones)}</div>
+      ${partners}</div>`;
+  };
+
+  const back = () => `<div class="badge back">
+      <div class="h"><b>Plan d'accès</b><span>Coque · Luxembourg</span></div>
+      <div class="legend">${ZONES.map((n, i) => `<div><i>${i + 1}</i>${n}</div>`).join("")}</div>
+      <div class="plan"><img src="${A}accreditation-plan.png" alt="" /></div>
+      <div class="qrs">
+        <div class="qr"><img src="${A}accreditation-qr-results-live-athlete.png" alt="" /><b>Résultats live</b>Suivi des perfs</div>
+        <div class="qr"><img src="${A}accreditation-qr-roadbook-athlete.png" alt="" /><b>Roadbook</b>Infos utiles</div>
+        <div class="qr"><img src="${A}accreditation-qr-photos.png" alt="" /><b>Photos live</b>Album</div>
+        <div class="qr"><img src="${A}accreditation-qr-emagazine-athlete.png" alt="" /><b>E-magazine</b>Contenus</div>
+      </div>
+      <div class="rules">Badge personnel et non cessible, à porter de façon visible. Il peut être retiré en cas d'usage abusif.</div>
+    </div>`;
+
+  const captions = PEOPLE.map((p) => LEVELS[levelOf(p.zones)].label);
+  const row = (title, intro, render) => `
+    <h2>${title}</h2><p class="intro">${intro}</p>
+    <div class="row">${PEOPLE.map((p, i) => `<div>${render(p)}<div class="cap">${captions[i]}</div></div>`).join("")}<div>${back()}<div class="cap">Verso (commun)</div></div></div>`;
+
+  document.getElementById("root").innerHTML =
+    row("Piste A · Bandeau couleur", "Le haut du badge prend la couleur du niveau d'accès : un contrôleur voit à 5 mètres si la personne peut entrer. Or = toutes zones, bleu = avec Infield, rouge = sans Infield, gris = aucune zone. Les zones deviennent des chiffres 1 à 6.", pisteA) +
+    row("Piste B · Catégorie en grand", "Une bande verticale annonce la catégorie (Organisation, Athlète, Presse, Bénévole, VIP…) avec une couleur par catégorie. Le niveau d'accès reste porté par la couleur du logo et les chiffres des zones.", pisteB) +
+    row("Piste C · Sombre, esprit piste", "Fond bleu nuit avec lignes de piste, nom en très grand. La couleur d'accent (étiquette du rôle, halo, zones allumées) suit le niveau d'accès. Plus « événement », moins administratif.", pisteC);
+</script>
+</body>
+</html>

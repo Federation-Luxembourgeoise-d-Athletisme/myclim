@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useOutletContext } from "react-router-dom";
 import { useSiteEditionYear } from "../app/edition";
 import {
   createPrizeMoneySystemsDraft,
@@ -22,6 +22,7 @@ import ticketAmbiance3 from "../assets/site-gallery/ticket-ambiance-3.jpg";
 import ticketFan1 from "../assets/site-gallery/ticket-fan-1.jpg";
 import ticketPublic4 from "../assets/site-gallery/ticket-public-4.jpg";
 import ticketPublic5 from "../assets/site-gallery/ticket-public-5.jpg";
+import { PlanYourVisit } from "./site-ticketing";
 import { TICKET_PRICING } from "./ticket-pricing-config";
 
 const ACCESS_CARD = {
@@ -71,13 +72,14 @@ export function SiteEvent() {
     ? editions.find((edition) => Number(edition.year || edition.id) === Number(siteEditionYear)) || null
     : null;
   const currentEdition = configuredEdition || latestEdition || null;
+  const { ticketing } = useOutletContext();
 
   const infoCards = [
     {
       icon: "📅",
       title: "Date",
       content: formatEditionDate(currentEdition?.date),
-      sub: "Doors open at 12:00",
+      sub: `Doors open at ${ticketing.doorsTime}`,
     },
     {
       icon: "🏟️",
@@ -131,6 +133,8 @@ export function SiteEvent() {
           </div>
         ))}
       </div>
+
+      <PlanYourVisit ticketing={ticketing} />
 
       {/* ── About ────────────────────────────────────────── */}
       <section className="site-section">
@@ -562,9 +566,9 @@ export function SiteEvent() {
             flexWrap: "wrap",
           }}>
             <span style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", flex: 1 }}>
-              On sale from <strong style={{ color: "var(--site-text)" }}>17 November 2026 at 10:00</strong> on ticket-regional.lu
+              On sale from <strong style={{ color: "var(--site-text)" }}>{TICKET_PRICING.saleOpensLabel}</strong> on ticket-regional.lu
             </span>
-            <a href="https://www.ticket-regional.lu/" target="_blank" rel="noopener noreferrer" className="site-btn site-btn--primary site-btn--sm">
+            <a href={ticketing.ticketUrl || "https://www.ticket-regional.lu/"} target="_blank" rel="noopener noreferrer" className="site-btn site-btn--primary site-btn--sm">
               Access ticketing →
             </a>
           </div>
@@ -594,7 +598,7 @@ export function SiteEvent() {
               </div>
               <h2 className="site-heading site-heading--sm">Discover the Meeting Like Never Before</h2>
               <p style={{ color: "var(--site-text-muted)", lineHeight: 1.75, marginBottom: 24 }}>
-                Join our exclusive VIP Tour and step behind the scenes of the CMCM Luxembourg Indoor Meeting 2026. Experience the excitement from a whole new perspective — walk through the athletes' warm-up area, feel the energy trackside, and explore the heart of the event.
+                Join our exclusive VIP Tour and step behind the scenes of the CMCM Luxembourg Indoor Meeting {currentEdition?.year || siteEditionYear}. Experience the excitement from a whole new perspective — walk through the athletes' warm-up area, feel the energy trackside, and explore the heart of the event.
               </p>
 
               <div style={{ marginBottom: 28 }}>

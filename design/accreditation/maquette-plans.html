@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plans de la Coque — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Éditeur de plans : un seul plan de la Coque, quatre plans (site, bénévoles, accréditations, contrôles). */
+  :root { --ink: #0b1b2b; --muted: #4a5d6c; --dim: #8a9aa7; --line: #e3e9ee; --surface: #eef2f5; --red: #e30613; --accent: #0d8fd3; --up: #7a4fd0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Barlow, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--surface); }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+  header h1 { margin: 0; font: 800 24px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+  .seg { display: inline-flex; flex-wrap: wrap; background: var(--surface); border-radius: 999px; padding: 3px; }
+  .seg button { border: 0; background: transparent; border-radius: 999px; padding: 8px 14px; font: 700 14px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .seg.small button { padding: 6px 12px; font-size: 13px; }
+  .seg.small button.on { background: var(--up); }
+  .seg.small button[data-l="all"].on, .seg.small button[data-l="rdc"].on, .seg.small button[data-l="piste"].on { background: var(--ink); }
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 16px; padding: 16px 24px 40px; align-items: start; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .panel h2 { margin: 0 0 10px; font: 800 15px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
+  .group { margin: 14px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); display: grid; grid-template-columns: 1fr repeat(4, 22px); gap: 4px; }
+  .group b { font-weight: 700; text-align: center; letter-spacing: 0; }
+  .row { display: grid; grid-template-columns: 22px 1fr repeat(4, 22px); gap: 4px; align-items: center; padding: 5px 6px; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; }
+  .row:hover { background: var(--surface); }
+  .row.sel { background: #e6f3fb; outline: 1px solid #a9d6f0; }
+  .row .up-tag { font-size: 10px; font-weight: 800; color: var(--up); margin-left: 4px; }
+  .chip { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 11px/1 "Barlow Condensed", Arial, sans-serif; }
+  .chip.sq { border-radius: 4px; }
+  .vis { width: 22px; height: 20px; border-radius: 5px; border: 1px solid var(--line); display: grid; place-items: center; font: 800 10px/1 Barlow, Arial, sans-serif; color: #c3ccd3; background: #fff; cursor: pointer; }
+  .vis.on { color: #fff; border-color: transparent; background: var(--ink); }
+  .vis.cur { box-shadow: 0 0 0 2px var(--accent); }
+  .add { margin-top: 12px; width: 100%; border: 1px dashed #b9c5ce; background: #fff; border-radius: 8px; padding: 9px; font: 700 13.5px Barlow, Arial, sans-serif; color: var(--muted); cursor: pointer; }
+  .legend-vis { font-size: 12px; color: var(--muted); margin-top: 12px; line-height: 1.6; }
+  .legend-vis b { display: inline-grid; place-items: center; width: 18px; height: 16px; border-radius: 4px; color: #fff; background: var(--ink); font-size: 10px; margin-right: 4px; }
+
+  /* Plan éditable : positions en % de l'image, donc indépendantes de la taille d'affichage */
+  .stage { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .stage-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .stage-bar b { color: var(--ink); }
+  .stage-bar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .canvas { position: relative; margin: 0 auto; width: min(100%, 560px); aspect-ratio: 1020 / 1620; user-select: none; touch-action: none; }
+  .plan-base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  .el { position: absolute; transform: translate(-50%, -50%); cursor: grab; white-space: nowrap; }
+  .el.dragging { cursor: grabbing; z-index: 10; }
+  .el.ghost { opacity: .22; }
+  .el.sel .zone, .el.sel .pill, .el.sel .ctrl { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--accent); }
+  .zone { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 15px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .pill { padding: 5px 10px; border-radius: 999px; color: #fff; font: 700 13px/1 Barlow, Arial, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,.25); border: 2px solid #fff; }
+  /* Flèche d'entrée : montre par où on entre (orientable) */
+  .door { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: #fff; font: 900 15px/1 Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  /* Zone de stand : un espace (rectangle arrondi, pointillé), son nom au milieu */
+  .area { width: 100%; height: 100%; box-sizing: border-box; border-radius: 12px; border: 2px dashed; display: grid; place-items: center; text-align: center; font: 800 11px/1.05 Barlow, Arial, sans-serif; padding: 2px; overflow: visible; white-space: nowrap; }
+  /* Zone dessinée à main levée (forme) : remplie en couleur légère, son nom posé dessus */
+  .shapes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .area-label { font: 800 13px/1 Barlow, Arial, sans-serif; letter-spacing: .02em; white-space: nowrap; background: #fff; border-radius: 999px; padding: 4px 9px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  .mini .area-label { font-size: 8px; }
+  .mini .area, .badge-back .area { font-size: 7px; border-width: 1px; border-radius: 6px; }
+  .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  /* À l'étage : contour violet en pointillés + petite étiquette */
+
+  /* Crayon : un calque de dessin libre par-dessus le plan, pour expliquer (n'est pas imprimé) */
+  .draw-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .draw-bar button { border: 1px solid #cfd8df; background: #fff; border-radius: 999px; padding: 6px 12px; font: 700 13px Barlow, Arial, sans-serif; color: var(--ink); cursor: pointer; }
+  .draw-bar #pen.on { background: var(--red); border-color: var(--red); color: #fff; }
+  .pen-colors { display: inline-flex; gap: 5px; }
+  .pen-colors button { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #cfd8df; }
+  .pen-colors button.on { box-shadow: 0 0 0 2px var(--ink); }
+  /* Calque : le plan d'architecte (PDF local, non commité), tourné dans le sens de notre plan */
+  .ref { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .55; mix-blend-mode: multiply; }
+  .ink { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; }
+  .canvas.drawing .ink { pointer-events: auto; cursor: crosshair; }
+  .ink path { fill: none; stroke-width: .7; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Légende générée sous le plan : c'est là que vont les textes longs */
+  .legend { border-top: 1px solid var(--line); padding: 12px 16px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 18px; font-size: 13px; }
+  .legend h3 { grid-column: 1 / -1; margin: 6px 0 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .legend h3.up { color: var(--up); }
+  .legend div { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; }
+  .legend i { font-style: normal; border-radius: 999px; color: #fff; font: 700 11px/1 Barlow, Arial, sans-serif; padding: 4px 7px; white-space: nowrap; }
+  .legend i.z { border-radius: 50%; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; font: 800 12px/1 "Barlow Condensed", Arial, sans-serif; }
+  .legend i.c { border-radius: 4px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; font: 800 12px/1 "Barlow Condensed", Arial, sans-serif; }
+  .legend span { color: var(--muted); padding-top: 2px; }
+  .legend small, .card .leg small { color: var(--dim); }
+  .legend .todo { color: #b45309; font-style: italic; }
+
+  /* Fiche de l'élément sélectionné */
+  .field { display: grid; gap: 5px; margin-bottom: 11px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+  .field small { font-weight: 500; color: var(--dim); }
+  .field input[type=text], .field select, .field textarea { font: 600 14px Barlow, Arial, sans-serif; padding: 8px 10px; border: 1px solid #cfd8df; border-radius: 8px; color: var(--ink); }
+  .field textarea { resize: vertical; min-height: 54px; }
+  .colors { display: flex; flex-wrap: wrap; gap: 6px; }
+  .colors button { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #cfd8df; cursor: pointer; }
+  .colors button.on { box-shadow: 0 0 0 2px var(--ink); }
+  .checks { display: grid; gap: 6px; font-weight: 600; color: var(--ink); font-size: 14px; }
+  .danger { width: 100%; border: 1px solid #f3c2c5; background: #fff5f5; color: #b0101c; border-radius: 8px; padding: 8px; font: 700 13px Barlow, Arial, sans-serif; cursor: pointer; margin-top: 4px; }
+  .empty { color: var(--dim); font-size: 13.5px; line-height: 1.5; }
+  .note { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: #f3effc; color: #4b2a8f; font-size: 13px; line-height: 1.45; }
+  .note b, .legend-vis .note b { display: block; width: auto; height: auto; background: none; color: inherit; border-radius: 0; margin: 0 0 3px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 3px; }
+
+  /* Aperçus : ce que chaque plan donne une fois imprimé ou publié */
+  .previews { padding: 0 24px 50px; }
+  .previews > h2 { font: 800 19px/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; margin: 0 0 6px; }
+  .previews > p { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 900px; }
+  .pv-grid { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  .pv-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
+  .pv-cap select { font: 600 13px Barlow, Arial, sans-serif; margin-left: 6px; padding: 3px 6px; border-radius: 6px; border: 1px solid #cfd8df; }
+  .mini { position: relative; aspect-ratio: 1020 / 1620; }
+  .mini.crop { aspect-ratio: 1020 / 1440; }
+  .mini .el { cursor: default; }
+
+  .badge-back { width: 100mm; height: 143.5mm; background: #fff; display: flex; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); }
+  .badge-back .strip { width: 17mm; display: grid; place-items: center; color: #fff; }
+  .badge-back .strip span { writing-mode: vertical-rl; transform: rotate(180deg); font: 800 30pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; }
+  .badge-back .main { flex: 1; padding: 11mm 4mm 4mm; display: flex; flex-direction: column; gap: 2mm; min-width: 0; }
+  .badge-back .h { font: 800 13pt/1 "Barlow Condensed", Arial, sans-serif; text-transform: uppercase; border-bottom: .3mm solid #dfe6ec; padding-bottom: 2mm; }
+  .badge-back .plan-area { flex: 1; min-height: 0; position: relative; }
+  .badge-back .mini { position: absolute; inset: 0; margin: auto; height: 100%; max-width: 100%; }
+  .badge-back .zone { width: 15px; height: 15px; font-size: 9.5px; border-width: 1.5px; }
+  .badge-back .pill { padding: 2px 5px; font-size: 6.5px; border-width: 1px; }
+  .badge-back .ctrl { width: 13px; height: 13px; font-size: 8.5px; border-width: 1px; }
+
+  .card { width: 150mm; background: #fff; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); display: flex; flex-direction: column; }
+  .card .ph { display: flex; align-items: center; height: 22mm; }
+  .card .ph img { height: 18mm; margin: 0 4mm; }
+  .card .ph b { flex: 1; align-self: stretch; display: grid; place-items: center; color: #fff; font: 600 18pt/1 Barlow, Arial, sans-serif; border-radius: 11mm 0 0 11mm; letter-spacing: .02em; text-transform: uppercase; }
+  .card .body { display: grid; grid-template-columns: 1fr 52mm; gap: 3mm; padding: 3mm 4mm 4mm; }
+  .card .mini { width: 100%; }
+  .card .pill { padding: 2px 6px; font-size: 8px; border-width: 1px; }
+  .card .zone { width: 16px; height: 16px; font-size: 10px; border-width: 1.5px; }
+  .card .ctrl { width: 15px; height: 15px; font-size: 9px; border-width: 1px; }
+  .card .leg { font-size: 8.5pt; line-height: 1.3; display: grid; gap: 1.6mm; align-content: start; }
+  .card .leg h4 { margin: 1.5mm 0 0; font-size: 6.5pt; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .card .leg h4.up { color: var(--up); }
+  .card .leg div { display: grid; grid-template-columns: auto 1fr; gap: 1.6mm; align-items: start; }
+  .card .leg i { font-style: normal; color: #fff; border-radius: 99px; padding: .6mm 1.4mm; font: 700 6.5pt/1 Barlow, Arial, sans-serif; white-space: nowrap; }
+  .card .leg i.z { border-radius: 50%; width: 4.2mm; height: 4.2mm; padding: 0; display: grid; place-items: center; font: 800 7.5pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .card .leg i.c { border-radius: 1mm; width: 4.2mm; height: 4.2mm; padding: 0; display: grid; place-items: center; font: 800 7.5pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .card .leg span { color: var(--muted); }
+  .card .pf { display: flex; justify-content: space-around; align-items: center; padding: 3mm 4mm 4mm; border-top: .3mm solid var(--line); }
+  .card .pf img { height: 7mm; max-width: 22mm; object-fit: contain; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Plans de la Coque · éditeur</h1>
+    <p>Un seul plan, quatre usages. Sur le plan : un ou deux mots. Le détail va dans la légende.</p>
+  </div>
+  <div class="seg" id="maps"></div>
+</header>
+
+<div class="layout">
+  <aside class="panel">
+    <h2>Éléments du plan</h2>
+    <div id="list"></div>
+    <button class="add" id="add">+ Ajouter un repère</button>
+    <button class="add" id="add-area" style="margin-top:6px">+ Ajouter une zone de stand</button>
+    <button class="add" id="add-door" style="margin-top:6px">+ Ajouter une flèche d'entrée</button>
+    <button class="add" id="reset" style="border-style:solid;margin-top:6px">Revenir au plan de départ</button>
+    <div class="legend-vis" id="legend-vis"></div>
+  </aside>
+
+  <section class="stage">
+    <div class="stage-bar">
+      <span id="stage-title"></span>
+      <label><input type="checkbox" id="ghosts" checked /> Montrer en transparence le reste</label>
+      <label>Calque architecte
+        <select id="ref">
+          <option value="">aucun</option>
+          <option value="3">R-1 · piste</option>
+          <option value="2">Arcades · entrée</option>
+          <option value="4">R+1 · galerie</option>
+        </select>
+      </label>
+    </div>
+    <div class="draw-bar">
+      <button id="pen">✏️ Dessiner sur le plan</button>
+      <span class="pen-colors" id="pen-colors"></span>
+      <button id="undo">↶ Annuler le dernier trait</button>
+      <button id="clear">Effacer le dessin</button>
+    </div>
+    <div class="canvas" id="canvas"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <aside class="panel" id="detail"></aside>
+</div>
+
+<div class="previews">
+  <h2>Aperçus des 4 plans</h2>
+  <p>Ils se mettent à jour quand tu modifies le plan. Chaque plan ne montre que les repères cochés pour lui, avec la légende à côté.</p>
+  <div class="pv-grid" id="pv-grid"></div>
+</div>
+
+<script src="plan-coque-murs.js"></script>
+<script src="plan-coque.js"></script>
+<script>
+  const A = "../../src/assets/";
+  const PALETTE = ["#e30613", "#0a2540", "#27a9e1", "#0f8a5f", "#f07c00", "#5b2bb5", "#9157e6", "#b8912a", "#e5719a", "#6b7a86", "#4a5d6c"];
+  const ZONE_RED = PLAN_ZONE_RED;
+  const ROLES = [
+    { category: "Organisation", color: "#e30613", zones: [1, 2, 3, 4, 5, 6] },
+    { category: "Athlete", color: "#0f8a5f", zones: [1, 2, 5] },
+    { category: "Coach", color: "#f07c00", zones: [2, 3] },
+    { category: "Judge", color: "#0a2540", zones: [1, 4] },
+    { category: "Press", color: "#5b2bb5", zones: [5] },
+    { category: "Volunteer", color: "#27a9e1", zones: [] },
+  ];
+  const GROUPS = [["zone", "Zones d'accès"], ["area", "Zones de stand"], ["mark", "Repères"], ["door", "Flèches d'entrée"], ["ctrl", "Points de contrôle"]];
+  const MAP_HEAD = { web: ["VENUE MAP", "#e30613"], vol: ["PLAN BÉNÉVOLES", "#27a9e1"], ctrl: ["POINTS DE CONTRÔLE", "#0a2540"] };
+
+  let elements = loadPlanElements();
+  let map = "web";
+  let level = "all";
+  let selectedId = null;
+  let pvRole = 0;
+  const save = () => savePlanElements(elements);
+  const esc = (s = "") => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+
+  const colorOf = (el) => (el.kind === "zone" ? ZONE_RED : el.color);
+  const marker = (el, color = colorOf(el)) =>
+    el.kind === "zone" ? `<div class="zone" style="background:${color}">${el.num}</div>`
+    : el.kind === "ctrl" ? `<div class="ctrl" style="background:${color}">${esc(el.label)}</div>`
+    : el.kind === "area" && el.shape ? `<div class="area-label" style="color:${color}">${esc(el.label)}</div>`
+    : el.kind === "area" ? `<div class="area" style="background:${color}1f;border-color:${color};color:${color}">${esc(el.label)}</div>`
+    : el.kind === "door" ? `<div class="door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></div>`
+    : `<div class="pill" style="background:${color}">${esc(el.label)}</div>`;
+  // Zones dessinées. Fond « piste » : couleur de piste d'athlétisme (bleue, comme à la Coque) + couloirs blancs + pictos
+  // (enfant qui court, haie) pour comprendre d'un coup d'œil que c'est un espace pour essayer l'athlétisme.
+  let shapeCount = 0;
+  const PICTOS = {
+    // petit sprinteur « cute » : grosse tête, buste penché en avant, bras et jambes lancés, traits de vitesse
+    runner: `<path d="M-34 -16 L-24 -16 M-38 -5 L-26 -5 M-33 6 L-24 6" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8" />
+      <circle cx="9" cy="-21" r="9.5" fill="#fff" />
+      <path d="M5 -10 L-3 6 M3 -7 L13 -1 L19 -10 M1 -6 L-9 -10 L-15 -2 M-3 6 L9 9 L7 21 M-3 6 L-11 15 L-21 14" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />`,
+    hurdle: `<path d="M-16 -6 L16 -6 M-13 -6 L-13 17 M13 -6 L13 17 M-17 17 L-9 17 M9 17 L17 17" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" /><path d="M-16 -1 L16 -1" stroke="#ffd34d" stroke-width="4" stroke-linecap="round" />`,
+    star: `<path d="M0 -10 L3 -3 L10 0 L3 3 L0 10 L-3 3 L-10 0 L-3 -3 Z" fill="#ffd34d" />`,
+  };
+
+  const shapesSvg = (list, crop = false) => {
+    const shapes = list.filter((el) => el.kind === "area" && el.shape);
+    if (!shapes.length) return "";
+    const vb = crop ? `0 ${PLAN_CROP.y} ${PLAN_W} ${PLAN_CROP.h}` : `0 0 ${PLAN_W} ${PLAN_H}`;
+    return `<svg class="shapes" viewBox="${vb}" preserveAspectRatio="none">${shapes.map((el) => {
+      const X = (el.x / 100) * PLAN_W, Y = (el.y / 100) * PLAN_H;
+      const pts = el.shape.map(([dx, dy]) => `${X + dx},${Y + dy}`).join(" ");
+      if (el.bg !== "piste") return `<polygon points="${pts}" fill="${el.color}2e" stroke="${el.color}" stroke-width="3" stroke-dasharray="10 6" stroke-linejoin="round" />`;
+      const id = `piste-${++shapeCount}`;
+      return `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="60" height="26" patternTransform="rotate(-28)"><rect width="60" height="26" fill="#2f78c4" /><line x1="0" y1="13" x2="60" y2="13" stroke="#fff" stroke-width="2.4" stroke-opacity=".85" /></pattern></defs>
+        <polygon points="${pts}" fill="url(#${id})" fill-opacity=".9" stroke="#1d5a9e" stroke-width="3" stroke-linejoin="round" />
+        ${(el.pictos || []).map(([t, dx, dy, sc = 1.4]) => `<g transform="translate(${X + dx} ${Y + dy}) scale(${sc})">${PICTOS[t] || ""}</g>`).join("")}`;
+    }).join("")}</svg>`;
+  };
+  const sizeOf = (el, crop = false) => (el.kind === "area" && !el.shape ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;` : "");
+  const areasFirst = (list) => [...list.filter((el) => el.kind === "area"), ...list.filter((el) => el.kind !== "area")];
+  const placed = (el, inner, crop = false) => {
+    const { x, y } = planPos(el, crop);
+    if (y < 0 || y > 100) return "";
+    return `<div class="el" style="left:${x}%;top:${y}%;${sizeOf(el, crop)}">${inner}</div>`;
+  };
+
+  // Légende d'un plan : zones (une ligne par numéro), repères, contrôles ; l'étage à part
+  function legendItems(key) {
+    const items = elements.filter((el) => el.maps[key]);
+    const seen = new Set();
+    const where = (el) => (el.level === "piste" ? " · piste (R-1)" : el.level === "etage" ? " · galerie (R+1)" : "");
+    const line = (el) => {
+      if (el.kind === "zone") {
+        if (seen.has(el.num)) return null;
+        seen.add(el.num);
+        return { k: `<i class="z" style="background:${ZONE_RED}">${el.num}</i>`, t: esc(el.label) + (el.desc ? ` — ${esc(el.desc)}` : "") + `<small>${where(el)}</small>`, lvl: el.level };
+      }
+      if (el.kind === "door") return { k: `<i class="c" style="background:${el.color};border-radius:50%">➜</i>`, t: esc(el.desc || el.label) + `<small>${where(el)}</small>`, lvl: el.level };
+      if (el.kind === "ctrl") return { k: `<i class="c" style="background:${el.color}">${esc(el.label)}</i>`, t: el.desc ? esc(el.desc) : `<em class="todo">à compléter : ce qu'on contrôle ici</em>`, lvl: el.level };
+      const key = `mark|${el.label}|${el.desc}|${el.color}|${el.level}`;
+      if (seen.has(key)) return null;
+      seen.add(key);
+      return { k: `<i style="background:${el.color}">${esc(el.label)}</i>`, t: esc(el.desc || el.label) + `<small>${where(el)}</small>`, lvl: el.level };
+    };
+    const lines = items.sort((a, b) => (a.kind === "zone" ? a.num : 99) - (b.kind === "zone" ? b.num : 99)).map(line).filter(Boolean);
+    return { rdc: lines.filter((l) => l.lvl !== "etage"), etage: lines.filter((l) => l.lvl === "etage") };
+  }
+
+  function renderMaps() {
+    document.getElementById("maps").innerHTML = PLAN_MAPS.map((m) => `<button data-m="${m.key}" class="${m.key === map ? "on" : ""}">${m.label}</button>`).join("");
+    document.getElementById("legend-vis").innerHTML = PLAN_MAPS.map((m) => `<b>${m.short}</b>${m.label}`).join("<br />")
+      + `<div class="note"><b>Un plan = un niveau</b>Ces plans montrent le niveau des arcades, celui de l'entrée. La piste (R-1) et la galerie (R+1) auront leurs propres plans détaillés. Seul le verso des badges réunit les zones de tous les niveaux : la liste dit où chacune se trouve.</div>`;
+  }
+
+  function renderCanvas() {
+    const canvas = document.getElementById("canvas");
+    canvas.querySelectorAll(".el, .shapes").forEach((node) => node.remove());
+    const visibleShapes = elements.filter((el) => el.maps[map]);
+    canvas.querySelector(".plan-base").insertAdjacentHTML("afterend", shapesSvg(visibleShapes));
+    const showGhosts = document.getElementById("ghosts").checked;
+    areasFirst(elements).forEach((el) => {
+      const visible = el.maps[map];
+      if (!visible && !showGhosts) return;
+      const node = document.createElement("div");
+      node.className = `el${visible ? "" : " ghost"}${el.id === selectedId ? " sel" : ""}`;
+      node.style.left = `${el.x}%`;
+      node.style.top = `${el.y}%`;
+      if (el.kind === "area" && !el.shape) { node.style.width = `${(el.w / PLAN_W) * 100}%`; node.style.height = `${(el.h / PLAN_H) * 100}%`; }
+      node.dataset.id = el.id;
+      node.innerHTML = marker(el);
+      canvas.appendChild(node);
+    });
+    const m = PLAN_MAPS.find((item) => item.key === map);
+    document.getElementById("stage-title").innerHTML = `<b>${m.label}</b> · ${m.who}`;
+    const { rdc, etage } = legendItems(map);
+    const block = (lines) => lines.map((l) => `<div>${l.k}<span>${l.t}</span></div>`).join("");
+    document.getElementById("legend").innerHTML = `<h3>Légende de ce plan</h3>${block(rdc)}${block(etage)}`;
+  }
+
+  function renderList() {
+    const head = PLAN_MAPS.map((m) => `<b>${m.short}</b>`).join("");
+    document.getElementById("list").innerHTML = GROUPS.map(([kind, title]) => {
+      const rows = elements.filter((el) => el.kind === kind).map((el) => `
+        <div class="row${el.id === selectedId ? " sel" : ""}" data-id="${el.id}">
+          <span class="chip${kind === "ctrl" ? " sq" : ""}" style="background:${colorOf(el)}">${kind === "zone" ? el.num : kind === "ctrl" ? esc(el.label) : kind === "door" ? "➜" : ""}</span>
+          <span>${kind === "ctrl" ? `Contrôle ${esc(el.label)}` : esc(el.label)}${el.level !== "rdc" ? `<span class="up-tag">${el.level === "etage" ? "R+1" : "R-1"}</span>` : ""}</span>
+          ${PLAN_MAPS.map((m) => `<span class="vis${el.maps[m.key] ? " on" : ""}${m.key === map ? " cur" : ""}" data-toggle="${m.key}" title="${m.label}">${m.short}</span>`).join("")}
+        </div>`).join("");
+      return `<div class="group"><span>${title}</span>${head}</div>${rows}`;
+    }).join("");
+  }
+
+  function renderDetail() {
+    const el = elements.find((item) => item.id === selectedId);
+    const box = document.getElementById("detail");
+    if (!el) {
+      box.innerHTML = `<h2>Élément</h2><p class="empty">Clique sur un repère du plan ou de la liste pour le modifier. Fais-le glisser pour le déplacer.</p>`;
+      return;
+    }
+    const zoneField = el.kind === "zone"
+      ? `<label class="field">Zone<select data-f="num">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<option ${n === el.num ? "selected" : ""}>${n}</option>`).join("")}</select></label>`
+      : "";
+    const descField = el.kind === "zone" ? "" : `<label class="field">${el.kind === "ctrl" ? "Ce qu'on contrôle ici" : "Légende"} <small>${el.kind === "ctrl" ? "ex. accès Infield et Warm-up" : "le détail, affiché à côté du plan"}</small><textarea data-f="desc">${esc(el.desc)}</textarea></label>`;
+    const sizeField = el.kind === "area" ? `<div class="field">Taille <small>en unités du plan (la piste fait environ 380 de large)</small><div style="display:flex;gap:8px"><input type="text" data-f="w" value="${el.w}" style="width:80px" /> × <input type="text" data-f="h" value="${el.h}" style="width:80px" /></div></div>` : "";
+    const angleField = el.kind === "door" ? `<label class="field">Direction <small>0 = vers la droite, 90 = vers le bas, 180 = vers la gauche, 270 = vers le haut</small><input type="text" data-f="angle" value="${el.angle || 0}" /></label>` : "";
+    box.innerHTML = `<h2>${el.kind === "zone" ? "Zone d'accès" : el.kind === "ctrl" ? "Point de contrôle" : el.kind === "door" ? "Flèche d'entrée" : el.kind === "area" ? "Zone de stand" : "Repère"}</h2>
+      ${angleField}${sizeField}
+      ${zoneField}
+      <label class="field">${el.kind === "zone" ? "Nom de la zone" : "Texte sur le plan"} <small>${el.kind === "mark" ? "1 ou 2 mots" : ""}</small><input type="text" data-f="label" maxlength="${el.kind === "mark" || el.kind === "area" ? 16 : 30}" value="${esc(el.label)}" /></label>
+      ${descField}
+      <label class="field">Niveau<select data-f="level">${Object.entries(PLAN_LEVELS).map(([k, l]) => `<option value="${k}" ${k === el.level ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      ${el.kind === "zone" ? "" : `<div class="field">Couleur<div class="colors">${PALETTE.map((c) => `<button data-color="${c}" class="${c === el.color ? "on" : ""}" style="background:${c}"></button>`).join("")}</div></div>`}
+      <div class="field">Visible sur
+        <div class="checks">${PLAN_MAPS.map((m) => `<label><input type="checkbox" data-map="${m.key}" ${el.maps[m.key] ? "checked" : ""} /> ${m.label}</label>`).join("")}</div>
+      </div>
+      <button class="danger" id="delete">Supprimer cet élément</button>`;
+  }
+
+  function legendHtml(key) {
+    const { rdc, etage } = legendItems(key);
+    const block = (lines) => lines.map((l) => `<div>${l.k}<span>${l.t}</span></div>`).join("");
+    return `${block(rdc)}${block(etage)}`;
+  }
+
+  function renderPreviews() {
+    const role = ROLES[pvRole];
+    const badgeEls = areasFirst(elements.filter((el) => el.maps.acc)).map((el) => {
+      const color = el.kind === "zone" ? (role.zones.includes(el.num) ? role.color : "#c3ccd3") : colorOf(el);
+      return placed(el, marker(el, color), true);
+    }).join("");
+    const badge = `<div><div class="badge-back">
+        <div class="strip" style="background:${role.color}"><span>${role.category}</span></div>
+        <div class="main"><div class="h">Access zones</div>
+          <div class="plan-area"><div class="mini crop">${planBaseSvg({ crop: true, infield: role.zones.includes(1) ? `${role.color}55` : undefined, warmup: role.zones.includes(2) ? `${role.color}55` : "#e6ebef" })}${badgeEls}</div></div></div></div>
+      <div class="pv-cap">Accréditations · verso de badge<select id="pv-role">${ROLES.map((r, i) => `<option value="${i}" ${i === pvRole ? "selected" : ""}>${r.category}</option>`).join("")}</select></div></div>`;
+    const card = (key, cap) => {
+      const [title, color] = MAP_HEAD[key];
+      const crop = key === "ctrl";
+      const els = areasFirst(elements.filter((el) => el.maps[key])).map((el) => placed(el, marker(el), crop)).join("");
+      return `<div><div class="card">
+          <div class="ph"><img src="${A}accreditation-meeting-principal.png" alt="" /><b style="background:${color}">${title}</b></div>
+          <div class="body"><div class="mini${crop ? " crop" : ""}">${planBaseSvg({ crop })}${shapesSvg(elements.filter((el) => el.maps[key]), crop)}${els}</div><div class="leg">${legendHtml(key)}</div></div>
+          ${key === "web" ? `<div class="pf">${["accreditation-sponsor-cmcm.png", "fla-logo.png", "wa-indoor-tour-silver.png", "accreditation-sponsor-ville-luxembourg.png", "accreditation-sponsor-luxembourg.png"].map((f) => `<img src="${A}${f}" alt="" />`).join("")}</div>` : ""}
+        </div><div class="pv-cap">${cap}</div></div>`;
+    };
+    document.getElementById("pv-grid").innerHTML =
+      card("web", "Site internet · venue map (entrée et stands)")
+      + card("vol", "Bénévoles · même plan + mise en place de l'entrée")
+      + badge
+      + card("ctrl", "Points de contrôle · mise en place");
+    document.getElementById("pv-role").addEventListener("change", (event) => { pvRole = Number(event.target.value); renderPreviews(); });
+  }
+
+  const renderAll = () => { renderMaps(); renderCanvas(); renderList(); renderDetail(); renderPreviews(); };
+
+  // Glisser-déposer sur le plan
+  const canvas = document.getElementById("canvas");
+  let drag = null;
+  canvas.addEventListener("pointerdown", (event) => {
+    const node = event.target.closest(".el");
+    if (!node) return;
+    selectedId = node.dataset.id;
+    drag = { node, el: elements.find((item) => item.id === selectedId) };
+    node.classList.add("dragging");
+    canvas.setPointerCapture(event.pointerId);
+    renderList(); renderDetail();
+    canvas.querySelectorAll(".el").forEach((n) => n.classList.toggle("sel", n.dataset.id === selectedId));
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (!drag) return;
+    const rect = canvas.getBoundingClientRect();
+    drag.el.x = Math.min(98, Math.max(2, ((event.clientX - rect.left) / rect.width) * 100));
+    drag.el.y = Math.min(98, Math.max(2, ((event.clientY - rect.top) / rect.height) * 100));
+    drag.node.style.left = `${drag.el.x}%`;
+    drag.node.style.top = `${drag.el.y}%`;
+  });
+  canvas.addEventListener("pointerup", () => {
+    if (!drag) return;
+    drag = null;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("list").addEventListener("click", (event) => {
+    const row = event.target.closest(".row");
+    if (!row) return;
+    const el = elements.find((item) => item.id === row.dataset.id);
+    const toggle = event.target.dataset.toggle;
+    if (toggle) { el.maps[toggle] = !el.maps[toggle]; save(); }
+    else selectedId = el.id;
+    renderAll();
+  });
+
+  document.getElementById("detail").addEventListener("input", (event) => {
+    const el = elements.find((item) => item.id === selectedId);
+    if (!el) return;
+    const { f, map: mapKey } = event.target.dataset;
+    if (mapKey) el.maps[mapKey] = event.target.checked;
+    else if (f) el[f] = ["num", "angle", "w", "h"].includes(f) ? Number(event.target.value) || 0 : event.target.value;
+    else return;
+    save();
+    renderCanvas(); renderList(); renderPreviews();
+  });
+  document.getElementById("detail").addEventListener("click", (event) => {
+    const el = elements.find((item) => item.id === selectedId);
+    if (!el) return;
+    if (event.target.dataset.color) { el.color = event.target.dataset.color; save(); renderAll(); }
+    if (event.target.id === "delete") { elements = elements.filter((item) => item !== el); selectedId = null; save(); renderAll(); }
+  });
+
+  document.getElementById("add").addEventListener("click", () => {
+    const el = { id: `m${Date.now()}`, kind: "mark", label: "Repère", desc: "", color: PALETTE[2], level: "rdc", x: 50, y: 50, maps: Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === map])) };
+    elements.push(el);
+    selectedId = el.id;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("add-area").addEventListener("click", () => {
+    const el = { id: `a${Date.now()}`, kind: "area", label: "Stand", desc: "", color: PALETTE[2], level: "rdc", x: 50, y: 50, w: 90, h: 60, maps: Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === map])) };
+    elements.push(el);
+    selectedId = el.id;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("add-door").addEventListener("click", () => {
+    const el = { id: `d${Date.now()}`, kind: "door", label: "Entrée", desc: "", color: PALETTE[10], angle: 0, level: "rdc", x: 50, y: 50, maps: Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === map])) };
+    elements.push(el);
+    selectedId = el.id;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    elements = structuredClone(PLAN_DEFAULT_ELEMENTS);
+    selectedId = null;
+    save();
+    renderAll();
+  });
+
+  document.getElementById("maps").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    map = button.dataset.m;
+    renderMaps(); renderCanvas(); renderList();
+  });
+  document.getElementById("ghosts").addEventListener("change", renderCanvas);
+
+  canvas.innerHTML = planBaseSvg();
+
+  // Calque architecte : assets/ref/plans-arena.pdf (copie locale, hors git). Page 2 = arcades,
+  // 3 = R-1, 4 = R+1. Notre grille (1020 x 1620) = page à 2000 px de large, tournée d'un quart
+  // de tour : X = 1020 - y, Y = x.
+  let pdfDoc = null;
+  const refCanvas = document.createElement("canvas");
+  refCanvas.className = "ref";
+  canvas.insertBefore(refCanvas, canvas.querySelector(".plan-base").nextSibling);
+  async function showRef(pageNum) {
+    if (!pageNum) { refCanvas.hidden = true; return; }
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js";
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+    }
+    pdfDoc ||= await pdfjsLib.getDocument("assets/ref/plans-arena.pdf").promise;
+    const page = await pdfDoc.getPage(Number(pageNum));
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: 2000 / base.width });
+    const q = 2;
+    refCanvas.width = PLAN_W * q;
+    refCanvas.height = PLAN_H * q;
+    const ctx = refCanvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, refCanvas.width, refCanvas.height);
+    await page.render({ canvasContext: ctx, viewport, transform: [0, q, -q, 0, PLAN_W * q, 0] }).promise;
+    refCanvas.hidden = false;
+  }
+  document.getElementById("ref").addEventListener("change", (event) => showRef(event.target.value));
+
+  // Crayon : traits en % du plan (viewBox 0-100), gardés dans le navigateur
+  const INK_STORE = "myclim-maquette-plans-dessin-v2";
+  const INK_COLORS = ["#e30613", "#0a2540", "#0f8a5f", "#7a4fd0"];
+  let strokes = [];
+  try { strokes = JSON.parse(localStorage.getItem(INK_STORE)) || []; } catch { strokes = []; }
+  let penColor = INK_COLORS[0];
+  let current = null;
+  const ink = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  ink.setAttribute("class", "ink");
+  ink.setAttribute("viewBox", "0 0 100 100");
+  ink.setAttribute("preserveAspectRatio", "none");
+  canvas.appendChild(ink);
+  const saveInk = () => { try { localStorage.setItem(INK_STORE, JSON.stringify(strokes)); } catch { /* sans mémoire */ } };
+  const pathD = (pts) => pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(" ");
+  const renderInk = () => { ink.innerHTML = strokes.map((s) => `<path d="${pathD(s.pts)}" stroke="${s.color}" />`).join(""); };
+  const pointOf = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return [((event.clientX - rect.left) / rect.width) * 100, ((event.clientY - rect.top) / rect.height) * 100];
+  };
+  ink.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    ink.setPointerCapture(event.pointerId);
+    current = { color: penColor, pts: [pointOf(event)] };
+    strokes.push(current);
+    renderInk();
+  });
+  ink.addEventListener("pointermove", (event) => {
+    if (!current) return;
+    current.pts.push(pointOf(event));
+    ink.lastChild?.setAttribute("d", pathD(current.pts));
+  });
+  ink.addEventListener("pointerup", () => { current = null; saveInk(); });
+  document.getElementById("pen-colors").innerHTML = INK_COLORS.map((c) => `<button data-ink="${c}" class="${c === penColor ? "on" : ""}" style="background:${c}" title="Couleur du crayon"></button>`).join("");
+  document.getElementById("pen-colors").addEventListener("click", (event) => {
+    if (!event.target.dataset.ink) return;
+    penColor = event.target.dataset.ink;
+    document.querySelectorAll("#pen-colors button").forEach((b) => b.classList.toggle("on", b === event.target));
+  });
+  document.getElementById("pen").addEventListener("click", (event) => {
+    const isOn = canvas.classList.toggle("drawing");
+    event.target.classList.toggle("on", isOn);
+    event.target.textContent = isOn ? "✏️ Crayon actif (clique pour arrêter)" : "✏️ Dessiner sur le plan";
+  });
+  document.getElementById("undo").addEventListener("click", () => { strokes.pop(); saveInk(); renderInk(); });
+  document.getElementById("clear").addEventListener("click", () => { strokes = []; saveInk(); renderInk(); });
+  renderInk();
+
+  renderAll();
+</script>
+</body>
+</html>
