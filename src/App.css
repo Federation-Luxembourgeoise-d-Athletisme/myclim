@@ -8347,3 +8347,95 @@ tr.row--warning > td {
 .registry-legend__all { background: #9dbbf0; }
 .registry-legend__new { background: #2f6fd6; }
 .registry-top { margin: 0; padding-left: 20px; display: grid; gap: 3px; font-size: 13px; }
+
+/* ── Athletes › Entries: dense, sober "sheet" (Margot 2026-11-09) ────────── */
+.ath-page { gap: 12px; }
+.ath-page .page-header { align-items: center; gap: 12px; }
+.ath-head__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; max-width: none !important; font-size: 13px; color: #5b6b7c; }
+.ath-head__meta strong { color: #17324a; }
+.ath-head__sep { color: #c3ccd6; }
+.ath-head__edition { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #5b6b7c; }
+.ath-head__edition select { width: auto; height: 26px; padding: 0 6px; font-size: 12px; border: 1px solid #d9e0e7; border-radius: 6px; background: #fff; }
+.ath-head__test { font-size: 11px; color: #9a5b00; background: #fff6e5; border: 1px solid #f3dfb8; border-radius: 4px; padding: 1px 6px; }
+.ath-head__actions { display: grid; gap: 4px; justify-items: end; }
+.ath-head__buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+.ath-btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; font-size: 12.5px; font-weight: 600; color: #17324a; background: #fff; border: 1px solid #d3dbe4; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.ath-btn:hover:not(:disabled) { background: #f3f6f9; border-color: #bfcad6; }
+.ath-btn:disabled { opacity: 0.55; cursor: default; }
+.ath-btn--primary { background: #17324a; border-color: #17324a; color: #fff; }
+.ath-btn--primary:hover:not(:disabled) { background: #22445f; border-color: #22445f; }
+.ath-btn--block { width: 100%; justify-content: center; margin-top: 6px; }
+.ath-btn__badge { font-size: 10.5px; font-weight: 700; color: #17324a; background: #e6edf4; border-radius: 999px; padding: 0 6px; line-height: 16px; }
+
+.ath-sheet { background: #fff; border: 1px solid #e1e7ee; border-radius: 10px; box-shadow: 0 1px 2px rgba(16, 37, 56, 0.04); }
+.ath-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #e8edf2; }
+.ath-toolbar__spacer { flex: 1 1 auto; }
+.ath-toolbar__count { font-size: 12px; color: #6b7a89; white-space: nowrap; }
+.ath-seg { display: inline-flex; border: 1px solid #d3dbe4; border-radius: 6px; overflow: hidden; margin-right: 6px; }
+.ath-seg__btn { height: 28px; padding: 0 10px; font-size: 12.5px; font-weight: 600; color: #5b6b7c; background: #fff; border: 0; cursor: pointer; white-space: nowrap; }
+.ath-seg__btn + .ath-seg__btn { border-left: 1px solid #d3dbe4; }
+.ath-seg__btn span { font-weight: 500; color: #8a98a6; margin-left: 2px; }
+.ath-seg__btn--active { background: #17324a; color: #fff; }
+.ath-seg__btn--active span { color: #b9c8d6; }
+.ath-filter { width: auto !important; height: 28px; padding: 0 8px !important; font-size: 12.5px !important; color: #17324a; background: #fff; border: 1px solid #d9e0e7 !important; border-radius: 6px !important; min-width: 0; }
+.ath-filter--search { width: 200px !important; }
+.ath-check { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: #5b6b7c; white-space: nowrap; cursor: pointer; margin-left: 4px; }
+.ath-check input { width: auto; margin: 0; accent-color: #17324a; }
+.ath-colpicker { position: relative; }
+.col-picker-popover--right { left: auto; right: 0; }
+.col-picker-popover__title { font-size: 10.5px; font-weight: 700; color: #6b7a89; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+.ath-empty { margin: 0; padding: 18px 14px; font-size: 13px; color: #6b7a89; }
+
+.ath-sheet .table-wrap--athletes { max-height: calc(100vh - 210px); border-radius: 0 0 10px 10px; margin: 0; }
+.ath-table { min-width: 100%; width: max-content; }
+.ath-table th, .ath-table td { white-space: nowrap; }
+.ath-table thead th { text-transform: uppercase; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.table-wrap--athletes .ath-table thead th { background: #f6f8fb; box-shadow: 0 1px 0 #dfe6ee; }
+.ath-table .col-sticky { background: #fff; }
+.ath-table tbody tr:nth-child(even) .col-sticky { background: #fbfcfd; }
+.ath-table tbody tr:hover .col-sticky { background: #eef4fb; }
+.ath-table thead .col-sticky { background: #f6f8fb; }
+.ath-table .ath-row--selected td, .ath-table .ath-row--selected .col-sticky { background: #e3edf9 !important; }
+.ath-table .ath-reg { width: 34px; text-align: center; }
+.ath-table .ath-name { font-weight: 600; color: #17324a; text-transform: uppercase; letter-spacing: 0.01em; }
+.ath-table .ath-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: #3b4b5a; }
+.ath-table .ath-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ath-table .ath-actions { width: 1%; text-align: right; }
+.ath-table .status-pill { padding: 0 6px; font-size: 10.5px; line-height: 17px; border-radius: 4px; font-weight: 700; letter-spacing: 0.02em; }
+.ath-table .row--muted td { opacity: 0.5; }
+
+/* event groups */
+.ath-table .event-group-header td { background: #eef2f6; padding: 5px 10px; border-top: 1px solid #dbe3eb; border-bottom: 1px solid #dbe3eb; }
+.table-wrap--athletes .ath-table .event-group-header td { top: 27px; }
+.ath-group { display: flex; align-items: center; gap: 8px; position: sticky; left: 10px; width: max-content; }
+.ath-group__title { font-weight: 700; font-size: 12.5px; color: #17324a; }
+.ath-group__count { font-size: 11px; color: #6b7a89; background: #fff; border: 1px solid #dbe3eb; border-radius: 999px; padding: 0 7px; line-height: 16px; }
+.ath-group__warn { font-size: 11px; font-weight: 600; color: #9a5b00; background: #fff6e5; border: 1px solid #f3dfb8; border-radius: 4px; padding: 0 6px; line-height: 17px; cursor: pointer; }
+.ath-group__fix { margin-top: 6px; padding: 6px 8px; background: #fffaf0; border: 1px solid #f3e6c9; border-radius: 6px; font-size: 12px; white-space: normal; }
+.ath-gender { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.ath-gender--w { color: #be185d; }
+.ath-gender--m { color: #1d4ed8; }
+
+/* cells */
+.ath-travel { font-size: 12px; color: #17324a; }
+.ath-travel strong { font-weight: 600; }
+.ath-travel__flight { color: #5b6b7c; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+.ath-travel__city { color: #6b7a89; }
+.ath-muted { color: #a3afbb; font-size: 11.5px; }
+.ath-ok { color: #166534; font-size: 11.5px; font-weight: 600; }
+.ath-tag { font-size: 10.5px; color: #5b6b7c; border: 1px solid #d9e0e7; border-radius: 4px; padding: 0 5px; line-height: 16px; }
+.ath-link { appearance: none; background: none; border: 0; padding: 0 2px; font: inherit; font-size: 11.5px; font-weight: 600; color: #1d4ed8; cursor: pointer; white-space: nowrap; }
+.ath-link:hover:not(:disabled) { text-decoration: underline; }
+.ath-link--danger { color: #b42318; }
+.ath-icon-btn { appearance: none; width: 22px; height: 22px; display: inline-grid; place-items: center; background: none; border: 1px solid transparent; border-radius: 5px; color: #a3afbb; font-size: 11px; cursor: pointer; }
+.ath-icon-btn--danger:hover { color: #b42318; background: #fdecea; border-color: #f6c9c3; }
+.ath-wa { color: #1d4ed8; font-weight: 600; }
+.ath-legend { margin: 0; padding: 6px 12px; font-size: 11.5px; color: #6b7a89; border-top: 1px solid #edf1f5; }
+/* beat the generic .table-wrap .data-table cell padding; keep the sheet inside the page */
+.ath-sheet { min-width: 0; max-width: 100%; }
+.table-wrap--athletes .data-table.ath-table th,
+.table-wrap--athletes .data-table.ath-table td { padding: 3px 8px; line-height: 1.35; }
+.table-wrap--athletes .data-table.ath-table thead th { padding-top: 6px; padding-bottom: 6px; }
+.table-wrap--athletes .data-table.ath-table .event-group-header td { padding: 4px 10px; }
+.ath-table .ath-reg button { font-size: 11px !important; }
