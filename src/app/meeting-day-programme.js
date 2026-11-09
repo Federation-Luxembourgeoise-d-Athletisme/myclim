@@ -12,13 +12,46 @@
 //    une ou plusieurs colonnes ;
 //  - bénévoles et chefs d'équipe voient leur équipe + le Général.
 //
-// Document Firestore : meetingDayProgrammes/{année}-sunday
-//   { splitTeamIds, subRoleColumns: { [teamId]: [noms] }, extraColumns: [{ id, name }], activities }
+// Document Firestore : meetingDayProgrammes/{année}-{jour}
+//   { mode, splitTeamIds, subRoleColumns: { [teamId]: [noms] }, extraColumns: [{ id, name }],
+//     hiddenTeamIds, visibleOrgTeamIds, activities }
+//
+// Extension du 09/11/2026 (Planning) : un onglet par jour de la CLIM Week
+// (lundi → lundi, vendredi/samedi/dimanche compris), chaque jour en grille
+// ou en liste ; les équipes de l'organisation (organisation-teams.js) sont
+// des colonnes au même titre que les équipes bénévoles ; une activité peut
+// porter un effectif / des personnes (« LUNEX (2) ») et être « toute la journée ».
 
 const PROGRAMME_START = 8 * 60;
 const PROGRAMME_END = 20 * 60;
 const PROGRAMME_STEP = 15;
 const GENERAL_COLUMN_KEY = "general";
+
+// Jours du planning, par rapport au dimanche du meeting (jour 0).
+// Le dimanche garde l'identifiant de document d'origine ({année}-sunday).
+const PLANNING_DAYS = [
+  { key: "mon-before", offset: -6, label: "Lundi", short: "Lun.", defaultMode: "list" },
+  { key: "tue-before", offset: -5, label: "Mardi", short: "Mar.", defaultMode: "list" },
+  { key: "wed-before", offset: -4, label: "Mercredi", short: "Mer.", defaultMode: "list" },
+  { key: "thu-before", offset: -3, label: "Jeudi", short: "Jeu.", defaultMode: "list" },
+  { key: "friday", offset: -2, label: "Vendredi", short: "Ven.", defaultMode: "grid" },
+  { key: "saturday", offset: -1, label: "Samedi", short: "Sam.", defaultMode: "grid" },
+  { key: "sunday", offset: 0, label: "Dimanche · meeting", short: "Dim.", defaultMode: "grid" },
+  { key: "mon-after", offset: 1, label: "Lundi (après)", short: "Lun.", defaultMode: "list" },
+];
+
+function getPlanningDay(key) {
+  return PLANNING_DAYS.find((day) => day.key === key) || PLANNING_DAYS.find((day) => day.key === "sunday");
+}
+
+// Date du jour à partir de la date du meeting (« 2027-01-17 »), ou null.
+function getPlanningDayDate(meetingDate, dayKey) {
+  const match = String(meetingDate || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  date.setDate(date.getDate() + getPlanningDay(dayKey).offset);
+  return date;
+}
 
 const PROGRAMME_CATEGORIES = [
   { value: "briefing", label: "Briefing", background: "#e3edfb", border: "#3c6fd1" },
@@ -91,7 +124,7 @@ function cleanNames(values) {
     });
 }
 
-function normalizeProgramme(data = {}) {
+function normalizeProgramme(data = {}, dayKey = "sunday") {
   const subRoleColumns = {};
   Object.entries(data?.subRoleColumns && typeof data.subRoleColumns === "object" ? data.subRoleColumns : {}).forEach(
     ([teamId, names]) => {
@@ -99,7 +132,10 @@ function normalizeProgramme(data = {}) {
     },
   );
   return {
+    mode: data?.mode === "list" || data?.mode === "grid" ? data.mode : getPlanningDay(dayKey).defaultMode,
     splitTeamIds: cleanNames(data?.splitTeamIds),
+    hiddenTeamIds: cleanNames(data?.hiddenTeamIds),
+    visibleOrgTeamIds: cleanNames(data?.visibleOrgTeamIds),
     subRoleColumns,
     extraColumns: (Array.isArray(data?.extraColumns) ? data.extraColumns : [])
       .filter((column) => column?.id && String(column.name || "").trim())
@@ -115,9 +151,15 @@ function normalizeProgramme(data = {}) {
         place: String(activity.place || ""),
         owner: String(activity.owner || ""),
         note: String(activity.note || ""),
+        people: String(activity.people || ""),
+        allDay: Boolean(activity.allDay),
         columns: cleanNames(activity.columns),
       })),
   };
+}
+
+function orgColumnKey(orgTeamId) {
+  return `org:${orgTeamId}`;
 }
 
 function teamColumnKey(teamId) {
@@ -132,11 +174,13 @@ function getTeamSubRoleNames(team, programme) {
   return cleanNames([...(team?.subRoles || []), ...(programme.subRoleColumns[team?.id] || [])]);
 }
 
-// Colonnes affichées : Général, puis chaque équipe (ou ses sous-rôles quand
-// elle est détaillée), puis les colonnes libres.
-function buildProgrammeColumns(teams = [], programme = normalizeProgramme()) {
+// Colonnes affichées : Général, puis chaque équipe bénévole (ou ses
+// sous-rôles quand elle est détaillée) sauf celles masquées ce jour-là, puis
+// les équipes de l'organisation affichées ce jour-là, puis les colonnes libres.
+// { all: true } ignore le masquage (liste des colonnes dans le panneau).
+function buildProgrammeColumns(teams = [], programme = normalizeProgramme(), orgTeams = [], options = {}) {
   const columns = [{ key: GENERAL_COLUMN_KEY, kind: "general", name: "Général · tout le monde" }];
-  teams.forEach((team) => {
+  teams.filter((team) => options.all || !programme.hiddenTeamIds.includes(team.id)).forEach((team) => {
     const subRoles = getTeamSubRoleNames(team, programme);
     if (programme.splitTeamIds.includes(team.id) && subRoles.length) {
       subRoles.forEach((subRole) =>
@@ -146,8 +190,22 @@ function buildProgrammeColumns(teams = [], programme = normalizeProgramme()) {
       columns.push({ key: teamColumnKey(team.id), kind: "team", name: team.roleName, teamId: team.id, teamName: team.roleName });
     }
   });
+  orgTeams
+    .filter((team) => options.all || programme.visibleOrgTeamIds.includes(team.id))
+    .forEach((team) => columns.push({ key: orgColumnKey(team.id), kind: "org", name: team.name, orgTeamId: team.id }));
   programme.extraColumns.forEach((column) => columns.push({ key: `extra:${column.id}`, kind: "extra", name: column.name, extraId: column.id }));
   return columns;
+}
+
+// Activités d'un jour pour la vue liste : la journée entière d'abord, puis
+// par heure de début.
+function sortActivitiesForList(activities = []) {
+  return [...activities].sort(
+    (left, right) =>
+      Number(right.allDay) - Number(left.allDay) ||
+      toMinutes(left.start) - toMinutes(right.start) ||
+      left.title.localeCompare(right.title, "fr"),
+  );
 }
 
 // Une activité posée sur une équipe détaillée reste visible : sa colonne
@@ -295,8 +353,97 @@ function importLegacySunday(legacy, teams = []) {
   return normalizeProgramme(programme);
 }
 
+// Lignes de la feuille « CLIM Week Tasks » d'un jour : rattachées à
+// l'équipe Étudiants LUNEX quand elle existe (c'est leur planning), sinon au
+// Général ; sans heure = toute la journée.
+function buildWeekActivities(weekRows = [], dayKey, orgTeams = [], findOrgTeam = () => null) {
+  const lunex = findOrgTeam(orgTeams, "lunex");
+  return (Array.isArray(weekRows) ? weekRows : [])
+    .filter((row) => row.day === dayKey && String(row.title || "").trim())
+    .map((row, index) => {
+      const start = toMinutes(row.start);
+      const end = toMinutes(row.end);
+      const allDay = start === null;
+      const startMinutes = allDay ? PROGRAMME_START : Math.max(PROGRAMME_START, Math.min(start, PROGRAMME_END - PROGRAMME_STEP));
+      const endMinutes = allDay
+        ? PROGRAMME_START + PROGRAMME_STEP
+        : end !== null && end > startMinutes
+          ? Math.min(end, PROGRAMME_END)
+          : Math.min(startMinutes + 30, PROGRAMME_END);
+      return {
+        id: `week-${dayKey}-${index}`,
+        title: String(row.title).trim(),
+        start: toTimeLabel(startMinutes),
+        end: toTimeLabel(endMinutes),
+        category: guessCategory(row.title),
+        place: "",
+        owner: "",
+        note: String(row.note || ""),
+        people: String(row.people || ""),
+        allDay,
+        columns: [lunex ? orgColumnKey(lunex.id) : GENERAL_COLUMN_KEY],
+      };
+    });
+}
+
+// Import de l'an dernier pour un jour du planning :
+//  - vendredi / samedi : la grille de la feuille « 3 days » ; chaque colonne
+//    retrouve une équipe de l'organisation (Apex, TV, Officials → Juges…),
+//    sinon une équipe bénévole de même nom, sinon devient une colonne libre ;
+//  - dimanche : importLegacySunday ;
+//  - tous les jours : les lignes de la CLIM Week de ce jour.
+// Hors dimanche, les équipes bénévoles sont masquées par défaut ; seules les
+// équipes de l'organisation qui ont une activité ce jour-là sont affichées.
+function importLegacyDay(dayKey, legacy = {}, teams = [], orgTeams = [], findOrgTeam = () => null) {
+  let programme;
+  if (dayKey === "sunday") {
+    programme = importLegacySunday(legacy.sunday, teams);
+  } else {
+    programme = normalizeProgramme({}, dayKey);
+    const grid = legacy[dayKey];
+    const keyByLegacyId = new Map();
+    (grid?.columns || []).forEach((legacyColumn, index) => {
+      const name = String(legacyColumn.name || "").trim();
+      const orgTeam = findOrgTeam(orgTeams, name);
+      if (orgTeam) return keyByLegacyId.set(legacyColumn.id, orgColumnKey(orgTeam.id));
+      const team = teams.find((candidate) => normalizeText(candidate.roleName) === normalizeText(name));
+      if (team) return keyByLegacyId.set(legacyColumn.id, teamColumnKey(team.id));
+      const id = `legacy-${dayKey}-${index}`;
+      programme.extraColumns.push({ id, name });
+      return keyByLegacyId.set(legacyColumn.id, `extra:${id}`);
+    });
+    programme.activities = (grid?.activities || []).map((activity, index) => ({
+      id: `import-${dayKey}-${index}`,
+      title: String(activity.title || ""),
+      start: activity.start,
+      end: activity.end,
+      category: activity.category || guessCategory(activity.title),
+      place: "",
+      owner: "",
+      note: "",
+      people: "",
+      allDay: false,
+      columns: cleanNames((activity.cols || []).map((id) => keyByLegacyId.get(id)).filter(Boolean)),
+    }));
+    programme.hiddenTeamIds = teams.map((team) => team.id);
+  }
+  programme.activities = [...programme.activities, ...buildWeekActivities(legacy.week, dayKey, orgTeams, findOrgTeam)];
+  const usedOrgIds = new Set(
+    programme.activities.flatMap((activity) => activity.columns.filter((key) => key.startsWith("org:")).map((key) => key.slice(4))),
+  );
+  programme.visibleOrgTeamIds = orgTeams.filter((team) => usedOrgIds.has(team.id)).map((team) => team.id);
+  return normalizeProgramme(programme, dayKey);
+}
+
 export {
   COQUE_PLACES,
+  PLANNING_DAYS,
+  buildWeekActivities,
+  getPlanningDay,
+  getPlanningDayDate,
+  importLegacyDay,
+  orgColumnKey,
+  sortActivitiesForList,
   GENERAL_COLUMN_KEY,
   PROGRAMME_CATEGORIES,
   PROGRAMME_END,

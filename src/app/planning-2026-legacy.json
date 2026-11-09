@@ -1,0 +1,1402 @@
+{
+ "friday": {
+  "columns": [
+   {
+    "id": "c1",
+    "name": "Installation"
+   },
+   {
+    "id": "c2",
+    "name": "Event Presentation"
+   },
+   {
+    "id": "c3",
+    "name": "Conf. Athlete@work"
+   },
+   {
+    "id": "c4",
+    "name": "Divers"
+   }
+  ],
+  "activities": [
+   {
+    "id": "a0",
+    "title": "LEMON (mixed zone/entrée des atlhètes) LOC (calicots et mur d'arrivée, beahflags)",
+    "start": "09:00",
+    "end": "12:30",
+    "cols": [
+     "c1"
+    ]
+   },
+   {
+    "id": "a1",
+    "title": "Espace VIP mise en place, menu, beachflags, télés,... Espace Conf. Amphithéatre acceuil, beachflags,...",
+    "start": "09:00",
+    "end": "11:00",
+    "cols": [
+     "c3"
+    ]
+   },
+   {
+    "id": "a2",
+    "title": "Installation Athle.ch",
+    "start": "10:00",
+    "end": "12:30",
+    "cols": [
+     "c2"
+    ]
+   },
+   {
+    "id": "a3",
+    "title": "Conférence Athlete@Work",
+    "start": "11:00",
+    "end": "12:00",
+    "cols": [
+     "c3"
+    ]
+   },
+   {
+    "id": "a4",
+    "title": "Catering",
+    "start": "12:00",
+    "end": "14:00",
+    "cols": [
+     "c3"
+    ]
+   },
+   {
+    "id": "a5",
+    "title": "Test Scoreboards & Screens Sound! Coque, Athle.ch",
+    "start": "14:00",
+    "end": "16:00",
+    "cols": [
+     "c2"
+    ]
+   },
+   {
+    "id": "a6",
+    "title": "Conférence de presse Mélia",
+    "start": "16:30",
+    "end": "19:00",
+    "cols": [
+     "c4"
+    ]
+   },
+   {
+    "id": "a7",
+    "title": "Briefing Olivier",
+    "start": "17:30",
+    "end": "18:30",
+    "cols": [
+     "c2"
+    ]
+   }
+  ]
+ },
+ "saturday": {
+  "columns": [
+   {
+    "id": "c5",
+    "name": "Installation"
+   },
+   {
+    "id": "c6",
+    "name": "Technical & Installation"
+   },
+   {
+    "id": "c7",
+    "name": "Apex"
+   },
+   {
+    "id": "c8",
+    "name": "TV"
+   },
+   {
+    "id": "c9",
+    "name": "Event presentation"
+   },
+   {
+    "id": "c10",
+    "name": "Speakers (Athle.ch)"
+   },
+   {
+    "id": "c11",
+    "name": "Officials"
+   },
+   {
+    "id": "c12",
+    "name": "Pre-Programme & Zone d'Echauffement"
+   }
+  ],
+  "activities": [
+   {
+    "id": "a0",
+    "title": "Training Business Race JB + David",
+    "start": "09:00",
+    "end": "10:00",
+    "cols": [
+     "c12"
+    ]
+   },
+   {
+    "id": "a1",
+    "title": "DISTRIBUTION JUGES",
+    "start": "09:30",
+    "end": "10:00",
+    "cols": [
+     "c11"
+    ]
+   },
+   {
+    "id": "a2",
+    "title": "Set Up Intercoms APEX",
+    "start": "10:00",
+    "end": "14:00",
+    "cols": [
+     "c7"
+    ]
+   },
+   {
+    "id": "a3",
+    "title": "Judges Briefing Steffi, Lex, all Officials",
+    "start": "10:00",
+    "end": "11:00",
+    "cols": [
+     "c9"
+    ]
+   },
+   {
+    "id": "a4",
+    "title": "Setup Athle.ch",
+    "start": "10:00",
+    "end": "11:30",
+    "cols": [
+     "c10"
+    ]
+   },
+   {
+    "id": "a5",
+    "title": "Judges Briefing Steffi, Lex, all Officials",
+    "start": "10:00",
+    "end": "10:30",
+    "cols": [
+     "c11"
+    ]
+   },
+   {
+    "id": "a6",
+    "title": "Athlete Training",
+    "start": "10:30",
+    "end": "13:00",
+    "cols": [
+     "c6"
+    ]
+   },
+   {
+    "id": "a7",
+    "title": "Installation Juges & Répétition Perche",
+    "start": "10:30",
+    "end": "12:00",
+    "cols": [
+     "c11"
+    ]
+   },
+   {
+    "id": "a8",
+    "title": "REPAS",
+    "start": "12:00",
+    "end": "13:00",
+    "cols": [
+     "c8",
+     "c9",
+     "c10",
+     "c11",
+     "c12"
+    ]
+   },
+   {
+    "id": "a9",
+    "title": "Vérification Buvette CAB, Margot",
+    "start": "13:00",
+    "end": "13:30",
+    "cols": [
+     "c6"
+    ]
+   },
+   {
+    "id": "a10",
+    "title": "Briefing TV",
+    "start": "13:00",
+    "end": "14:00",
+    "cols": [
+     "c8",
+     "c9"
+    ]
+   },
+   {
+    "id": "a11",
+    "title": "Training Business Race JB + David",
+    "start": "13:30",
+    "end": "14:30",
+    "cols": [
+     "c12"
+    ]
+   },
+   {
+    "id": "a12",
+    "title": "Communication Grid Review Apex & TV & Steffi & Lex",
+    "start": "14:00",
+    "end": "14:30",
+    "cols": [
+     "c7",
+     "c8",
+     "c9"
+    ]
+   },
+   {
+    "id": "a13",
+    "title": "Test Scoreboards & Screens Sound! Coque, Athle.ch",
+    "start": "14:00",
+    "end": "15:00",
+    "cols": [
+     "c10"
+    ]
+   },
+   {
+    "id": "a14",
+    "title": "Coque Multimedia Technician",
+    "start": "14:30",
+    "end": "15:00",
+    "cols": [
+     "c6"
+    ]
+   },
+   {
+    "id": "a15",
+    "title": "Set Up Intercoms APEX",
+    "start": "14:30",
+    "end": "15:00",
+    "cols": [
+     "c7"
+    ]
+   },
+   {
+    "id": "a16",
+    "title": "Briefing Stage Managers Steffi, Jessica, Stephanie",
+    "start": "14:30",
+    "end": "15:00",
+    "cols": [
+     "c9"
+    ]
+   },
+   {
+    "id": "a17",
+    "title": "CLOSE BLINDS Coque",
+    "start": "15:00",
+    "end": "15:30",
+    "cols": [
+     "c6"
+    ]
+   },
+   {
+    "id": "a18",
+    "title": "Test Intercoms APEX",
+    "start": "15:00",
+    "end": "15:30",
+    "cols": [
+     "c7"
+    ]
+   },
+   {
+    "id": "a19",
+    "title": "Test Lights & Follow Spot EP, Speakers, David, KNW",
+    "start": "15:00",
+    "end": "15:30",
+    "cols": [
+     "c9",
+     "c10"
+    ]
+   },
+   {
+    "id": "a20",
+    "title": "Arrivée Didier (Check In)",
+    "start": "15:00",
+    "end": "15:30",
+    "cols": [
+     "c11"
+    ]
+   },
+   {
+    "id": "a21",
+    "title": "GENERAL REHEARSAL Apex, EP, Speakers, Apart TV, Lights",
+    "start": "15:30",
+    "end": "16:00",
+    "cols": [
+     "c7",
+     "c8",
+     "c9",
+     "c10"
+    ]
+   },
+   {
+    "id": "a22",
+    "title": "Athlete Training",
+    "start": "16:00",
+    "end": "16:30",
+    "cols": [
+     "c6"
+    ]
+   },
+   {
+    "id": "a23",
+    "title": "Reunion Juges Arbitres Didier & Renaud & Lex",
+    "start": "17:00",
+    "end": "17:30",
+    "cols": [
+     "c11"
+    ]
+   }
+  ]
+ },
+ "week": [
+  {
+   "day": "mon-before",
+   "title": "Accreditation printing",
+   "people": "5 LUNEX Students",
+   "note": "",
+   "start": "10:00"
+  },
+  {
+   "day": "tue-before",
+   "title": "Accreditation printing",
+   "people": "5 LUNEX Students",
+   "note": "",
+   "start": "10:00"
+  },
+  {
+   "day": "thu-before",
+   "title": "Responsibility Briefing",
+   "people": "All hands",
+   "note": "",
+   "start": "10:00"
+  },
+  {
+   "day": "friday",
+   "title": "TODAY's BRIEFING",
+   "people": "Task distribution + explanation",
+   "note": "",
+   "start": "08:30"
+  },
+  {
+   "day": "friday",
+   "title": "Arena Set-Up (calicot & beachflags FLA / LMIH / VILLE / CMCM / Coque)",
+   "people": "All hands",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "friday",
+   "title": "VIP set-up for Conference (TV with last year meeting)",
+   "people": "All hands",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "friday",
+   "title": "Entrance",
+   "people": "All hands",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "friday",
+   "title": "Banner",
+   "people": "All hands",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "friday",
+   "title": "Installation of the end-wall (mur d'arrivée)",
+   "people": "All hands",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "friday",
+   "title": "Conference Guests Check In",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "10:45"
+  },
+  {
+   "day": "friday",
+   "title": "Conference Athlete@Work Com Coverage",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "11:00"
+  },
+  {
+   "day": "friday",
+   "title": "Réception Catering",
+   "people": "ANNE ; LUNEX",
+   "note": "",
+   "start": "11:00"
+  },
+  {
+   "day": "friday",
+   "title": "Catering Service",
+   "people": "LUNEX",
+   "note": "",
+   "start": "12:30"
+  },
+  {
+   "day": "friday",
+   "title": "E-magazine Startlist",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "14:00"
+  },
+  {
+   "day": "friday",
+   "title": "SETUP TIFO",
+   "people": "LUNEX (6) + STAFF (JEAN SEBASTIEN)",
+   "note": "",
+   "start": "14:00"
+  },
+  {
+   "day": "friday",
+   "title": "Gym Access",
+   "people": "LUNEX (3)",
+   "note": "",
+   "start": "16:00",
+   "end": "19:00"
+  },
+  {
+   "day": "friday",
+   "title": "Athlete Transportation",
+   "people": "LUNEX (4)",
+   "note": "",
+   "start": "16:00",
+   "end": "19:00"
+  },
+  {
+   "day": "friday",
+   "title": "Press Conference Coverage",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "17:00"
+  },
+  {
+   "day": "saturday",
+   "title": "TODAY's BRIEFING",
+   "people": "Task distribution + explanation",
+   "note": "",
+   "start": "08:30"
+  },
+  {
+   "day": "saturday",
+   "title": "Athlete Tram Transportation",
+   "people": "LUNEX (4)",
+   "note": "",
+   "start": "09:00",
+   "end": "19:00"
+  },
+  {
+   "day": "saturday",
+   "title": "Business Race Welcoming",
+   "people": "STAFF",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "saturday",
+   "title": "Set-Up Volunteers Room",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "saturday",
+   "title": "Prepare accreditation and t-shirt",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "saturday",
+   "title": "Signages",
+   "people": "LUNEX (2) + STAFF (1)",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "saturday",
+   "title": "SETUP STAND FLA",
+   "people": "STAFF (1) + LUNEX (2)",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "saturday",
+   "title": "SETUP BUVETTE MENU",
+   "people": "LUNEX (1)",
+   "note": ""
+  },
+  {
+   "day": "saturday",
+   "title": "Athlete Training Welcoming",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "10:30",
+   "end": "13:00"
+  },
+  {
+   "day": "saturday",
+   "title": "EATING BREAK",
+   "people": "Everyone",
+   "note": "",
+   "start": "12:00"
+  },
+  {
+   "day": "saturday",
+   "title": "Needs 10 Actors for light show test",
+   "people": "10 people",
+   "note": "",
+   "start": "15:30"
+  },
+  {
+   "day": "saturday",
+   "title": "Communication: Content with Vera",
+   "people": "LUNEX (2)",
+   "note": "",
+   "start": "15:00"
+  },
+  {
+   "day": "saturday",
+   "title": "Gym access",
+   "people": "LUNEX (4)",
+   "note": "",
+   "start": "16:00",
+   "end": "18:30"
+  },
+  {
+   "day": "saturday",
+   "title": "Last accreditations checking",
+   "people": "Everyone",
+   "note": "",
+   "start": "17:00"
+  },
+  {
+   "day": "saturday",
+   "title": "Briefing rechecking",
+   "people": "Everyone",
+   "note": "",
+   "start": "18:00"
+  },
+  {
+   "day": "sunday",
+   "title": "Arrival for every Lunex Students",
+   "people": "LUNEX + STAFF",
+   "note": "",
+   "start": "08:00"
+  },
+  {
+   "day": "sunday",
+   "title": "Warm Up Signage",
+   "people": "LUNEX (2)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Entrance",
+   "people": "LUNEX (2)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Accreditation",
+   "people": "LUNEX (3)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Patator",
+   "people": "Idriss + Lucie, Shaheen",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Animation (signing zone)",
+   "people": "LUNEX (1)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "VIP",
+   "people": "Gloria Porfiri",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Athlete Guidance Ext",
+   "people": "Margot",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Infield Guidance",
+   "people": "Lex",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "U12/ U14",
+   "people": "LUNEX (1)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Tribune Management",
+   "people": "LUNEX (1)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Sponsor Card",
+   "people": "LUNEX (1)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Luxbooth",
+   "people": "LUNEX (1)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Initiation Athlé",
+   "people": "LUNEX (2)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Tifo",
+   "people": "LUNEX (2)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Young Reporters",
+   "people": "LUNEX (2)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Food",
+   "people": "Juges : LUNEX (2) ; Volunteers : LUNEX (2)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Influencer Race Content",
+   "people": "LUNEX (1)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Live Content",
+   "people": "LUNEX (1) ; Chantal",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Content Creation with Vera Bertemes-Hoffmann",
+   "people": "LUNEX (2)",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Chaperone ALAD etc",
+   "people": "ALAD",
+   "note": ""
+  },
+  {
+   "day": "sunday",
+   "title": "Runner - version athle.ch",
+   "people": "JB",
+   "note": "apporter les start list finales \"non directes\" avec les infos athle.ch"
+  },
+  {
+   "day": "mon-after",
+   "title": "Démontage Fontaines à eau",
+   "people": "LUNEX / STAFF",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "mon-after",
+   "title": "Démontage LuxBooth",
+   "people": "LUNEX / STAFF",
+   "note": "",
+   "start": "09:00"
+  },
+  {
+   "day": "mon-after",
+   "title": "Remove Posters on Boulevard Kennedy",
+   "people": "LUNEX / STAFF",
+   "note": "",
+   "start": "09:00"
+  }
+ ],
+ "tasks": [
+  {
+   "offsetDays": -310,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Send City of Luxembourg the official request for sponsoring"
+  },
+  {
+   "offsetDays": -220,
+   "perimeter": [
+    "Staff",
+    "Communication"
+   ],
+   "action": "Define the concept of the poster and send out information to graphist"
+  },
+  {
+   "offsetDays": -220,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Etablir un plan de la zone d'échauffement"
+  },
+  {
+   "offsetDays": -220,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Figer le Pré-Programme"
+  },
+  {
+   "offsetDays": -190,
+   "perimeter": [
+    "Staff",
+    "Communication"
+   ],
+   "action": "Contact LMIH with first draft of the poster"
+  },
+  {
+   "offsetDays": -190,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Contact CMCM / City of Luxembourg / Ministery of Sport with poster"
+  },
+  {
+   "offsetDays": -190,
+   "perimeter": [
+    "Staff",
+    "Communication"
+   ],
+   "action": "Communicate to all partners an editorial for the meeting"
+  },
+  {
+   "offsetDays": -130,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Faire la demande à image de marque LMIH pour les demande de prêts et \"goodies\""
+  },
+  {
+   "offsetDays": -130,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Pre-program's program is finalised"
+  },
+  {
+   "offsetDays": -130,
+   "perimeter": [
+    "Juges",
+    "Staff"
+   ],
+   "action": "Contact Judges about the date of the event and send sign up form."
+  },
+  {
+   "offsetDays": -130,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Creation of the support for communication (Flyer, Poster, poster B.Kennedy, ticket, atletes entrance, finish wall)"
+  },
+  {
+   "offsetDays": -130,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Communicate with CFA about the need for hurdle and starting block team / google form"
+  },
+  {
+   "offsetDays": -130,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Final program of international competition"
+  },
+  {
+   "offsetDays": -115,
+   "perimeter": [
+    "Communication",
+    "Volunteers",
+    "Master Lunex"
+   ],
+   "action": "Prepare the powerpoint to present the meeting to Lunex Student, and plan the class presentation schedule"
+  },
+  {
+   "offsetDays": -110,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Official Poster ready"
+  },
+  {
+   "offsetDays": -100,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Application for subsidies"
+  },
+  {
+   "offsetDays": -100,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Ask the authorization for the poster on the boulevard kennedy"
+  },
+  {
+   "offsetDays": -100,
+   "perimeter": [
+    "Volunteers"
+   ],
+   "action": "Organisation of the entrance and perimeters of the Coque"
+  },
+  {
+   "offsetDays": -100,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Volunteers / Judges tee-shirt : contact & process of creation"
+  },
+  {
+   "offsetDays": -100,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "1st draft of the run down"
+  },
+  {
+   "offsetDays": -95,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Social media communication plan is finalised"
+  },
+  {
+   "offsetDays": -81,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Communicate social media plan to CMCM"
+  },
+  {
+   "offsetDays": -81,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Ticket Platform Ready to announce Early Birds after the Challenge Tageblatt ceremony"
+  },
+  {
+   "offsetDays": -80,
+   "perimeter": [
+    "Vip"
+   ],
+   "action": "Writing the VIP concept"
+  },
+  {
+   "offsetDays": -80,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Contact Companies for the Business Race"
+  },
+  {
+   "offsetDays": -80,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Contact Influencers / Ex-Sports glories for the Influencer Race"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Order the impression (Flyer, Poster, poster A.Kennedy, ticket, atletes entrance, winner card, finish wall)"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Staff",
+    "Communication",
+    "Vip"
+   ],
+   "action": "Athlete@work concept is set up (athletes, lecturer, catering, timetable)"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Communicate on the number of room needed with Melia"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Pre-program"
+   ],
+   "action": "Microsft Form Ready (Pre-program)"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Communication",
+    "Volunteers"
+   ],
+   "action": "First call for Volunteers"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Pre-program"
+   ],
+   "action": "Send the emails to Athletes Prioritary according to Challenge Tageblatt Results (Pre-program)"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Pre Program",
+    "Communication"
+   ],
+   "action": "Communicate on Social Medias the Pre-Program Form"
+  },
+  {
+   "offsetDays": -76,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Book all spaces for the meeting (VIP, conference, judges training)"
+  },
+  {
+   "offsetDays": -66,
+   "perimeter": [
+    "Staff",
+    "Vip",
+    "Communication"
+   ],
+   "action": "All communication supports are ready for the Conference Athlete@work"
+  },
+  {
+   "offsetDays": -66,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Prepare the design for the accreditations"
+  },
+  {
+   "offsetDays": -65,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Prepare the design of the signages + menu for the catering (VIP and public)"
+  },
+  {
+   "offsetDays": -65,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Prepare designs for Cube + LED"
+  },
+  {
+   "offsetDays": -65,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Write the protocole for the medical emergencies (public and/or athletes)"
+  },
+  {
+   "offsetDays": -62,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Defined starting block and hurdle team"
+  },
+  {
+   "offsetDays": -62,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Create Judges Guide"
+  },
+  {
+   "offsetDays": -62,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Send the order for Catering to the Coque"
+  },
+  {
+   "offsetDays": -62,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Sharing information on pre-program form opening"
+  },
+  {
+   "offsetDays": -62,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Ask for premission to have stand in malls and public places (Promotion should take place in the last month before the event)"
+  },
+  {
+   "offsetDays": -62,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Order of the Tee-shirts for volunteers/judges"
+  },
+  {
+   "offsetDays": -62,
+   "perimeter": [
+    "Juges"
+   ],
+   "action": "Select available Judges"
+  },
+  {
+   "offsetDays": -50,
+   "perimeter": [
+    "Communication",
+    "Volunteers",
+    "Master Lunex"
+   ],
+   "action": "Promotion in the Lunex class (during 1 month)"
+  },
+  {
+   "offsetDays": -46,
+   "perimeter": [
+    "Communication",
+    "Staff"
+   ],
+   "action": "Lauch Conference athlete@work invitation"
+  },
+  {
+   "offsetDays": -46,
+   "perimeter": [
+    "Juges"
+   ],
+   "action": "Send Judge Guide to Judges"
+  },
+  {
+   "offsetDays": -46,
+   "perimeter": [
+    "Vip"
+   ],
+   "action": "Contact Luxbooth and any other partners need for the VIP area"
+  },
+  {
+   "offsetDays": -46,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Contact the water dispenser company (Cullingan)"
+  },
+  {
+   "offsetDays": -45,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Order drink cards to impression-billetterie.fr"
+  },
+  {
+   "offsetDays": -40,
+   "perimeter": [
+    "Sustainability"
+   ],
+   "action": "All plans are written and ready"
+  },
+  {
+   "offsetDays": -40,
+   "perimeter": [
+    "Volunteers"
+   ],
+   "action": "Confirm to all volunteers their participation in the meeting"
+  },
+  {
+   "offsetDays": -40,
+   "perimeter": [
+    "Communication",
+    "Vip"
+   ],
+   "action": "Found a photograph for the vip"
+  },
+  {
+   "offsetDays": -40,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Prepare the accreditations designs / volunteers documents (plan, volunteer roadbook)"
+  },
+  {
+   "offsetDays": -40,
+   "perimeter": [
+    "Sustainability"
+   ],
+   "action": "2 reports on sustainability should be written"
+  },
+  {
+   "offsetDays": -38,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Creation of the additional support (Luxbooth, winner card, fan-chlappen)"
+  },
+  {
+   "offsetDays": -37,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Prepare the design of the e-magazine"
+  },
+  {
+   "offsetDays": -37,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Send invitation to the Vip + verification of the list vip"
+  },
+  {
+   "offsetDays": -30,
+   "perimeter": [
+    "Vip"
+   ],
+   "action": "Organisation of the vip tour"
+  },
+  {
+   "offsetDays": -30,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Poster should be ready to hang them outside"
+  },
+  {
+   "offsetDays": -30,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "All templates for the meeting are finalised"
+  },
+  {
+   "offsetDays": -30,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "Transportation system is set up / volunteers are contacted"
+  },
+  {
+   "offsetDays": -12,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Poster should be hand out on the Avenue John F. Kennedy"
+  },
+  {
+   "offsetDays": -12,
+   "perimeter": [
+    "Staff"
+   ],
+   "action": "All necesary object are bought"
+  },
+  {
+   "offsetDays": -12,
+   "perimeter": [
+    "Master Lunex",
+    "Volunteers"
+   ],
+   "action": "Timetable of the 3 days with the details of the different briefing"
+  },
+  {
+   "offsetDays": -12,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "First update of the e-magazine with the StartList"
+  },
+  {
+   "offsetDays": -8,
+   "perimeter": [
+    "Volunteers"
+   ],
+   "action": "Last registration for the volunteers"
+  },
+  {
+   "offsetDays": -8,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Order logo stickers of the companies registered in the Business Race to Mr Copy for the Winner Cards"
+  },
+  {
+   "offsetDays": -8,
+   "perimeter": [
+    "Staff",
+    "Master Lunex"
+   ],
+   "action": "Meeting : final organisation plan release with all organising,comitee"
+  },
+  {
+   "offsetDays": -5,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Accreditation should be printed and plastified and organize in alphabitic ordrer"
+  },
+  {
+   "offsetDays": -5,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Additional signage should be printed"
+  },
+  {
+   "offsetDays": -4,
+   "perimeter": [
+    "Volunteers"
+   ],
+   "action": "Printing the informations for the desk"
+  },
+  {
+   "offsetDays": -3,
+   "perimeter": [
+    "Volunteers"
+   ],
+   "action": "Printing the list of the volunteer and put them in the folder (classeur)"
+  },
+  {
+   "offsetDays": -3,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Creation of content on social media"
+  },
+  {
+   "offsetDays": -3,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Check the E-magazine"
+  },
+  {
+   "offsetDays": -2,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "The banners should be placed on the field"
+  },
+  {
+   "offsetDays": -2,
+   "perimeter": [
+    "Vip"
+   ],
+   "action": "Prepare the Vip area"
+  },
+  {
+   "offsetDays": -1,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "The signage should be attatched on the wall in the Coque"
+  },
+  {
+   "offsetDays": -1,
+   "perimeter": [
+    "Juges"
+   ],
+   "action": "Judges briefing"
+  },
+  {
+   "offsetDays": 0,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Cleaning (remove the banners, the balisage,..)"
+  },
+  {
+   "offsetDays": 1,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Remove the poster on A.Kennedy"
+  },
+  {
+   "offsetDays": 2,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Send Pictures for the Business Race"
+  },
+  {
+   "offsetDays": 3,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Send mails for VIP feedbacks / Gallery photo + Luxbooths"
+  },
+  {
+   "offsetDays": 3,
+   "perimeter": [
+    "Communication"
+   ],
+   "action": "Report on social media"
+  },
+  {
+   "offsetDays": 7,
+   "perimeter": [
+    "Master Lunex"
+   ],
+   "action": "Debriefing should be done and updated on the drive"
+  },
+  {
+   "offsetDays": 20,
+   "perimeter": [
+    "Sustainability"
+   ],
+   "action": "All the reports on sustainability should be finalized"
+  },
+  {
+   "offsetDays": 20,
+   "perimeter": [
+    "Volunteers"
+   ],
+   "action": "Collect the list of the volunteers and do the data analysis"
+  },
+  {
+   "offsetDays": 45,
+   "perimeter": [
+    "Sustainability"
+   ],
+   "action": "All reports on Sustainability are submitted to World Athletics"
+  }
+ ]
+}

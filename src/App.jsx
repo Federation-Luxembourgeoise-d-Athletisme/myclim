@@ -31,6 +31,8 @@ import { SiteGallery } from "./site/site-gallery";
 import { VolunteersPage as VolunteersPageScreen } from "./app/volunteers-page";
 import { VolunteerAssignmentsPage as VolunteerAssignmentsPageScreen } from "./app/volunteer-assignments-page";
 import { MeetingDayProgrammePage } from "./app/meeting-day-programme-page";
+import { OrganisationTeamsPage } from "./app/organisation-teams-page";
+import { RetroplanningPage } from "./app/retroplanning-page";
 import { AccreditationsPage as AccreditationsPageScreen } from "./app/accreditations-page";
 import {
   AppShell as AppShellScreen,
@@ -257,9 +259,10 @@ const APPLICATIONS_TABS = [
 ];
 
 const TEAMS_TABS = [
-  { to: "/app/equipes", end: true, label: "Équipes" },
+  { to: "/app/equipes", end: true, label: "Équipes bénévoles" },
+  { to: "/app/equipes/organisation", label: "Équipes organisation" },
   { to: "/app/equipes/affectations", label: "Affectations" },
-  { to: "/app/equipes/programme-dimanche", label: "Programme du dimanche" },
+  { to: "/app/equipes/planning", label: "Planning" },
   { to: "/app/equipes/recapitulatif", label: "Récapitulatif" },
   { to: "/app/equipes/autour-du-meeting", label: "Autour du meeting" },
 ];
@@ -665,7 +668,9 @@ export default function App() {
                 <Route path="equipes" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navTeamsAssignments" title="Équipes & affectations" tabs={TEAMS_TABS} />}>
                   <Route index element={<TeamsPage view="configuration" />} />
                   <Route path="affectations" element={<VolunteerAssignmentsPage />} />
-                  <Route path="programme-dimanche" element={<MeetingDayProgrammePage />} />
+                  <Route path="organisation" element={<OrganisationTeamsPage />} />
+                  <Route path="planning" element={<MeetingDayProgrammePage />} />
+                  <Route path="programme-dimanche" element={<Navigate replace to="/app/equipes/planning" />} />
                   <Route path="recapitulatif" element={<TeamsPage view="overview" />} />
                   <Route path="autour-du-meeting" element={<MeetingSupportPage />} />
                 </Route>
@@ -732,6 +737,7 @@ export default function App() {
               </Route>
               <Route path="mon-compte" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="retroplanning" element={<RetroplanningPage />} />
               <Route path="athletes" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navEntries" title="Engagés" tabs={ENTRIES_TABS} />}>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
                   <Route index element={<AthletesListPage />} />

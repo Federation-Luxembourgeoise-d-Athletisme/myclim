@@ -22,6 +22,7 @@ import { ACCREDITATION_CONFIGURATION_DOC_PATH, TEAM_CONFIGURATION_DOC_PATH } fro
 import { getDisplayName, normalizeRole } from "./utils";
 import { LanguageSwitch } from "./language";
 import { NotificationBell } from "./notifications/notifications-ui";
+import { useHasOwnMeetingTasks } from "./organisation-hooks";
 import { useLanguage } from "./language-context";
 import { db } from "../services/firebase";
 
@@ -120,9 +121,13 @@ function AppShell(props) {
     }),
     [effectiveRoles, portalSettings, portalSettingsLoading],
   );
+  // Membre d’une équipe de l’organisation (hors admin/gestionnaire) : lien
+  // « Mes échéances » vers ses tâches du Rétroplanning.
+  const isManagerRole = effectiveRoles.includes("admin") || effectiveRoles.includes("gestionnaire");
+  const hasOwnMeetingTasks = useHasOwnMeetingTasks(currentUser?.email, !isManagerRole);
   const navigation = useMemo(
-    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess }),
-    [athletePortalAccess, effectiveRoles],
+    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess, hasOwnMeetingTasks }),
+    [athletePortalAccess, effectiveRoles, hasOwnMeetingTasks],
   );
   const linkLabel = (link) => (t(link.labelKey) || link.label).replace("{edition}", activeEditionId || "");
   const flatNavigation = useMemo(() => flattenNavigationItems(navigation), [navigation]);

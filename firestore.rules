@@ -409,6 +409,31 @@ service cloud.firestore {
       allow write: if isAdminOrManager();
     }
 
+    // Équipes de l'organisation (staff, communication, LUNEX, Apex…) : elles
+    // contiennent les e-mails et téléphones du staff → admins et gestionnaires.
+    match /appSettings/organisationTeams {
+      allow read, write: if isAdminOrManager();
+    }
+
+    // Rétroplanning : admins et gestionnaires gèrent tout ; un membre d'une
+    // équipe de l'organisation (son e-mail est dans perimeterEmails, recalculé
+    // à chaque enregistrement des équipes) lit les tâches de son périmètre et
+    // peut seulement en changer le statut.
+    function isInTaskPerimeter(data) {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in data.perimeterEmails;
+    }
+
+    match /meetingTasks/{taskId} {
+      allow read: if isAdminOrManager() || isInTaskPerimeter(resource.data);
+      allow create, delete: if isAdminOrManager();
+      allow update: if isAdminOrManager() ||
+        (isInTaskPerimeter(resource.data) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"]) &&
+         request.resource.data.status in ["todo", "doing", "done"]);
+    }
+
     match /appSettings/teamsConfiguration {
       allow read:  if isSignedIn();
       allow write: if isAdminOrManager();
