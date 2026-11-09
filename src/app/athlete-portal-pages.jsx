@@ -34,6 +34,14 @@ import {
   formatTravelDay,
 } from "./athlete-portal-hooks";
 import { db } from "../services/firebase";
+import { findDuplicateCandidatePairs, getRegistryEntryStats, getRegistrySuspectReasons } from "./athlete-registry-analysis";
+import {
+  AthleteRegistryAnalysisPanel,
+  AthleteRegistryCleanupPanel,
+  AthleteRegistryFilters,
+  AthleteRegistryTable,
+} from "./athlete-registry-tools";
+import { useRegistryFilters } from "./athlete-registry-filters";
 import { searchWaAthletes } from "../site/emagazine-athlete-data";
 
 const PLATFORM_ROLES = [
@@ -2210,18 +2218,16 @@ function buildDuplicateRegistryGroups(registry, currentAthletesByRegistryId) {
 
   registry.forEach((entry) => adjacency.set(entry._docId, new Set()));
 
-  for (let i = 0; i < registry.length; i++) {
-    for (let j = i + 1; j < registry.length; j++) {
-      const left = registry[i];
-      const right = registry[j];
-      const reason = getDuplicateMatchReason(left, right);
-      if (!reason) continue;
-      adjacency.get(left._docId)?.add(right._docId);
-      adjacency.get(right._docId)?.add(left._docId);
-      reasonsByEdge.set(`${left._docId}__${right._docId}`, reason);
-      reasonsByEdge.set(`${right._docId}__${left._docId}`, reason);
-    }
-  }
+  // Only pairs that can match at all get the full (slow) rule.
+  findDuplicateCandidatePairs(registry).forEach(([left, right]) => {
+    const reason = getDuplicateMatchReason(left, right);
+    if (!reason) return;
+    adjacency.get(left._docId)?.add(right._docId);
+    adjacency.get(right._docId)?.add(left._docId);
+    reasonsByEdge.set(`${left._docId}__${right._docId}`, reason);
+    reasonsByEdge.set(`${right._docId}__${left._docId}`, reason);
+  });
+  const registryById = new Map(registry.map((entry) => [entry._docId, entry]));
 
   const visited = new Set();
   const groups = [];
@@ -2245,7 +2251,7 @@ function buildDuplicateRegistryGroups(registry, currentAthletesByRegistryId) {
     }
 
     const entries = componentIds
-      .map((docId) => registry.find((candidate) => candidate._docId === docId))
+      .map((docId) => registryById.get(docId))
       .filter(Boolean)
       .sort((a, b) => compareRegistryPrimaryCandidates(a, b, currentAthletesByRegistryId));
 
@@ -3971,7 +3977,6 @@ function AthleteRegistryPage({ Panel, maintenance }) {
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
   const { registry, loading } = useAthleteRegistry(canAccess);
   const { athletes, loading: athletesLoading } = useAthletes(canAccess);
-  const [search, setSearch] = useState("");
   const [rebuilding, setRebuilding] = useState(false);
   const [rebuildLog, setRebuildLog] = useState([]);
   const [selectedRegistryDocId, setSelectedRegistryDocId] = useState("");
@@ -3980,23 +3985,23 @@ function AthleteRegistryPage({ Panel, maintenance }) {
   const [dismissingGroupId, setDismissingGroupId] = useState("");
   const [mergeStatus, setMergeStatus] = useState("");
   const [mergeOverrides, setMergeOverrides] = useState({});
-  const [onlyWithoutWaid, setOnlyWithoutWaid] = useState(false);
+  const [cleanupDeleting, setCleanupDeleting] = useState(false);
+  const [cleanupStatus, setCleanupStatus] = useState("");
 
   const withWaidCount = useMemo(() => registry.filter((entry) => entry.waid).length, [registry]);
 
-  // Without a WAID first come the athletes with the most editions at the meeting.
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    const editionCount = (entry) => new Set((entry.editions || []).map((edition) => edition.year)).size;
-    const list = registry.filter((a) => {
-      if (onlyWithoutWaid && a.waid) return false;
-      if (!q) return true;
-      const hay = [a.lastName, a.firstName, a.nationality, a.waid, a.birthDate]
-        .filter(Boolean).join(" ").toLowerCase();
-      return hay.includes(q);
-    });
-    return onlyWithoutWaid ? [...list].sort((a, b) => editionCount(b) - editionCount(a)) : list;
-  }, [registry, search, onlyWithoutWaid]);
+  // One line per fiche with its computed stats and cleanup flags, for the
+  // filters, sorts, analysis and the « À nettoyer » list.
+  const registryRows = useMemo(
+    () => registry.map((entry) => ({
+      entry,
+      stats: getRegistryEntryStats(entry),
+      suspectReasons: getRegistrySuspectReasons(entry),
+    })),
+    [registry],
+  );
+  const registryFilterState = useRegistryFilters(registryRows);
+  const suspectRows = useMemo(() => registryRows.filter((row) => row.suspectReasons.length), [registryRows]);
 
   // The open fiche and the other fiche with the same WAID, merged as one person.
   function handleMergeSameWaid(otherEntry) {
@@ -4272,6 +4277,45 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     }
   }
 
+  // Deleting a fiche linked to an entry of the current edition would break that
+  // link: those must be corrected or merged instead.
+  async function handleDeleteRegistryEntries(entries) {
+    const linked = entries.filter((entry) => (currentAthletesByRegistryId.get(entry._docId) || []).length > 0);
+    const deletable = entries.filter((entry) => !linked.includes(entry));
+    if (!deletable.length) {
+      setCleanupStatus("Ces fiches sont liées à des engagés de l'édition en cours : corrige le nom ou fusionne-les plutôt.");
+      return false;
+    }
+    const names = deletable.slice(0, 8).map((entry) => [entry.firstName, entry.lastName].filter(Boolean).join(" ") || entry._docId).join("\n");
+    const more = deletable.length > 8 ? `\n… et ${deletable.length - 8} autre(s)` : "";
+    const skipped = linked.length ? `\n\n${linked.length} fiche(s) liée(s) à des engagés seront gardées.` : "";
+    if (!window.confirm(`Supprimer définitivement ${deletable.length} fiche(s) de la base athlètes ?\n\n${names}${more}${skipped}`)) return false;
+
+    setCleanupDeleting(true);
+    setCleanupStatus("");
+    try {
+      for (let index = 0; index < deletable.length; index += 400) {
+        const batch = writeBatch(db);
+        deletable.slice(index, index + 400).forEach((entry) => batch.delete(doc(db, ATHLETE_REGISTRY_COLLECTION, entry._docId)));
+        await batch.commit();
+      }
+      if (deletable.some((entry) => entry._docId === selectedRegistryDocId)) setSelectedRegistryDocId("");
+      setSelectedRegistryIds((current) => current.filter((docId) => !deletable.some((entry) => entry._docId === docId)));
+      setCleanupStatus(`✅ ${deletable.length} fiche(s) supprimée(s).${linked.length ? ` ${linked.length} gardée(s) car liée(s) à des engagés.` : ""}`);
+      return true;
+    } catch (error) {
+      setCleanupStatus(`❌ ${error.message}`);
+      return false;
+    } finally {
+      setCleanupDeleting(false);
+    }
+  }
+
+  function openRegistryEntry(docId) {
+    setSelectedRegistryDocId(docId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   if (!canAccess) {
     return (
       <div className="page">
@@ -4374,6 +4418,25 @@ function AthleteRegistryPage({ Panel, maintenance }) {
 
       <section className="panel-grid panel-grid--1">
         {maintenance === "hide" ? null : maintenancePanel}
+
+        {selectedRegistryEntry ? null : (
+          <AthleteRegistryAnalysisPanel
+            Panel={Panel}
+            rows={registryFilterState.filteredRows}
+            hasFilters={registryFilterState.hasFilters}
+            onOpen={openRegistryEntry}
+          />
+        )}
+
+        <AthleteRegistryCleanupPanel
+          Panel={Panel}
+          rows={suspectRows}
+          getLinkedCount={(docId) => (currentAthletesByRegistryId.get(docId) || []).length}
+          onOpen={openRegistryEntry}
+          onDelete={handleDeleteRegistryEntries}
+          deleting={cleanupDeleting}
+          status={cleanupStatus}
+        />
 
         <Panel
           title="Doublons probables"
@@ -4732,37 +4795,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
           />
         ) : null}
 
-        <Panel title="Rechercher" subtitle={`${filtered.length} résultat${filtered.length !== 1 ? "s" : ""} · ${withWaidCount} / ${registry.length} fiches avec WAID`}>
-          <div style={{ marginBottom: "0.75rem", display: "flex", gap: "0.75rem", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-              <input
-                className="input"
-                placeholder="Nom, nationalité, WAID…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ maxWidth: 340 }}
-              />
-              <label style={{ display: "flex", gap: "0.4rem", alignItems: "center", fontSize: "0.85rem" }}>
-                <input type="checkbox" checked={onlyWithoutWaid} onChange={(event) => setOnlyWithoutWaid(event.target.checked)} />
-                À compléter (sans WAID), les plus fidèles d'abord
-              </label>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-              <span className="panel-note" style={{ margin: 0 }}>
-                {selectedRegistryIds.length} sélectionnée{selectedRegistryIds.length > 1 ? "s" : ""}
-              </span>
-              {selectedRegistryIds.length > 0 ? (
-                <button
-                  type="button"
-                  className="button button--neutral"
-                  onClick={() => setSelectedRegistryIds([])}
-                >
-                  Vider la sélection
-                </button>
-              ) : null}
-            </div>
-          </div>
-
+        <Panel title="Rechercher" subtitle={`${withWaidCount} / ${registry.length} fiches avec WAID · clique sur un titre de colonne pour trier`}>
           {loading ? (
             <p className="panel-note">Chargement de la base…</p>
           ) : registry.length === 0 ? (
@@ -4771,114 +4804,21 @@ function AthleteRegistryPage({ Panel, maintenance }) {
               <p>Importe des athlètes ou lance une synchro WA pour la remplir.</p>
             </div>
           ) : (
-            <div className="table-wrap table-wrap--athletes">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Sél.</th>
-                    <th data-sticky-col="1" className="col-sticky col-sticky--last">Nom</th>
-                    <th>Prénom</th>
-                    <th>Nat.</th>
-                    <th>Naissance</th>
-                    <th>WAID</th>
-                    <th>Profil WA</th>
-                    <th>Éditions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((a) => {
-                    const editions = Array.isArray(a.editions) ? a.editions : [];
-                    const years = [...new Set(editions.map((e) => e.year))].sort((x, y) => x - y);
-                    return (
-                      <tr key={a._docId}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedRegistryIds.includes(a._docId)}
-                            onChange={() => toggleRegistrySelection(a._docId)}
-                            aria-label={`Sélectionner ${[a.firstName, a.lastName].filter(Boolean).join(" ") || "cet athlète"}`}
-                          />
-                        </td>
-                        <td className="col-sticky col-sticky--last" style={{ fontWeight: 600 }}>
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedRegistryDocId(a._docId); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                            style={{
-                              appearance: "none",
-                              border: "none",
-                              background: "transparent",
-                              padding: 0,
-                              margin: 0,
-                              cursor: "pointer",
-                              color: selectedRegistryDocId === a._docId ? "#1d4ed8" : "inherit",
-                              fontWeight: 600,
-                              textAlign: "left",
-                            }}
-                            title="Ouvrir la fiche athlète"
-                          >
-                            {a.lastName || "—"}
-                          </button>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedRegistryDocId(a._docId)}
-                            style={{
-                              appearance: "none",
-                              border: "none",
-                              background: "transparent",
-                              padding: 0,
-                              margin: 0,
-                              cursor: "pointer",
-                              color: selectedRegistryDocId === a._docId ? "#1d4ed8" : "inherit",
-                              fontWeight: 600,
-                              textAlign: "left",
-                            }}
-                            title="Ouvrir la fiche athlète"
-                          >
-                            {a.firstName || "—"}
-                          </button>
-                        </td>
-                        <td>{a.nationality || "—"}</td>
-                        <td style={{ color: "#555", fontSize: "0.85rem" }}>
-                          {a.birthDate
-                            ? a.birthDate.slice(0, 10)
-                            : a.birthYear
-                              ? String(a.birthYear)
-                              : "—"}
-                        </td>
-                        <td style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
-                          {a.waid || "—"}
-                        </td>
-                        <td>
-                          {a.waUrl
-                            ? <a href={a.waUrl} target="_blank" rel="noopener noreferrer"
-                                 style={{ fontSize: "0.82rem" }}>WA ↗</a>
-                            : <span style={{ color: "#bbb" }}>—</span>}
-                        </td>
-                        <td>
-                          {years.length > 0 ? (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                              {years.map((yr) => (
-                                <span key={yr} style={{
-                                  fontSize: "0.68rem", fontWeight: 600,
-                                  background: "#dbeafe", color: "#1d4ed8",
-                                  padding: "1px 5px", borderRadius: 8,
-                                }}>
-                                  {yr}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span style={{ color: "#ccc", fontSize: "0.8rem" }}>—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <AthleteRegistryFilters
+                state={registryFilterState}
+                totalCount={registry.length}
+                selectedCount={selectedRegistryIds.length}
+                onClearSelection={() => setSelectedRegistryIds([])}
+              />
+              <AthleteRegistryTable
+                state={registryFilterState}
+                selectedIds={selectedRegistryIds}
+                onToggle={toggleRegistrySelection}
+                onOpen={openRegistryEntry}
+                openDocId={selectedRegistryDocId}
+              />
+            </>
           )}
           <p className="panel-note" style={{ marginTop: "0.5rem" }}>
             Les fiches sont permanentes : un athlète n&apos;est jamais retiré de cette base,

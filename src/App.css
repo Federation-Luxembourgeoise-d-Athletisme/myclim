@@ -8303,3 +8303,47 @@ tr.row--warning > td {
 
 /* Tableau des bénévoles : compteur et remise à zéro des filtres */
 .sheet-toolbar-count { align-self: end; margin-bottom: 6px; display: inline-flex; gap: 10px; align-items: baseline; font-size: 13px; color: #5b6475; white-space: nowrap; }
+
+/* Base athlètes : filtres, tableau, analyse, fiches à nettoyer */
+.registry-filters { display: grid; gap: 8px; margin-bottom: 10px; }
+.registry-filters__row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: end; }
+.registry-filters__row .field { min-width: 120px; flex: 0 1 150px; }
+.registry-filters__row .field span { font-size: 12px; }
+.registry-filters__row .field input, .registry-filters__row .field select { padding: 6px 8px; font-size: 13px; }
+.registry-filters__search { flex: 1 1 220px !important; }
+.registry-filters__row--meta { align-items: center; font-size: 13px; color: #5b6475; }
+.registry-filters__check { display: inline-flex; gap: 6px; align-items: center; }
+.registry-filters__export { margin-left: auto; }
+.registry-table .data-table--sheet td { vertical-align: middle; }
+.registry-table__num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.registry-table__sort { all: unset; cursor: pointer; white-space: nowrap; }
+.registry-table__sort:hover { color: #1a4aa1; }
+.registry-table__row--open td { background: #eef4ff; }
+.registry-flag { display: inline-block; margin: 1px 4px 1px 0; padding: 1px 6px; border-radius: 99px; background: #fdecea; color: #a1241a; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.registry-flag--info { background: #e8effb; color: #1a4aa1; }
+.registry-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.registry-kpis div { border: 1px solid #e3e9ee; border-radius: 10px; padding: 10px 12px; background: #f8fafc; display: grid; }
+.registry-kpis strong { font-size: 22px; line-height: 1.1; color: #0b1b2b; }
+.registry-kpis span { font-size: 12px; color: #5b6475; }
+.registry-analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 24px; }
+.registry-analysis h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #0b1b2b; }
+.registry-analysis h4 small { text-transform: none; letter-spacing: 0; color: #8a9aa7; font-weight: 500; }
+.registry-analysis section > h4 + * + h4 { margin-top: 14px; }
+.registry-analysis__wide { grid-column: 1 / -1; }
+.registry-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; }
+.registry-bars li { display: grid; grid-template-columns: minmax(70px, 120px) 1fr 40px; gap: 8px; align-items: center; }
+.registry-bars__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.registry-bars__track { height: 9px; border-radius: 99px; background: #eef2f5; overflow: hidden; }
+.registry-bars__track span { display: block; height: 100%; border-radius: 99px; background: #2f6fd6; }
+.registry-bars__value { text-align: right; font-variant-numeric: tabular-nums; color: #5b6475; }
+.registry-years { display: flex; align-items: flex-end; gap: 3px; height: 150px; padding-top: 16px; overflow-x: auto; }
+.registry-years__col { flex: 1 0 22px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; }
+.registry-years__value { font-size: 10px; color: #5b6475; font-variant-numeric: tabular-nums; }
+.registry-years__bar { width: 100%; max-width: 30px; min-height: 2px; background: #9dbbf0; border-radius: 3px 3px 0 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.registry-years__bar span { display: block; width: 100%; background: #2f6fd6; }
+.registry-years__label { font-size: 10px; color: #8a9aa7; }
+.registry-legend { margin: 6px 0 0; font-size: 12px; color: #5b6475; }
+.registry-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+.registry-legend__all { background: #9dbbf0; }
+.registry-legend__new { background: #2f6fd6; }
+.registry-top { margin: 0; padding-left: 20px; display: grid; gap: 3px; font-size: 13px; }
