@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
 import {
   collection,
   doc,
@@ -41,7 +42,6 @@ import { useVolunteerApplicationsList } from "./volunteer-hooks";
 import {
   defaultTeamAssignments,
   defaultTeamRoles,
-  getAvailableTeamRoles,
   getVolunteerStableId,
   isLegacySeedAssignment,
   normalizeSubRoles,
@@ -991,7 +991,7 @@ function RoleManagementPage(props) {
 function TeamsPage(props) {
   // view : "configuration", "overview" ou "support" quand la page est un
   // onglet d'Équipes & affectations ; sans view, elle garde ses onglets.
-  const { AuthFormField, DataTable, Panel, syncVolunteerAssignmentToUserProfile, view } = props;
+  const { AuthFormField, DataTable, Panel, view } = props;
   const {
     applications: volunteerApplications,
     loading: volunteerApplicationsLoading,
@@ -1002,7 +1002,6 @@ function TeamsPage(props) {
   const [localTeamTab, setActiveTeamTab] = useState("configuration");
   const activeTeamTab = view || localTeamTab;
   const [teamDetailTab, setTeamDetailTab] = useState("settings");
-  const [memberSearch, setMemberSearch] = useState("");
   const [teamAssignments, setTeamAssignments] = useState(defaultTeamAssignments);
   const [supportTasks, setSupportTasks] = useState(() => normalizeTeamConfigurationPayload({}).supportTasks);
   const [subRoleDraft, setSubRoleDraft] = useState("");
@@ -1206,69 +1205,6 @@ function TeamsPage(props) {
       .filter((item) => item.count > 0);
   }, [selectedRole, selectedRoleMembers]);
 
-  const candidateResults = useMemo(() => {
-    if (!selectedRole) {
-      return [];
-    }
-
-    const normalizedSearch = memberSearch.trim().toLowerCase();
-
-    return availableVolunteers
-      .filter((volunteer) => {
-        const haystack = `${volunteer.firstName} ${volunteer.lastName} ${volunteer.email}`.toLowerCase();
-        return normalizedSearch ? haystack.includes(normalizedSearch) : true;
-      })
-      .filter(
-        (volunteer) => !selectedRoleMembers.some((member) => member.id === getVolunteerStableId(volunteer)),
-      )
-      .slice(0, 6);
-  }, [availableVolunteers, memberSearch, selectedRole, selectedRoleMembers]);
-
-  const roleSpecificVolunteerOptions = useMemo(
-    () =>
-      availableVolunteers.filter(
-        (volunteer) => !selectedRoleMembers.some((member) => member.id === getVolunteerStableId(volunteer)),
-      ),
-    [availableVolunteers, selectedRoleMembers],
-  );
-
-  async function syncVolunteerApplicationFromTeamAssignments(volunteerId, assignmentsSnapshot) {
-    const matchedVolunteer = availableVolunteers.find(
-      (volunteer) => getVolunteerStableId(volunteer) === volunteerId,
-    );
-    if (!matchedVolunteer?.id) return;
-
-    const volunteerAssignments = assignmentsSnapshot.filter((assignment) => assignment.id === volunteerId);
-    const assignedRoles = normalizeSubRoles(
-      volunteerAssignments.map((assignment) => assignment.assignedRole).filter(Boolean),
-    );
-    const primaryAssignedRole = assignedRoles[0] || "";
-    const teamRoleAssignments = assignedRoles.reduce((accumulator, assignedRole, index) => {
-      const matchingAssignment = volunteerAssignments.find((assignment) => assignment.assignedRole === assignedRole);
-      accumulator[assignedRole] = String(
-        matchingAssignment?.teamRole || (index === 0 ? matchedVolunteer.teamRole : "") || "Bénévole",
-      );
-      return accumulator;
-    }, {});
-    const nextWorkflowStatus =
-      matchedVolunteer.workflowStatus === "Annulé"
-        ? "Annulé"
-        : primaryAssignedRole
-          ? "Affecté"
-          : "Candidature reçue";
-    const patch = {
-      assignedRole: primaryAssignedRole,
-      assignedRoles,
-      workflowStatus: nextWorkflowStatus,
-      teamRole: primaryAssignedRole ? teamRoleAssignments[primaryAssignedRole] || "Bénévole" : "Bénévole",
-      teamRoleAssignments,
-      updatedAt: serverTimestamp(),
-    };
-
-    await updateDoc(doc(db, "volunteerApplications", matchedVolunteer.id), patch);
-    await syncVolunteerAssignmentToUserProfile({ ...matchedVolunteer, ...patch });
-  }
-
   function updateRole(field, value) {
     setRoles((current) =>
       current.map((role) => (role.id === selectedRole.id ? { ...role, [field]: value } : role)),
@@ -1298,28 +1234,6 @@ function TeamsPage(props) {
     const [start = "", end = ""] = String(selectedRole.shiftTime || "").split(" - ");
     const nextShiftTime = boundary === "start" ? `${value} - ${end}` : `${start} - ${value}`;
     updateRole("shiftTime", nextShiftTime.trim());
-  }
-
-  function updateMemberRole(assignmentEntryId, teamRole) {
-    let nextAssignmentsSnapshot = null;
-    let volunteerIdToSync = "";
-
-    setTeamAssignments((current) => {
-      nextAssignmentsSnapshot = current.map((member) => {
-        if (member.assignmentEntryId !== assignmentEntryId) return member;
-        volunteerIdToSync = member.id;
-        return { ...member, teamRole };
-      });
-
-      return nextAssignmentsSnapshot;
-    });
-
-    if (!volunteerIdToSync || !nextAssignmentsSnapshot) return;
-
-    syncVolunteerApplicationFromTeamAssignments(volunteerIdToSync, nextAssignmentsSnapshot).catch((error) => {
-      console.error("Impossible de synchroniser le rôle d'équipe du bénévole.", error);
-      setTeamsStatus("Le rôle d'équipe a été modifié, mais la candidature bénévole n'a pas pu être resynchronisée.");
-    });
   }
 
   function addSubRole() {
@@ -1376,71 +1290,6 @@ function TeamsPage(props) {
 
     setRoles((current) => [...current, nextRole]);
     setSelectedRoleId(nextRole.id);
-    setMemberSearch("");
-  }
-
-  function addMemberToSelectedRole(volunteer) {
-    const volunteerId = getVolunteerStableId(volunteer);
-    if (!volunteerId) return;
-
-    let nextAssignmentsSnapshot = null;
-
-    setTeamAssignments((current) => {
-      const existingMember = current.find(
-        (member) => member.id === volunteerId && member.assignedRoleId === selectedRole.id,
-      );
-
-      if (existingMember) {
-        nextAssignmentsSnapshot = current;
-        return current;
-      }
-
-      nextAssignmentsSnapshot = [
-        ...current,
-        {
-          assignmentEntryId: `${volunteerId}::${selectedRole.id}`,
-          id: volunteerId,
-          firstName: volunteer.firstName,
-          lastName: volunteer.lastName,
-          email: volunteer.email,
-          phone: volunteer.phone,
-          languages: volunteer.languages,
-          workflowStatus: volunteer.workflowStatus,
-          assignedRoleId: selectedRole.id,
-          assignedRole: selectedRole.roleName,
-          teamRole: "Bénévole",
-        },
-      ];
-
-      return nextAssignmentsSnapshot;
-    });
-    setMemberSearch("");
-
-    if (!nextAssignmentsSnapshot) return;
-
-    syncVolunteerApplicationFromTeamAssignments(volunteerId, nextAssignmentsSnapshot).catch((error) => {
-      console.error("Impossible de synchroniser la candidature bénévole après affectation.", error);
-      setTeamsStatus("L'équipe a été mise à jour, mais la candidature bénévole n'a pas pu être resynchronisée.");
-    });
-  }
-
-  function removeMemberFromSelectedRole(assignmentEntryId) {
-    let nextAssignmentsSnapshot = null;
-    let volunteerIdToSync = "";
-
-    setTeamAssignments((current) => {
-      const memberToRemove = current.find((member) => member.assignmentEntryId === assignmentEntryId);
-      volunteerIdToSync = memberToRemove?.id || "";
-      nextAssignmentsSnapshot = current.filter((member) => member.assignmentEntryId !== assignmentEntryId);
-      return nextAssignmentsSnapshot;
-    });
-
-    if (!volunteerIdToSync || !nextAssignmentsSnapshot) return;
-
-    syncVolunteerApplicationFromTeamAssignments(volunteerIdToSync, nextAssignmentsSnapshot).catch((error) => {
-      console.error("Impossible de synchroniser la candidature bénévole après retrait d'équipe.", error);
-      setTeamsStatus("L'équipe a été mise à jour, mais la candidature bénévole n'a pas pu être resynchronisée.");
-    });
   }
 
   function addSupportTask() {
@@ -1793,41 +1642,10 @@ function TeamsPage(props) {
                   </div>
                 ) : null}
 
-                <label className="field">
-                  <span>Rechercher quelqu'un à ajouter</span>
-                  <input
-                    placeholder="Nom ou email"
-                    value={memberSearch}
-                    onChange={(event) => setMemberSearch(event.target.value)}
-                  />
-                </label>
-
-                <div className="team-candidate-list">
-                  {candidateResults.map((volunteer) => (
-                    <div key={volunteer.id} className="team-candidate-row">
-                      <div className="table-stack">
-                        <strong>
-                          {volunteer.firstName} {volunteer.lastName}
-                        </strong>
-                        <span>{volunteer.email}</span>
-                      </div>
-                      <button
-                        className="button button--secondary"
-                        type="button"
-                        onClick={() => addMemberToSelectedRole(volunteer)}
-                      >
-                        Ajouter
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {candidateResults.length === 0 && roleSpecificVolunteerOptions.length > 0 ? (
-                  <p className="panel-note">
-                    Aucun nouveau résultat pour cette recherche. Les personnes déjà dans cette équipe restent exclues, mais
-                    elles peuvent maintenant être affectées ailleurs sans écrasement.
-                  </p>
-                ) : null}
+                <p className="panel-note">
+                  La composition se lit ici. Pour ajouter, retirer un membre ou changer sa fonction, passez par{" "}
+                  <NavLink to="/app/equipes/affectations">Affectations</NavLink>.
+                </p>
 
                 <div className="table-wrap">
                   <table className="data-table data-table--admin">
@@ -1838,7 +1656,6 @@ function TeamsPage(props) {
                         <th>Langues</th>
                         <th>Statut candidature</th>
                         <th>Rôle dans l'équipe</th>
-                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1862,25 +1679,7 @@ function TeamsPage(props) {
                           </td>
                           <td>{member.languages.join(", ")}</td>
                           <td>{member.workflowStatus}</td>
-                          <td>
-                            <select
-                              value={member.teamRole}
-                              onChange={(event) => updateMemberRole(member.assignmentEntryId, event.target.value)}
-                            >
-                              {getAvailableTeamRoles(selectedRole, [member.teamRole]).map((teamRole) => (
-                                <option key={`${member.assignmentEntryId}-${teamRole}`}>{teamRole}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td>
-                            <button
-                              className="button button--secondary"
-                              type="button"
-                              onClick={() => removeMemberFromSelectedRole(member.assignmentEntryId)}
-                            >
-                              Retirer
-                            </button>
-                          </td>
+                          <td>{member.teamRole}</td>
                         </tr>
                       ))}
                     </tbody>

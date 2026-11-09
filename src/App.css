@@ -8079,3 +8079,56 @@ tr.row--warning > td {
     gap: 2px;
   }
 }
+
+/* ── Équipes & affectations › Affectations (volunteer-assignments-page) ── */
+.assign { display: grid; gap: 14px; }
+.assign-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; background: #fff; border: 1px solid #dbe4f0; border-radius: 14px; }
+.assign-kpi { font-size: 13px; color: #5b6b82; }
+.assign-kpi b { font-size: 20px; color: #13213a; margin-right: 4px; }
+.assign-kpi--warn b { color: #c8102e; }
+.assign-kpi--amber b { color: #b26a00; }
+.assign-bar__send { margin-left: auto; }
+.assign-status { margin: 0; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; background: #eef4fb; color: #1b568f; }
+.assign-status--error { background: #fdecee; color: #a40e26; }
+.assign-board { display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: 16px; align-items: start; }
+.assign-pool, .assign-teams { background: #fff; border: 1px solid #dbe4f0; border-radius: 14px; padding: 14px; min-width: 0; }
+.assign-pool { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+.assign-pool h3, .assign-teams h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 15px; }
+.assign-count { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #eef2f6; color: #5b6b82; }
+.assign-filters { display: grid; gap: 8px; margin-bottom: 10px; }
+.assign-filters input[type="search"], .assign-filters select, .assign-person select, .assign-team__add { width: 100%; padding: 6px 8px; font-size: 13px; border: 1px solid #cfd9e6; border-radius: 8px; background: #fff; }
+.assign-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 400; color: #5b6b82; }
+.assign-check input { width: auto; margin: 0; }
+.assign-check--right { margin-left: auto; }
+.assign-person { display: grid; gap: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid #dbe4f0; border-radius: 10px; background: #fafcfe; cursor: grab; }
+.assign-person:active { cursor: grabbing; }
+.assign-person__name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; }
+.assign-person__meta { margin: 0; font-size: 12px; color: #5b6b82; }
+.assign-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
+.assign-chip { border: 1px solid #1e5ca5; background: #eef4fb; color: #1b568f; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.assign-chip:hover { background: #1e5ca5; color: #fff; }
+.assign-note, .assign-empty { font-size: 12.5px; color: #8391a7; margin: 6px 0; }
+.assign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.assign-team { border: 1px solid #dbe4f0; border-radius: 12px; padding: 11px 12px; background: #fff; transition: background 0.15s, border-color 0.15s; min-width: 0; }
+.assign-team--drop { background: #eef4fb; border-color: #1e5ca5; }
+.assign-team__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.assign-team__head strong { font-size: 15px; }
+.assign-team__need { margin-left: auto; font-size: 12px; font-weight: 700; }
+.assign-team__need--miss { color: #c8102e; }
+.assign-team__need--full { color: #1d7a46; }
+.assign-gauge { height: 6px; border-radius: 99px; background: #eef2f6; margin: 6px 0 8px; overflow: hidden; }
+.assign-gauge i { display: block; height: 100%; background: #1e5ca5; }
+.assign-team__info { margin: 0 0 6px; font-size: 12px; color: #5b6b82; }
+.assign-member { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 6px 0; border-top: 1px solid #edf1f6; font-size: 13px; }
+.assign-member__name { flex: 1 1 100%; min-width: 0; font-weight: 600; }
+.assign-member__name small { font-weight: 400; }
+.assign-member__name small { display: block; font-size: 11px; color: #8391a7; }
+.assign-member select { width: auto; max-width: 150px; padding: 3px 4px; font-size: 12px; border: 1px solid #cfd9e6; border-radius: 6px; background: #fff; }
+.assign-member__remove { margin-left: auto; border: 0; background: none; color: #8391a7; font-size: 17px; line-height: 1; cursor: pointer; }
+.assign-member__remove:hover { color: #c8102e; }
+.assign-team__add { margin-top: 8px; }
+@media (max-width: 900px) {
+  .assign-board { grid-template-columns: 1fr; }
+  .assign-pool { position: static; max-height: none; }
+  .assign-grid { grid-template-columns: 1fr; }
+}

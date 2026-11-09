@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { arrayUnion, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getWorkflowStatusClass } from "./common-helpers";
 import {
@@ -9,7 +10,7 @@ import {
 } from "./seed-data";
 import { mapVolunteerApplicationToAdminVolunteer } from "./volunteer-helpers";
 import { useVolunteerAlertLog, useVolunteerApplicationsList } from "./volunteer-hooks";
-import { defaultTeamRoles, getAvailableTeamRoles, normalizeSubRoles, normalizeTeamConfigurationPayload } from "./team-config";
+import { defaultTeamRoles, normalizeSubRoles, normalizeTeamConfigurationPayload } from "./team-config";
 import { db } from "../services/firebase";
 import { useLanguage } from "./language-context";
 
@@ -22,7 +23,6 @@ const DEFAULT_LIST_PAGE_SIZE = 10;
 function VolunteersPage(props) {
   const {
     initialStatusFilter,
-    loadMailQueueModule,
     Panel,
     syncVolunteerAssignmentToUserProfile,
     syncVolunteerAssignmentsToTeamConfiguration,
@@ -40,11 +40,7 @@ function VolunteersPage(props) {
   const [selectedVolunteerId, setSelectedVolunteerId] = useState(null);
   const [volunteers, setVolunteers] = useState([]);
   const [teamRoleConfigs, setTeamRoleConfigs] = useState(defaultTeamRoles);
-  const [rolePickerOpenByVolunteer, setRolePickerOpenByVolunteer] = useState({});
-  const [teamRoleEditorOpenByKey, setTeamRoleEditorOpenByKey] = useState({});
   const [volunteerActionStatus, setVolunteerActionStatus] = useState(null);
-  const [selectedVolunteerIds, setSelectedVolunteerIds] = useState(() => new Set());
-  const [isSendingBulk, setIsSendingBulk] = useState(false);
   const [visibleListCountByKey, setVisibleListCountByKey] = useState({});
   const {
     applications: volunteerApplications,
@@ -59,10 +55,6 @@ function VolunteersPage(props) {
 
   function clearVolunteerActionStatus() {
     setVolunteerActionStatus(null);
-  }
-
-  function setVolunteerInfoStatus(message) {
-    setVolunteerActionStatus({ tone: "info", message });
   }
 
   function setVolunteerErrorStatus(message, detail = "") {
@@ -103,11 +95,6 @@ function VolunteersPage(props) {
     }));
   }
 
-  const roleOptions = useMemo(
-    () => teamRoleConfigs.map((role) => role.roleName),
-    [teamRoleConfigs],
-  );
-
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setVolunteers(volunteerApplications.map((application) => mapVolunteerApplicationToAdminVolunteer(application)));
@@ -145,11 +132,6 @@ function VolunteersPage(props) {
     );
   }, []);
 
-  const getPrimaryAssignedRole = useCallback(
-    (volunteer) => getVolunteerAssignedRoles(volunteer)[0] || "",
-    [getVolunteerAssignedRoles],
-  );
-
   const getVolunteerTeamRoleAssignments = useCallback(
     (volunteer, assignedRoles = getVolunteerAssignedRoles(volunteer)) => {
       const rawAssignments =
@@ -176,56 +158,6 @@ function VolunteersPage(props) {
     (volunteer, assignedRole) => getVolunteerTeamRoleAssignments(volunteer)[assignedRole] || "Bénévole",
     [getVolunteerTeamRoleAssignments],
   );
-
-  function getTeamConfigByRoleName(roleName) {
-    return (
-      teamRoleConfigs.find(
-        (role) => role.roleName.trim().toLowerCase() === String(roleName || "").trim().toLowerCase(),
-      ) ?? null
-    );
-  }
-
-  function getVolunteerTeamRoleOptions(volunteer, assignedRole = getPrimaryAssignedRole(volunteer)) {
-    return getAvailableTeamRoles(
-      getTeamConfigByRoleName(assignedRole),
-      [getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)],
-    );
-  }
-
-  function buildVolunteerAssignmentPatch(volunteer, nextAssignedRoles) {
-    const primaryRole = nextAssignedRoles[0] || "";
-    const currentAssignments = getVolunteerTeamRoleAssignments(volunteer, getVolunteerAssignedRoles(volunteer));
-    const nextTeamRoleAssignments = nextAssignedRoles.reduce((accumulator, assignedRole, index) => {
-      const fallbackRole = index === 0 ? volunteer.teamRole : "Bénévole";
-      accumulator[assignedRole] = String(currentAssignments[assignedRole] || fallbackRole || "Bénévole");
-      return accumulator;
-    }, {});
-    const nextPrimaryTeamRole = primaryRole ? nextTeamRoleAssignments[primaryRole] || "Bénévole" : "Bénévole";
-    const nextTeamRoleOptions = getAvailableTeamRoles(
-      getTeamConfigByRoleName(primaryRole),
-      [nextPrimaryTeamRole],
-    );
-    // "Affecté" is only reached once the assignment email has actually been sent
-    // (see markVolunteerInformed). Any change to the mission here — picking, adding,
-    // removing a role — puts the volunteer back to "Candidature reçue" until that
-    // email goes out (or stays "Annulé" if they withdrew), so a stale badge never
-    // survives an assignment change.
-    const nextWorkflowStatus = volunteer.workflowStatus === "Annulé" ? "Annulé" : "Candidature reçue";
-
-    return {
-      assignedRole: primaryRole,
-      assignedRoles: nextAssignedRoles,
-      workflowStatus: nextWorkflowStatus,
-      teamRole: nextTeamRoleOptions.includes(nextPrimaryTeamRole) ? nextPrimaryTeamRole : "Bénévole",
-      teamRoleAssignments: nextTeamRoleAssignments,
-      teamEmailSent: false,
-      // Kept for history only — never overwritten once set — so the team can still see
-      // what a volunteer was originally lined up for even after their mission changes.
-      ...(primaryRole && !volunteer.firstAssignedRole
-        ? { firstAssignedRole: primaryRole, firstAssignedAt: serverTimestamp() }
-        : {}),
-    };
-  }
 
   function buildVolunteerAlertEntry(volunteer, reason, alertType = "withdrawal") {
     const previousRoles = getVolunteerAssignedRoles(volunteer);
@@ -533,103 +465,6 @@ function VolunteersPage(props) {
     }
   }
 
-  async function assignVolunteer(id, role) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const currentRoles = getVolunteerAssignedRoles(volunteer);
-    const secondaryRoles = currentRoles.slice(1).filter((assignedRole) => assignedRole !== role);
-    const nextAssignedRoles = role ? [role, ...secondaryRoles] : [];
-    await persistVolunteerPatchWithAlertsAndSync(id, buildVolunteerAssignmentPatch(volunteer, nextAssignedRoles), {
-      alertReason: "Affectation retirée depuis la vue bénévoles.",
-      message:
-        "L'affectation a bien ete mise a jour, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible d'enregistrer la nouvelle affectation du benevole.",
-    });
-  }
-
-  async function addVolunteerRole(id, role) {
-    if (!role) return;
-    clearVolunteerActionStatus();
-
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const currentRoles = getVolunteerAssignedRoles(volunteer);
-    if (currentRoles.includes(role)) return;
-
-    if (
-      currentRoles.length >= 1 &&
-      !window.confirm("Êtes-vous sûr de vouloir attribuer deux rôles à la même personne ?")
-    ) {
-      return;
-    }
-
-    await persistVolunteerPatchAndSync(id, buildVolunteerAssignmentPatch(volunteer, [...currentRoles, role]), {
-      message:
-        "Le role supplementaire a ete enregistre, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible d'ajouter ce role au benevole.",
-    });
-    setRolePickerOpenByVolunteer((current) => ({ ...current, [id]: false }));
-  }
-
-  async function removeVolunteerRole(id, role) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const nextAssignedRoles = getVolunteerAssignedRoles(volunteer).filter(
-      (assignedRole) => assignedRole !== role,
-    );
-
-    await persistVolunteerPatchWithAlertsAndSync(id, buildVolunteerAssignmentPatch(volunteer, nextAssignedRoles), {
-      alertReason: `Retrait du poste ${role}.`,
-      message:
-        "Le retrait de poste a bien ete enregistre, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible de retirer ce poste du benevole.",
-    });
-  }
-
-  async function updateVolunteerAssignedTeamRole(id, assignedRole, teamRole) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-
-    const assignedRoles = getVolunteerAssignedRoles(volunteer);
-    const nextTeamRoleAssignments = {
-      ...getVolunteerTeamRoleAssignments(volunteer, assignedRoles),
-      [assignedRole]: teamRole,
-    };
-    const primaryRole = assignedRoles[0] || "";
-
-    // Unlike changing the mission itself (buildVolunteerAssignmentPatch), adjusting just
-    // the function within the same role is considered a minor correction — it doesn't
-    // reset the workflow status or require re-sending the assignment email.
-    await persistVolunteerPatchAndSync(id, {
-      teamRoleAssignments: nextTeamRoleAssignments,
-      teamRole: primaryRole ? nextTeamRoleAssignments[primaryRole] || "Bénévole" : "Bénévole",
-    }, {
-      message:
-        "Le role dans l'equipe a bien ete mis a jour, mais la synchronisation interne complete a echoue.",
-      persistenceErrorMessage: "Impossible de mettre a jour le role d'equipe du benevole.",
-    });
-  }
-
-  function toggleRolePicker(id) {
-    setRolePickerOpenByVolunteer((current) => ({
-      ...current,
-      [id]: !current[id],
-    }));
-  }
-
-  function toggleTeamRoleEditor(key) {
-    setTeamRoleEditorOpenByKey((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
-  }
-
   function getStatusLabel(status) {
     switch (status) {
       case "Candidature reçue":
@@ -709,163 +544,6 @@ function VolunteersPage(props) {
     });
   }
 
-  async function markVolunteerInformed(id) {
-    clearVolunteerActionStatus();
-    const volunteer = volunteers.find((entry) => entry.id === id);
-    if (!volunteer) return;
-    if (!getVolunteerAssignedRoles(volunteer).length) {
-      setVolunteerErrorStatus("Attribue d'abord un rôle au bénévole avant de l'informer.");
-      return;
-    }
-
-    const internallyAssignedVolunteer = {
-      ...volunteer,
-      teamEmailSent: false,
-      assignmentStatus: volunteer.assignmentStatus || "Proposé",
-    };
-
-    const nextVolunteer = {
-      ...volunteer,
-      workflowStatus: volunteer.workflowStatus === "Annulé" ? "Annulé" : "Affecté",
-      teamEmailSent: true,
-      assignmentStatus: volunteer.assignmentStatus || "Proposé",
-    };
-
-    let mailSent = false;
-
-    try {
-      const { buildVolunteerRoleAssignmentMail, enqueueTransactionalMail } = await loadMailQueueModule();
-      await syncVolunteerInternalAssignmentState(internallyAssignedVolunteer, {
-        message:
-          "L'affectation est enregistree, mais la synchronisation interne complete a echoue avant l'envoi du mail.",
-      });
-
-      if (volunteer.email) {
-        await enqueueTransactionalMail(
-          buildVolunteerRoleAssignmentMail({
-            email: volunteer.email,
-            firstName: volunteer.firstName,
-            assignedRole: nextVolunteer.assignedRole,
-            teamRole: nextVolunteer.teamRole,
-          }),
-        );
-        mailSent = true;
-      }
-
-      const persistedVolunteer = await persistVolunteerPatchAndSync(
-        id,
-        {
-          workflowStatus: nextVolunteer.workflowStatus,
-          teamEmailSent: true,
-          lastMailSentRole: nextVolunteer.assignedRole,
-          lastMailSentTeamRole: nextVolunteer.teamRole,
-          lastMailSentAt: serverTimestamp(),
-        },
-        {
-          message:
-            "Le mail est parti, mais la mise a jour finale du statut d'information n'a pas pu etre synchronisee partout.",
-          persistenceErrorMessage: "Le mail est parti, mais l'enregistrement final du statut a echoue.",
-        },
-      );
-      if (persistedVolunteer) {
-        setVolunteerInfoStatus(`Le mail d'affectation a été préparé pour ${volunteer.firstName} ${volunteer.lastName}.`);
-      }
-    } catch (error) {
-      console.error("Impossible d'informer le bénévole.", error);
-      const detail = getActionErrorDetail(error);
-      setVolunteerErrorStatus(
-        mailSent
-          ? `Le mail a bien été envoyé à ${volunteer.firstName} ${volunteer.lastName}, mais la synchronisation interne a échoué.`
-          : "L'affectation interne est bien conservee, mais le mail n'a pas pu etre envoye dans cet environnement local.",
-        detail,
-      );
-    }
-  }
-
-  function volunteerNeedsInforming(volunteer) {
-    return getVolunteerAssignedRoles(volunteer).length > 0 && !volunteer.teamEmailSent;
-  }
-
-  async function sendBulkInformMails() {
-    const toSend = meetingVolunteers.filter((v) => selectedVolunteerIds.has(v.id));
-    if (!toSend.length) return;
-
-    setIsSendingBulk(true);
-    clearVolunteerActionStatus();
-    let successCount = 0;
-    let failCount = 0;
-    const errorDetails = [];
-
-    for (const volunteer of toSend) {
-      try {
-        const { buildVolunteerRoleAssignmentMail, enqueueTransactionalMail } = await loadMailQueueModule();
-        const internallyAssignedVolunteer = {
-          ...volunteer,
-          teamEmailSent: false,
-          assignmentStatus: volunteer.assignmentStatus || "Proposé",
-        };
-        const nextVolunteer = {
-          ...volunteer,
-          workflowStatus: volunteer.workflowStatus === "Annulé" ? "Annulé" : "Affecté",
-          teamEmailSent: true,
-          assignmentStatus: volunteer.assignmentStatus || "Proposé",
-        };
-        await syncVolunteerInternalAssignmentState(internallyAssignedVolunteer, {
-          message:
-            "Certaines affectations ont bien ete enregistrees, mais leur synchronisation interne complete a echoue.",
-        });
-        if (volunteer.email) {
-          await enqueueTransactionalMail(
-            buildVolunteerRoleAssignmentMail({
-              email: volunteer.email,
-              firstName: volunteer.firstName,
-              assignedRole: nextVolunteer.assignedRole,
-              teamRole: nextVolunteer.teamRole,
-            }),
-          );
-        }
-        const persistedVolunteer = await persistVolunteerPatchAndSync(
-          volunteer.id,
-          {
-            workflowStatus: nextVolunteer.workflowStatus,
-            teamEmailSent: true,
-            lastMailSentRole: nextVolunteer.assignedRole,
-            lastMailSentTeamRole: nextVolunteer.teamRole,
-            lastMailSentAt: serverTimestamp(),
-          },
-          {
-            message:
-              "Le mail est parti, mais la mise a jour finale du statut d'information n'a pas pu etre synchronisee partout.",
-            persistenceErrorMessage: "Le mail est parti, mais l'enregistrement final du statut a echoue.",
-          },
-        );
-        if (persistedVolunteer) {
-          successCount += 1;
-        } else {
-          failCount += 1;
-        }
-      } catch (error) {
-        failCount += 1;
-        errorDetails.push(`${volunteer.firstName} ${volunteer.lastName}`.trim() + `: ${getActionErrorDetail(error)}`);
-      }
-    }
-
-    if (failCount) {
-      setVolunteerErrorStatus(
-        `${successCount} mail(s) envoyé(s), ${failCount} échec(s).`,
-        errorDetails.join(" | "),
-      );
-    } else {
-      setVolunteerInfoStatus(
-      failCount
-        ? `${successCount} mail(s) envoyé(s), ${failCount} échec(s).`
-        : `${successCount} mail(s) envoyé(s) avec succès.`,
-      );
-    }
-    setSelectedVolunteerIds(new Set());
-    setIsSendingBulk(false);
-  }
-
   function updateSupportTask(id, slot, task) {
     const volunteer = volunteers.find((entry) => entry.id === id);
     if (!volunteer) return;
@@ -906,6 +584,10 @@ function VolunteersPage(props) {
         <article className="status-legend__item">
           <span className={getWorkflowStatusClass("Affecté")}>{t("statusAssigned")}</span>
           <p>{t("statusAssignedDesc")}</p>
+        </article>
+        <article className="status-legend__item">
+          <span className={getWorkflowStatusClass("Informé")}>{t("statusInformed")}</span>
+          <p>{t("statusInformedDesc")}</p>
         </article>
         <article className="status-legend__item">
           <span className={getWorkflowStatusClass("Confirmé")}>{t("statusConfirmed")}</span>
@@ -1086,53 +768,10 @@ function VolunteersPage(props) {
               </label>
             </div>
 
-            <div className="bulk-mail-bar">
-              <div className="bulk-mail-bar__selectors">
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() =>
-                    setSelectedVolunteerIds(
-                      new Set(meetingVolunteers.filter((v) => getVolunteerAssignedRoles(v).length > 0).map((v) => v.id)),
-                    )
-                  }
-                >
-                  {t("selectAll")}
-                </button>
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => setSelectedVolunteerIds(new Set(meetingVolunteers.filter(volunteerNeedsInforming).map((v) => v.id)))}
-                >
-                  {t("selectNeedsInfo")}
-                </button>
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => setSelectedVolunteerIds(new Set())}
-                >
-                  {t("deselectAll")}
-                </button>
-              </div>
-              {selectedVolunteerIds.size > 0 ? (
-                <button
-                  className="button button--primary"
-                  type="button"
-                  disabled={isSendingBulk}
-                  onClick={sendBulkInformMails}
-                >
-                  {isSendingBulk
-                    ? t("sendingInProgress")
-                    : t("sendToSelected").replace("{count}", selectedVolunteerIds.size)}
-                </button>
-              ) : null}
-            </div>
-
             <div className="table-wrap">
               <table className="data-table data-table--admin">
                 <thead>
                   <tr>
-                    <th style={{ width: "32px" }} />
                     <th>{t("colVolunteer")}</th>
                     <th>{t("colContact")}</th>
                     <th>{t("colLanguages")}</th>
@@ -1143,14 +782,12 @@ function VolunteersPage(props) {
                 <tbody>
                   {visibleMeetingVolunteers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="table-empty-state">
+                      <td colSpan={5} className="table-empty-state">
                         {t("emptyMeetingVolunteers")}
                       </td>
                     </tr>
                   ) : null}
                   {visibleMeetingVolunteers.map((volunteer, index) => {
-                    const hasRole = getVolunteerAssignedRoles(volunteer).length > 0;
-                    const needsInfo = hasRole && !volunteer.teamEmailSent;
                     const primaryRole = getVolunteerAssignedRoles(volunteer)[0] || "";
                     const previousVolunteer = visibleMeetingVolunteers[index - 1];
                     const previousRole = previousVolunteer ? getVolunteerAssignedRoles(previousVolunteer)[0] || "" : null;
@@ -1159,28 +796,12 @@ function VolunteersPage(props) {
                     <Fragment key={volunteer.id}>
                       {showGroupDivider ? (
                         <tr className="table-group-row">
-                          <td colSpan={6}>
+                          <td colSpan={5}>
                             <strong>{primaryRole || t("unassignedGroupLabel")}</strong>
                           </td>
                         </tr>
                       ) : null}
-                      <tr className={selectedVolunteerIds.has(volunteer.id) ? "row--selected" : ""}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedVolunteerIds.has(volunteer.id)}
-                            disabled={!hasRole}
-                            title={hasRole ? undefined : t("selectionNeedsRole")}
-                            onChange={(event) => {
-                              setSelectedVolunteerIds((current) => {
-                                const next = new Set(current);
-                                if (event.target.checked) next.add(volunteer.id);
-                                else next.delete(volunteer.id);
-                                return next;
-                              });
-                            }}
-                          />
-                        </td>
+                      <tr>
                         <td>
                           <div className="table-stack">
                             <button
@@ -1208,32 +829,6 @@ function VolunteersPage(props) {
                               {getStatusLabel(volunteer.workflowStatus)}
                             </span>
 
-                            {hasRole && needsInfo && volunteer.workflowStatus !== "Confirmé" ? (
-                              <button
-                                type="button"
-                                className="button button--primary button--small"
-                                onClick={() => markVolunteerInformed(volunteer.id)}
-                              >
-                                {t("sendAssignmentEmail")}
-                              </button>
-                            ) : null}
-
-                            {hasRole && !needsInfo && volunteer.workflowStatus !== "Annulé" && volunteer.workflowStatus !== "Confirmé" ? (
-                              <button
-                                type="button"
-                                className="status-cell__mail-sent"
-                                title={t("alreadyInformedTooltip").replace(
-                                  "{date}",
-                                  formatVolunteerTimestamp(volunteer.lastMailSentAt)
-                                    ? ` (${formatVolunteerTimestamp(volunteer.lastMailSentAt)})`
-                                    : "",
-                                )}
-                                onClick={() => markVolunteerInformed(volunteer.id)}
-                              >
-                                {t("alreadyInformed")}
-                              </button>
-                            ) : null}
-
                             <div className="status-cell__actions">
                               {volunteer.workflowStatus === "Annulé" ? (
                                 <button
@@ -1245,7 +840,7 @@ function VolunteersPage(props) {
                                 </button>
                               ) : (
                                 <>
-                                  {volunteer.workflowStatus === "Affecté" ? (
+                                  {volunteer.workflowStatus === "Affecté" || volunteer.workflowStatus === "Informé" ? (
                                     <button
                                       type="button"
                                       className="button button--secondary button--small"
@@ -1269,121 +864,21 @@ function VolunteersPage(props) {
                         <td>
                           <div className="role-assignment-cell">
                             {getVolunteerAssignedRoles(volunteer).length === 0 ? (
-                              <select
-                                value=""
-                                disabled={volunteer.workflowStatus === "Annulé"}
-                                onChange={(event) => assignVolunteer(volunteer.id, event.target.value)}
-                              >
-                                <option value="">{t("chooseRoleOption")}</option>
-                                {roleOptions.map((option) => (
-                                  <option key={option}>{option}</option>
-                                ))}
-                              </select>
+                              <span className="role-assignment-row__name">{t("unassignedGroupLabel")}</span>
                             ) : (
-                              getVolunteerAssignedRoles(volunteer).map((assignedRole, roleIndex) => {
-                                const teamRoleKey = `${volunteer.id}-${assignedRole}`;
-                                const isTeamRoleEditorOpen = teamRoleEditorOpenByKey[teamRoleKey];
-                                return (
-                                <div key={`${teamRoleKey}-row`} className="role-assignment-row">
-                                  <span
-                                    className="role-assignment-row__name"
-                                    title={
-                                      roleIndex === 0
-                                        ? t("primaryRoleTitle").replace("{role}", assignedRole)
-                                        : assignedRole
-                                    }
-                                  >
-                                    {assignedRole}
+                              getVolunteerAssignedRoles(volunteer).map((assignedRole) => (
+                                <div key={`${volunteer.id}-${assignedRole}`} className="role-assignment-row">
+                                  <span className="role-assignment-row__name">{assignedRole}</span>
+                                  <span className="role-assignment-row__team-role-display">
+                                    {getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)}
                                   </span>
-                                  {isTeamRoleEditorOpen ? (
-                                    <select
-                                      autoFocus
-                                      className="role-assignment-row__team-role"
-                                      value={getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)}
-                                      disabled={volunteer.workflowStatus === "Annulé"}
-                                      onChange={(event) => {
-                                        updateVolunteerAssignedTeamRole(
-                                          volunteer.id,
-                                          assignedRole,
-                                          event.target.value,
-                                        );
-                                        toggleTeamRoleEditor(teamRoleKey);
-                                      }}
-                                      onBlur={() =>
-                                        setTeamRoleEditorOpenByKey((current) => ({ ...current, [teamRoleKey]: false }))
-                                      }
-                                    >
-                                      {getVolunteerTeamRoleOptions(volunteer, assignedRole).map((teamRole) => (
-                                        <option key={`${teamRoleKey}-team-role-${teamRole}`}>
-                                          {teamRole}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <span className="role-assignment-row__team-role-display">
-                                      {getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)}
-                                      <button
-                                        type="button"
-                                        className="role-assignment-row__edit"
-                                        disabled={volunteer.workflowStatus === "Annulé"}
-                                        onClick={() => toggleTeamRoleEditor(teamRoleKey)}
-                                        aria-label={t("editFunctionAria")
-                                          .replace("{name}", `${volunteer.firstName} ${volunteer.lastName}`)
-                                          .replace("{role}", assignedRole)}
-                                        title={t("editFunctionTooltip")}
-                                      >
-                                        ✎
-                                      </button>
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    className="role-assignment-row__remove"
-                                    disabled={volunteer.workflowStatus === "Annulé"}
-                                    onClick={() => removeVolunteerRole(volunteer.id, assignedRole)}
-                                    aria-label={t("removeRoleAria")
-                                      .replace("{role}", assignedRole)
-                                      .replace("{name}", `${volunteer.firstName} ${volunteer.lastName}`)}
-                                    title={t("removeRoleTitle").replace("{role}", assignedRole)}
-                                  >
-                                    ✕
-                                  </button>
                                 </div>
-                                );
-                              })
+                              ))
                             )}
-                            {getVolunteerAssignedRoles(volunteer).length > 0 &&
-                            roleOptions.filter((option) => !getVolunteerAssignedRoles(volunteer).includes(option)).length > 0 ? (
-                              rolePickerOpenByVolunteer[volunteer.id] ? (
-                                <select
-                                  autoFocus
-                                  defaultValue=""
-                                  disabled={volunteer.workflowStatus === "Annulé"}
-                                  onChange={(event) => addVolunteerRole(volunteer.id, event.target.value)}
-                                  onBlur={() =>
-                                    setRolePickerOpenByVolunteer((current) => ({
-                                      ...current,
-                                      [volunteer.id]: false,
-                                    }))
-                                  }
-                                >
-                                  <option value="">{t("chooseRoleToAdd")}</option>
-                                  {roleOptions
-                                    .filter((option) => !getVolunteerAssignedRoles(volunteer).includes(option))
-                                    .map((option) => (
-                                      <option key={`${volunteer.id}-extra-${option}`}>{option}</option>
-                                    ))}
-                                </select>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="button button--secondary button--small"
-                                  disabled={volunteer.workflowStatus === "Annulé"}
-                                  onClick={() => toggleRolePicker(volunteer.id)}
-                                >
-                                  {t("addRoleButton")}
-                                </button>
-                              )
+                            {volunteer.workflowStatus !== "Annulé" ? (
+                              <NavLink className="role-assignment-cell__link" to="/app/equipes/affectations">
+                                {t("editInAssignments")}
+                              </NavLink>
                             ) : null}
                             {volunteer.missionPreferences.length ? (
                               <p className="mission-preferences-hint">

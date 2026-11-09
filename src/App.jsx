@@ -29,6 +29,7 @@ import { SiteNewsListPage, SiteNewsArticlePage } from "./site/site-news";
 import { SitePreProgramme } from "./site/site-preprogramme";
 import { SiteGallery } from "./site/site-gallery";
 import { VolunteersPage as VolunteersPageScreen } from "./app/volunteers-page";
+import { VolunteerAssignmentsPage as VolunteerAssignmentsPageScreen } from "./app/volunteer-assignments-page";
 import { AccreditationsPage as AccreditationsPageScreen } from "./app/accreditations-page";
 import {
   AppShell as AppShellScreen,
@@ -342,6 +343,18 @@ function TeamsPage({ view }) {
 
 // Équipes & affectations › Autour du meeting : les tâches (créneaux) et les
 // bénévoles qui se proposent pour les faire, sur la même page.
+// Équipes & affectations › Affectations : le seul écran pour affecter,
+// changer la fonction, retirer et informer les bénévoles.
+function VolunteerAssignmentsPage() {
+  return (
+    <VolunteerAssignmentsPageScreen
+      loadMailQueueModule={loadMailQueueModule}
+      syncVolunteerAssignmentToUserProfile={syncVolunteerAssignmentToUserProfile}
+      syncVolunteerAssignmentsToTeamConfiguration={syncVolunteerAssignmentsToTeamConfiguration}
+    />
+  );
+}
+
 function MeetingSupportPage() {
   return (
     <div className="page">
@@ -649,7 +662,7 @@ export default function App() {
                 </Route>
                 <Route path="equipes" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navTeamsAssignments" title="Équipes & affectations" tabs={TEAMS_TABS} />}>
                   <Route index element={<TeamsPage view="configuration" />} />
-                  <Route path="affectations" element={<VolunteersPage view="assigned-posts" />} />
+                  <Route path="affectations" element={<VolunteerAssignmentsPage />} />
                   <Route path="recapitulatif" element={<TeamsPage view="overview" />} />
                   <Route path="autour-du-meeting" element={<MeetingSupportPage />} />
                 </Route>
