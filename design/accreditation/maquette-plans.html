@@ -56,6 +56,10 @@
   .door { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: #fff; font: 900 15px/1 Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   /* Zone de stand : un espace (rectangle arrondi, pointillé), son nom au milieu */
   .area { width: 100%; height: 100%; box-sizing: border-box; border-radius: 12px; border: 2px dashed; display: grid; place-items: center; text-align: center; font: 800 11px/1.05 Barlow, Arial, sans-serif; padding: 2px; overflow: visible; white-space: nowrap; }
+  /* Zone dessinée à main levée (forme) : remplie en couleur légère, son nom posé dessus */
+  .shapes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .area-label { font: 800 13px/1 Barlow, Arial, sans-serif; letter-spacing: .02em; white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; }
+  .mini .area-label { font-size: 8px; }
   .mini .area, .badge-back .area { font-size: 7px; border-width: 1px; border-radius: 6px; }
   .ctrl { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 800 14px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   /* À l'étage : contour violet en pointillés + petite étiquette */
@@ -223,10 +227,17 @@
   const marker = (el, color = colorOf(el)) =>
     el.kind === "zone" ? `<div class="zone" style="background:${color}">${el.num}</div>`
     : el.kind === "ctrl" ? `<div class="ctrl" style="background:${color}">${esc(el.label)}</div>`
+    : el.kind === "area" && el.shape ? `<div class="area-label" style="color:${color}">${esc(el.label)}</div>`
     : el.kind === "area" ? `<div class="area" style="background:${color}1f;border-color:${color};color:${color}">${esc(el.label)}</div>`
     : el.kind === "door" ? `<div class="door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></div>`
     : `<div class="pill" style="background:${color}">${esc(el.label)}</div>`;
-  const sizeOf = (el, crop = false) => (el.kind === "area" ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;` : "");
+  const shapesSvg = (list, crop = false) => {
+    const shapes = list.filter((el) => el.kind === "area" && el.shape);
+    if (!shapes.length) return "";
+    const vb = crop ? `0 ${PLAN_CROP.y} ${PLAN_W} ${PLAN_CROP.h}` : `0 0 ${PLAN_W} ${PLAN_H}`;
+    return `<svg class="shapes" viewBox="${vb}" preserveAspectRatio="none">${shapes.map((el) => { const X = (el.x / 100) * PLAN_W, Y = (el.y / 100) * PLAN_H; return `<polygon points="${el.shape.map(([dx, dy]) => `${X + dx},${Y + dy}`).join(" ")}" fill="${el.color}2e" stroke="${el.color}" stroke-width="3" stroke-dasharray="10 6" stroke-linejoin="round" />`; }).join("")}</svg>`;
+  };
+  const sizeOf = (el, crop = false) => (el.kind === "area" && !el.shape ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;` : "");
   const areasFirst = (list) => [...list.filter((el) => el.kind === "area"), ...list.filter((el) => el.kind !== "area")];
   const placed = (el, inner, crop = false) => {
     const { x, y } = planPos(el, crop);
@@ -264,7 +275,9 @@
 
   function renderCanvas() {
     const canvas = document.getElementById("canvas");
-    canvas.querySelectorAll(".el").forEach((node) => node.remove());
+    canvas.querySelectorAll(".el, .shapes").forEach((node) => node.remove());
+    const visibleShapes = elements.filter((el) => el.maps[map]);
+    canvas.querySelector(".plan-base").insertAdjacentHTML("afterend", shapesSvg(visibleShapes));
     const showGhosts = document.getElementById("ghosts").checked;
     areasFirst(elements).forEach((el) => {
       const visible = el.maps[map];
@@ -273,7 +286,7 @@
       node.className = `el${visible ? "" : " ghost"}${el.id === selectedId ? " sel" : ""}`;
       node.style.left = `${el.x}%`;
       node.style.top = `${el.y}%`;
-      if (el.kind === "area") { node.style.width = `${(el.w / PLAN_W) * 100}%`; node.style.height = `${(el.h / PLAN_H) * 100}%`; }
+      if (el.kind === "area" && !el.shape) { node.style.width = `${(el.w / PLAN_W) * 100}%`; node.style.height = `${(el.h / PLAN_H) * 100}%`; }
       node.dataset.id = el.id;
       node.innerHTML = marker(el);
       canvas.appendChild(node);

@@ -12,8 +12,8 @@ const PLAN_RATIO = `${PLAN_W} / ${PLAN_H}`;
 const PLAN_CROP = { y: 200, h: 1440 };
 const PLAN_RATIO_CROP = `${PLAN_W} / ${PLAN_CROP.h}`;
 const PLAN_ZONE_RED = "#c8102e";
-const PLAN_STORE = "myclim-maquette-plans-v9";
-const PLAN_STORE_PREV = "myclim-maquette-plans-v8";
+const PLAN_STORE = "myclim-maquette-plans-v10";
+const PLAN_STORE_PREV = "myclim-maquette-plans-v9";
 const planPos = (el, crop = false) =>
   crop ? { x: el.x, y: ((el.y / 100) * PLAN_H - PLAN_CROP.y) / PLAN_CROP.h * 100 } : { x: el.x, y: el.y };
 
@@ -48,9 +48,9 @@ const PLAN_DEFAULT_ELEMENTS = [
 
   // Stands (niveau des arcades)
   { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 335), maps: on("web", "vol") },
-  { id: "m2", kind: "mark", label: "Bar & food", desc: "Bar et restauration, le long du mur du gymnase", color: "#e5719a", level: "rdc", ...at(665, 430), maps: on("web", "vol") },
+  { id: "m2", kind: "mark", label: "Bar & food", desc: "Bar et restauration, le long du mur du gymnase", color: "#e5719a", level: "rdc", ...at(700, 445), maps: on("web", "vol") },
   // Les stands qui occupent un espace sont des zones (w x h en unités du plan), les points restent des étiquettes
-  { id: "m5", kind: "area", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, dans le couloir entre l'amphithéâtre et les toilettes", color: "#e30613", level: "rdc", ...at(594, 276), w: 104, h: 100, maps: on("web", "vol") },
+  { id: "m5", kind: "area", label: "Discovery", desc: "Athletics Discovery Corner : ateliers pour les enfants, dans le couloir entre la buvette et l'amphithéâtre", color: "#e30613", level: "rdc", ...at(530, 180), shape: [[-92,-73],[-35,-88],[46,-122],[20,-105],[18,-68],[16,-6],[18,26],[43,46],[68,81],[73,99],[60,114],[42,102],[22,79],[-2,54],[-23,35],[-39,19],[-59,-4],[-73,-31],[-81,-56]], maps: on("web", "vol") },
   { id: "m16", kind: "mark", label: "Photobooth", desc: "Photobooth (à placer sur le plan)", color: "#9157e6", level: "rdc", ...at(900, 1150), maps: on("web", "vol") },
   { id: "m17", kind: "mark", label: "Asport", desc: "Stand Asport : vêtements (à placer sur le plan)", color: "#0d8fd3", level: "rdc", ...at(900, 1215), maps: on("web", "vol") },
   { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(240, 420), maps: on("web", "vol") },
@@ -68,7 +68,7 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "wh2", kind: "mark", label: "WC ♂", desc: "Toilettes hommes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("vol", "acc") },
 
   // Accès réservés depuis les arcades
-  { id: "m11", kind: "mark", label: "↑ Galerie VIP", desc: "Les VIP montent à la galerie par la porte du salon de presse", color: "#b8912a", level: "rdc", ...at(690, 588), maps: on("vol", "acc") },
+  { id: "m11", kind: "door", label: "Galerie VIP", desc: "Accès VIP à la galerie : par le salon de presse, puis la cage d'escalier", color: "#b8912a", angle: 0, level: "rdc", ...at(712, 607), maps: on("vol", "acc") },
   { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(436, 138), maps: on("vol", "acc") },
   { id: "d1", kind: "door", label: "Amphi", desc: "Entrée de l'amphithéâtre (salle aussi utilisée par les bénévoles)", color: "#4a5d6c", angle: 0, level: "rdc", ...at(550, 166), maps: on("vol") },
   { id: "m14", kind: "mark", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
@@ -99,7 +99,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
   // Piste et tribunes : ovales centrés sur (420, 826), lignes droites de 634 à 1018 (mesures du plan)
   const oval = (r) => `M${420 - r} 634 A${r} ${r} 0 0 1 ${420 + r} 634 L${420 + r} 1018 A${r} ${r} 0 0 1 ${420 - r} 1018 Z`;
   // Les arcades : tout le niveau d'entrée, jusqu'à la buvette et au couloir de l'amphithéâtre
-  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L738 615 C700 500 662 380 627 278 L625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
+  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L772 745 L770 655 L773 630 L892 602 C860 585 830 555 798 520 C770 490 735 440 713 403 C700 380 676 330 658 283 L625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
   const label = (x, y, text, size = 22, fill = "#7d8d99") =>
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="${size}" letter-spacing="2" fill="${fill}">${text}</text>`;
   return `<svg class="plan-base" viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
@@ -109,11 +109,11 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     </defs>
 
     <!-- Gymnase et ses locaux : fermés, derrière le mur courbe de la rampe -->
-    <path d="M627 278 C662 380 700 500 738 615 L1020 612 L1020 30 L690 30 L662 60 L662 120 L640 205 L625 222 Z" fill="url(#${hatch})" />
+    <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602 L1020 602 L1020 30 L690 30 L662 60 L662 120 L640 205 Z" fill="url(#${hatch})" />
     ${label(885, 330, "GYMNASE", 26, "#a9b5be")}
 
     <!-- Hall d'entrée -->
-    <path d="M738 615 L900 612 L968 723 L988 935 L848 860 L790 905 L772 930 L772 745 Z" fill="#eaf4ee" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
+    <path d="M773 630 L892 602 L968 723 L988 935 L848 860 L790 905 L772 930 L772 745 L770 655 Z" fill="#eaf4ee" stroke="#5f6f7c" stroke-width="5" stroke-linejoin="round" />
     ${label(880, 650, "HALL D'ENTRÉE", 18, "#6b8a75")}
     <path d="M1015 790 L985 810 L1015 830 Z M1015 804 L1020 804 L1020 816 L1015 816 Z" fill="#0f8a5f" />
 
@@ -122,8 +122,13 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <!-- Warm-up : niveau des arcades, le bas de la salle jusqu'aux gradins et le côté gauche -->
     <path d="M0 1085 L${PLAN_W} 1085 L${PLAN_W} 1700 L0 1700 Z M0 700 L300 700 L300 1085 L0 1085 Z" fill="${warmup}" clip-path="url(#${clip})" />
     <path d="${arcades}" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
-    <!-- Le mur qui sépare du gymnase (rampe), plus marqué -->
-    <path d="M625 222 L627 278 C662 380 700 500 738 615" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Le mur qui sépare du gymnase (bord de la rampe), tracé sur la ligne indiquée par Margot -->
+    <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Salon de presse (pièce contre la tribune) et sa cage d'escalier vers la galerie (accès VIP) -->
+    <path d="M635 480 L713 480 C720 520 727 552 729 580 L729 625 L684 625 C680 580 668 525 635 480 Z" fill="#fff" stroke="#9aa8b3" stroke-width="3" stroke-linejoin="round" />
+    ${label(700, 545, "PRESSE", 13, "#9aa8b3")}
+    <path d="M729 580 L747 565 L760 575 L773 630 L770 655 L733 661 Z" fill="#dfe5ea" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
+    <path d="M738 622 L766 622 M738 629 L767 629 M738 636 L768 636 M738 643 L768 643 M738 650 L768 650" stroke="#9aa8b3" stroke-width="2" />
 
     <!-- Amphithéâtre, comme sur le plan d'architecte : bâtiment arrondi, scène côté buvette,
          gradins en éventail ; on y entre par les deux sas (en haut et en bas, côté gymnase) -->
@@ -143,6 +148,13 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="${oval(246)} ${oval(230)} ${oval(214)}" fill="none" stroke="#dbe2e8" stroke-width="2" />
     <rect x="394" y="368" width="52" height="64" fill="#f4f6f8" />
     <rect x="394" y="1220" width="52" height="64" fill="${warmup}" />
+    <!-- Entrées des gradins (plan d'architecte) : coupures dans les virages et aux jonctions avec les lignes droites -->
+    ${[[420, 634, -137, "#f4f6f8"], [420, 634, -44, "#f4f6f8"], [420, 1018, 137, warmup], [420, 1018, 38, warmup]]
+      .map(([cx, cy, a, fill]) => `<rect x="203" y="-8" width="62" height="16" fill="${fill}" transform="translate(${cx} ${cy}) rotate(${a})" />`).join("")}
+    <rect x="155" y="626" width="62" height="16" fill="#f4f6f8" />
+    <rect x="623" y="626" width="62" height="16" fill="#f4f6f8" />
+    <rect x="155" y="1010" width="62" height="16" fill="${warmup}" />
+    <rect x="623" y="1010" width="62" height="16" fill="#f4f6f8" />
 
     <!-- Piste, en contrebas -->
     <path d="${oval(205)}" fill="#fff" />
