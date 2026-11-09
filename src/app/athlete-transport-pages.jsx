@@ -78,7 +78,7 @@ function AthleteTransportChiefPage({ Panel }) {
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
                 <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
               </select>
               {viewEditionId === "test" && (
                 <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
@@ -996,7 +996,7 @@ function AthleteTransportVolunteerPage({ Panel }) {
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
                 <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
               </select>
             </div>
           )}

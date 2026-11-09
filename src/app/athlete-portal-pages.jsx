@@ -1187,7 +1187,7 @@ function AthletePortalOverview({ Panel }) {
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
                 <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
               </select>
               {viewEditionId === "test" && (
                 <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
@@ -2894,11 +2894,11 @@ function AthletesListPage({ Panel }) {
                   Édition
                   <select value={viewEditionId} onChange={(e) => setViewEditionId(e.target.value)}>
                     <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                    {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+                    {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
                   </select>
                 </label>
                 {viewEditionId === "test" && (
-                  <span className="ath-head__test">Édition test : rien n&apos;apparaît ailleurs dans l&apos;app</span>
+                  <span className="ath-head__test">Exemple 2026 : rien n&apos;apparaît ailleurs dans l&apos;app</span>
                 )}
               </>
             )}
@@ -3449,7 +3449,7 @@ function AthleteImportPage({ Panel }) {
               style={FILTER_CONTROL_STYLE}
             >
               <option value={activeEditionId}>Édition courante ({activeEditionId})</option>
-              {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+              {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
             </select>
             {targetEditionId === "test" && (
               <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
