@@ -113,8 +113,8 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     ${label(885, 330, "GYMNASE", 26, "#a9b5be")}
 
     <!-- Hall d'entrée -->
-    <path d="M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z" fill="#eaf4ee" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
-    ${label(880, 650, "HALL D'ENTRÉE", 18, "#6b8a75")}
+    <path d="M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z" fill="#f4f6f8" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
+    ${label(880, 650, "HALL D'ENTRÉE", 18, "#7d8d99")}
     <path d="M1018 810 L1004 830 L1018 850 Z" fill="#0f8a5f" />
 
     <!-- Arcades -->
