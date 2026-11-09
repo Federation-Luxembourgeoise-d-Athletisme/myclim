@@ -113,7 +113,9 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     ${label(885, 330, "GYMNASE", 26, "#a9b5be")}
 
     <!-- Hall d'entrée -->
-    <path d="M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z" fill="#f4f6f8" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
+    <path d="M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z" fill="#f4f6f8" />
+    <!-- Façade vitrée du hall (le hall est ouvert sur les arcades : pas de mur côté salle) -->
+    <path d="M893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930" fill="none" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
     ${label(880, 650, "HALL D'ENTRÉE", 18, "#7d8d99")}
     <path d="M1018 810 L1004 830 L1018 850 Z" fill="#0f8a5f" />
 
@@ -121,7 +123,7 @@ function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } =
     <path d="${arcades}" fill="#f4f6f8" />
     <!-- Warm-up : niveau des arcades, le bas de la salle jusqu'aux gradins et le côté gauche -->
     <path d="M0 1085 L${PLAN_W} 1085 L${PLAN_W} 1700 L0 1700 Z M0 700 L300 700 L300 1085 L0 1085 Z" fill="${warmup}" clip-path="url(#${clip})" />
-    <path d="${arcades}" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
+    <path d="M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 M625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 L418 108" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
     <!-- Le mur qui sépare du gymnase (bord de la rampe), tracé sur la ligne indiquée par Margot -->
     <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
 
