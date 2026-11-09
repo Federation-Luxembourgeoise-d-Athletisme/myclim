@@ -414,6 +414,17 @@ service cloud.firestore {
       allow write: if isAdminOrManager();
     }
 
+    // Réglages du portail athlètes (rôles d'accès, champs visibles par rôle) :
+    // lus par la barre de navigation de TOUS les connectés pour savoir s'il
+    // faut afficher le menu Athlètes. Sans cette règle, un bénévole recevait un
+    // refus, et ce refus (combiné au double abonnement du mode dev) plantait
+    // le SDK Firestore (« INTERNAL ASSERTION FAILED: ca9 ») → page d'erreur.
+    // Aucune donnée personnelle dedans ; l'écriture reste admin/meeting director.
+    match /appSettings/athletePortalSettings {
+      allow read:  if isSignedIn();
+      allow write: if canManageAthletePortal();
+    }
+
     // Configuration des autorisations de dépôt de facture : doit être lisible
     // par tout utilisateur connecté pour savoir s'il est lui-même autorisé.
     match /appSettings/budgetInvoiceConfiguration {
