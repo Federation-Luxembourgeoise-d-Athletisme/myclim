@@ -16,7 +16,7 @@ const SITE_PREPROGRAMME_COPY = {
     statusOpen: "Registration open",
     statusOpensOn: "Opens {date}",
     freeEntryYouth: "Free entry for the accompanying adult",
-    freeEntryAthlete: "Free adult entry",
+    freeEntryAthlete: "1 free companion entry",
     youthTitle: "My child",
     youthBody: "U12 born {u12} · U14 born {u14} · licensed in a Luxembourg club · or basket carrier",
     youthCta: "Register a child",
@@ -29,7 +29,7 @@ const SITE_PREPROGRAMME_COPY = {
     companyCta: "See the packs",
     spectatorTitle: "Spectator",
     spectatorBody: "One ticket for the whole meeting: come early, the pre-programme starts before the elite.",
-    spectatorStatus: "Free entry for pre-programme athletes and the adult accompanying each child",
+    spectatorStatus: "Free entry for pre-programme athletes, the adult accompanying each child and one companion per national race athlete",
     spectatorCta: "Get tickets",
 
     scheduleTitle: "Schedule",
@@ -92,11 +92,23 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "How are national race athletes selected?",
-        a: "The athletes' commission selects on performance (personal best, 2026 best or other relevant times), with priority to Luxembourg licence holders.",
+        a: "For the 800 m, the athletes' commission selects on the season best (SB 2026 or 2027). Each race has 8 places (7 athletes + 1 pacer, or 8 athletes without a pacer) and up to 3 places are reserved for Luxembourg athletes. Registering does not guarantee selection.",
+      },
+      {
+        q: "How do I take part in the 60 m?",
+        a: "The national 60 m is by invitation only: the athletes' commission invites the best Luxembourg athletes, then the best season bests. There is no form to fill in.",
+      },
+      {
+        q: "Is there an entry fee for the national races?",
+        a: "No. Taking part in the national races is free.",
+      },
+      {
+        q: "Where do national race athletes go on meeting day?",
+        a: "Through the international athletes' entrance, via the warm-up area, where you collect your accreditation. Your companion gives your name at the ticket desk to receive their free ticket.",
       },
       {
         q: "When do we get the decision?",
-        a: "You'll receive an email, and the status is visible in your MyCLIM space.",
+        a: "Youth races: you'll receive an email, and the status is visible in your MyCLIM space. National races: selected athletes are informed by email two weeks before the meeting.",
       },
       {
         q: "Do participants need a ticket?",
@@ -110,7 +122,7 @@ const SITE_PREPROGRAMME_COPY = {
 
     finalTitle: "Ready to take part?",
     finalYouth: "Register a child",
-    finalNational: "Apply for a national race",
+    finalNational: "Apply for the 800 m",
     finalBusiness: "Book a Business Race team",
   },
   fr: {
@@ -127,7 +139,7 @@ const SITE_PREPROGRAMME_COPY = {
     statusOpen: "Inscriptions ouvertes",
     statusOpensOn: "Ouverture le {date}",
     freeEntryYouth: "Entrée offerte pour l'accompagnant",
-    freeEntryAthlete: "Entrée adulte offerte",
+    freeEntryAthlete: "1 entrée offerte pour un accompagnateur",
     youthTitle: "Mon enfant",
     youthBody: "U12 nés en {u12} · U14 nés en {u14} · licenciés dans un club luxembourgeois · ou porte-panier",
     youthCta: "Inscrire un enfant",
@@ -140,7 +152,7 @@ const SITE_PREPROGRAMME_COPY = {
     companyCta: "Voir les packs",
     spectatorTitle: "Spectateur",
     spectatorBody: "Un seul billet pour tout le meeting : venez tôt, le pré-programme commence avant l'élite.",
-    spectatorStatus: "Entrée offerte aux athlètes du pré-programme et à l'adulte qui accompagne chaque enfant",
+    spectatorStatus: "Entrée offerte aux athlètes du pré-programme, à l'adulte qui accompagne chaque enfant et à un accompagnateur par athlète des courses nationales",
     spectatorCta: "Billetterie",
 
     scheduleTitle: "Déroulé",
@@ -203,11 +215,23 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Comment sont sélectionnés les athlètes des courses nationales ?",
-        a: "La commission des athlètes sélectionne sur performance (record personnel, meilleure perf. 2026 ou autres temps pertinents), avec priorité aux licenciés luxembourgeois.",
+        a: "Pour le 800 m, la commission des athlètes sélectionne sur la meilleure performance de la saison (SB 2026 ou 2027). Chaque course compte 8 places (7 athlètes + 1 lièvre, ou 8 athlètes sans lièvre) et jusqu'à 3 places sont réservées aux athlètes luxembourgeois. L'inscription ne garantit pas la sélection.",
+      },
+      {
+        q: "Comment participer au 60 m ?",
+        a: "Le 60 m national se fait uniquement sur invitation : la commission des athlètes invite les meilleurs Luxembourgeois, puis les meilleures performances de la saison. Il n'y a pas de formulaire à remplir.",
+      },
+      {
+        q: "Faut-il payer pour participer aux courses nationales ?",
+        a: "Non. La participation aux courses nationales est gratuite.",
+      },
+      {
+        q: "Par où arrivent les athlètes des courses nationales le jour du meeting ?",
+        a: "Par l'entrée des athlètes internationaux, par la salle d'échauffement (warm-up), où vous récupérez votre accréditation. Votre accompagnateur donne votre nom à la caisse pour recevoir son ticket gratuit.",
       },
       {
         q: "Quand reçoit-on la décision ?",
-        a: "Vous recevez un email, et le statut est visible dans votre espace MyCLIM.",
+        a: "Courses jeunes : vous recevez un email, et le statut est visible dans votre espace MyCLIM. Courses nationales : les athlètes retenus sont prévenus par email deux semaines avant le meeting.",
       },
       {
         q: "Les participants ont-ils besoin d'un billet ?",
@@ -221,7 +245,7 @@ const SITE_PREPROGRAMME_COPY = {
 
     finalTitle: "Prêt à participer ?",
     finalYouth: "Inscrire un enfant",
-    finalNational: "Postuler aux courses nationales",
+    finalNational: "Postuler au 800 m",
     finalBusiness: "Réserver une équipe Business Race",
   },
 };
