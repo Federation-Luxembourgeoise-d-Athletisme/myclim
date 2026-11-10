@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDoc,
   collection,
@@ -6,6 +6,7 @@ import {
   doc,
   onSnapshot,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { signInWithCustomToken } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
@@ -19,7 +20,6 @@ import {
   buildVipRegistrationPayload,
   createEmptyVipFormData,
   getVipPartnerPortalLabel,
-  getVipTourChoiceLabel,
 } from "./vip-helpers";
 
 function getVipRgpdDisclaimer(language) {
@@ -469,6 +469,135 @@ function getVipPortalUid(portalId) {
   return `vip-portal-${portalId}`;
 }
 
+// Textes du portail partenaire (version pratique, novembre 2026).
+const PORTAL_COPY = {
+  fr: {
+    eyebrow: "Portail partenaire VIP",
+    intro: "Ajoutez ici vos invités au CMCM Luxembourg Indoor Meeting. La liste est enregistrée au fur et à mesure : vous pouvez revenir la compléter ou la corriger à tout moment avec ce lien.",
+    contact: "Votre contact",
+    kpiGuests: "Invités",
+    kpiCompanions: "Accompagnants",
+    kpiTotal: "Places au total",
+    addTitle: "Ajouter un invité",
+    firstName: "Prénom",
+    lastName: "Nom",
+    email: "E-mail",
+    phone: "Téléphone",
+    tour: "Visite 14h15",
+    addCompanion: "+ Accompagnant",
+    removeCompanion: "Retirer l'accompagnant",
+    companionFirstName: "Prénom accompagnant",
+    companionLastName: "Nom accompagnant",
+    companionEmail: "E-mail accompagnant",
+    addNote: "+ Remarque",
+    notes: "Remarque",
+    notesPlaceholder: "Régime alimentaire, accès PMR, arrivée tardive…",
+    submit: "Ajouter",
+    adding: "Ajout…",
+    added: "{name} a été ajouté(e) à la liste.",
+    listTitle: "Vos invités",
+    search: "Rechercher un invité…",
+    colGuest: "Invité",
+    colTour: "Visite 14h15",
+    colCompanion: "Accompagnant",
+    noCompanion: "—",
+    edit: "Modifier",
+    save: "Enregistrer",
+    cancel: "Annuler",
+    remove: "Supprimer",
+    confirmRemove: "Retirer {name} de la liste ?",
+    empty: "Aucun invité pour le moment. Ajoutez le premier avec le formulaire ci-dessus.",
+    noMatch: "Aucun invité ne correspond à la recherche.",
+    loading: "Chargement de la liste…",
+    checking: "Vérification de l'accès…",
+    tourShort: { coque: "14h15 · La Coque", coulisses: "14h15 · Les coulisses", none: "Pas de visite" },
+  },
+  en: {
+    eyebrow: "VIP partner portal",
+    intro: "Add your guests to the CMCM Luxembourg Indoor Meeting here. The list is saved as you go: come back with this link at any time to complete or correct it.",
+    contact: "Your contact",
+    kpiGuests: "Guests",
+    kpiCompanions: "Companions",
+    kpiTotal: "Total seats",
+    addTitle: "Add a guest",
+    firstName: "First name",
+    lastName: "Last name",
+    email: "E-mail",
+    phone: "Phone",
+    tour: "2:15 pm tour",
+    addCompanion: "+ Companion",
+    removeCompanion: "Remove companion",
+    companionFirstName: "Companion first name",
+    companionLastName: "Companion last name",
+    companionEmail: "Companion e-mail",
+    addNote: "+ Note",
+    notes: "Note",
+    notesPlaceholder: "Dietary needs, reduced mobility, late arrival…",
+    submit: "Add",
+    adding: "Adding…",
+    added: "{name} has been added to the list.",
+    listTitle: "Your guests",
+    search: "Search a guest…",
+    colGuest: "Guest",
+    colTour: "2:15 pm tour",
+    colCompanion: "Companion",
+    noCompanion: "—",
+    edit: "Edit",
+    save: "Save",
+    cancel: "Cancel",
+    remove: "Remove",
+    confirmRemove: "Remove {name} from the list?",
+    empty: "No guests yet. Add the first one with the form above.",
+    noMatch: "No guest matches your search.",
+    loading: "Loading the list…",
+    checking: "Checking access…",
+    tourShort: { coque: "2:15 pm · The Coque", coulisses: "2:15 pm · Behind the scenes", none: "No tour" },
+  },
+  de: {
+    eyebrow: "VIP-Partnerportal",
+    intro: "Tragen Sie hier Ihre Gäste für das CMCM Luxembourg Indoor Meeting ein. Die Liste wird laufend gespeichert: Mit diesem Link können Sie sie jederzeit ergänzen oder korrigieren.",
+    contact: "Ihr Kontakt",
+    kpiGuests: "Gäste",
+    kpiCompanions: "Begleitpersonen",
+    kpiTotal: "Plätze insgesamt",
+    addTitle: "Gast hinzufügen",
+    firstName: "Vorname",
+    lastName: "Name",
+    email: "E-Mail",
+    phone: "Telefon",
+    tour: "Führung 14:15",
+    addCompanion: "+ Begleitperson",
+    removeCompanion: "Begleitperson entfernen",
+    companionFirstName: "Vorname Begleitperson",
+    companionLastName: "Name Begleitperson",
+    companionEmail: "E-Mail Begleitperson",
+    addNote: "+ Hinweis",
+    notes: "Hinweis",
+    notesPlaceholder: "Ernährung, Barrierefreiheit, spätere Ankunft…",
+    submit: "Hinzufügen",
+    adding: "Wird hinzugefügt…",
+    added: "{name} wurde zur Liste hinzugefügt.",
+    listTitle: "Ihre Gäste",
+    search: "Gast suchen…",
+    colGuest: "Gast",
+    colTour: "Führung 14:15",
+    colCompanion: "Begleitperson",
+    noCompanion: "—",
+    edit: "Bearbeiten",
+    save: "Speichern",
+    cancel: "Abbrechen",
+    remove: "Entfernen",
+    confirmRemove: "{name} von der Liste entfernen?",
+    empty: "Noch keine Gäste. Fügen Sie den ersten mit dem Formular oben hinzu.",
+    noMatch: "Kein Gast entspricht der Suche.",
+    loading: "Liste wird geladen…",
+    checking: "Zugriff wird überprüft…",
+    tourShort: { coque: "14:15 · Die Coque", coulisses: "14:15 · Hinter den Kulissen", none: "Keine Führung" },
+  },
+};
+
+const fullName = (first, last) => `${first || ""} ${last || ""}`.trim();
+
 function VipPartnerPortalPage() {
   const { language } = useLanguage();
   const copy = VIP_COPY[language] || VIP_COPY.en;
@@ -485,6 +614,13 @@ function VipPartnerPortalPage() {
   const [passwordInput, setPasswordInput] = useState("");
   const [accessGranted, setAccessGranted] = useState(false);
   const [verifyingAccess, setVerifyingAccess] = useState(false);
+  const p = PORTAL_COPY[language] || PORTAL_COPY.en;
+  const [showCompanion, setShowCompanion] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [editDraft, setEditDraft] = useState(null);
+  const firstNameRef = useRef(null);
 
   const portalLabel = String(portalMeta?.organizationName || "").trim() || fallbackPortalLabel;
   const requiresPassword = Boolean(portalMeta?.hasPassword);
@@ -630,8 +766,13 @@ function VipPartnerPortalPage() {
           createdAt: serverTimestamp(),
         }),
       );
-      setFormData(createEmptyVipFormData({ organization: portalLabel }));
-      setSuccessMessage(copy.partnerAddSuccess);
+      const addedName = fullName(formData.firstName, formData.lastName);
+      // On garde le choix de visite pour enchaîner les saisies d'un même groupe.
+      setFormData(createEmptyVipFormData({ organization: portalLabel, vipTourChoice: formData.vipTourChoice }));
+      setShowCompanion(false);
+      setShowNote(false);
+      setSuccessMessage(p.added.replace("{name}", addedName));
+      firstNameRef.current?.focus();
     } catch (submissionError) {
       console.error("VIP partner portal submission failed", submissionError);
       setError(copy.partnerError);
@@ -640,7 +781,46 @@ function VipPartnerPortalPage() {
     }
   }
 
+  async function handleEntryUpdate(entryId, patch) {
+    setError("");
+    try {
+      await updateDoc(doc(db, "vipPartnerPortals", portalId, "entries", entryId), { ...patch, updatedAt: serverTimestamp() });
+      return true;
+    } catch (updateError) {
+      console.error("VIP partner portal update failed", updateError);
+      setError(copy.partnerError);
+      return false;
+    }
+  }
+
+  function startEdit(entry) {
+    setEditingId(entry.id);
+    setEditDraft({
+      firstName: entry.firstName || "",
+      lastName: entry.lastName || "",
+      email: entry.email || "",
+      phone: entry.phone || "",
+      guestFirstName: entry.guestFirstName || "",
+      guestLastName: entry.guestLastName || "",
+      guestEmail: entry.guestEmail || "",
+      notes: entry.notes || "",
+    });
+  }
+
+  async function saveEdit(event) {
+    event.preventDefault();
+    const trimmed = Object.fromEntries(Object.entries(editDraft).map(([key, value]) => [key, String(value || "").trim()]));
+    trimmed.email = trimmed.email.toLowerCase();
+    trimmed.guestEmail = trimmed.guestEmail.toLowerCase();
+    if (await handleEntryUpdate(editingId, trimmed)) {
+      setEditingId("");
+      setEditDraft(null);
+    }
+  }
+
   async function handleDelete(entryId) {
+    const entry = entries.find((item) => item.id === entryId);
+    if (!window.confirm(p.confirmRemove.replace("{name}", fullName(entry?.firstName, entry?.lastName) || "?"))) return;
     setError("");
     setSuccessMessage("");
 
@@ -660,151 +840,245 @@ function VipPartnerPortalPage() {
     }
   }
 
+  const companionCount = entries.filter((entry) => fullName(entry.guestFirstName, entry.guestLastName)).length;
+  const tourCounts = VIP_TOUR_OPTIONS.filter((option) => option.value !== "none").map((option) => ({
+    value: option.value,
+    count:
+      entries.filter((entry) => entry.vipTourChoice === option.value).length +
+      entries.filter((entry) => entry.vipTourChoice === option.value && fullName(entry.guestFirstName, entry.guestLastName)).length,
+  }));
+  const query = search.trim().toLowerCase();
+  const visibleEntries = query
+    ? entries.filter((entry) =>
+        [entry.firstName, entry.lastName, entry.email, entry.guestFirstName, entry.guestLastName]
+          .join(" ")
+          .toLowerCase()
+          .includes(query),
+      )
+    : entries;
+  const hasContact = portalMeta?.contactName || portalMeta?.contactEmail || portalMeta?.contactPhone;
+  const tourLabel = (value) => p.tourShort[value || "none"] || p.tourShort.none;
+  const editChange = (event) => setEditDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
+
   return (
-    <AuthLayout
-      title={`${copy.partnerTitle} - ${portalLabel}`}
-      subtitle={copy.partnerSubtitle}
-    >
-      <div className="stacked-entry">
-        <section className="entry-card">
-          <div className="vip-intro-card vip-intro-card--compact">
-            <p className="eyebrow">{copy.partnerPortalEyebrow}</p>
+    <AuthLayout title={p.eyebrow} subtitle="CMCM Luxembourg Indoor Meeting">
+      <div className="vip-portal">
+        <section className="vip-portal-head">
+          <div className="vip-portal-head__main">
             <h2>{portalLabel}</h2>
-            <p>{copy.partnerIntro}</p>
-            {portalMeta?.contactName || portalMeta?.contactEmail || portalMeta?.contactPhone ? (
-              <div className="vip-partner-contact">
-                <strong>{copy.partnerContactTitle}</strong>
-                {portalMeta?.contactName ? <span>{portalMeta.contactName}</span> : null}
-                {portalMeta?.contactEmail ? <span>{portalMeta.contactEmail}</span> : null}
-                {portalMeta?.contactPhone ? <span>{portalMeta.contactPhone}</span> : null}
-              </div>
-            ) : null}
+            <p>{p.intro}</p>
           </div>
+          {hasContact ? (
+            <div className="vip-portal-contact">
+              <span className="vip-portal-eyebrow">{p.contact}</span>
+              {portalMeta?.contactName ? <strong>{portalMeta.contactName}</strong> : null}
+              {portalMeta?.contactEmail ? <a href={`mailto:${portalMeta.contactEmail}`}>{portalMeta.contactEmail}</a> : null}
+              {portalMeta?.contactPhone ? <a href={`tel:${portalMeta.contactPhone.replace(/\s+/g, "")}`}>{portalMeta.contactPhone}</a> : null}
+            </div>
+          ) : null}
         </section>
 
         {requiresPassword && !accessGranted ? (
-          <section className="entry-card">
-            <div className="entry-card__header">
-              <div>
-                <p className="eyebrow">{copy.partnerPortalEyebrow}</p>
-                <h2>{copy.partnerPasswordTitle}</h2>
-                <p>{copy.partnerPasswordBody}</p>
-              </div>
-            </div>
-            <form className="auth-form auth-form--compact" onSubmit={handlePasswordSubmit}>
-              <AuthFormField label={copy.partnerPasswordLabel} required>
-                <input
-                  name="portalPassword"
-                  required
-                  type="password"
-                  value={passwordInput}
-                  onChange={(event) => setPasswordInput(event.target.value)}
-                />
-              </AuthFormField>
-              {error ? <p className="form-error">{error}</p> : null}
-              <button className="button button--primary" disabled={verifyingAccess} type="submit">
-                {verifyingAccess ? copy.adding : copy.partnerPasswordAction}
+          <section className="vip-portal-card vip-portal-card--narrow">
+            <h3>{copy.partnerPasswordTitle}</h3>
+            <p className="vip-portal-muted">{copy.partnerPasswordBody}</p>
+            <form className="vip-portal-password" onSubmit={handlePasswordSubmit}>
+              <input
+                aria-label={copy.partnerPasswordLabel}
+                placeholder={copy.partnerPasswordLabel}
+                name="portalPassword"
+                required
+                type="password"
+                value={passwordInput}
+                onChange={(event) => setPasswordInput(event.target.value)}
+              />
+              <button className="vip-portal-btn vip-portal-btn--primary" disabled={verifyingAccess} type="submit">
+                {verifyingAccess ? "…" : copy.partnerPasswordAction}
               </button>
             </form>
+            {error ? <p className="form-error">{error}</p> : null}
           </section>
         ) : null}
 
         {!requiresPassword && !accessGranted && !portalMetaLoading ? (
-          <section className="entry-card">
-            {error ? (
-              <p className="form-error">{error}</p>
-            ) : (
-              <p>
-                {language === "fr"
-                  ? "Vérification de l'accès en cours..."
-                  : language === "de"
-                    ? "Zugriff wird überprüft..."
-                    : "Checking access..."}
-              </p>
-            )}
+          <section className="vip-portal-card vip-portal-card--narrow">
+            {error ? <p className="form-error">{error}</p> : <p className="vip-portal-muted">{p.checking}</p>}
           </section>
         ) : null}
 
         {accessGranted ? (
-        <section className="entry-card">
-          <div className="entry-card__header">
-            <div>
-              <p className="eyebrow">{copy.partnerPortalEyebrow}</p>
-              <h2>{copy.partnerAddTitle}</h2>
-            </div>
-          </div>
-          <form className="auth-form auth-form--long" onSubmit={handleSubmit}>
-            <VipFormFields formData={formData} onChange={handleChange} organizationLocked />
-            {error ? <p className="form-error">{error}</p> : null}
-            {successMessage ? <p className="panel-note panel-note--success">{successMessage}</p> : null}
-            <p className="panel-note">{getVipRgpdDisclaimer(language)}</p>
-            <button className="button button--primary" disabled={isSubmitting} type="submit">
-              {isSubmitting ? copy.addingPartner : copy.addPartnerButton}
-            </button>
-          </form>
-        </section>
-        ) : null}
+          <>
+            <dl className="vip-portal-kpis">
+              <div><dt>{p.kpiGuests}</dt><dd>{entries.length}</dd></div>
+              <div><dt>{p.kpiCompanions}</dt><dd>{companionCount}</dd></div>
+              <div className="is-strong"><dt>{p.kpiTotal}</dt><dd>{entries.length + companionCount}</dd></div>
+              {tourCounts.map((tour) => (
+                <div key={tour.value}><dt>{tourLabel(tour.value)}</dt><dd>{tour.count}</dd></div>
+              ))}
+            </dl>
 
-        {accessGranted ? (
-        <section className="entry-card">
-          <div className="entry-card__header">
-            <div>
-              <p className="eyebrow">{copy.partnerListEyebrow}</p>
-              <h2>{copy.partnerListTitle}</h2>
-            </div>
-          </div>
-          {loading ? (
-            <p>{language === "fr" ? "Chargement de la liste..." : language === "de" ? "Liste wird geladen..." : "Loading the list..."}</p>
-          ) : entries.length === 0 ? (
-            <div className="placeholder-card">
-              <p className="eyebrow">{language === "fr" ? "Aucun inscrit" : language === "de" ? "Noch kein Eintrag" : "No registration yet"}</p>
-              <h2>{copy.partnerListEmpty}</h2>
-              <p>
-                {language === "fr"
-                  ? `Ajoutez ici les invités de ${portalLabel} à mesure que votre organisation confirme ses présences.`
-                  : language === "de"
-                    ? `Fügen Sie hier die Gäste von ${portalLabel} hinzu, sobald Ihre Organisation ihre Teilnahmen bestätigt.`
-                    : `Add ${portalLabel} guests here as your organisation confirms attendance.`}
-              </p>
-            </div>
-          ) : (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>E-mail</th>
-                    <th>Tour VIP</th>
-                    <th>Accompagnant</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((entry) => (
-                    <tr key={entry.id}>
-                      <td>{`${entry.firstName || ""} ${entry.lastName || ""}`.trim() || "—"}</td>
-                      <td>{entry.email || "—"}</td>
-                      <td>{getVipTourChoiceLabel(entry.vipTourChoice)}</td>
-                      <td>
-                        {`${entry.guestFirstName || ""} ${entry.guestLastName || ""}`.trim() ||
-                          "Sans accompagnant"}
-                      </td>
-                      <td>
-                        <button
-                          className="button button--secondary"
-                          type="button"
-                          onClick={() => handleDelete(entry.id)}
-                        >
-                          {copy.deleteButton}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+            <section className="vip-portal-card">
+              <h3>{p.addTitle}</h3>
+              <form className="vip-portal-form" onSubmit={handleSubmit}>
+                <div className="vip-portal-grid">
+                  <label className="vip-portal-field">
+                    <span>{p.firstName} *</span>
+                    <input ref={firstNameRef} name="firstName" required autoComplete="off" value={formData.firstName} onChange={handleChange} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.lastName} *</span>
+                    <input name="lastName" required autoComplete="off" value={formData.lastName} onChange={handleChange} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.email} *</span>
+                    <input name="email" required type="email" autoComplete="off" value={formData.email} onChange={handleChange} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.tour}</span>
+                    <select name="vipTourChoice" value={formData.vipTourChoice} onChange={handleChange}>
+                      {VIP_TOUR_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value} title={option.label}>{tourLabel(option.value)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.phone}</span>
+                    <input name="phone" type="tel" autoComplete="off" value={formData.phone} onChange={handleChange} />
+                  </label>
+                </div>
+
+                {showCompanion ? (
+                  <div className="vip-portal-grid vip-portal-grid--sub">
+                    <label className="vip-portal-field">
+                      <span>{p.companionFirstName}</span>
+                      <input name="guestFirstName" autoComplete="off" value={formData.guestFirstName} onChange={handleChange} />
+                    </label>
+                    <label className="vip-portal-field">
+                      <span>{p.companionLastName}</span>
+                      <input name="guestLastName" autoComplete="off" value={formData.guestLastName} onChange={handleChange} />
+                    </label>
+                    <label className="vip-portal-field">
+                      <span>{p.companionEmail}</span>
+                      <input name="guestEmail" type="email" autoComplete="off" value={formData.guestEmail} onChange={handleChange} />
+                    </label>
+                  </div>
+                ) : null}
+                {showNote ? (
+                  <label className="vip-portal-field vip-portal-field--wide">
+                    <span>{p.notes}</span>
+                    <input name="notes" placeholder={p.notesPlaceholder} value={formData.notes} onChange={handleChange} />
+                  </label>
+                ) : null}
+
+                <div className="vip-portal-form__bar">
+                  <button
+                    type="button"
+                    className="vip-portal-link"
+                    onClick={() => {
+                      if (showCompanion) setFormData((current) => ({ ...current, guestFirstName: "", guestLastName: "", guestEmail: "" }));
+                      setShowCompanion(!showCompanion);
+                    }}
+                  >
+                    {showCompanion ? p.removeCompanion : p.addCompanion}
+                  </button>
+                  {showNote ? null : (
+                    <button type="button" className="vip-portal-link" onClick={() => setShowNote(true)}>{p.addNote}</button>
+                  )}
+                  <button className="vip-portal-btn vip-portal-btn--primary" disabled={isSubmitting} type="submit">
+                    {isSubmitting ? p.adding : p.submit}
+                  </button>
+                </div>
+                {error ? <p className="form-error">{error}</p> : null}
+                {successMessage ? <p className="vip-portal-success" role="status">✓ {successMessage}</p> : null}
+                <p className="vip-portal-legal">{getVipRgpdDisclaimer(language)}</p>
+              </form>
+            </section>
+
+            <section className="vip-portal-card">
+              <div className="vip-portal-card__head">
+                <h3>{p.listTitle} <span className="vip-portal-count">{entries.length}</span></h3>
+                {entries.length > 6 ? (
+                  <input
+                    type="search"
+                    className="vip-portal-search"
+                    placeholder={p.search}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                ) : null}
+              </div>
+              {loading ? (
+                <p className="vip-portal-muted">{p.loading}</p>
+              ) : entries.length === 0 ? (
+                <p className="vip-portal-empty">{p.empty}</p>
+              ) : visibleEntries.length === 0 ? (
+                <p className="vip-portal-empty">{p.noMatch}</p>
+              ) : (
+                <div className="vip-portal-table-wrap">
+                  <table className="vip-portal-table">
+                    <thead>
+                      <tr>
+                        <th>{p.colGuest}</th>
+                        <th>{p.colTour}</th>
+                        <th>{p.colCompanion}</th>
+                        <th aria-label="Actions" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleEntries.map((entry) =>
+                        editingId === entry.id && editDraft ? (
+                          <tr key={entry.id} className="is-editing">
+                            <td colSpan={4}>
+                              <form className="vip-portal-edit" onSubmit={saveEdit}>
+                                <div className="vip-portal-grid">
+                                  <label className="vip-portal-field"><span>{p.firstName} *</span><input name="firstName" required value={editDraft.firstName} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.lastName} *</span><input name="lastName" required value={editDraft.lastName} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.email} *</span><input name="email" type="email" required value={editDraft.email} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.phone}</span><input name="phone" type="tel" value={editDraft.phone} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.companionFirstName}</span><input name="guestFirstName" value={editDraft.guestFirstName} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.companionLastName}</span><input name="guestLastName" value={editDraft.guestLastName} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.companionEmail}</span><input name="guestEmail" type="email" value={editDraft.guestEmail} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.notes}</span><input name="notes" value={editDraft.notes} onChange={editChange} /></label>
+                                </div>
+                                <div className="vip-portal-form__bar">
+                                  <button type="button" className="vip-portal-btn" onClick={() => { setEditingId(""); setEditDraft(null); }}>{p.cancel}</button>
+                                  <button type="submit" className="vip-portal-btn vip-portal-btn--primary">{p.save}</button>
+                                </div>
+                              </form>
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr key={entry.id}>
+                            <td>
+                              <strong>{fullName(entry.firstName, entry.lastName) || "—"}</strong>
+                              <span className="vip-portal-sub" title={entry.email || ""}>{entry.email || "—"}</span>
+                              {entry.notes ? <span className="vip-portal-sub vip-portal-sub--note" title={entry.notes}>“{entry.notes}”</span> : null}
+                            </td>
+                            <td>
+                              <select
+                                aria-label={p.colTour}
+                                value={entry.vipTourChoice || "none"}
+                                onChange={(event) => handleEntryUpdate(entry.id, { vipTourChoice: event.target.value })}
+                              >
+                                {VIP_TOUR_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>{tourLabel(option.value)}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>{fullName(entry.guestFirstName, entry.guestLastName) || <span className="vip-portal-muted">{p.noCompanion}</span>}</td>
+                            <td className="vip-portal-actions">
+                              <button type="button" className="vip-portal-btn vip-portal-btn--small" onClick={() => startEdit(entry)}>{p.edit}</button>
+                              <button type="button" className="vip-portal-btn vip-portal-btn--small vip-portal-btn--danger" onClick={() => handleDelete(entry.id)}>{p.remove}</button>
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </>
         ) : null}
       </div>
     </AuthLayout>
