@@ -116,11 +116,15 @@ function MyNationalRacePage(props) {
           }
         />
       </Panel>
-      <div className="panel-actions">
-        <NavLink className="button button-link" to="/pre-programme?parcours=courses-nationales">
-          {t("natAddEvent")}
-        </NavLink>
-      </div>
+      {/* Seul le 800 m est ouvert au public : plus rien à ajouter une fois
+          une demande 800 m active. */}
+      {requests.some((request) => request.event === "800 m" && request.status !== "withdrawn") ? null : (
+        <div className="panel-actions">
+          <NavLink className="button button-link" to="/pre-programme?parcours=courses-nationales">
+            {t("natAddEvent")}
+          </NavLink>
+        </div>
+      )}
     </div>
   );
 }

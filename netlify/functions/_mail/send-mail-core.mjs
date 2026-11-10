@@ -128,7 +128,37 @@ function toGraphRecipients(addresses) {
     .map((address) => ({ emailAddress: { address } }));
 }
 
-async function sendMailWithGraph({ to, cc, subject, text, html }) {
+// Pièces jointes acceptées (décompte Excel / PDF) : 3 au plus, 3 Mo chacune,
+// envoyées en base64 par l'application.
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/pdf",
+]);
+const MAX_ATTACHMENTS = 3;
+const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
+
+function normalizeAttachments(attachments) {
+  if (!Array.isArray(attachments) || !attachments.length) return [];
+  if (attachments.length > MAX_ATTACHMENTS) {
+    const error = new Error("Too many attachments.");
+    error.statusCode = 400;
+    throw error;
+  }
+  return attachments.map((attachment) => {
+    const filename = String(attachment?.filename || "").replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 120);
+    const contentType = String(attachment?.contentType || "");
+    const content = String(attachment?.contentBase64 || "");
+    const bytes = Math.floor((content.length * 3) / 4);
+    if (!filename || !ALLOWED_ATTACHMENT_TYPES.has(contentType) || !/^[A-Za-z0-9+/=]+$/.test(content) || bytes > MAX_ATTACHMENT_BYTES) {
+      const error = new Error("Invalid attachment.");
+      error.statusCode = 400;
+      throw error;
+    }
+    return { filename, contentType, contentBase64: content };
+  });
+}
+
+async function sendMailWithGraph({ to, cc, subject, text, html, attachments = [] }) {
   const sender = readRequiredEnv("MICROSOFT_GRAPH_SENDER");
   const fromAddress = getDefaultFromAddress();
   const accessToken = await fetchGraphAccessToken();
@@ -156,6 +186,16 @@ async function sendMailWithGraph({ to, cc, subject, text, html }) {
           },
           toRecipients: recipients,
           ...(ccRecipients.length ? { ccRecipients } : {}),
+          ...(attachments.length
+            ? {
+                attachments: attachments.map((attachment) => ({
+                  "@odata.type": "#microsoft.graph.fileAttachment",
+                  name: attachment.filename,
+                  contentType: attachment.contentType,
+                  contentBytes: attachment.contentBase64,
+                })),
+              }
+            : {}),
           from: {
             emailAddress: {
               address: fromAddress,
@@ -200,7 +240,8 @@ function normalizeMailPayload(payload) {
     throw error;
   }
 
-  return { to, ...(cc ? { cc } : {}), subject, text: text || subject, html };
+  const attachments = normalizeAttachments(payload?.attachments);
+  return { to, ...(cc ? { cc } : {}), subject, text: text || subject, html, ...(attachments.length ? { attachments } : {}) };
 }
 
 export async function sendTransactionalMail(payload) {
@@ -211,9 +252,20 @@ export async function sendTransactionalMail(payload) {
   }
 
   const transporter = await getSmtpTransporter();
+  const { attachments = [], ...message } = normalizedPayload;
   const info = await transporter.sendMail({
     from: getDefaultFromAddress(),
-    ...normalizedPayload,
+    ...message,
+    ...(attachments.length
+      ? {
+          attachments: attachments.map((attachment) => ({
+            filename: attachment.filename,
+            content: attachment.contentBase64,
+            encoding: "base64",
+            contentType: attachment.contentType,
+          })),
+        }
+      : {}),
   });
 
   return {

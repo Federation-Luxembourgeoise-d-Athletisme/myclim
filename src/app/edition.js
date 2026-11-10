@@ -3,6 +3,8 @@ import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/fires
 import { db } from "../services/firebase";
 
 const DEFAULT_ACTIVE_EDITION = "test";
+// Display name of the "test" edition (its id stays "test", so no data moves).
+const TEST_EDITION_LABEL = "Exemple 2026";
 const ACTIVE_EDITION_DOC_PATH = ["appSettings", "platform"];
 const DEFAULT_SITE_EDITION_YEAR = null;
 const DEFAULT_PREPROGRAM_OPENING_BY_EDITION = {
@@ -28,7 +30,7 @@ function recordMatchesEdition(record, editionId) {
 
 function getEditionLabel(editionId) {
   const normalizedEditionId = normalizeEditionId(editionId);
-  return normalizedEditionId === "test" ? "test" : `édition ${normalizedEditionId}`;
+  return normalizedEditionId === "test" ? TEST_EDITION_LABEL : `édition ${normalizedEditionId}`;
 }
 
 function normalizePreprogramOpeningByEdition(value) {

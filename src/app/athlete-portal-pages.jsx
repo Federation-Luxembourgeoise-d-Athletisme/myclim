@@ -99,12 +99,29 @@ function expandTravelField(raw, prefix) {
   };
 }
 
-function TravelCell({ raw, prefix, referenceDate }) {
+// Short day label for dense tables: "dim. 17" (falls back to "J17").
+function formatTravelDayShort(day, referenceDate) {
+  const ref = referenceDate?.toDate ? referenceDate.toDate() : referenceDate ? new Date(referenceDate) : null;
+  if (!ref || Number.isNaN(ref.getTime())) return `J${day}`;
+  const resolved = new Date(ref.getFullYear(), ref.getMonth(), day);
+  return `${resolved.toLocaleDateString("fr-FR", { weekday: "short" })} ${day}`;
+}
+
+function TravelCell({ raw, prefix, referenceDate, compact = false }) {
   if (!raw) return <span style={{ color: "#bbb" }}>—</span>;
   const p = parseTravelEntry(raw);
   if (!p) return <span style={{ fontSize: "0.82rem", color: "#555" }}>{raw}</span>;
   const arrow = prefix === "arrival" ? "← " : "→ ";
   const icon = /train/i.test(p.mode) ? "🚆" : /(bus|car|voiture|pkw)/i.test(p.mode) ? "🚗" : "✈";
+  if (compact) {
+    return (
+      <span className="ath-travel" title={raw}>
+        <strong>{formatTravelDayShort(p.day, referenceDate)}{p.time ? ` ${p.time}` : ""}</strong>
+        {p.flightNo ? <span className="ath-travel__flight"> {p.flightNo}</span> : null}
+        {p.city ? <span className="ath-travel__city"> {arrow}{p.city}</span> : null}
+      </span>
+    );
+  }
   return (
     <div style={{ lineHeight: 1.65, fontSize: "0.82rem" }}>
       <div style={{ fontWeight: 600 }}>
@@ -833,7 +850,7 @@ function WaidCell({ athlete, onSave }) {
       title="Cliquer pour modifier le WAID"
       onClick={() => { setValue(athlete.waid ?? ""); setEditing(true); }}
     >
-      {athlete.waid ?? <span style={{ color: "#aaa", fontStyle: "italic" }}>— ajouter</span>}
+      {athlete.waid ?? <span className="ath-muted">+ ajouter</span>}
     </span>
   );
 }
@@ -888,22 +905,22 @@ function RowDeleteCell({ athlete, onDelete }) {
   if (!confirming) {
     return (
       <button
-        className="button button--ghost button--small"
+        className="ath-icon-btn ath-icon-btn--danger"
         type="button"
         onClick={() => setConfirming(true)}
-        style={{ color: "#b71c1c" }}
         title="Supprimer cette fiche (erreur d'import, doublon...)"
+        aria-label="Supprimer"
       >
-        🗑
+        ✕
       </button>
     );
   }
   return (
     <span style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap" }}>
-      <button className="button button--ghost button--small" type="button" onClick={handleConfirm} disabled={deleting} style={{ color: "#b71c1c", fontWeight: 700 }}>
-        {deleting ? "…" : "Confirmer"}
+      <button className="ath-link ath-link--danger" type="button" onClick={handleConfirm} disabled={deleting}>
+        {deleting ? "…" : "Supprimer"}
       </button>
-      <button className="button button--ghost button--small" type="button" onClick={() => setConfirming(false)} disabled={deleting}>
+      <button className="ath-link" type="button" onClick={() => setConfirming(false)} disabled={deleting}>
         Annuler
       </button>
     </span>
@@ -1040,7 +1057,7 @@ function WaSyncButton({ athlete, settings, onDone }) {
   const [status, setStatus] = useState(null); // null | "syncing" | "ok" | "error"
   const [error, setError] = useState("");
 
-  if (!athlete.waid) return <span style={{ color: "#ccc", fontSize: "0.8rem" }}>pas de WAID</span>;
+  if (!athlete.waid) return <span className="ath-muted">sans WAID</span>;
 
   async function handleSync() {
     setStatus("syncing");
@@ -1073,8 +1090,8 @@ function WaSyncButton({ athlete, settings, onDone }) {
     }
   }
 
-  if (status === "syncing") return <span style={{ color: "#888", fontSize: "0.8rem" }}>synchro…</span>;
-  if (status === "ok")      return <span className="status-pill status-pill--ok" style={{ fontSize: "0.75rem" }}>synchronisé ✓</span>;
+  if (status === "syncing") return <span className="ath-muted">synchro…</span>;
+  if (status === "ok")      return <span className="ath-ok">synchronisé ✓</span>;
 
   if (status === "error") return (
     <div style={{ display: "flex", flexDirection: "column", gap: "3px", maxWidth: 220 }}>
@@ -1093,7 +1110,7 @@ function WaSyncButton({ athlete, settings, onDone }) {
   );
 
   return (
-    <button className="button button--ghost button--small" type="button" onClick={handleSync}>
+    <button className="ath-link" type="button" onClick={handleSync} title="Synchroniser avec World Athletics">
       ↻ WA
     </button>
   );
@@ -1110,8 +1127,10 @@ function AthletePortalOverview({ Panel }) {
   // Same "Courante / Test" switch as the Athletes page — without it, this
   // page always shows the real edition and never the test-edition data an
   // admin is rehearsing an import against.
-  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
-  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedViewEditionId, setViewEditionId] = useState("");
+  const viewEditionId = pickedViewEditionId || activeEditionId;
   const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, viewEditionId);
   const { people: accompanyingPersons, loading: staffLoading } = useAccompanyingPersons(!settingsLoading, viewEditionId);
 
@@ -1168,7 +1187,7 @@ function AthletePortalOverview({ Panel }) {
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
                 <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
               </select>
               {viewEditionId === "test" && (
                 <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
@@ -1430,15 +1449,7 @@ function GenderBadge({ gender }) {
   if (!gender) return null;
   const w = gender === "W";
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center",
-      padding: "2px 10px", borderRadius: 999,
-      fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em",
-      background: w ? "#fce4ec" : "#e3f2fd",
-      color: w ? "#b71c1c" : "#1565c0",
-      flexShrink: 0,
-      textTransform: "uppercase",
-    }}>
+    <span className={`ath-gender ath-gender--${w ? "w" : "m"}`}>
       {w ? "Femmes" : "Hommes"}
     </span>
   );
@@ -2349,6 +2360,9 @@ function mergeRegistryEditions(entries) {
 
 // Global input/select styling defaults to width:100% + large rounded corners
 // for full-width form fields — override both for a compact inline filter bar.
+// Right-aligned, tabular figures in the dense athletes table.
+const NUMERIC_ATHLETE_FIELDS = new Set(["birthYear", "worldRanking", "heat", "lane", "waid"]);
+
 const FILTER_CONTROL_STYLE = { width: "auto", fontSize: "0.82rem", padding: "0.4rem 0.6rem", borderRadius: 6 };
 
 const ATHLETES_HIDDEN_COLS_STORAGE_KEY = "myclim-athletes-hidden-cols";
@@ -2393,8 +2407,10 @@ function AthletesListPage({ Panel }) {
   // Admins/meeting directors can switch to "test" to inspect a rehearsal
   // import without it ever mixing into the real roster (e-magazine, transport
   // and everyone else always see the current edition only).
-  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
-  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedViewEditionId, setViewEditionId] = useState("");
+  const viewEditionId = pickedViewEditionId || activeEditionId;
   const { athletes, loading: athletesLoading } = useAthletes(!settingsLoading, viewEditionId);
   const { people: accompanyingPersons } = useAccompanyingPersons(canViewUnifiedProfile, viewEditionId);
   const staffByRole = useMemo(() => {
@@ -2646,23 +2662,37 @@ function AthletesListPage({ Panel }) {
   // Run after every render that could change column layout.
   // Measures each `data-sticky-col` <th> width and sets the `left` CSS property
   // on both the <th> and every <td> in that column so they freeze correctly.
+  // Re-measured whenever a frozen header cell changes width (web font loaded,
+  // data arriving, columns shown/hidden): a stale offset left a thin gap
+  // between "Reg." and "Nom" where the scrolled content showed through.
+  // Widths are floored so each frozen cell overlaps the previous one by a sub-pixel
+  // instead of leaving a hairline gap.
   useLayoutEffect(() => {
     const table = tableRef.current;
-    if (!table) return;
+    if (!table) return undefined;
     const theadRow = table.querySelector("thead tr");
-    if (!theadRow) return;
-    const ths = [...theadRow.children];
-    let left = 0;
-    ths.forEach((th, colIdx) => {
-      if (!th.dataset.stickyCol) return;
-      th.style.left = `${left}px`;
-      const w = th.getBoundingClientRect().width;
-      table.querySelectorAll("tbody tr").forEach((row) => {
-        const cell = row.children[colIdx];
-        if (cell) cell.style.left = `${left}px`;
+    if (!theadRow) return undefined;
+
+    function applyStickyOffsets() {
+      const ths = [...theadRow.children];
+      let left = 0;
+      ths.forEach((th, colIdx) => {
+        if (!th.dataset.stickyCol) return;
+        const offset = `${left}px`;
+        th.style.left = offset;
+        table.querySelectorAll("tbody tr").forEach((row) => {
+          const cell = row.children[colIdx];
+          if (cell && cell.classList.contains("col-sticky")) cell.style.left = offset;
+        });
+        left += Math.floor(th.getBoundingClientRect().width);
       });
-      left += w;
-    });
+    }
+
+    applyStickyOffsets();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(() => applyStickyOffsets());
+    [...theadRow.children].filter((th) => th.dataset.stickyCol).forEach((th) => observer.observe(th));
+    return () => observer.disconnect();
   });
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -2774,7 +2804,7 @@ function AthletesListPage({ Panel }) {
             margin: 0,
             cursor: "pointer",
             color: selectedAthleteId === a.id ? "#1d4ed8" : "inherit",
-            fontWeight: 600,
+            font: "inherit",
             textAlign: "left",
           }}
           title="Ouvrir la fiche athlète"
@@ -2789,7 +2819,7 @@ function AthletesListPage({ Panel }) {
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <StatusBadge status={a.status} />
           {a._std?.isPacer && (
-            <span className="status-pill" style={{ fontSize: "0.72rem" }} title="Court comme lièvre, hors classement">
+            <span className="ath-tag" title="Court comme lièvre, hors classement">
               Lièvre
             </span>
           )}
@@ -2801,55 +2831,87 @@ function AthletesListPage({ Panel }) {
     if (f.group === "wa" && f.key !== "waid" && f.key !== "waUrl" && f.key !== "waFetchedAt")
       return <WaBadge value={a[f.key]} />;
     // Arrival / departure: render structured if raw string present
-    if (f.key === "arrival")   return <TravelCell raw={a.arrival}   prefix="arrival"   referenceDate={meetingReferenceDate} />;
-    if (f.key === "departure") return <TravelCell raw={a.departure} prefix="departure" referenceDate={meetingReferenceDate} />;
+    if (f.key === "arrival")   return <TravelCell raw={a.arrival}   prefix="arrival"   referenceDate={meetingReferenceDate} compact />;
+    if (f.key === "departure") return <TravelCell raw={a.departure} prefix="departure" referenceDate={meetingReferenceDate} compact />;
     return a[f.key] ?? "—";
+  }
+
+  // One athlete row (same markup grouped or not).
+  function renderAthleteRow(a) {
+    return (
+      <tr key={a.id} className={`${a.status === "out" ? "row--muted" : ""}${selectedAthleteId === a.id ? " ath-row--selected" : ""}`}>
+        {canViewUnifiedProfile && (
+          <td className="col-sticky ath-reg">
+            <RegistryLinkCell athlete={a} onOpen={() => setSelectedAthleteId(a.id)} />
+          </td>
+        )}
+        {displayedFields.map((f) => {
+          const isSticky = f.key === "lastName" || f.key === "firstName";
+          const isLast = isSticky &&
+            !displayedFields.slice(displayedFields.indexOf(f) + 1).some(
+              (x) => x.key === "lastName" || x.key === "firstName"
+            );
+          const classes = [
+            isSticky ? `col-sticky${isLast ? " col-sticky--last" : ""}` : "",
+            f.key === "lastName" ? "ath-name" : "",
+            f.key === "nationality" ? "ath-code" : "",
+            NUMERIC_ATHLETE_FIELDS.has(f.key) ? "ath-num" : "",
+          ].filter(Boolean).join(" ");
+          return <td key={f.key} className={classes || undefined}>{renderCell(f, a)}</td>;
+        })}
+        {canEdit && !displayedFields.find((f) => f.key === "waid") && (
+          <td><WaidCell athlete={a} onSave={handleSaveWaid} /></td>
+        )}
+        {canEdit && <td><WaSyncButton athlete={a} settings={settings} /></td>}
+        {canEdit && <td className="ath-actions"><RowDeleteCell athlete={a} onDelete={handleDeleteAthlete} /></td>}
+      </tr>
+    );
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="page">
+    <div className="page ath-page">
 
-      {/* ── Page header ── */}
+      {/* ── Page header (one compact line) ── */}
       <section className="page-header">
         <div>
           <p className="eyebrow">Portail athlètes</p>
           <h1>Athlètes</h1>
-          <p>
-            {filtered.length} sur {athletes.length} athlètes ·{" "}
-            <strong>Indoor {seasons.indoor}</strong>
-            {seasons.indoorCurrent && seasons.indoorCurrent !== seasons.indoor && (
-              <> / <strong>{seasons.indoorCurrent}</strong></>
+          <p className="ath-head__meta">
+            <span>
+              <strong>{filtered.length}</strong> / {athletes.length} athlètes
+            </span>
+            <span className="ath-head__sep">·</span>
+            <span>
+              Indoor {seasons.indoor}
+              {seasons.indoorCurrent && seasons.indoorCurrent !== seasons.indoor && <> / {seasons.indoorCurrent}</>}
+              {" · "}Outdoor {seasons.outdoor}
+            </span>
+            {canViewUnifiedProfile && (
+              <>
+                <span className="ath-head__sep">·</span>
+                <label className="ath-head__edition">
+                  Édition
+                  <select value={viewEditionId} onChange={(e) => setViewEditionId(e.target.value)}>
+                    <option value={activeEditionId}>Courante ({activeEditionId})</option>
+                    {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
+                  </select>
+                </label>
+                {viewEditionId === "test" && (
+                  <span className="ath-head__test">Exemple 2026 : rien n&apos;apparaît ailleurs dans l&apos;app</span>
+                )}
+              </>
             )}
-            {" · "}<strong>Outdoor {seasons.outdoor}</strong>
           </p>
-          {canViewUnifiedProfile && (
-            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ fontSize: "0.8rem", color: "#607086" }}>Édition :</label>
-              <select
-                value={viewEditionId}
-                onChange={(e) => setViewEditionId(e.target.value)}
-                style={FILTER_CONTROL_STYLE}
-              >
-                <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
-              </select>
-              {viewEditionId === "test" && (
-                <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
-                  Rien ici n&apos;apparaît ailleurs dans l&apos;app
-                </span>
-              )}
-            </div>
-          )}
         </div>
         {canEdit && (
-          <div style={{ maxWidth: 320 }}>
-            <div style={{ display: "grid", gap: "0.5rem" }}>
-              <button className="button button--secondary" type="button" onClick={handleSyncAll} disabled={syncingAll}>
-                {syncingAll ? "Synchronisation…" : "↻ Tout synchroniser avec WA"}
+          <div className="ath-head__actions">
+            <div className="ath-head__buttons">
+              <button className="ath-btn" type="button" onClick={handleLinkAllToRegistry} disabled={linkingRegistry}>
+                {linkingRegistry ? "Liaison…" : "Lier à la base athlètes"}
               </button>
-              <button className="button button--ghost" type="button" onClick={handleLinkAllToRegistry} disabled={linkingRegistry}>
-                {linkingRegistry ? "Liaison…" : "Lier les engagés à la base athlètes"}
+              <button className="ath-btn ath-btn--primary" type="button" onClick={handleSyncAll} disabled={syncingAll}>
+                {syncingAll ? "Synchronisation…" : "↻ Tout synchroniser avec WA"}
               </button>
             </div>
             {syncAllStatus && (
@@ -2882,202 +2944,177 @@ function AthletesListPage({ Panel }) {
         )}
       </section>
 
-      {canViewUnifiedProfile && (
-        <div className="admin-subtabs" style={{ marginBottom: "1.5rem" }}>
-          <button
-            type="button"
-            className={`admin-subtab${pageTab === "athletes" ? " admin-subtab--active" : ""}`}
-            onClick={() => setPageTab("athletes")}
-          >
-            Athlètes ({athletes.length})
-          </button>
-          <button
-            type="button"
-            className={`admin-subtab${pageTab === "staff" ? " admin-subtab--active" : ""}`}
-            onClick={() => setPageTab("staff")}
-          >
-            Staff & accompagnateurs ({accompanyingPersons.length})
-          </button>
-        </div>
-      )}
-
-      {canViewUnifiedProfile && pageTab === "staff" && (
-        <section className="panel-grid panel-grid--1">
-          <Panel
-            title={`Staff & accompagnateurs (${accompanyingPersons.length})`}
-            subtitle="Coachs, kinés, famille — repérés dans la colonne Event du fichier, séparés de la liste des athlètes"
-          >
-            {accompanyingPersons.length === 0 ? (
-              <p className="panel-note">Aucun import pour cette édition pour le moment.</p>
-            ) : (
-              <>
-                <ul className="compact-list" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem 1.5rem", marginBottom: "0.75rem" }}>
-                  {staffByRole.map(([role, count]) => (
-                    <li key={role}><strong>{count}</strong> {role}</li>
-                  ))}
-                </ul>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Nom</th><th>Prénom</th><th>Nat.</th><th>Rôle</th>
-                        <th>Lié à</th><th>Statut</th><th>Hôtel</th><th>Arrivée</th><th>Départ</th><th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accompanyingPersons.map((p) => (
-                        <tr key={p.id}>
-                          <td>{p.lastName}</td>
-                          <td>{p.firstName}</td>
-                          <td>{p.nationality || "—"}</td>
-                          <td><span className="status-pill">{p.staffRole || "—"}</span></td>
-                          <td>{p.linkedTo || "—"}</td>
-                          <td>{p.status ? <StatusBadge status={p.status} /> : "—"}</td>
-                          <td><HotelCell value={p.hotel} /></td>
-                          <td><TravelCell raw={p.arrival} prefix="arrival" referenceDate={meetingReferenceDate} /></td>
-                          <td><TravelCell raw={p.departure} prefix="departure" referenceDate={meetingReferenceDate} /></td>
-                          <td><RowDeleteCell athlete={p} onDelete={handleDeleteAccompanying} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </Panel>
-        </section>
-      )}
-
-      {pageTab === "athletes" && (
-      <>
-      {/* ── Filters ── */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: "0.4rem",
-          padding: "0.5rem 0",
-          borderBottom: "1px solid #e2e8f0",
-          marginBottom: "0.75rem",
-        }}
-      >
-        <input
-          placeholder="Rechercher nom, nat., WAID…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={FILTER_CONTROL_STYLE}
-        />
-        <select value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)} style={FILTER_CONTROL_STYLE}>
-          <option value="">Toutes les épreuves</option>
-          {filterOptions.disciplines.map((d) => <option key={d} value={d}>{d}</option>)}
-        </select>
-        <select value={filterGender} onChange={(e) => setFilterGender(e.target.value)} style={FILTER_CONTROL_STYLE}>
-          <option value="">Tous les genres</option>
-          <option value="W">Femmes (W)</option>
-          <option value="M">Hommes (M)</option>
-        </select>
-        <select value={filterNat} onChange={(e) => setFilterNat(e.target.value)} style={FILTER_CONTROL_STYLE}>
-          <option value="">Toutes les nations</option>
-          {filterOptions.nats.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
-        {filterOptions.heats.length > 0 && (
-          <select value={filterHeat} onChange={(e) => setFilterHeat(e.target.value)} style={FILTER_CONTROL_STYLE}>
-            <option value="">Toutes les séries</option>
-            {filterOptions.heats.map((h) => <option key={h} value={h}>Série {h}</option>)}
-          </select>
-        )}
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={FILTER_CONTROL_STYLE}>
-          <option value="">Tous les statuts</option>
-          <option value="ok">Confirmé (OK)</option>
-          <option value="out">Retiré (Out)</option>
-        </select>
-        <select value={filterWa} onChange={(e) => setFilterWa(e.target.value)} style={FILTER_CONTROL_STYLE}>
-          <option value="">Synchro WA : tous</option>
-          <option value="synced">Synchronisé WA ✓</option>
-          <option value="has_waid">Avec WAID</option>
-          <option value="no_waid">Sans WAID</option>
-        </select>
-        <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer", fontSize: "0.8rem", color: "#475569", whiteSpace: "nowrap" }}>
-          <input type="checkbox" checked={groupByEvent} onChange={(e) => setGroupByEvent(e.target.checked)} style={{ width: "auto" }} />
-          Grouper par épreuve
-        </label>
-      </div>
-
-      {/* ── Table ── */}
-      {athletes.length === 0 ? (
-        <div className="notice-card">
-          <strong>Aucun athlète pour le moment</strong>
-          <p>Aucune donnée importée. Un meeting director peut importer une liste de départ.</p>
-        </div>
-      ) : (
-        <section className="panel-grid panel-grid--1">
-          <Panel
-            title={groupByEvent ? `${grouped.length} épreuve${grouped.length !== 1 ? "s" : ""}` : "Liste des athlètes"}
-            subtitle={`${filtered.length} athlète${filtered.length !== 1 ? "s" : ""}`}
-          >
-            {/* ── Column picker ── */}
-            <div ref={colPickerRef} style={{ position: "relative", display: "inline-block", marginBottom: "0.75rem" }}>
+      <section className="ath-sheet">
+        {/* ── Toolbar: tab switch, filters, column picker ── */}
+        <div className="ath-toolbar">
+          {canViewUnifiedProfile && (
+            <div className="ath-seg" role="tablist">
               <button
-                className="button button--ghost button--small"
                 type="button"
-                onClick={() => setColPickerOpen((v) => !v)}
-                style={{ fontSize: "0.8rem" }}
+                role="tab"
+                aria-selected={pageTab === "athletes"}
+                className={`ath-seg__btn${pageTab === "athletes" ? " ath-seg__btn--active" : ""}`}
+                onClick={() => setPageTab("athletes")}
               >
-                Colonnes {colPickerOpen ? "▲" : "▼"}
-                {hiddenCols.size > 0 && (
-                  <span style={{
-                    marginLeft: 6, background: "#1b6b55", color: "#fff",
-                    borderRadius: 999, padding: "1px 7px", fontSize: "0.7rem", fontWeight: 700,
-                  }}>
-                    {hiddenCols.size} masquée{hiddenCols.size > 1 ? "s" : ""}
-                  </span>
-                )}
+                Athlètes <span>{athletes.length}</span>
               </button>
-              {colPickerOpen && (
-                <div className="col-picker-popover">
-                  <div style={{ fontWeight: 600, fontSize: "0.78rem", color: "#587079",
-                    textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem" }}>
-                    Afficher / masquer
-                  </div>
-                  {toggleableCols.map((f) => {
-                    const hidden = hiddenCols.has(f.key);
-                    return (
-                      <label key={f.key} className="col-picker-row">
-                        <input
-                          type="checkbox"
-                          checked={!hidden}
-                          onChange={() => setHiddenCols((prev) => {
-                            const next = new Set(prev);
-                            if (hidden) next.delete(f.key); else next.add(f.key);
-                            return next;
-                          })}
-                        />
-                        <span>{f.label}</span>
-                      </label>
-                    );
-                  })}
-                  {hiddenCols.size > 0 && (
-                    <button
-                      type="button"
-                      className="button button--ghost button--small"
-                      style={{ marginTop: "0.5rem", width: "100%", fontSize: "0.78rem" }}
-                      onClick={() => setHiddenCols(new Set())}
-                    >
-                      Tout afficher
-                    </button>
-                  )}
-                </div>
-              )}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={pageTab === "staff"}
+                className={`ath-seg__btn${pageTab === "staff" ? " ath-seg__btn--active" : ""}`}
+                onClick={() => setPageTab("staff")}
+              >
+                Staff & accompagnateurs <span>{accompanyingPersons.length}</span>
+              </button>
             </div>
+          )}
 
+          {pageTab === "athletes" && (
+            <>
+              <input
+                className="ath-filter ath-filter--search"
+                placeholder="Rechercher nom, nat., WAID…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select className="ath-filter" value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)}>
+                <option value="">Épreuve</option>
+                {filterOptions.disciplines.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <select className="ath-filter" value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
+                <option value="">Genre</option>
+                <option value="W">Femmes</option>
+                <option value="M">Hommes</option>
+              </select>
+              <select className="ath-filter" value={filterNat} onChange={(e) => setFilterNat(e.target.value)}>
+                <option value="">Nation</option>
+                {filterOptions.nats.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+              {filterOptions.heats.length > 0 && (
+                <select className="ath-filter" value={filterHeat} onChange={(e) => setFilterHeat(e.target.value)}>
+                  <option value="">Série</option>
+                  {filterOptions.heats.map((h) => <option key={h} value={h}>Série {h}</option>)}
+                </select>
+              )}
+              <select className="ath-filter" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                <option value="">Statut</option>
+                <option value="ok">Confirmé (OK)</option>
+                <option value="out">Retiré (Out)</option>
+              </select>
+              <select className="ath-filter" value={filterWa} onChange={(e) => setFilterWa(e.target.value)}>
+                <option value="">Synchro WA</option>
+                <option value="synced">Synchronisé WA</option>
+                <option value="has_waid">Avec WAID</option>
+                <option value="no_waid">Sans WAID</option>
+              </select>
+              <label className="ath-check">
+                <input type="checkbox" checked={groupByEvent} onChange={(e) => setGroupByEvent(e.target.checked)} />
+                Grouper par épreuve
+              </label>
+
+              <span className="ath-toolbar__spacer" />
+              <span className="ath-toolbar__count">
+                {filtered.length} athlète{filtered.length !== 1 ? "s" : ""}
+                {groupByEvent ? ` · ${grouped.length} épreuve${grouped.length !== 1 ? "s" : ""}` : ""}
+              </span>
+
+              {/* ── Column picker ── */}
+              <div ref={colPickerRef} className="ath-colpicker">
+                <button className="ath-btn" type="button" onClick={() => setColPickerOpen((v) => !v)}>
+                  Colonnes
+                  {hiddenCols.size > 0 && <span className="ath-btn__badge">{hiddenCols.size} masquée{hiddenCols.size > 1 ? "s" : ""}</span>}
+                  <span aria-hidden="true"> ▾</span>
+                </button>
+                {colPickerOpen && (
+                  <div className="col-picker-popover col-picker-popover--right">
+                    <div className="col-picker-popover__title">Afficher / masquer</div>
+                    {toggleableCols.map((f) => {
+                      const hidden = hiddenCols.has(f.key);
+                      return (
+                        <label key={f.key} className="col-picker-row">
+                          <input
+                            type="checkbox"
+                            checked={!hidden}
+                            onChange={() => setHiddenCols((prev) => {
+                              const next = new Set(prev);
+                              if (hidden) next.delete(f.key); else next.add(f.key);
+                              return next;
+                            })}
+                          />
+                          <span>{f.label}</span>
+                        </label>
+                      );
+                    })}
+                    {hiddenCols.size > 0 && (
+                      <button type="button" className="ath-btn ath-btn--block" onClick={() => setHiddenCols(new Set())}>
+                        Tout afficher
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {pageTab === "staff" && staffByRole.length > 0 && (
+            <>
+              <span className="ath-toolbar__spacer" />
+              <span className="ath-toolbar__count">
+                {staffByRole.map(([role, count]) => `${count} ${role}`).join(" · ")}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* ── Staff & accompanying persons ── */}
+        {canViewUnifiedProfile && pageTab === "staff" && (
+          accompanyingPersons.length === 0 ? (
+            <p className="ath-empty">Aucun staff ni accompagnateur importé pour cette édition.</p>
+          ) : (
             <div className="table-wrap table-wrap--athletes">
-              <table className="data-table" ref={tableRef}>
+              <table className="data-table data-table--sheet ath-table">
+                <thead>
+                  <tr>
+                    <th>Nom</th><th>Prénom</th><th>Nat.</th><th>Rôle</th>
+                    <th>Lié à</th><th>Statut</th><th>Hôtel</th><th>Arrivée</th><th>Départ</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accompanyingPersons.map((p) => (
+                    <tr key={p.id}>
+                      <td className="ath-name">{p.lastName}</td>
+                      <td>{p.firstName}</td>
+                      <td className="ath-code">{p.nationality || "—"}</td>
+                      <td>{p.staffRole || "—"}</td>
+                      <td>{p.linkedTo || "—"}</td>
+                      <td>{p.status ? <StatusBadge status={p.status} /> : "—"}</td>
+                      <td><HotelCell value={p.hotel} /></td>
+                      <td><TravelCell raw={p.arrival} prefix="arrival" referenceDate={meetingReferenceDate} compact /></td>
+                      <td><TravelCell raw={p.departure} prefix="departure" referenceDate={meetingReferenceDate} compact /></td>
+                      <td className="ath-actions"><RowDeleteCell athlete={p} onDelete={handleDeleteAccompanying} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+
+        {/* ── Athletes ── */}
+        {pageTab === "athletes" && (athletes.length === 0 ? (
+          <p className="ath-empty">
+            <strong>Aucun athlète pour le moment.</strong> Un meeting director peut importer une liste de départ.
+          </p>
+        ) : (
+          <>
+            <div className="table-wrap table-wrap--athletes">
+              <table className="data-table data-table--sheet ath-table" ref={tableRef}>
                 <thead>
                   <tr>
                     {canViewUnifiedProfile && (
-                      <th className="col-sticky" data-sticky-col="1" title="Relié à l'historique multi-éditions ?">
-                        Registre
+                      <th className="col-sticky ath-reg" data-sticky-col="1" title="Relié à l'historique multi-éditions ?">
+                        Reg.
                       </th>
                     )}
                     {displayedFields.map((f) => {
@@ -3091,14 +3128,15 @@ function AthletesListPage({ Panel }) {
                           key={f.key}
                           className={isSticky ? `col-sticky${isLast ? " col-sticky--last" : ""}` : ""}
                           data-sticky-col={isSticky ? "1" : undefined}
+                          title={f.label}
                         >
                           {f.label}
                         </th>
                       );
                     })}
                     {canEdit && !displayedFields.find((f) => f.key === "waid") && <th>WAID</th>}
-                    {canEdit && <th>Synchro WA</th>}
-                    {canEdit && <th></th>}
+                    {canEdit && <th>Synchro</th>}
+                    {canEdit && <th aria-label="Actions"></th>}
                   </tr>
                 </thead>
 
@@ -3111,31 +3149,26 @@ function AthletesListPage({ Panel }) {
                         <tbody key={eventKey} className="event-group">
                           <tr className="event-group-header">
                             <td colSpan={colCount}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", flexWrap: "wrap" }}>
-                                <span style={{ fontWeight: 700, fontSize: "1rem", letterSpacing: "-0.01em" }}>
-                                  {ev.discipline || eventKey}
-                                </span>
+                              <div className="ath-group">
+                                <span className="ath-group__title">{ev.discipline || eventKey}</span>
                                 <GenderBadge gender={ev.gender} />
-                                <span style={{ color: "#888", fontSize: "0.8rem", fontWeight: 400 }}>
-                                  {group.length} athlète{group.length !== 1 ? "s" : ""}
-                                </span>
+                                <span className="ath-group__count">{group.length}</span>
                                 {flaggedAthletes.length > 0 && (
                                   <button
                                     type="button"
-                                    className="status-pill status-pill--warn"
-                                    style={{ fontSize: "0.72rem", cursor: "pointer", border: "none" }}
+                                    className="ath-group__warn"
                                     onClick={() => setExpandedEventGroups((current) => {
                                       const next = new Set(current);
                                       if (next.has(eventKey)) next.delete(eventKey); else next.add(eventKey);
                                       return next;
                                     })}
                                   >
-                                    ⚠ à vérifier ({flaggedAthletes.length}) {isFixOpen ? "▲" : "▼"}
+                                    {flaggedAthletes.length} à vérifier {isFixOpen ? "▴" : "▾"}
                                   </button>
                                 )}
                               </div>
                               {isFixOpen && flaggedAthletes.length > 0 && (
-                                <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff8ec", borderRadius: 6, fontSize: "0.85rem" }}>
+                                <div className="ath-group__fix">
                                   {flaggedAthletes.map((a) => (
                                     <EventCorrectionRow
                                       key={a.id}
@@ -3149,85 +3182,22 @@ function AthletesListPage({ Panel }) {
                               )}
                             </td>
                           </tr>
-                          {group.map((a) => (
-                            <tr key={a.id} className={a.status === "out" ? "row--muted" : ""}>
-                              {canViewUnifiedProfile && (
-                                <td className="col-sticky">
-                                  <RegistryLinkCell athlete={a} onOpen={() => setSelectedAthleteId(a.id)} />
-                                </td>
-                              )}
-                              {displayedFields.map((f) => {
-                                const isSticky = f.key === "lastName" || f.key === "firstName";
-                                const isLast = isSticky &&
-                                  !displayedFields.slice(displayedFields.indexOf(f) + 1).some(
-                                    (x) => x.key === "lastName" || x.key === "firstName"
-                                  );
-                                return (
-                                  <td
-                                    key={f.key}
-                                    className={isSticky ? `col-sticky${isLast ? " col-sticky--last" : ""}` : ""}
-                                  >
-                                    {renderCell(f, a)}
-                                  </td>
-                                );
-                              })}
-                              {canEdit && !displayedFields.find((f) => f.key === "waid") && (
-                                <td><WaidCell athlete={a} onSave={handleSaveWaid} /></td>
-                              )}
-                              {canEdit && <td><WaSyncButton athlete={a} settings={settings} /></td>}
-                              {canEdit && <td><RowDeleteCell athlete={a} onDelete={handleDeleteAthlete} /></td>}
-                            </tr>
-                          ))}
+                          {group.map((a) => renderAthleteRow(a))}
                         </tbody>
                       );
                     })
-                  : (
-                    <tbody>
-                      {filtered.map((a) => (
-                        <tr key={a.id} className={a.status === "out" ? "row--muted" : ""}>
-                          {canViewUnifiedProfile && (
-                            <td className="col-sticky">
-                              <RegistryLinkCell athlete={a} onOpen={() => setSelectedAthleteId(a.id)} />
-                            </td>
-                          )}
-                          {displayedFields.map((f) => {
-                            const isSticky = f.key === "lastName" || f.key === "firstName";
-                            const isLast = isSticky &&
-                              !displayedFields.slice(displayedFields.indexOf(f) + 1).some(
-                                (x) => x.key === "lastName" || x.key === "firstName"
-                              );
-                            return (
-                              <td
-                                key={f.key}
-                                className={isSticky ? `col-sticky${isLast ? " col-sticky--last" : ""}` : ""}
-                              >
-                                {renderCell(f, a)}
-                              </td>
-                            );
-                          })}
-                          {canEdit && !displayedFields.find((f) => f.key === "waid") && (
-                            <td><WaidCell athlete={a} onSave={handleSaveWaid} /></td>
-                          )}
-                          {canEdit && <td><WaSyncButton athlete={a} settings={settings} /></td>}
-                          {canEdit && <td><RowDeleteCell athlete={a} onDelete={handleDeleteAthlete} /></td>}
-                        </tr>
-                      ))}
-                    </tbody>
-                  )
+                  : <tbody>{filtered.map((a) => renderAthleteRow(a))}</tbody>
                 }
               </table>
             </div>
-            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
-              {visibleFields.some((f) => f.group === "wa") && (
-                <p className="panel-note">
-                  <span className="status-pill status-pill--accent">Valeur WA</span> = issue de World Athletics
-                </p>
-              )}
-            </div>
-          </Panel>
-        </section>
-      )}
-      {canViewUnifiedProfile && selectedCurrentAthlete && (
+            {visibleFields.some((f) => f.group === "wa") && (
+              <p className="ath-legend"><span className="ath-wa">bleu</span> = valeur issue de World Athletics</p>
+            )}
+          </>
+        ))}
+      </section>
+
+      {canViewUnifiedProfile && pageTab === "athletes" && selectedCurrentAthlete && (
         <section className="panel-grid panel-grid--1">
           <AthleteProfilePanel
             Panel={Panel}
@@ -3237,8 +3207,6 @@ function AthletesListPage({ Panel }) {
             title={registryLoading ? "Fiche athlète (chargement…)" : "Fiche athlète"}
           />
         </section>
-      )}
-      </>
       )}
     </div>
   );
@@ -3312,8 +3280,10 @@ function AthleteImportPage({ Panel }) {
   // Defaults to the real current edition, but can be pointed at "test" to
   // rehearse an import (partial columns, real files, etc.) without it ever
   // reaching the live roster shown elsewhere in the app.
-  const [targetEditionId, setTargetEditionId] = useState(activeEditionId);
-  useEffect(() => { setTargetEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedTargetEditionId, setTargetEditionId] = useState("");
+  const targetEditionId = pickedTargetEditionId || activeEditionId;
   const { athletes } = useAthletes(true, targetEditionId);
   const { people: accompanyingPersons } = useAccompanyingPersons(true, targetEditionId);
   const { history: importHistory, loading: historyLoading } = useAthleteImportHistory(canImport, targetEditionId);
@@ -3479,7 +3449,7 @@ function AthleteImportPage({ Panel }) {
               style={FILTER_CONTROL_STYLE}
             >
               <option value={activeEditionId}>Édition courante ({activeEditionId})</option>
-              {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+              {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
             </select>
             {targetEditionId === "test" && (
               <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
@@ -3992,16 +3962,6 @@ function AthleteRegistryPage({ Panel, maintenance }) {
 
   // One line per fiche with its computed stats and cleanup flags, for the
   // filters, sorts, analysis and the « À nettoyer » list.
-  const registryRows = useMemo(
-    () => registry.map((entry) => ({
-      entry,
-      stats: getRegistryEntryStats(entry),
-      suspectReasons: getRegistrySuspectReasons(entry),
-    })),
-    [registry],
-  );
-  const registryFilterState = useRegistryFilters(registryRows);
-  const suspectRows = useMemo(() => registryRows.filter((row) => row.suspectReasons.length), [registryRows]);
 
   // The open fiche and the other fiche with the same WAID, merged as one person.
   function handleMergeSameWaid(otherEntry) {
@@ -4024,6 +3984,19 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     () => buildCurrentAthletesByRegistryId(athletes, registryLookup),
     [athletes, registryLookup],
   );
+
+  const registryRows = useMemo(
+    () => registry.map((entry) => ({
+      entry,
+      stats: getRegistryEntryStats(entry),
+      suspectReasons: getRegistrySuspectReasons(entry, {
+        linkedCount: (currentAthletesByRegistryId.get(entry._docId) || []).length,
+      }),
+    })),
+    [currentAthletesByRegistryId, registry],
+  );
+  const registryFilterState = useRegistryFilters(registryRows);
+  const suspectRows = useMemo(() => registryRows.filter((row) => row.suspectReasons.length), [registryRows]);
 
   const selectedRegistryEntry = useMemo(
     () => registry.find((entry) => entry._docId === selectedRegistryDocId) || null,
@@ -4277,31 +4250,47 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     }
   }
 
-  // Deleting a fiche linked to an entry of the current edition would break that
-  // link: those must be corrected or merged instead.
-  async function handleDeleteRegistryEntries(entries) {
-    const linked = entries.filter((entry) => (currentAthletesByRegistryId.get(entry._docId) || []).length > 0);
+  // A fiche linked to an entry of the current edition is only deleted together
+  // with that entry (withLinkedEntries), e.g. an imported line such as
+  // "1 Platz Kenya"; otherwise it is kept and must be corrected or merged.
+  async function handleDeleteRegistryEntries(entries, { withLinkedEntries = false } = {}) {
+    const linkedOf = (entry) => currentAthletesByRegistryId.get(entry._docId) || [];
+    const linked = withLinkedEntries ? [] : entries.filter((entry) => linkedOf(entry).length > 0);
     const deletable = entries.filter((entry) => !linked.includes(entry));
+    const linkedAthletes = withLinkedEntries ? deletable.flatMap(linkedOf) : [];
     if (!deletable.length) {
-      setCleanupStatus("Ces fiches sont liées à des engagés de l'édition en cours : corrige le nom ou fusionne-les plutôt.");
+      setCleanupStatus("Ces fiches sont liées à des engagés de l'édition en cours : utilise « Supprimer avec l'engagé » si l'engagé est lui aussi faux, sinon corrige le nom ou fusionne.");
       return false;
     }
     const names = deletable.slice(0, 8).map((entry) => [entry.firstName, entry.lastName].filter(Boolean).join(" ") || entry._docId).join("\n");
     const more = deletable.length > 8 ? `\n… et ${deletable.length - 8} autre(s)` : "";
     const skipped = linked.length ? `\n\n${linked.length} fiche(s) liée(s) à des engagés seront gardées.` : "";
-    if (!window.confirm(`Supprimer définitivement ${deletable.length} fiche(s) de la base athlètes ?\n\n${names}${more}${skipped}`)) return false;
+    const athleteLines = linkedAthletes
+      .slice(0, 8)
+      .map((athlete) => `• ${[athlete.firstName, athlete.lastName].filter(Boolean).join(" ")} — ${athlete.event || "épreuve ?"}${athlete.status ? ` (${athlete.status})` : ""}`)
+      .join("\n");
+    const athletesNote = linkedAthletes.length
+      ? `\n\nAinsi que ${linkedAthletes.length} engagé(s) de l'édition en cours :\n${athleteLines}`
+      : "";
+    if (!window.confirm(`Supprimer définitivement ${deletable.length} fiche(s) de la base athlètes ?\n\n${names}${more}${athletesNote}${skipped}`)) return false;
 
     setCleanupDeleting(true);
     setCleanupStatus("");
     try {
-      for (let index = 0; index < deletable.length; index += 400) {
+      const refs = [
+        ...deletable.map((entry) => doc(db, ATHLETE_REGISTRY_COLLECTION, entry._docId)),
+        ...linkedAthletes.map((athlete) => doc(db, ATHLETES_COLLECTION, athlete.id)),
+      ];
+      for (let index = 0; index < refs.length; index += 400) {
         const batch = writeBatch(db);
-        deletable.slice(index, index + 400).forEach((entry) => batch.delete(doc(db, ATHLETE_REGISTRY_COLLECTION, entry._docId)));
+        refs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
         await batch.commit();
       }
       if (deletable.some((entry) => entry._docId === selectedRegistryDocId)) setSelectedRegistryDocId("");
       setSelectedRegistryIds((current) => current.filter((docId) => !deletable.some((entry) => entry._docId === docId)));
-      setCleanupStatus(`✅ ${deletable.length} fiche(s) supprimée(s).${linked.length ? ` ${linked.length} gardée(s) car liée(s) à des engagés.` : ""}`);
+      setCleanupStatus(
+        `✅ ${deletable.length} fiche(s) supprimée(s)${linkedAthletes.length ? ` et ${linkedAthletes.length} engagé(s)` : ""}.${linked.length ? ` ${linked.length} gardée(s) car liée(s) à des engagés.` : ""}`,
+      );
       return true;
     } catch (error) {
       setCleanupStatus(`❌ ${error.message}`);

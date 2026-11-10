@@ -358,11 +358,37 @@ let lastPickerAlbum = null;
 
 // Photos de la galerie jointes à une publication. L'ordre compte : la première
 // sert de visuel quand aucun visuel Canva n'est ajouté.
-export function PhotosPanel({ photos, hasVisuel, onChange }) {
+// onUpload(files) : envoie des photos déposées depuis l'ordinateur (en plus
+// de la galerie flaphoto.net) et renvoie les photos à ajouter.
+export function PhotosPanel({ photos, hasVisuel, onChange, onUpload }) {
   const { lang, tr } = useComLang();
   const [picking, setPicking] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dragged, setDragged] = useState(null);
+  const [dropping, setDropping] = useState(false);
+  const [uploading, setUploading] = useState(0);
+  const [uploadError, setUploadError] = useState("");
+  const fileInput = useRef(null);
+
+  async function addFiles(fileList) {
+    const files = [...(fileList || [])].filter((file) => /^image\//.test(file.type));
+    if (!files.length || !onUpload) return;
+    const room = MAX_PUBLICATION_PHOTOS - photos.length;
+    if (room <= 0) {
+      setUploadError(tr(`${MAX_PUBLICATION_PHOTOS} photos au maximum.`, `${MAX_PUBLICATION_PHOTOS} photos maximum.`));
+      return;
+    }
+    setUploadError("");
+    setUploading(Math.min(files.length, room));
+    try {
+      const added = await onUpload(files.slice(0, room));
+      if (added.length) onChange([...photos, ...added]);
+    } catch (error) {
+      setUploadError(error?.message || tr("L'envoi des photos a échoué.", "The photo upload failed."));
+    } finally {
+      setUploading(0);
+    }
+  }
   const credit = creditLine(photos, lang);
 
   async function copyCredit() {
@@ -395,6 +421,46 @@ export function PhotosPanel({ photos, hasVisuel, onChange }) {
           {photos.length ? tr("Modifier la sélection", "Edit selection") : tr("Choisir dans la galerie", "Pick from the gallery")}
         </button>
       </div>
+
+      {onUpload ? (
+        <>
+          <button
+            type="button"
+            className={`com-photo-drop${dropping ? " is-over" : ""}`}
+            disabled={uploading > 0}
+            onClick={() => fileInput.current?.click()}
+            onDragOver={(e) => {
+              // Une photo déjà dans la liste qu'on réordonne n'est pas un dépôt.
+              if (dragged) return;
+              e.preventDefault();
+              setDropping(true);
+            }}
+            onDragLeave={() => setDropping(false)}
+            onDrop={(e) => {
+              if (dragged) return;
+              e.preventDefault();
+              setDropping(false);
+              addFiles(e.dataTransfer.files);
+            }}
+          >
+            {uploading
+              ? tr(`Envoi de ${uploading} photo(s)…`, `Uploading ${uploading} photo(s)…`)
+              : tr("Glisse ici des photos de ton ordinateur (plusieurs à la fois), ou clique pour les choisir", "Drop photos from your computer here (several at once), or click to choose them")}
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            multiple
+            hidden
+            onChange={(e) => {
+              addFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          {uploadError ? <p className="com-error">{uploadError}</p> : null}
+        </>
+      ) : null}
 
       {photos.length ? (
         <>
@@ -443,7 +509,19 @@ export function PhotosPanel({ photos, hasVisuel, onChange }) {
                     </button>
                   </div>
                 </div>
-                {p.credit ? <small className="com-muted">{p.credit}</small> : null}
+                {p.source === "upload" ? (
+                  <input
+                    className="com-photo-credit"
+                    placeholder={tr("Crédit photo", "Photo credit")}
+                    defaultValue={p.credit || ""}
+                    onBlur={(e) => {
+                      const credit = e.target.value.trim();
+                      if (credit !== (p.credit || "")) onChange(photos.map((x) => (x.id === p.id ? { ...x, credit } : x)));
+                    }}
+                  />
+                ) : p.credit ? (
+                  <small className="com-muted">{p.credit}</small>
+                ) : null}
               </li>
             ))}
           </ul>

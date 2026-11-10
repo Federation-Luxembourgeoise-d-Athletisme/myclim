@@ -97,3 +97,23 @@ test("parseGuestImportRows refuses a single full-name column", () => {
 test("normalizeCashPostCode ignores separators and case", () => {
   assert.equal(normalizeCashPostCode(" ab3-k9 7q "), "AB3K97Q");
 });
+
+test("buildDoorEntries lists selected national race athletes with one companion ticket", () => {
+  const entries = buildDoorEntries({
+    editionId: "2027",
+    post: { kind: "public", showVipLists: false },
+    nationalRaceAthletes: [
+      { id: "n1", editionId: "2027", status: "selected", firstName: "Lea", lastName: "Muller", event: "800 m", gender: "femme", isLuxLicensed: true, club: "CAB" },
+      { id: "n2", editionId: "2027", status: "selected", role: "pacer", firstName: "Tom", lastName: "Weber", event: "800 m", gender: "homme" },
+      { id: "n3", editionId: "2027", status: "waitlist", firstName: "Zoe", lastName: "Hoffmann", event: "800 m", gender: "femme" },
+      { id: "n4", editionId: "2026", status: "selected", firstName: "Old", lastName: "Edition", event: "60 m", gender: "homme" },
+    ],
+  });
+
+  assert.deepEqual(entries.map((entry) => entry.fullName), ["Lea Muller", "Tom Weber"]);
+  assert.equal(entries[0].places, 1);
+  assert.equal(entries[0].sourceLabel, "Courses nationales · 800 m F");
+  assert.equal(entries[0].organization, "CAB");
+  assert.match(entries[1].notes, /lièvre/);
+  assert.equal(entries[0].key, buildCheckInKey("2027", "national_race", "n1"));
+});

@@ -23,6 +23,8 @@ import { getDisplayName, normalizeRole } from "./utils";
 import { LanguageSwitch } from "./language";
 import { NotificationBell } from "./notifications/notifications-ui";
 import { InstallAppBanner } from "./install-app-banner";
+import { confirmLeaveIfUnsaved } from "./unsaved-changes-guard";
+import { useHasOwnMeetingTasks, useMyOrganisationTeams } from "./organisation-hooks";
 import { useLanguage } from "./language-context";
 import { db } from "../services/firebase";
 
@@ -121,9 +123,15 @@ function AppShell(props) {
     }),
     [effectiveRoles, portalSettings, portalSettingsLoading],
   );
+  // Membre d’une équipe de l’organisation (hors admin/gestionnaire) : lien
+  // « Mes échéances » vers ses tâches du Rétroplanning.
+  const isManagerRole = effectiveRoles.includes("admin") || effectiveRoles.includes("gestionnaire");
+  const hasOwnMeetingTasks = useHasOwnMeetingTasks(currentUser?.email, !isManagerRole);
+  // Membre d'une équipe de l'organisation (y compris gestionnaires) : « Mon planning ».
+  const hasOrganisationTeams = useMyOrganisationTeams(currentUser?.email).teams.length > 0;
   const navigation = useMemo(
-    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess }),
-    [athletePortalAccess, effectiveRoles],
+    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess, hasOwnMeetingTasks, hasOrganisationTeams }),
+    [athletePortalAccess, effectiveRoles, hasOwnMeetingTasks, hasOrganisationTeams],
   );
   const linkLabel = (link) => (t(link.labelKey) || link.label).replace("{edition}", activeEditionId || "");
   const flatNavigation = useMemo(() => flattenNavigationItems(navigation), [navigation]);
@@ -162,11 +170,13 @@ function AppShell(props) {
   }, [location.pathname, location.search, location.state, navigate]);
 
   function handleViewAsChange(nextRole) {
+    if (!confirmLeaveIfUnsaved()) return;
     setPreferredViewAsRole(nextRole);
     navigate(nextRole === "admin" ? APP_ROUTES.home : getDefaultRouteByRoles(VIEW_AS_ROLES[nextRole] || []));
   }
 
   async function handleLogout() {
+    if (!confirmLeaveIfUnsaved()) return;
     await logout();
     navigate("/login");
   }
@@ -287,7 +297,9 @@ function AppShell(props) {
           </div>
           <div className="sidebar-footer__actions">
             <span className="status-pill status-pill--accent">
-              {formatRoleLabel(roles.includes("admin") ? viewAsRole : primaryRole, t)}
+              {/* getPrimaryRole retombe sur « benevole » pour les rôles qu'il ne
+                  classe pas (commission, kiné…) : on affiche alors le vrai rôle. */}
+              {formatRoleLabel(roles.includes("admin") ? viewAsRole : roles.includes(primaryRole) ? primaryRole : roles[0] || primaryRole, t)}
             </span>
             <LanguageSwitch variant="on-light" />
             <button className="button button--secondary sidebar-footer__logout" onClick={handleLogout} type="button">
@@ -422,6 +434,15 @@ function DashboardHome(props) {
   const roles = getActiveRoles(userProfile);
   const outletContext = useOutletContext() ?? {};
   const activeRole = outletContext.activeRole || getPrimaryRole(userProfile);
+  // La commission des athlètes n'a pas d'accueil propre : getPrimaryRole la
+  // classe en bénévole, elle verrait « Ma mission ». On l'envoie sur son module.
+  const navigateHome = useNavigate();
+  const isCommissionOnly =
+    activeRole === "commission_athletes" ||
+    (roles.includes("commission_athletes") && !roles.some((role) => ["admin", "gestionnaire", "benevole", "chef_equipe"].includes(role)));
+  useEffect(() => {
+    if (isCommissionOnly) navigateHome(APP_ROUTES.nationalRaces, { replace: true });
+  }, [isCommissionOnly, navigateHome]);
   const { application: volunteerApplication } = useVolunteerApplication(currentUser?.uid);
   const { roles: teamRoles, teamAssignments, loading: teamsLoading } = useTeamConfiguration();
   const { applications: volunteerApplications, loading: volunteerApplicationsLoading } = useVolunteerApplicationsList(
@@ -862,7 +883,7 @@ function EditionSettingsPage(props) {
       .sort((left, right) => Number(right) - Number(left));
 
     return [
-      { value: "test", label: `test — ${t("dashboardTemplateConfiguration")}` },
+      { value: "test", label: `Exemple 2026 — ${t("dashboardTemplateConfiguration")}` },
       ...numericEditionIds.map((editionId) => {
         const edition = (meetingEditions || []).find((entry) => normalizeEditionId(entry.year) === editionId);
         return {

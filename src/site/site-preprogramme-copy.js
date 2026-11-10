@@ -16,12 +16,12 @@ const SITE_PREPROGRAMME_COPY = {
     statusOpen: "Registration open",
     statusOpensOn: "Opens {date}",
     freeEntryYouth: "Free entry for the accompanying adult",
-    freeEntryAthlete: "Free adult entry",
+    freeEntryAthlete: "1 free companion entry",
     youthTitle: "My child",
     youthBody: "U12 born {u12} · U14 born {u14} · licensed in a Luxembourg club · or basket carrier",
     youthCta: "Register a child",
     athleteTitle: "Athlete",
-    athleteBody: "National races 60 m and 800 m · 8 and 6 places per race · selection on performance",
+    athleteBody: "800 m national races · 8 places per race · selection on season best · 60 m by invitation",
     athleteCta: "Apply",
     companyTitle: "Company",
     companyBody: "Business Race · mixed 4 × 200 m relay · 6 companies maximum",
@@ -29,7 +29,7 @@ const SITE_PREPROGRAMME_COPY = {
     companyCta: "See the packs",
     spectatorTitle: "Spectator",
     spectatorBody: "One ticket for the whole meeting: come early, the pre-programme starts before the elite.",
-    spectatorStatus: "Free entry for pre-programme athletes and the adult accompanying each child",
+    spectatorStatus: "Free entry for pre-programme athletes, the adult accompanying each child and one companion per national race athlete",
     spectatorCta: "Get tickets",
 
     scheduleTitle: "Schedule",
@@ -43,8 +43,8 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventFacts: ["U12 60 m · U14 60 m and 1000 m", "One race per child", "Basket carrier also possible"],
     nationalEventTitle: "National races",
     nationalEventBody:
-      "Women's and men's 60 m and 800 m, run by the athletes' commission. Selection is based on performance, with priority to Luxembourg licence holders; the organisers then handle the entries of selected athletes.",
-    nationalEventFacts: ["8 places per 60 m race, 6 per 800 m race", "Foreign athletes may be accepted", "Under 18: explicit parental consent"],
+      "Women's and men's 60 m and 800 m, run by the athletes' commission. The 60 m is by invitation only. For the 800 m, apply online: the commission selects on season best (SB 2026 or 2027) and informs athletes two weeks before the meeting; the organisers then handle the entries.",
+    nationalEventFacts: ["800 m: 8 places per race, up to 3 reserved for Luxembourg athletes", "60 m by invitation only", "No entry fee · registration does not guarantee selection"],
     specialOlympicsTitle: "Special Olympics race",
     specialOlympicsBody:
       "An inclusive race in front of the full meeting audience, celebrating personal achievement and sport for all.",
@@ -92,15 +92,27 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "How are national race athletes selected?",
-        a: "The athletes' commission selects on performance (personal best, 2026 best or other relevant times), with priority to Luxembourg licence holders.",
+        a: "For the 800 m, the athletes' commission selects on the season best (SB 2026 or 2027). Each race has 8 places (7 athletes + 1 pacer, or 8 athletes without a pacer) and up to 3 places are reserved for Luxembourg athletes. Registering does not guarantee selection.",
+      },
+      {
+        q: "How do I take part in the 60 m?",
+        a: "The national 60 m is by invitation only: the athletes' commission invites the best Luxembourg athletes, then the best season bests. There is no form to fill in.",
+      },
+      {
+        q: "Is there an entry fee for the national races?",
+        a: "No, registration is free. The 800 m form only asks whether you would be willing to pay for a pacer: without that, a pacer is not guaranteed, but wavelights are used in every race.",
+      },
+      {
+        q: "Where do national race athletes go on meeting day?",
+        a: "Through the international athletes' entrance, via the warm-up area, where you collect your accreditation. Your companion gives your name at the ticket desk to receive their free ticket.",
       },
       {
         q: "When do we get the decision?",
-        a: "You'll receive an email, and the status is visible in your MyCLIM space.",
+        a: "Youth races: you'll receive an email, and the status is visible in your MyCLIM space. National races: selected athletes are informed by email two weeks before the meeting.",
       },
       {
         q: "Do participants need a ticket?",
-        a: "One ticket gives access to the whole meeting. For U12 / U14, the adult accompanying the child gets a free entry, handed over when the child is dropped off. National race athletes get a free adult entry when they arrive.",
+        a: "One ticket gives access to the whole meeting. For U12 / U14, the adult accompanying the child gets a free entry, handed over when the child is dropped off. National race athletes get one free entry for a companion, who gives the athlete's name at the ticket desk.",
       },
       {
         q: "Can I register more than one child?",
@@ -110,7 +122,7 @@ const SITE_PREPROGRAMME_COPY = {
 
     finalTitle: "Ready to take part?",
     finalYouth: "Register a child",
-    finalNational: "Apply for a national race",
+    finalNational: "Apply for the 800 m",
     finalBusiness: "Book a Business Race team",
   },
   fr: {
@@ -127,12 +139,12 @@ const SITE_PREPROGRAMME_COPY = {
     statusOpen: "Inscriptions ouvertes",
     statusOpensOn: "Ouverture le {date}",
     freeEntryYouth: "Entrée offerte pour l'accompagnant",
-    freeEntryAthlete: "Entrée adulte offerte",
+    freeEntryAthlete: "1 entrée offerte pour un accompagnateur",
     youthTitle: "Mon enfant",
     youthBody: "U12 nés en {u12} · U14 nés en {u14} · licenciés dans un club luxembourgeois · ou porte-panier",
     youthCta: "Inscrire un enfant",
     athleteTitle: "Athlète",
-    athleteBody: "Courses nationales 60 m et 800 m · 8 et 6 places par course · sélection sur performance",
+    athleteBody: "Courses nationales 800 m · 8 places par course · sélection sur la meilleure perf. de la saison · 60 m sur invitation",
     athleteCta: "Postuler",
     companyTitle: "Entreprise",
     companyBody: "Business Race · relais mixte 4 × 200 m · 6 entreprises maximum",
@@ -140,7 +152,7 @@ const SITE_PREPROGRAMME_COPY = {
     companyCta: "Voir les packs",
     spectatorTitle: "Spectateur",
     spectatorBody: "Un seul billet pour tout le meeting : venez tôt, le pré-programme commence avant l'élite.",
-    spectatorStatus: "Entrée offerte aux athlètes du pré-programme et à l'adulte qui accompagne chaque enfant",
+    spectatorStatus: "Entrée offerte aux athlètes du pré-programme, à l'adulte qui accompagne chaque enfant et à un accompagnateur par athlète des courses nationales",
     spectatorCta: "Billetterie",
 
     scheduleTitle: "Déroulé",
@@ -154,8 +166,8 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventFacts: ["U12 60 m · U14 60 m et 1000 m", "Une course par enfant", "Porte-panier également possible"],
     nationalEventTitle: "Courses nationales",
     nationalEventBody:
-      "60 m et 800 m femmes et hommes, pilotés par la commission des athlètes. La sélection se fait sur performance, avec priorité aux licenciés luxembourgeois ; l'organisation engage ensuite les athlètes retenus.",
-    nationalEventFacts: ["8 places par course de 60 m, 6 par course de 800 m", "Athlètes étrangers possibles", "Moins de 18 ans : accord parental explicite"],
+      "60 m et 800 m femmes et hommes, pilotés par la commission des athlètes. Le 60 m se fait uniquement sur invitation. Pour le 800 m, inscrivez-vous en ligne : la commission sélectionne sur la meilleure perf. de la saison (SB 2026 ou 2027) et prévient les athlètes deux semaines avant le meeting ; l'organisation engage ensuite les athlètes retenus.",
+    nationalEventFacts: ["800 m : 8 places par course, jusqu'à 3 réservées aux Luxembourgeois", "60 m uniquement sur invitation", "Pas de frais d'inscription · l'inscription ne garantit pas la sélection"],
     specialOlympicsTitle: "Course Special Olympics",
     specialOlympicsBody:
       "Une course inclusive devant tout le public du meeting, qui célèbre la réussite de chacun et le sport pour tous.",
@@ -203,15 +215,27 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Comment sont sélectionnés les athlètes des courses nationales ?",
-        a: "La commission des athlètes sélectionne sur performance (record personnel, meilleure perf. 2026 ou autres temps pertinents), avec priorité aux licenciés luxembourgeois.",
+        a: "Pour le 800 m, la commission des athlètes sélectionne sur la meilleure performance de la saison (SB 2026 ou 2027). Chaque course compte 8 places (7 athlètes + 1 lièvre, ou 8 athlètes sans lièvre) et jusqu'à 3 places sont réservées aux athlètes luxembourgeois. L'inscription ne garantit pas la sélection.",
+      },
+      {
+        q: "Comment participer au 60 m ?",
+        a: "Le 60 m national se fait uniquement sur invitation : la commission des athlètes invite les meilleurs Luxembourgeois, puis les meilleures performances de la saison. Il n'y a pas de formulaire à remplir.",
+      },
+      {
+        q: "Faut-il payer pour participer aux courses nationales ?",
+        a: "Non, l'inscription est gratuite. Le formulaire du 800 m demande seulement si vous seriez prêt(e) à payer pour un lièvre : sans cela, un lièvre n'est pas garanti, mais des wavelights sont utilisées dans chaque course.",
+      },
+      {
+        q: "Par où arrivent les athlètes des courses nationales le jour du meeting ?",
+        a: "Par l'entrée des athlètes internationaux, par la salle d'échauffement (warm-up), où vous récupérez votre accréditation. Votre accompagnateur donne votre nom à la caisse pour recevoir son ticket gratuit.",
       },
       {
         q: "Quand reçoit-on la décision ?",
-        a: "Vous recevez un email, et le statut est visible dans votre espace MyCLIM.",
+        a: "Courses jeunes : vous recevez un email, et le statut est visible dans votre espace MyCLIM. Courses nationales : les athlètes retenus sont prévenus par email deux semaines avant le meeting.",
       },
       {
         q: "Les participants ont-ils besoin d'un billet ?",
-        a: "Un seul billet donne accès à tout le meeting. Pour les U12 / U14, l'adulte qui accompagne l'enfant a une entrée offerte, remise au moment où il dépose l'enfant. Les athlètes des courses nationales reçoivent une entrée adulte offerte à leur arrivée.",
+        a: "Un seul billet donne accès à tout le meeting. Pour les U12 / U14, l'adulte qui accompagne l'enfant a une entrée offerte, remise au moment où il dépose l'enfant. Les athlètes des courses nationales ont une entrée offerte pour un accompagnateur, qui donne le nom de l'athlète à la caisse.",
       },
       {
         q: "Puis-je inscrire plusieurs enfants ?",
@@ -221,7 +245,7 @@ const SITE_PREPROGRAMME_COPY = {
 
     finalTitle: "Prêt à participer ?",
     finalYouth: "Inscrire un enfant",
-    finalNational: "Postuler aux courses nationales",
+    finalNational: "Postuler au 800 m",
     finalBusiness: "Réserver une équipe Business Race",
   },
 };

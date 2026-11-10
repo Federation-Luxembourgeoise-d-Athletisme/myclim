@@ -23,6 +23,10 @@ const APP_ROUTES = {
   emergencyExports: "/app/exports-urgence",
   calendar: "/app/calendrier",
   tasks: "/app/taches",
+  retroplanning: "/app/retroplanning",
+  myPlanning: "/app/mon-planning",
+  expenseClaims: "/app/decomptes",
+  myExpenseClaims: "/app/mes-decomptes",
   partners: "/app/partenaires",
   press: "/app/presse",
   news: "/app/actualites",
@@ -149,6 +153,11 @@ const LINKS = {
   emergencyExports: () => makeLink(APP_ROUTES.emergencyExports, "navEmergencyExports", "Exports d'urgence", "shield"),
   calendar: () => makeLink(APP_ROUTES.calendar, "navCalendar", "Calendrier", "calendar"),
   tasks: () => makeLink(APP_ROUTES.tasks, "navTasks", "Tâches", "check"),
+  retroplanning: () => makeLink(APP_ROUTES.retroplanning, "navRetroplanning", "Rétroplanning", "calendar"),
+  myRetroplanning: () => makeLink(APP_ROUTES.retroplanning, "navMyRetroplanning", "Mes échéances", "calendar"),
+  myPlanning: () => makeLink(APP_ROUTES.myPlanning, "navMyPlanning", "Mon planning", "calendar"),
+  expenseClaims: () => makeLink(APP_ROUTES.expenseClaims, "navExpenseClaims", "Décomptes", "folder"),
+  myExpenseClaims: () => makeLink(APP_ROUTES.myExpenseClaims, "navMyExpenseClaims", "Mes décomptes", "folder"),
   partners: () => makeLink(APP_ROUTES.partners, "navPartners", "Partenaires", "badge"),
   press: () => makeLink(APP_ROUTES.press, "navPress", "Presse", "folder"),
   // Gestionnaire du site seul : il n'a accès qu'aux onglets « site » de ces pages.
@@ -187,7 +196,7 @@ function section(key, linkKeys) {
 }
 
 // Pages personnelles (« Mon espace ») d'après les rôles détenus.
-function personalLinkKeys(roles) {
+function personalLinkKeys(roles, options = {}) {
   const isTeamLead = roles.includes("chef_equipe");
   const isVolunteer = roles.includes("benevole") || isTeamLead;
 
@@ -199,6 +208,13 @@ function personalLinkKeys(roles) {
     roles.includes("parent_u14") && "myChildren",
     roles.includes("benevole_transport_athletes") && "myTransports",
     roles.includes("athlete_preprogram") && "myNationalRace",
+    // Membre d'une équipe de l'organisation : son planning de la CLIM Week,
+    // et ses tâches du Rétroplanning (les gestionnaires ont le Rétroplanning
+    // complet dans Pilotage).
+    options.hasOrganisationTeams && "myPlanning",
+    !roles.includes("admin") && !roles.includes("gestionnaire") && options.hasOwnMeetingTasks && "myRetroplanning",
+    // Tout le monde peut demander un remboursement (décompte).
+    "myExpenseClaims",
   ];
 }
 
@@ -211,6 +227,11 @@ function personalLinkKeys(roles) {
  *
  * options.athletePortal : { canAccess, canImport } d'après les réglages du
  * portail athlètes (qui peut voir les engagés).
+ * options.hasOwnMeetingTasks : l'utilisateur a des tâches au Rétroplanning
+ * (membre d'une équipe de l'organisation) → « Mes échéances ».
+ * options.hasOrganisationTeams : l'utilisateur est membre d'une équipe de
+ * l'organisation → « Mon planning » (aussi pour gestionnaires et admins :
+ * les étudiants LUNEX sont gestionnaires).
  */
 function buildNavigationFromRoles(roles, options = {}) {
   const canAccessEntries = Boolean(options.athletePortal?.canAccess);
@@ -220,7 +241,8 @@ function buildNavigationFromRoles(roles, options = {}) {
   if (has("admin")) {
     return [
       LINKS.home(),
-      section("steering", ["edition", "budget", "documents"]),
+      section("mySpace", [options.hasOrganisationTeams && "myPlanning", "myExpenseClaims"]),
+      section("steering", ["edition", "retroplanning", "budget", "expenseClaims", "documents"]),
       section("volunteers", ["applications", "teams"]),
       section("athletes", ["entries", "transport", "roadbook", "physio", "results"]),
       section("preprogram", ["u14", "nationalRaces"]),
@@ -234,8 +256,8 @@ function buildNavigationFromRoles(roles, options = {}) {
   if (has("gestionnaire")) {
     return [
       LINKS.home(),
-      section("mySpace", personalLinkKeys(roles)),
-      section("steering", [has("gestionnaire_site") && "edition", has("budget") && "budget", "documents"]),
+      section("mySpace", personalLinkKeys(roles, options)),
+      section("steering", [has("gestionnaire_site") && "edition", "retroplanning", has("budget") && "budget", has("budget") && "expenseClaims", "documents"]),
       section("volunteers", ["applications", "teams"]),
       section("athletes", [
         has("chef_transport_athletes") && "transport",
@@ -254,8 +276,8 @@ function buildNavigationFromRoles(roles, options = {}) {
   // personnels (bénévole, chef d'équipe, parent, athlète pré-programme).
   return [
     LINKS.home(),
-    section("mySpace", personalLinkKeys(roles)),
-    section("steering", [has("gestionnaire_site") && "edition", has("budget") && "budget"]),
+    section("mySpace", personalLinkKeys(roles, options)),
+    section("steering", [has("gestionnaire_site") && "edition", has("budget") && "budget", has("budget") && "expenseClaims"]),
     section("athletes", [
       canAccessEntries && "entries",
       has("chef_transport_athletes") && "transport",

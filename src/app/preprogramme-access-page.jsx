@@ -17,11 +17,13 @@ import {
 import {
   NATIONAL_RACE_ADULT_AGE,
   NATIONAL_RACE_DEFINITIONS,
-  NATIONAL_RACE_EVENTS,
   NATIONAL_RACE_MIN_AGE,
+  NATIONAL_RACE_PUBLIC_EVENTS,
   createEmptyNationalRaceForm,
+  getNationalRaceSelectionDate,
   parsePerformanceToSeconds,
 } from "./national-races-helpers";
+import { useMeetingEditions } from "./meeting-history-hooks";
 
 const PATH_YOUTH = "jeunes";
 const PATH_NATIONAL = "courses-nationales";
@@ -406,8 +408,16 @@ function YouthRegistrationForm({ onEmailInUse }) {
 
 function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
   const { createNationalRaceRegistration, currentUser, userProfile } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const { activeEditionId } = useActiveEdition();
+  const { editions } = useMeetingEditions();
+  const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
+  const selectionDate = getNationalRaceSelectionDate(activeEdition?.date);
+  const selectionDateLabel = selectionDate
+    ? selectionDate.toLocaleDateString(language === "fr" ? "fr-LU" : "en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : t("natSelectionDateTbc");
+  const race800 = NATIONAL_RACE_DEFINITIONS.find((race) => race.event === "800 m");
   const isLoggedIn = Boolean(currentUser);
   const [formData, setFormData] = useState(createEmptyNationalRaceForm);
   const [error, setError] = useState("");
@@ -452,7 +462,7 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
       setError(t("natTooYoungBody"));
       return;
     }
-    const selectedEvents = NATIONAL_RACE_EVENTS.filter((eventName) => formData.events[eventName].selected);
+    const selectedEvents = NATIONAL_RACE_PUBLIC_EVENTS.filter((eventName) => formData.events[eventName].selected);
     if (!selectedEvents.length) {
       setError(t("natErrorNoEvent"));
       return;
@@ -461,11 +471,11 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
     // des trois (record, meilleure perf. 2026 ou autres temps en texte libre).
     // Un PB/SB saisi doit en revanche être lisible pour le classement admin.
     const eventEntries = selectedEvents.map((eventName) => formData.events[eventName]);
-    if (eventEntries.some((entry) => [entry.personalBest, entry.seasonBest].some((value) => value && parsePerformanceToSeconds(value) === null))) {
+    if (eventEntries.some((entry) => [entry.personalBest, entry.seasonBest, entry.previousSeasonBest].some((value) => value && parsePerformanceToSeconds(value) === null))) {
       setError(t("natErrorPerformanceFormat"));
       return;
     }
-    if (eventEntries.some((entry) => ![entry.personalBest, entry.seasonBest, entry.otherTime].some((value) => String(value || "").trim()))) {
+    if (eventEntries.some((entry) => ![entry.personalBest, entry.seasonBest, entry.previousSeasonBest, entry.otherTime].some((value) => String(value || "").trim()))) {
       setError(t("natErrorPerformance"));
       return;
     }
@@ -488,10 +498,13 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
         <RuleList
           items={[
             t("natRule1")
-              .replace("{quota60}", NATIONAL_RACE_DEFINITIONS.find((race) => race.event === "60 m").quota)
-              .replace("{quota800}", NATIONAL_RACE_DEFINITIONS.find((race) => race.event === "800 m").quota),
+              .replaceAll("{quota}", race800.quota)
+              .replace("{athletes}", race800.quota - 1)
+              .replace("{lux}", race800.luxReserved),
             t("natRule2"),
-            t("natRule3"),
+            t("natRule3").replace("{date}", selectionDateLabel),
+            t("natRule4"),
+            t("natRule5"),
           ]}
         />
       </div>
@@ -518,6 +531,14 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
               <option value="femme">{t("natGenderWomen")}</option>
               <option value="homme">{t("natGenderMen")}</option>
             </select>
+          </AuthFormField>
+        </div>
+        <div className="field-grid">
+          <AuthFormField label={t("natNationalityLabel")} hint={t("natNationalityHint")} required>
+            <input name="nationality" required value={formData.nationality} onChange={handleChange} />
+          </AuthFormField>
+          <AuthFormField label={t("natWorldAthleticsLabel")} hint={t("natWorldAthleticsHint")} required>
+            <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." required type="url" value={formData.worldAthleticsUrl} onChange={handleChange} />
           </AuthFormField>
         </div>
         {isTooYoung ? (
@@ -624,18 +645,20 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
           <h3>{t("natEventsHeading")}</h3>
           <p className="availability-lead">{t("natEventsIntro")}</p>
         </div>
-        {NATIONAL_RACE_EVENTS.map((eventName) => {
+        {NATIONAL_RACE_PUBLIC_EVENTS.map((eventName) => {
           const entry = formData.events[eventName];
           const placeholder = eventName === "800 m" ? "2:05.30" : "7.45";
-          const hasUnreadableTime = [entry.personalBest, entry.seasonBest].some(
+          const hasUnreadableTime = [entry.personalBest, entry.seasonBest, entry.previousSeasonBest].some(
             (value) => value && parsePerformanceToSeconds(value) === null,
           );
           return (
             <div key={eventName} className="preprogramme-event-block">
-              <label className="selection-card selection-card--compact">
-                <input checked={entry.selected} type="checkbox" onChange={(event) => handleEventChange(eventName, "selected", event.target.checked)} />
-                <div><strong>{eventName}</strong></div>
-              </label>
+              {NATIONAL_RACE_PUBLIC_EVENTS.length > 1 ? (
+                <label className="selection-card selection-card--compact">
+                  <input checked={entry.selected} type="checkbox" onChange={(event) => handleEventChange(eventName, "selected", event.target.checked)} />
+                  <div><strong>{eventName}</strong></div>
+                </label>
+              ) : null}
               {entry.selected ? (
                 <>
                   <p className="panel-note">{t("natTimesRequiredNote")}</p>
@@ -647,8 +670,9 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
                       <span>{t("natTimeColDate")}</span>
                     </div>
                     {[
-                      { key: "personalBest", label: t("natPersonalBest"), timePlaceholder: placeholder },
                       { key: "seasonBest", label: t("natSeasonBest"), timePlaceholder: placeholder },
+                      { key: "previousSeasonBest", label: t("natPreviousSeasonBest"), timePlaceholder: placeholder },
+                      { key: "personalBest", label: t("natPersonalBest"), timePlaceholder: placeholder },
                       { key: "otherTime", label: t("natOtherTimes"), timePlaceholder: t("natOtherTimePlaceholder") },
                     ].map((row) => (
                       <div key={row.key} className="preprogramme-time-row">
@@ -681,6 +705,23 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
             </div>
           );
         })}
+      </section>
+
+      <section className="form-section-card">
+        <div className="form-section-head">
+          <h3>{t("natPacerPaymentLabel")} <span className="field-required" aria-hidden="true">*</span></h3>
+          <p className="availability-lead">{t("natPacerPaymentHint")}</p>
+        </div>
+        <div className="lunex-choice-row">
+          <label className="selection-card selection-card--inline">
+            <input checked={formData.pacerPayment === "oui"} name="pacerPayment" required type="radio" value="oui" onChange={handleChange} />
+            <div><strong>{t("natYes")}</strong></div>
+          </label>
+          <label className="selection-card selection-card--inline">
+            <input checked={formData.pacerPayment === "non"} name="pacerPayment" type="radio" value="non" onChange={handleChange} />
+            <div><strong>{t("natNo")}</strong></div>
+          </label>
+        </div>
       </section>
 
       <AuthFormField label={t("u14NotesLabel")}>

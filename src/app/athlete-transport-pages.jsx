@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { addDoc, arrayUnion, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import { getActiveRoles } from "./navigation";
@@ -25,8 +25,10 @@ function AthleteTransportChiefPage({ Panel }) {
   // Admins can switch to "test" to check a rehearsal import's travel/lots
   // logic — without this, this page always showed the real edition only,
   // even while every athlete/staff record lived under "test".
-  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
-  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedViewEditionId, setViewEditionId] = useState("");
+  const viewEditionId = pickedViewEditionId || activeEditionId;
   const { athletes, loading: athletesLoading } = useAthletes(true, viewEditionId);
   const { people: accompanyingPersons, loading: staffLoading } = useAccompanyingPersons(true, viewEditionId);
   const { lots, loading: lotsLoading } = useAthleteTransportLots(true, viewEditionId);
@@ -76,7 +78,7 @@ function AthleteTransportChiefPage({ Panel }) {
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
                 <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
               </select>
               {viewEditionId === "test" && (
                 <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
@@ -909,8 +911,10 @@ function AthleteTransportVolunteerPage({ Panel }) {
   // list, since athletes/staff would still be looked up in the real edition.
   // A real, non-admin volunteer never needs this — they only ever pick up a
   // real lot in the real edition.
-  const [viewEditionId, setViewEditionId] = useState(activeEditionId);
-  useEffect(() => { setViewEditionId((current) => current || activeEditionId); }, [activeEditionId]);
+  // Follows the active edition until the user picks another one (useActiveEdition
+  // starts on "test" while it loads, which used to stick).
+  const [pickedViewEditionId, setViewEditionId] = useState("");
+  const viewEditionId = pickedViewEditionId || activeEditionId;
   const effectiveEditionId = isAdmin ? viewEditionId : activeEditionId;
   const { lots, loading: lotsLoading } = useAthleteTransportLots(true, effectiveEditionId);
   const { athletes, loading: athletesLoading } = useAthletes(true, effectiveEditionId);
@@ -992,7 +996,7 @@ function AthleteTransportVolunteerPage({ Panel }) {
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
                 <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Test</option>}
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
               </select>
             </div>
           )}
