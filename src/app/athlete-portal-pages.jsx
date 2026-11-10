@@ -4419,6 +4419,9 @@ function AthleteRegistryPage({ Panel, maintenance }) {
           />
         )}
 
+        {/* « À nettoyer » et « Doublons probables » : base corrigée en
+            novembre 2026, plus affichés dans Statistiques › Athlètes. */}
+        {maintenance === "hide" ? null : (<>
         <AthleteRegistryCleanupPanel
           Panel={Panel}
           rows={suspectRows}
@@ -4606,6 +4609,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
             </div>
           )}
         </Panel>
+        </>)}
 
         {selectedRegistryIds.length > 0 ? (
           <Panel
