@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import { db } from "../services/firebase";
 import {
@@ -7,15 +7,21 @@ import {
   NATIONAL_RACE_DEFINITIONS,
   NATIONAL_RACE_MAIL_TEMPLATES_DOC_PATH,
   NATIONAL_RACE_NOTIFIABLE_STATUSES,
+  NATIONAL_RACE_PACER_ROLE,
   NATIONAL_RACE_REQUESTS_COLLECTION,
   buildNationalRaceDecisionMail,
   compareNationalRaceRequests,
   getBestTimeSummary,
+  getNationalRaceAthleteQuota,
+  getProposedNationalRaceSelection,
   isNationalRaceMailPending,
+  isNationalRacePacer,
+  parsePerformanceToSeconds,
 } from "./national-races-helpers";
 import { useNationalRaceMailTemplates, useNationalRaceRequests } from "./national-races-hooks";
 import { useNationalRacesAdminCopy } from "./national-races-admin-copy";
-import { formatDateForDisplay, formatDateTimeForDisplay, getTimestampMs } from "./u14-helpers";
+import { useActiveEdition } from "./edition";
+import { formatDateForDisplay, formatDateTimeForDisplay, getTimestampMs, luxCompetitionClubs } from "./u14-helpers";
 
 // Module Courses nationales (commission des athlètes). Textes français /
 // anglais : national-races-admin-copy.js.
@@ -56,6 +62,170 @@ function downloadCsv(filename, rows) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function requestToForm(request) {
+  return {
+    ...Object.fromEntries(Object.keys(EMPTY_ADD_FORM).map((key) => [key, request[key] ?? EMPTY_ADD_FORM[key]])),
+    isLuxLicensed: request.isLuxLicensed ? "oui" : "non",
+    isPacer: isNationalRacePacer(request),
+  };
+}
+
+// Champs écrits dans la demande à partir du formulaire commission.
+function formToRequestFields(form) {
+  const isLux = form.isLuxLicensed === "oui";
+  return {
+    firstName: form.firstName.trim(),
+    lastName: form.lastName.trim(),
+    email: form.email.trim(),
+    phone: form.phone.trim(),
+    isLuxLicensed: isLux,
+    club: isLux ? form.club : "",
+    bibNumber: isLux ? form.bibNumber.trim() : "",
+    foreignCountry: isLux ? "" : form.foreignCountry.trim(),
+    foreignClub: isLux ? "" : form.foreignClub.trim(),
+    seasonBest: form.seasonBest.trim(),
+    seasonBestPlace: form.seasonBestPlace.trim(),
+    seasonBestDate: form.seasonBestDate,
+    notes: form.notes.trim(),
+    role: form.isPacer ? NATIONAL_RACE_PACER_ROLE : "athlete",
+  };
+}
+
+const EMPTY_ADD_FORM = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  isLuxLicensed: "oui",
+  club: "",
+  bibNumber: "",
+  foreignCountry: "",
+  foreignClub: "",
+  seasonBest: "",
+  seasonBestPlace: "",
+  seasonBestDate: "",
+  notes: "",
+  isPacer: false,
+};
+
+// Ajout direct par la commission : athlètes invités au 60 m (pas de
+// formulaire public) et lièvre éventuel au 800 m. Pas de compte MyCLIM créé :
+// l'athlète est prévenu par le mail de décision habituel.
+// Le même formulaire sert à corriger la fiche d'un athlète (initial fourni).
+function AddAthleteForm({ race, raceLabel, initial = null, onCancel, onSubmit, isSaving }) {
+  const { copy } = useNationalRacesAdminCopy();
+  const text = copy.add;
+  const [form, setForm] = useState(() => (initial ? { ...EMPTY_ADD_FORM, ...requestToForm(initial) } : EMPTY_ADD_FORM));
+  const [error, setError] = useState("");
+  const isLux = form.isLuxLicensed === "oui";
+
+  function update(event) {
+    const { name, type, checked, value } = event.target;
+    setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (form.seasonBest && parsePerformanceToSeconds(form.seasonBest) === null) {
+      setError(text.timeFormat);
+      return;
+    }
+    setError("");
+    onSubmit(form);
+  }
+
+  return (
+    <form className="nat-card" onSubmit={handleSubmit}>
+      <div className="nat-card__head">
+        <strong>
+          {initial
+            ? text.editTitle.replace("{name}", `${initial.firstName} ${initial.lastName}`)
+            : (race.invitationOnly ? text.inviteTitle : text.addTitle).replace("{race}", raceLabel)}
+        </strong>
+        <span className="nat-muted">{initial ? text.editHint : text.hint}</span>
+      </div>
+      {race.allowsPacer ? (
+        <label className="nat-inline-check">
+          <input checked={form.isPacer} name="isPacer" type="checkbox" onChange={update} />
+          {text.pacer}
+        </label>
+      ) : null}
+      <div className="field-grid">
+        <label className="field"><span>{text.firstName}</span><input name="firstName" required value={form.firstName} onChange={update} /></label>
+        <label className="field"><span>{text.lastName}</span><input name="lastName" required value={form.lastName} onChange={update} /></label>
+      </div>
+      <div className="field-grid">
+        <label className="field"><span>{text.email}</span><input name="email" required type="email" value={form.email} onChange={update} /></label>
+        <label className="field"><span>{text.phone}</span><input name="phone" value={form.phone} onChange={update} /></label>
+      </div>
+      <div className="field-grid">
+        <label className="field">
+          <span>{text.licence}</span>
+          <select name="isLuxLicensed" value={form.isLuxLicensed} onChange={update}>
+            <option value="oui">{text.licenceLux}</option>
+            <option value="non">{text.licenceForeign}</option>
+          </select>
+        </label>
+        {isLux ? (
+          <label className="field">
+            <span>{text.club}</span>
+            <select name="club" value={form.club} onChange={update}>
+              <option value="">-</option>
+              {luxCompetitionClubs.map((club) => <option key={club} value={club}>{club}</option>)}
+            </select>
+          </label>
+        ) : (
+          <label className="field"><span>{text.country}</span><input name="foreignCountry" value={form.foreignCountry} onChange={update} /></label>
+        )}
+      </div>
+      <div className="field-grid">
+        {isLux ? (
+          <label className="field"><span>{text.bib}</span><input name="bibNumber" value={form.bibNumber} onChange={update} /></label>
+        ) : (
+          <label className="field"><span>{text.foreignClub}</span><input name="foreignClub" value={form.foreignClub} onChange={update} /></label>
+        )}
+        <label className="field">
+          <span>{text.seasonBest}</span>
+          <input inputMode="decimal" name="seasonBest" placeholder={race.event === "800 m" ? "2:05.30" : "7.45"} value={form.seasonBest} onChange={update} />
+        </label>
+      </div>
+      <div className="field-grid">
+        <label className="field"><span>{text.place}</span><input name="seasonBestPlace" value={form.seasonBestPlace} onChange={update} /></label>
+        <label className="field"><span>{text.date}</span><input name="seasonBestDate" type="date" value={form.seasonBestDate} onChange={update} /></label>
+      </div>
+      <label className="field"><span>{text.notes}</span><input name="notes" value={form.notes} onChange={update} /></label>
+      {error ? <p className="form-error">{error}</p> : null}
+      <div className="nat-actions">
+        <span className="nat-spacer" />
+        <button className="button button--secondary" type="button" onClick={onCancel}>{text.cancel}</button>
+        <button className="button button--primary" disabled={isSaving} type="submit">{isSaving ? text.saving : text.save}</button>
+      </div>
+    </form>
+  );
+}
+
+// Aperçu du mail tel qu'il partira (ou est parti) pour la décision actuelle.
+function MailPreviewCard({ request, templates, onClose }) {
+  const { copy, fill } = useNationalRacesAdminCopy();
+  const mail = buildNationalRaceDecisionMail(request, templates);
+  return (
+    <div className="nat-card">
+      <div className="nat-card__head">
+        <strong>{fill(copy.previewTitle, { name: `${request.firstName} ${request.lastName}`, status: copy.statuses[request.status] })}</strong>
+        <button className="button button--secondary button--small" type="button" onClick={onClose}>{copy.templates.cancel}</button>
+      </div>
+      <div className="nat-preview">
+        <div className="nat-muted">
+          {fill(copy.mailPanel.to, { to: mail.to })}
+          {mail.cc ? fill(copy.mailPanel.cc, { cc: mail.cc }) : ""}
+        </div>
+        <strong>{mail.subject}</strong>
+        <pre>{mail.body}</pre>
+      </div>
+    </div>
+  );
 }
 
 function MailStatus({ request }) {
@@ -252,6 +422,10 @@ function NationalRacesPage(props) {
   const [isBusy, setIsBusy] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isEditingTemplates, setIsEditingTemplates] = useState(false);
+  // "" (fermé), "new" (ajout) ou l'id de la demande en cours de modification.
+  const [athleteFormTarget, setAthleteFormTarget] = useState("");
+  const [mailPreviewId, setMailPreviewId] = useState("");
+  const { activeEditionId } = useActiveEdition();
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const authorName = getAuthorName(userProfile, currentUser);
@@ -260,30 +434,40 @@ function NationalRacesPage(props) {
     () =>
       NATIONAL_RACE_DEFINITIONS.map((race) => {
         const raceRequests = requests.filter((request) => request.raceCode === race.code);
+        const athletes = raceRequests.filter((request) => !isNationalRacePacer(request));
         return {
           ...race,
-          total: raceRequests.filter((request) => request.status !== "withdrawn").length,
-          selected: raceRequests.filter((request) => request.status === "selected").length,
+          athleteQuota: getNationalRaceAthleteQuota(race, raceRequests),
+          hasPacer: raceRequests.some((request) => isNationalRacePacer(request) && request.status === "selected"),
+          total: athletes.filter((request) => request.status !== "withdrawn").length,
+          selected: athletes.filter((request) => request.status === "selected").length,
         };
       }),
     [requests],
   );
   const metrics = useMemo(
     () => ({
-      total: requests.filter((request) => request.status !== "withdrawn").length,
-      selected: requests.filter((request) => request.status === "selected").length,
-      places: NATIONAL_RACE_DEFINITIONS.reduce((sum, race) => sum + race.quota, 0),
+      total: requests.filter((request) => request.status !== "withdrawn" && !isNationalRacePacer(request)).length,
+      selected: requests.filter((request) => request.status === "selected" && !isNationalRacePacer(request)).length,
+      places: raceSummaries.reduce((sum, race) => sum + race.athleteQuota, 0),
       undecided: requests.filter((request) => (request.status || "submitted") === "submitted").length,
       pending: requests.filter(isNationalRaceMailPending).length,
     }),
-    [requests],
+    [requests, raceSummaries],
   );
   const selectedRace = raceSummaries.find((race) => race.code === selectedRaceCode) || raceSummaries[0];
   const selectedRaceLabel = raceLabel(selectedRace.code, selectedRace.label);
   const raceRequests = useMemo(
-    () => requests.filter((request) => request.raceCode === selectedRace.code).sort(compareNationalRaceRequests),
+    // Lièvres en tête de liste, puis le classement au SB.
+    () =>
+      requests
+        .filter((request) => request.raceCode === selectedRace.code)
+        .sort((left, right) => Number(isNationalRacePacer(right)) - Number(isNationalRacePacer(left)) || compareNationalRaceRequests(left, right)),
     [requests, selectedRace.code],
   );
+  const proposal = useMemo(() => getProposedNationalRaceSelection(selectedRace, raceRequests), [selectedRace, raceRequests]);
+  const editedRequest = athleteFormTarget && athleteFormTarget !== "new" ? requests.find((request) => request.id === athleteFormTarget) : null;
+  const mailPreviewRequest = requests.find((request) => request.id === mailPreviewId) || null;
   const pendingRequests = useMemo(
     () => requests.filter(isNationalRaceMailPending).sort(compareNationalRaceRequests),
     [requests],
@@ -329,8 +513,9 @@ function NationalRacesPage(props) {
     }
   }
 
+  // Retient la sélection proposée (places Lux réservées puis meilleurs SB).
   function handleSelectTop() {
-    const candidates = raceRequests.filter((request) => request.status !== "withdrawn").slice(0, selectedRace.quota);
+    const candidates = proposal.selection;
     const toUpdate = candidates.filter((request) => request.status !== "selected");
     if (!toUpdate.length) {
       flash(fill(text.topAlready, { count: candidates.length, race: selectedRaceLabel }));
@@ -338,6 +523,45 @@ function NationalRacesPage(props) {
     }
     if (!window.confirm(fill(text.topConfirm, { count: candidates.length, race: selectedRaceLabel, changes: toUpdate.length }))) return;
     setStatuses(toUpdate, "selected");
+  }
+
+  async function handleSaveAthlete(form) {
+    setIsBusy(true);
+    try {
+      const fields = formToRequestFields(form);
+      if (editedRequest) {
+        await updateDoc(doc(db, NATIONAL_RACE_REQUESTS_COLLECTION, editedRequest.id), {
+          ...fields,
+          editedBy: authorName,
+          updatedAt: serverTimestamp(),
+        });
+        flash(fill(copy.add.updated, { name: `${fields.firstName} ${fields.lastName}` }));
+      } else {
+        await addDoc(collection(db, NATIONAL_RACE_REQUESTS_COLLECTION), {
+          ...fields,
+          editionId: activeEditionId,
+          athleteUserId: "",
+          event: selectedRace.event,
+          gender: selectedRace.gender,
+          raceCode: selectedRace.code,
+          source: "commission",
+          addedBy: authorName,
+          birthDate: "",
+          birthYear: null,
+          isMinor: false,
+          status: "submitted",
+          seltecEntered: false,
+          submittedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        flash(fill(copy.add.added, { name: `${fields.firstName} ${fields.lastName}`, race: selectedRaceLabel }));
+      }
+      setAthleteFormTarget("");
+    } catch {
+      setErrorMessage(text.updateFailed);
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function updateRequest(request, changes, successMessage) {
@@ -431,6 +655,7 @@ function NationalRacesPage(props) {
       csv.headers,
       ...selected.map((request) => [
         raceLabel(request.raceCode, request.event),
+        isNationalRacePacer(request) ? csv.pacer : csv.athlete,
         request.lastName,
         request.firstName,
         request.gender === "femme" ? "F" : "M",
@@ -478,24 +703,50 @@ function NationalRacesPage(props) {
         {raceSummaries.map((race) => (
           <button
             key={race.code}
-            className={`nat-chip${selectedRace.code === race.code ? " nat-chip--active" : ""}${race.selected > race.quota ? " nat-chip--over" : ""}`}
+            className={`nat-chip${selectedRace.code === race.code ? " nat-chip--active" : ""}${race.selected > race.athleteQuota ? " nat-chip--over" : ""}`}
             type="button"
             onClick={() => {
               setSelectedRaceCode(race.code);
               setCheckedIds([]);
+              setAthleteFormTarget("");
             }}
           >
-            {raceLabel(race.code, race.label)} · {race.selected}/{race.quota}
+            {raceLabel(race.code, race.label)} · {race.selected}/{race.athleteQuota}
+            {race.hasPacer ? ` + ${copy.pacerShort}` : ""}
             <span className="nat-muted"> ({race.total})</span>
           </button>
         ))}
       </div>
 
-      {selectedRace.selected > selectedRace.quota ? (
+      {selectedRace.selected > selectedRace.athleteQuota ? (
         <div className="notice-card notice-card--warn">
           <strong>{copy.quotaTitle}</strong>
-          <p>{fill(copy.quotaBody, { count: selectedRace.selected, quota: selectedRace.quota, race: selectedRaceLabel })}</p>
+          <p>{fill(copy.quotaBody, { count: selectedRace.selected, quota: selectedRace.athleteQuota, race: selectedRaceLabel })}</p>
         </div>
+      ) : null}
+
+      <div className="nat-actions">
+        <span className="nat-muted">
+          {selectedRace.invitationOnly
+            ? copy.raceRules.invitation
+            : fill(copy.raceRules.open, { quota: selectedRace.quota, lux: selectedRace.luxReserved })}
+        </span>
+        <span className="nat-spacer" />
+        <button className="button button--primary button--small" type="button" onClick={() => setAthleteFormTarget(athleteFormTarget === "new" ? "" : "new")}>
+          {selectedRace.invitationOnly ? copy.add.inviteButton : copy.add.addButton}
+        </button>
+      </div>
+
+      {athleteFormTarget && (athleteFormTarget === "new" || editedRequest) ? (
+        <AddAthleteForm
+          key={athleteFormTarget}
+          initial={editedRequest}
+          isSaving={isBusy}
+          race={selectedRace}
+          raceLabel={selectedRaceLabel}
+          onCancel={() => setAthleteFormTarget("")}
+          onSubmit={handleSaveAthlete}
+        />
       ) : null}
 
       <div className="nat-card nat-card--flush">
@@ -514,7 +765,9 @@ function NationalRacesPage(props) {
           ))}
           <span className="nat-spacer" />
           <button className="button button--secondary button--small" disabled={isBusy || !raceRequests.length} type="button" onClick={handleSelectTop}>
-            {fill(copy.selectTop, { count: selectedRace.quota })}
+            {selectedRace.luxReserved
+              ? fill(copy.selectProposal, { count: proposal.selection.length, lux: proposal.reservedIds.size })
+              : fill(copy.selectTop, { count: proposal.selection.length })}
           </button>
         </div>
         <div className="nat-row nat-row--head">
@@ -555,6 +808,9 @@ function NationalRacesPage(props) {
                     : `${request.foreignClub} · ${request.foreignCountry}`}
                 </span>
                 <span className="nat-badges">
+                  {isNationalRacePacer(request) ? <span className="status-pill status-pill--accent">{copy.pacer}</span> : null}
+                  {proposal.reservedIds.has(request.id) ? <span className="status-pill status-pill--ok">{copy.luxSeat}</span> : null}
+                  {request.source === "commission" ? <span className="status-pill">{selectedRace.invitationOnly ? copy.invited : copy.addedByCommission}</span> : null}
                   {request.isLuxLicensed ? null : <span className="status-pill status-pill--warn">{copy.foreign}</span>}
                   {request.isMinor ? (
                     <span
@@ -580,7 +836,7 @@ function NationalRacesPage(props) {
                   <summary>{copy.detail}</summary>
                   {[
                     { label: "PB", prefix: "personalBest" },
-                    { label: "SB 2026", prefix: "seasonBest" },
+                    { label: "SB", prefix: "seasonBest" },
                     { label: "Autre", prefix: "otherTime" },
                   ]
                     .filter((row) => request[row.prefix])
@@ -606,6 +862,23 @@ function NationalRacesPage(props) {
                       {copy.seltec}
                     </label>
                   ) : null}
+                  <span className="nat-actions">
+                    <button className="button button--secondary button--small" type="button" onClick={() => {
+                        setAthleteFormTarget(request.id);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}>
+                      {copy.add.editButton}
+                    </button>
+                    {NATIONAL_RACE_NOTIFIABLE_STATUSES.includes(request.status) ? (
+                      <button
+                        className={`button button--secondary button--small${mailPreviewId === request.id ? " nat-button--active" : ""}`}
+                        type="button"
+                        onClick={() => setMailPreviewId(mailPreviewId === request.id ? "" : request.id)}
+                      >
+                        {copy.mailPanel.preview}
+                      </button>
+                    ) : null}
+                  </span>
                 </details>
               </span>
               <span>
@@ -646,6 +919,10 @@ function NationalRacesPage(props) {
           );
         })}
       </div>
+
+      {mailPreviewRequest ? (
+        <MailPreviewCard request={mailPreviewRequest} templates={templates} onClose={() => setMailPreviewId("")} />
+      ) : null}
 
       {isEditingTemplates ? (
         <TemplateEditor

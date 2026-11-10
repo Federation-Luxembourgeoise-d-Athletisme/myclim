@@ -4,17 +4,28 @@ import { normalizeComparableValue } from "./u14-helpers";
 // des athlètes : l'inscription passe d'abord par MyCLIM, la commission
 // sélectionne sur performance, puis l'organisation engage elle-même les
 // athlètes retenus sur SELTEC.
+// Règles 2027 (commission des athlètes, nov. 2026) :
+// - 60 m : sur invitation uniquement, la commission ajoute les athlètes
+//   depuis son module (pas dans le formulaire public) ;
+// - 800 m : 8 places par course (7 + 1 lièvre, ou 8 sans lièvre), jusqu'à
+//   3 places réservées aux licenciés luxembourgeois, sélection sur SB ;
+// - sélection communiquée deux semaines avant le meeting ;
+// - aucun paiement (ni inscription, ni lièvre).
 const NATIONAL_RACE_REQUESTS_COLLECTION = "nationalRaceRequests";
 const NATIONAL_RACE_ATHLETE_ROLE = "athlete_preprogram";
 const NATIONAL_RACE_EVENTS = ["60 m", "800 m"];
+// Épreuves ouvertes dans le formulaire public : le 60 m est sur invitation.
+const NATIONAL_RACE_PUBLIC_EVENTS = ["800 m"];
+const NATIONAL_RACE_SELECTION_DAYS_BEFORE = 14;
+const NATIONAL_RACE_PACER_ROLE = "pacer";
 const NATIONAL_RACE_MIN_AGE = 14;
 const NATIONAL_RACE_ADULT_AGE = 18;
 
 const NATIONAL_RACE_DEFINITIONS = [
-  { code: "NAT60F", event: "60 m", gender: "femme", label: "60 m Femmes", quota: 8 },
-  { code: "NAT60M", event: "60 m", gender: "homme", label: "60 m Hommes", quota: 8 },
-  { code: "NAT800F", event: "800 m", gender: "femme", label: "800 m Femmes", quota: 6 },
-  { code: "NAT800M", event: "800 m", gender: "homme", label: "800 m Hommes", quota: 6 },
+  { code: "NAT60F", event: "60 m", gender: "femme", label: "60 m Femmes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false },
+  { code: "NAT60M", event: "60 m", gender: "homme", label: "60 m Hommes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false },
+  { code: "NAT800F", event: "800 m", gender: "femme", label: "800 m Femmes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true },
+  { code: "NAT800M", event: "800 m", gender: "homme", label: "800 m Hommes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true },
 ];
 
 const NATIONAL_RACE_STATUSES = ["submitted", "selected", "waitlist", "not_selected", "withdrawn"];
@@ -29,9 +40,9 @@ const DEFAULT_NATIONAL_RACE_MAIL_TEMPLATES = {
   selected: {
     subject: "Courses nationales : vous êtes retenu(e) pour le {course} / You have been selected",
     bodyFr:
-      "Bonjour {prenom},\n\nLa commission des athlètes vous a retenu(e) pour le {course} du pré-programme du CMCM Luxembourg Indoor Meeting.\n\nL'organisation se charge de votre engagement et reviendra vers vous avec les informations pratiques.\n\n{message}Sportivement,\nLa commission des athlètes",
+      "Bonjour {prenom},\n\nLa commission des athlètes vous a retenu(e) pour le {course} du pré-programme du CMCM Luxembourg Indoor Meeting.\n\nL'organisation se charge de votre engagement. Le jour du meeting :\n- vous entrez par l'entrée des athlètes internationaux, par la salle d'échauffement (warm-up) ;\n- vous y récupérez votre accréditation ;\n- une entrée gratuite est prévue pour 1 accompagnateur : il donne votre nom à la caisse pour recevoir son ticket.\n\nMerci de nous prévenir au plus vite si vous ne pouvez plus participer.\n\n{message}Sportivement,\nLa commission des athlètes",
     bodyEn:
-      "Hello {prenom},\n\nThe athletes' commission has selected you for the {course} of the CMCM Luxembourg Indoor Meeting pre-programme.\n\nThe organisers handle your entry and will contact you with the practical information.\n\nThe athletes' commission",
+      "Hello {prenom},\n\nThe athletes' commission has selected you for the {course} of the CMCM Luxembourg Indoor Meeting pre-programme.\n\nThe organisers handle your entry. On meeting day:\n- you come in through the international athletes' entrance, via the warm-up area;\n- you collect your accreditation there;\n- one free entry is provided for 1 companion: they give your name at the ticket desk to receive their ticket.\n\nPlease let us know as soon as possible if you can no longer take part.\n\nThe athletes' commission",
   },
   waitlist: {
     subject: "Courses nationales : vous êtes sur liste d'attente pour le {course} / Waiting list",
@@ -80,21 +91,20 @@ function parsePerformanceToSeconds(value) {
   return Number.isFinite(total) && total > 0 ? total : null;
 }
 
+// La sélection se fait sur le SB (2026 ou 2027) ; le PB ne sert que s'il n'y
+// a pas de SB lisible.
 function getBestPerformanceSeconds(request) {
-  const values = [request?.seasonBest, request?.personalBest]
-    .map(parsePerformanceToSeconds)
-    .filter((value) => value !== null);
-
-  return values.length ? Math.min(...values) : null;
+  return parsePerformanceToSeconds(request?.seasonBest) ?? parsePerformanceToSeconds(request?.personalBest);
 }
 
-// Ordre de proposition à la commission : licenciés luxembourgeois d'abord
-// (prioritaires), puis meilleure performance déclarée, puis ordre d'arrivée.
-function compareNationalRaceRequests(left, right) {
-  if (Boolean(left.isLuxLicensed) !== Boolean(right.isLuxLicensed)) {
-    return left.isLuxLicensed ? -1 : 1;
-  }
+function isNationalRacePacer(request) {
+  return request?.role === NATIONAL_RACE_PACER_ROLE;
+}
 
+// Classement proposé à la commission : meilleur SB, puis PB, puis ordre
+// d'arrivée. Les places réservées aux Luxembourgeois sont gérées par
+// getProposedNationalRaceSelection, pas par le tri.
+function compareNationalRaceRequests(left, right) {
   const leftPerformance = getBestPerformanceSeconds(left);
   const rightPerformance = getBestPerformanceSeconds(right);
 
@@ -105,6 +115,40 @@ function compareNationalRaceRequests(left, right) {
   }
 
   return (left.submittedAtMs || 0) - (right.submittedAtMs || 0);
+}
+
+// Places d'athlètes d'une course : un lièvre retenu prend une des places.
+function getNationalRaceAthleteQuota(race, raceRequests = []) {
+  const pacers = raceRequests.filter((request) => isNationalRacePacer(request) && request.status === "selected").length;
+  return Math.max(0, (race?.quota || 0) - pacers);
+}
+
+// Sélection proposée : d'abord les meilleurs licenciés luxembourgeois sur les
+// places réservées (jusqu'à luxReserved), puis le reste au temps, tous
+// confondus. Renvoie les demandes retenues dans l'ordre du classement.
+function getProposedNationalRaceSelection(race, raceRequests = []) {
+  const quota = getNationalRaceAthleteQuota(race, raceRequests);
+  const candidates = raceRequests
+    .filter((request) => request.status !== "withdrawn" && !isNationalRacePacer(request))
+    .sort(compareNationalRaceRequests);
+  const reserved = candidates.filter((request) => request.isLuxLicensed).slice(0, Math.min(race?.luxReserved || 0, quota));
+  const reservedIds = new Set(reserved.map((request) => request.id));
+  const open = candidates.filter((request) => !reservedIds.has(request.id)).slice(0, quota - reserved.length);
+  const selectedIds = new Set([...reservedIds, ...open.map((request) => request.id)]);
+
+  return {
+    selection: candidates.filter((request) => selectedIds.has(request.id)),
+    reservedIds,
+  };
+}
+
+// Date à laquelle les athlètes sont prévenus : deux semaines avant le meeting.
+function getNationalRaceSelectionDate(meetingDate) {
+  const date = meetingDate?.toDate?.() || (meetingDate ? new Date(meetingDate) : null);
+  if (!date || Number.isNaN(date.getTime())) return null;
+  const selectionDate = new Date(date);
+  selectionDate.setDate(selectionDate.getDate() - NATIONAL_RACE_SELECTION_DAYS_BEFORE);
+  return selectionDate;
 }
 
 function getNationalRaceStatusKey(status) {
@@ -178,7 +222,7 @@ function buildNationalRaceDecisionMail(request, templates) {
 function getBestTimeSummary(request) {
   const candidates = [
     { label: "PB", prefix: "personalBest" },
-    { label: "SB 2026", prefix: "seasonBest" },
+    { label: "SB", prefix: "seasonBest" },
   ]
     .map((row) => ({ ...row, seconds: parsePerformanceToSeconds(request?.[row.prefix]) }))
     .filter((row) => row.seconds !== null)
@@ -230,7 +274,8 @@ function createEmptyNationalRaceForm() {
     foreignLicenceNumber: "",
     events: {
       "60 m": createEmptyNationalRaceEventEntry(),
-      "800 m": createEmptyNationalRaceEventEntry(),
+      // Seule épreuve du formulaire public : cochée d'office.
+      "800 m": { ...createEmptyNationalRaceEventEntry(), selected: true },
     },
     notes: "",
     guardianFirstName: "",
@@ -251,7 +296,10 @@ export {
   NATIONAL_RACE_MAIL_TEMPLATES_DOC_PATH,
   NATIONAL_RACE_MIN_AGE,
   NATIONAL_RACE_NOTIFIABLE_STATUSES,
+  NATIONAL_RACE_PACER_ROLE,
+  NATIONAL_RACE_PUBLIC_EVENTS,
   NATIONAL_RACE_REQUESTS_COLLECTION,
+  NATIONAL_RACE_SELECTION_DAYS_BEFORE,
   NATIONAL_RACE_STATUSES,
   buildNationalRaceDecisionMail,
   compareNationalRaceRequests,
@@ -260,8 +308,12 @@ export {
   normalizeNationalRaceMailTemplates,
   createEmptyNationalRaceForm,
   getBestPerformanceSeconds,
+  getNationalRaceAthleteQuota,
   getNationalRaceCode,
   getNationalRaceDefinition,
+  getNationalRaceSelectionDate,
+  getProposedNationalRaceSelection,
+  isNationalRacePacer,
   getNationalRaceStatusKey,
   getNationalRaceStatusPillClass,
   parsePerformanceToSeconds,

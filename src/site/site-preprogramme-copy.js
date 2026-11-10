@@ -21,7 +21,7 @@ const SITE_PREPROGRAMME_COPY = {
     youthBody: "U12 born {u12} · U14 born {u14} · licensed in a Luxembourg club · or basket carrier",
     youthCta: "Register a child",
     athleteTitle: "Athlete",
-    athleteBody: "National races 60 m and 800 m · 8 and 6 places per race · selection on performance",
+    athleteBody: "800 m national races · 8 places per race · selection on season best · 60 m by invitation",
     athleteCta: "Apply",
     companyTitle: "Company",
     companyBody: "Business Race · mixed 4 × 200 m relay · 6 companies maximum",
@@ -43,8 +43,8 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventFacts: ["U12 60 m · U14 60 m and 1000 m", "One race per child", "Basket carrier also possible"],
     nationalEventTitle: "National races",
     nationalEventBody:
-      "Women's and men's 60 m and 800 m, run by the athletes' commission. Selection is based on performance, with priority to Luxembourg licence holders; the organisers then handle the entries of selected athletes.",
-    nationalEventFacts: ["8 places per 60 m race, 6 per 800 m race", "Foreign athletes may be accepted", "Under 18: explicit parental consent"],
+      "Women's and men's 60 m and 800 m, run by the athletes' commission. The 60 m is by invitation only. For the 800 m, apply online: the commission selects on season best (SB 2026 or 2027) and informs athletes two weeks before the meeting; the organisers then handle the entries.",
+    nationalEventFacts: ["800 m: 8 places per race, up to 3 reserved for Luxembourg athletes", "60 m by invitation only", "No entry fee · registration does not guarantee selection"],
     specialOlympicsTitle: "Special Olympics race",
     specialOlympicsBody:
       "An inclusive race in front of the full meeting audience, celebrating personal achievement and sport for all.",
@@ -100,7 +100,7 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Do participants need a ticket?",
-        a: "One ticket gives access to the whole meeting. For U12 / U14, the adult accompanying the child gets a free entry, handed over when the child is dropped off. National race athletes get a free adult entry when they arrive.",
+        a: "One ticket gives access to the whole meeting. For U12 / U14, the adult accompanying the child gets a free entry, handed over when the child is dropped off. National race athletes get one free entry for a companion, who gives the athlete's name at the ticket desk.",
       },
       {
         q: "Can I register more than one child?",
@@ -132,7 +132,7 @@ const SITE_PREPROGRAMME_COPY = {
     youthBody: "U12 nés en {u12} · U14 nés en {u14} · licenciés dans un club luxembourgeois · ou porte-panier",
     youthCta: "Inscrire un enfant",
     athleteTitle: "Athlète",
-    athleteBody: "Courses nationales 60 m et 800 m · 8 et 6 places par course · sélection sur performance",
+    athleteBody: "Courses nationales 800 m · 8 places par course · sélection sur la meilleure perf. de la saison · 60 m sur invitation",
     athleteCta: "Postuler",
     companyTitle: "Entreprise",
     companyBody: "Business Race · relais mixte 4 × 200 m · 6 entreprises maximum",
@@ -154,8 +154,8 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventFacts: ["U12 60 m · U14 60 m et 1000 m", "Une course par enfant", "Porte-panier également possible"],
     nationalEventTitle: "Courses nationales",
     nationalEventBody:
-      "60 m et 800 m femmes et hommes, pilotés par la commission des athlètes. La sélection se fait sur performance, avec priorité aux licenciés luxembourgeois ; l'organisation engage ensuite les athlètes retenus.",
-    nationalEventFacts: ["8 places par course de 60 m, 6 par course de 800 m", "Athlètes étrangers possibles", "Moins de 18 ans : accord parental explicite"],
+      "60 m et 800 m femmes et hommes, pilotés par la commission des athlètes. Le 60 m se fait uniquement sur invitation. Pour le 800 m, inscrivez-vous en ligne : la commission sélectionne sur la meilleure perf. de la saison (SB 2026 ou 2027) et prévient les athlètes deux semaines avant le meeting ; l'organisation engage ensuite les athlètes retenus.",
+    nationalEventFacts: ["800 m : 8 places par course, jusqu'à 3 réservées aux Luxembourgeois", "60 m uniquement sur invitation", "Pas de frais d'inscription · l'inscription ne garantit pas la sélection"],
     specialOlympicsTitle: "Course Special Olympics",
     specialOlympicsBody:
       "Une course inclusive devant tout le public du meeting, qui célèbre la réussite de chacun et le sport pour tous.",
@@ -211,7 +211,7 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Les participants ont-ils besoin d'un billet ?",
-        a: "Un seul billet donne accès à tout le meeting. Pour les U12 / U14, l'adulte qui accompagne l'enfant a une entrée offerte, remise au moment où il dépose l'enfant. Les athlètes des courses nationales reçoivent une entrée adulte offerte à leur arrivée.",
+        a: "Un seul billet donne accès à tout le meeting. Pour les U12 / U14, l'adulte qui accompagne l'enfant a une entrée offerte, remise au moment où il dépose l'enfant. Les athlètes des courses nationales ont une entrée offerte pour un accompagnateur, qui donne le nom de l'athlète à la caisse.",
       },
       {
         q: "Puis-je inscrire plusieurs enfants ?",
