@@ -28,7 +28,7 @@ function formatWhen(claim) {
   return seconds ? new Date(seconds * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "—";
 }
 
-const NEXT_LABEL = { submitted: "Marquer vérifié", checked: "Transmis au secrétariat", sent_secretary: "Marquer payé" };
+const NEXT_LABEL = { submitted: "Marquer vérifié", checked: "Transmis au secrétariat" };
 const EMPTY_PRESET_LINE = { date: "", place: "", detail: "", amount: "" };
 
 function PresetForm({ editionYear, byName, onClose }) {
@@ -173,7 +173,7 @@ export function ExpenseClaimsAdminPage() {
   const summary = useMemo(() => summarizeClaims(claims), [claims]);
   const filtered = claims.filter((claim) =>
     statusFilter === "open"
-      ? ["submitted", "checked", "sent_secretary"].includes(claim.status)
+      ? ["submitted", "checked"].includes(claim.status)
       : statusFilter
         ? claim.status === statusFilter
         : true,
@@ -213,14 +213,14 @@ export function ExpenseClaimsAdminPage() {
         <span>
           <strong>{summary.toCheck}</strong> à vérifier
         </span>
-        <span>{formatAmount(summary.openAmount)} en cours de paiement</span>
-        <span className="rp-summary__done">{formatAmount(summary.paidAmount)} payés</span>
+        <span>{formatAmount(summary.openAmount)} à traiter</span>
+        <span className="rp-summary__done">{formatAmount(summary.sentAmount)} transmis au secrétariat</span>
         {summary.waiting ? <span>{summary.waiting} préparé(s), en attente de la personne</span> : null}
       </div>
       <div className="ath-sheet">
         <div className="ath-toolbar">
           <select className="ath-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-            <option value="open">En cours (envoyés → payés)</option>
+            <option value="open">À traiter (envoyés, vérifiés)</option>
             <option value="">Tous</option>
             {CLAIM_STATUSES.map((status) => (
               <option key={status.value} value={status.value}>

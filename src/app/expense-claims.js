@@ -32,13 +32,14 @@ const CLAIM_STATUSES = [
   { value: "draft", label: "Brouillon", tone: "muted" },
   { value: "submitted", label: "Envoyé", tone: "info" },
   { value: "checked", label: "Vérifié", tone: "info" },
-  { value: "sent_secretary", label: "Transmis au secrétariat", tone: "info" },
-  { value: "paid", label: "Payé", tone: "ok" },
+  // Dernière étape suivie dans MyCLIM (Margot, 10/11/2026) : le paiement
+  // lui-même est fait par le secrétariat, on ne le marque pas ici.
+  { value: "sent_secretary", label: "Transmis au secrétariat", tone: "ok" },
   { value: "rejected", label: "À corriger", tone: "danger" },
 ];
 
 // Suite logique des statuts côté organisateur (boutons du suivi).
-const NEXT_STATUS = { submitted: "checked", checked: "sent_secretary", sent_secretary: "paid" };
+const NEXT_STATUS = { submitted: "checked", checked: "sent_secretary" };
 
 function getClaimStatus(value) {
   return CLAIM_STATUSES.find((status) => status.value === value) || CLAIM_STATUSES[1];
@@ -155,12 +156,12 @@ function claimFileName(claim) {
 }
 
 function summarizeClaims(claims = []) {
-  const open = claims.filter((claim) => ["submitted", "checked", "sent_secretary"].includes(claim.status));
+  const open = claims.filter((claim) => ["submitted", "checked"].includes(claim.status));
   return {
     toCheck: claims.filter((claim) => claim.status === "submitted").length,
     waiting: claims.filter((claim) => claim.status === "preset").length,
     openAmount: toAmount(open.reduce((sum, claim) => sum + computeClaimTotals(claim).toPay, 0)),
-    paidAmount: toAmount(claims.filter((claim) => claim.status === "paid").reduce((sum, claim) => sum + computeClaimTotals(claim).toPay, 0)),
+    sentAmount: toAmount(claims.filter((claim) => claim.status === "sent_secretary").reduce((sum, claim) => sum + computeClaimTotals(claim).toPay, 0)),
   };
 }
 

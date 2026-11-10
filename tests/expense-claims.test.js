@@ -59,11 +59,11 @@ test("tracking summary counts claims to check and amounts", () => {
   const summary = summarizeClaims([
     { ...base, status: "submitted" },
     { ...base, status: "checked" },
-    { ...base, status: "paid" },
+    { ...base, status: "sent_secretary" },
     { ...base, status: "preset" },
   ]);
   assert.equal(summary.toCheck, 1);
   assert.equal(summary.waiting, 1);
   assert.equal(summary.openAmount, 201);
-  assert.equal(summary.paidAmount, 100.5);
+  assert.equal(summary.sentAmount, 100.5);
 });
