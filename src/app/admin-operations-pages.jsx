@@ -55,7 +55,7 @@ import {
 } from "./config-hooks";
 import { buildUserIdentitySet, formatVolunteerApplicationStatus, getWorkflowStatusClass, isTeamLeadAssignment } from "./common-helpers";
 import { normalizeComparableValue } from "./u14-helpers";
-import { useActiveEdition } from "./edition";
+import { getVolunteerRoleOptionNames, useActiveEdition, useVolunteerRoleOptions } from "./edition";
 import {
   buildSearchPrefixes,
   buildUserSearchTokens,
@@ -1115,6 +1115,20 @@ function TeamsPage(props) {
     return unsubscribe;
   }, []);
 
+  // Préférences du formulaire bénévole : la liste publique des équipes
+  // (appSettings/platform.volunteerRoleOptions) n'était recopiée qu'à une
+  // modification des équipes, jamais au chargement ni après un changement
+  // d'édition — en production elle n'existait pas, le formulaire n'offrait
+  // donc aucun choix. On la remet en phase dès que cette page est ouverte.
+  const publishedRoleOptions = useVolunteerRoleOptions();
+  const teamRoleNames = useMemo(() => getVolunteerRoleOptionNames(roles), [roles]);
+  useEffect(() => {
+    if (teamsLoading || !teamRoleNames.length) return;
+    if (JSON.stringify(teamRoleNames) === JSON.stringify(publishedRoleOptions)) return;
+    setDoc(doc(db, "appSettings", "platform"), { volunteerRoleOptions: teamRoleNames }, { merge: true })
+      .catch((error) => console.warn("Unable to publish volunteer role options", error));
+  }, [teamsLoading, teamRoleNames, publishedRoleOptions]);
+
   useEffect(() => {
     if (!teamsReadyRef.current) return undefined;
 
@@ -1141,14 +1155,8 @@ function TeamsPage(props) {
         if (cancelled) return;
         lastPersistedTeamsRef.current = serializedPayload;
         setTeamsStatus("Équipes enregistrées.");
-        // Mirror just the role names (no PII, unlike the full team configuration
-        // above) onto the already publicly-readable platform doc, so the public
-        // volunteer application form can offer an up-to-date mission preference list.
-        return setDoc(
-          doc(db, "appSettings", "platform"),
-          { volunteerRoleOptions: roles.map((role) => role.roleName) },
-          { merge: true },
-        );
+        // Les noms d'équipes (sans données personnelles) sont recopiés sur le
+        // document public par l'effet ci-dessus, qui suit `roles`.
       })
       .catch(() => {
         if (cancelled) return;

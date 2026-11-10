@@ -196,6 +196,20 @@ function useSiteEditionYear(enabled = true) {
   };
 }
 
+// Noms d'équipes proposés comme préférences dans le formulaire bénévole :
+// sans espaces en trop, sans vides ni doublons, dans l'ordre des équipes.
+function getVolunteerRoleOptionNames(roles = []) {
+  const seen = new Set();
+  return roles
+    .map((role) => String(role?.roleName || "").trim())
+    .filter((name) => {
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function useVolunteerRoleOptions() {
   const [roleOptions, setRoleOptions] = useState([]);
 
@@ -224,6 +238,7 @@ export {
   getEditionLabel,
   getPreprogramOpeningDate,
   getRecordEditionId,
+  getVolunteerRoleOptionNames,
   isPreprogramOpenForEdition,
   normalizePreprogramOpeningByEdition,
   normalizeEditionId,
