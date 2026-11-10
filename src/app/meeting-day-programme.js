@@ -276,6 +276,25 @@ function getVolunteerTimeline(activities, columns) {
   return timeline.sort((left, right) => toMinutes(left.start) - toMinutes(right.start));
 }
 
+// Ce que voit un membre de l'organisation (Mon planning) : les activités de
+// ses équipes (colonnes « org:… »), plus le Général les jours où son équipe a
+// quelque chose. Même forme que getVolunteerTimeline ; `general` marque le
+// Général, `teams` liste ses équipes concernées.
+function getOrganisationTimeline(activities = [], orgTeams = []) {
+  const keys = new Map(orgTeams.map((team) => [orgColumnKey(team.id), team.name]));
+  const own = activities.filter((activity) => activity.columns.some((key) => keys.has(key)));
+  if (!own.length) return [];
+  const general = activities.filter((activity) => !own.includes(activity) && activity.columns.includes(GENERAL_COLUMN_KEY));
+  return [
+    ...own.map((activity) => ({
+      ...activity,
+      general: false,
+      teams: activity.columns.filter((key) => keys.has(key)).map((key) => keys.get(key)),
+    })),
+    ...general.map((activity) => ({ ...activity, general: true, teams: [] })),
+  ].sort((left, right) => Number(right.allDay) - Number(left.allDay) || toMinutes(left.start) - toMinutes(right.start));
+}
+
 // Lignes du timetable de l'édition (pré-programme compris) pour la colonne
 // « Programme piste » : une entrée par horaire, les titres de section exclus.
 function getTrackEntries(timetable = []) {
@@ -458,6 +477,7 @@ export {
   getTrackEntries,
   getVolunteerColumns,
   getVolunteerTimeline,
+  getOrganisationTimeline,
   guessCategory,
   importLegacySunday,
   layoutLanes,

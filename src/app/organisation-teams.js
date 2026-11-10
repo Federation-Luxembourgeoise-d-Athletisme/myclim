@@ -99,8 +99,27 @@ function getPerimeterNames(teams = [], perimeterIds = []) {
   return perimeterIds.map((id) => teams.find((team) => team.id === id)?.name).filter(Boolean);
 }
 
+// Équipes de chaque membre, par e-mail : recopiées dans
+// organisationMembers/{e-mail} pour que chacun retrouve SES équipes (Mon
+// planning, filtre « Mes équipes ») sans lire la liste complète du staff.
+function buildMembershipByEmail(teams = []) {
+  const byEmail = {};
+  teams.forEach((team) =>
+    team.members.forEach((member) => {
+      const email = String(member.email || "").trim().toLowerCase();
+      if (!email) return;
+      byEmail[email] = byEmail[email] || [];
+      if (!byEmail[email].some((entry) => entry.id === team.id)) {
+        byEmail[email].push({ id: team.id, name: team.name, lead: Boolean(member.lead) });
+      }
+    }),
+  );
+  return byEmail;
+}
+
 export {
   DEFAULT_ORGANISATION_TEAMS,
+  buildMembershipByEmail,
   getPerimeterNames,
   buildDefaultOrganisationTeams,
   findOrganisationTeam,

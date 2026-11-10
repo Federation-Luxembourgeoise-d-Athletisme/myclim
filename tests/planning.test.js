@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   buildProgrammeColumns,
+  getOrganisationTimeline,
   getPlanningDayDate,
   importLegacyDay,
   normalizeProgramme,
@@ -10,6 +11,7 @@ import {
 } from "../src/app/meeting-day-programme.js";
 import {
   buildDefaultOrganisationTeams,
+  buildMembershipByEmail,
   findOrganisationTeam,
   getPerimeterEmails,
   normalizeOrganisationTeams,
@@ -99,4 +101,29 @@ test("tasks: D-minus, late flag, month groups and last year's import", () => {
   assert.ok(rows.find((row) => row.action.startsWith("Contact Companies")).perimeter.includes("lunex"));
   assert.equal(summarizeTasks(rows, "2026-11-09").todo, rows.length);
   assert.deepEqual(importLegacyTasks(legacy.tasks, { meetingDate: "", editionYear: 2027 }), []);
+});
+
+test("an organisation member sees their team's activities plus general ones, only on days with their team", () => {
+  const saturday = importLegacyDay("saturday", legacy, volunteerTeams, orgTeams, findOrganisationTeam);
+  const timeline = getOrganisationTimeline(saturday.activities, [{ id: "lunex", name: "Étudiants LUNEX" }]);
+  assert.ok(timeline.some((activity) => activity.title === "Athlete Training Welcoming" && activity.teams[0] === "Étudiants LUNEX"));
+  assert.ok(timeline.every((activity) => activity.general || activity.teams.length));
+  assert.deepEqual(getOrganisationTimeline(saturday.activities, [{ id: "durabilite", name: "Durabilité" }]), []);
+});
+
+test("membership by e-mail lists each member's teams once, with the lead flag", () => {
+  const byEmail = buildMembershipByEmail(
+    normalizeOrganisationTeams({
+      teams: [
+        {
+          id: "lunex",
+          name: "Étudiants LUNEX",
+          members: [{ firstName: "Ana", lastName: "Silva", email: "Ana@x.test", lead: true }, { firstName: "Sans", lastName: "Mail" }],
+        },
+        { id: "communication", name: "Communication", members: [{ firstName: "Ana", lastName: "Silva", email: "ana@x.test" }] },
+      ],
+    }),
+  );
+  assert.deepEqual(Object.keys(byEmail), ["ana@x.test"]);
+  assert.deepEqual(byEmail["ana@x.test"].map((team) => [team.id, team.lead]), [["lunex", true], ["communication", false]]);
 });

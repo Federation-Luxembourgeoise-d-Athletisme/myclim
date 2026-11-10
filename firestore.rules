@@ -415,6 +415,15 @@ service cloud.firestore {
       allow read, write: if isAdminOrManager();
     }
 
+    // Fiche d'un membre de l'organisation (identifiant = son e-mail) : ses
+    // équipes, pour « Mon planning ». Lisible par lui seul ; recopiée par les
+    // admins et gestionnaires à chaque enregistrement des équipes.
+    match /organisationMembers/{memberEmail} {
+      allow read: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.email != null && request.auth.token.email.lower() == memberEmail);
+      allow write: if isAdminOrManager();
+    }
+
     // Rétroplanning : admins et gestionnaires gèrent tout ; un membre d'une
     // équipe de l'organisation (son e-mail est dans perimeterEmails, recalculé
     // à chaque enregistrement des équipes) lit les tâches de son périmètre et

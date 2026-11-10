@@ -12,11 +12,14 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
-import { getPerimeterEmails, getPerimeterNames, normalizeOrganisationTeams } from "./organisation-teams";
+import { buildMembershipByEmail, getPerimeterEmails, getPerimeterNames, normalizeOrganisationTeams } from "./organisation-teams";
 import { normalizeTask } from "./retroplanning";
 
 const ORGANISATION_TEAMS_REF = ["appSettings", "organisationTeams"];
 const MEETING_TASKS = "meetingTasks";
+// Une fiche par membre (identifiant = son e-mail) : ses équipes de
+// l'organisation, lisibles par lui seul (règles Firestore).
+const ORGANISATION_MEMBERS = "organisationMembers";
 
 // Équipes de l'organisation : lisibles par les admins et gestionnaires
 // (elles contiennent les e-mails du staff).
@@ -39,11 +42,27 @@ function useOrganisationTeams(enabled = true) {
   return enabled ? state : { teams: [], exists: false, loading: false, error: "" };
 }
 
-// Enregistre les équipes, puis remet à jour les e-mails de périmètre des
-// tâches du Rétroplanning (qui voit quelle tâche) quand une équipe change.
+// Enregistre les équipes, puis remet à jour :
+//  - la fiche de chaque membre (ses équipes, pour Mon planning) ;
+//  - les e-mails et noms de périmètre des tâches du Rétroplanning.
 async function saveOrganisationTeams(teams) {
   const normalized = normalizeOrganisationTeams({ teams });
   await setDoc(doc(db, ...ORGANISATION_TEAMS_REF), { teams: normalized, updatedAt: serverTimestamp() });
+
+  const membership = buildMembershipByEmail(normalized);
+  const previous = await getDocs(collection(db, ORGANISATION_MEMBERS));
+  const memberBatch = writeBatch(db);
+  previous.forEach((entry) => {
+    if (!membership[entry.id]) memberBatch.delete(entry.ref);
+  });
+  Object.entries(membership).forEach(([email, teamsOfMember]) => {
+    const current = previous.docs.find((entry) => entry.id === email)?.data()?.teams || [];
+    if (JSON.stringify(current) !== JSON.stringify(teamsOfMember)) {
+      memberBatch.set(doc(db, ORGANISATION_MEMBERS, email), { teams: teamsOfMember, updatedAt: serverTimestamp() });
+    }
+  });
+  await memberBatch.commit();
+
   const snapshot = await getDocs(collection(db, MEETING_TASKS));
   const batch = writeBatch(db);
   let changes = 0;
@@ -111,4 +130,32 @@ function useHasOwnMeetingTasks(email, enabled = true) {
   return enabled && normalizedEmail ? hasTasks : false;
 }
 
-export { MEETING_TASKS, saveOrganisationTeams, useHasOwnMeetingTasks, useMeetingTasks, useOrganisationTeams };
+// Les équipes de l'organisation de l'utilisateur connecté ([{ id, name, lead }]).
+function useMyOrganisationTeams(email, enabled = true) {
+  const [state, setState] = useState({ teams: [], loading: true, key: "" });
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  useEffect(() => {
+    if (!enabled || !normalizedEmail) return undefined;
+    return onSnapshot(
+      doc(db, ORGANISATION_MEMBERS, normalizedEmail),
+      (snapshot) =>
+        setState({
+          teams: Array.isArray(snapshot.data()?.teams) ? snapshot.data().teams : [],
+          loading: false,
+          key: normalizedEmail,
+        }),
+      () => setState({ teams: [], loading: false, key: normalizedEmail }),
+    );
+  }, [enabled, normalizedEmail]);
+  if (!enabled || !normalizedEmail) return { teams: [], loading: false };
+  return state.key === normalizedEmail ? state : { teams: [], loading: true };
+}
+
+export {
+  MEETING_TASKS,
+  saveOrganisationTeams,
+  useHasOwnMeetingTasks,
+  useMeetingTasks,
+  useMyOrganisationTeams,
+  useOrganisationTeams,
+};

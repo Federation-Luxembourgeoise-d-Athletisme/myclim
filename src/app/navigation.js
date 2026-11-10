@@ -24,6 +24,7 @@ const APP_ROUTES = {
   calendar: "/app/calendrier",
   tasks: "/app/taches",
   retroplanning: "/app/retroplanning",
+  myPlanning: "/app/mon-planning",
   partners: "/app/partenaires",
   press: "/app/presse",
   news: "/app/actualites",
@@ -152,6 +153,7 @@ const LINKS = {
   tasks: () => makeLink(APP_ROUTES.tasks, "navTasks", "Tâches", "check"),
   retroplanning: () => makeLink(APP_ROUTES.retroplanning, "navRetroplanning", "Rétroplanning", "calendar"),
   myRetroplanning: () => makeLink(APP_ROUTES.retroplanning, "navMyRetroplanning", "Mes échéances", "calendar"),
+  myPlanning: () => makeLink(APP_ROUTES.myPlanning, "navMyPlanning", "Mon planning", "calendar"),
   partners: () => makeLink(APP_ROUTES.partners, "navPartners", "Partenaires", "badge"),
   press: () => makeLink(APP_ROUTES.press, "navPress", "Presse", "folder"),
   // Gestionnaire du site seul : il n'a accès qu'aux onglets « site » de ces pages.
@@ -202,8 +204,11 @@ function personalLinkKeys(roles, options = {}) {
     roles.includes("parent_u14") && "myChildren",
     roles.includes("benevole_transport_athletes") && "myTransports",
     roles.includes("athlete_preprogram") && "myNationalRace",
-    // Membre d’une équipe de l’organisation qui a des tâches au Rétroplanning.
-    options.hasOwnMeetingTasks && "myRetroplanning",
+    // Membre d'une équipe de l'organisation : son planning de la CLIM Week,
+    // et ses tâches du Rétroplanning (les gestionnaires ont le Rétroplanning
+    // complet dans Pilotage).
+    options.hasOrganisationTeams && "myPlanning",
+    !roles.includes("admin") && !roles.includes("gestionnaire") && options.hasOwnMeetingTasks && "myRetroplanning",
   ];
 }
 
@@ -218,6 +223,9 @@ function personalLinkKeys(roles, options = {}) {
  * portail athlètes (qui peut voir les engagés).
  * options.hasOwnMeetingTasks : l'utilisateur a des tâches au Rétroplanning
  * (membre d'une équipe de l'organisation) → « Mes échéances ».
+ * options.hasOrganisationTeams : l'utilisateur est membre d'une équipe de
+ * l'organisation → « Mon planning » (aussi pour gestionnaires et admins :
+ * les étudiants LUNEX sont gestionnaires).
  */
 function buildNavigationFromRoles(roles, options = {}) {
   const canAccessEntries = Boolean(options.athletePortal?.canAccess);
@@ -227,6 +235,7 @@ function buildNavigationFromRoles(roles, options = {}) {
   if (has("admin")) {
     return [
       LINKS.home(),
+      options.hasOrganisationTeams ? section("mySpace", ["myPlanning"]) : null,
       section("steering", ["edition", "retroplanning", "budget", "documents"]),
       section("volunteers", ["applications", "teams"]),
       section("athletes", ["entries", "transport", "roadbook", "physio", "results"]),
@@ -241,7 +250,7 @@ function buildNavigationFromRoles(roles, options = {}) {
   if (has("gestionnaire")) {
     return [
       LINKS.home(),
-      section("mySpace", personalLinkKeys(roles)),
+      section("mySpace", personalLinkKeys(roles, options)),
       section("steering", [has("gestionnaire_site") && "edition", "retroplanning", has("budget") && "budget", "documents"]),
       section("volunteers", ["applications", "teams"]),
       section("athletes", [

@@ -5,7 +5,7 @@ import { useAuth } from "../context/auth-context";
 import { useSiteEditionYear } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { getActiveRoles } from "./navigation";
-import { MEETING_TASKS, useMeetingTasks, useOrganisationTeams } from "./organisation-hooks";
+import { MEETING_TASKS, useMeetingTasks, useMyOrganisationTeams, useOrganisationTeams } from "./organisation-hooks";
 import { findOrganisationTeam, getPerimeterEmails, getPerimeterNames } from "./organisation-teams";
 import legacyPlanning2026 from "./planning-2026-legacy.json";
 import {
@@ -50,6 +50,11 @@ export function RetroplanningPage() {
   const meetingDate = String(edition?.date || "").slice(0, 10);
   const { teams: orgTeams } = useOrganisationTeams(isManager);
   const { tasks, loading, error } = useMeetingTasks({ year, isManager, email: currentUser?.email });
+  // Un gestionnaire membre d'équipes (étudiants LUNEX) voit d'abord les tâches
+  // de ses équipes ; « Mes équipes » se décoche pour tout voir.
+  const { teams: myTeams } = useMyOrganisationTeams(currentUser?.email, isManager);
+  const [mineChoice, setMineChoice] = useState(null);
+  const mineOnly = isManager && myTeams.length > 0 && (mineChoice ?? !roles.includes("admin"));
   const today = todayYmd();
 
   const [search, setSearch] = useState("");
@@ -65,6 +70,7 @@ export function RetroplanningPage() {
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return tasks.filter((task) => {
+      if (mineOnly && !task.perimeter.some((id) => myTeams.some((team) => team.id === id))) return false;
       if (perimeterFilter && !task.perimeter.includes(perimeterFilter)) return false;
       if (statusFilter === "open" && task.status === "done") return false;
       if (statusFilter && statusFilter !== "open" && task.status !== statusFilter) return false;
@@ -72,7 +78,7 @@ export function RetroplanningPage() {
       if (needle && !`${task.action} ${task.ownerName}`.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [tasks, perimeterFilter, statusFilter, lateOnly, search, today]);
+  }, [tasks, mineOnly, myTeams, perimeterFilter, statusFilter, lateOnly, search, today]);
   const groups = useMemo(() => groupTasksByMonth(filtered), [filtered]);
   const summary = useMemo(() => summarizeTasks(tasks, today), [tasks, today]);
   const nextGroupKey = groups.find((group) => group.tasks.some((task) => task.deadline >= today))?.key;
@@ -228,6 +234,12 @@ export function RetroplanningPage() {
             <input checked={lateOnly} type="checkbox" onChange={(event) => setLateOnly(event.target.checked)} />
             En retard seulement
           </label>
+          {isManager && myTeams.length ? (
+            <label className="ath-check" title={myTeams.map((team) => team.name).join(", ")}>
+              <input checked={mineOnly} type="checkbox" onChange={(event) => setMineChoice(event.target.checked)} />
+              Mes équipes
+            </label>
+          ) : null}
           <span className="ath-toolbar__spacer" />
           <span className="ath-toolbar__count">{filtered.length} affichées</span>
           {isManager ? (

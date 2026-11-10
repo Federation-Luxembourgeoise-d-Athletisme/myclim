@@ -33,6 +33,7 @@ import { VolunteerAssignmentsPage as VolunteerAssignmentsPageScreen } from "./ap
 import { MeetingDayProgrammePage } from "./app/meeting-day-programme-page";
 import { OrganisationTeamsPage } from "./app/organisation-teams-page";
 import { RetroplanningPage } from "./app/retroplanning-page";
+import { MyPlanningPage } from "./app/my-planning-page";
 import { AccreditationsPage as AccreditationsPageScreen } from "./app/accreditations-page";
 import {
   AppShell as AppShellScreen,
@@ -738,6 +739,7 @@ export default function App() {
               <Route path="mon-compte" element={<ProfilePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="retroplanning" element={<RetroplanningPage />} />
+              <Route path="mon-planning" element={<MyPlanningPage />} />
               <Route path="athletes" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navEntries" title="Engagés" tabs={ENTRIES_TABS} />}>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
                   <Route index element={<AthletesListPage />} />
