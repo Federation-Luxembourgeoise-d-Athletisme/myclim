@@ -463,7 +463,10 @@ service cloud.firestore {
           request.resource.data.athleteUserId == request.auth.uid &&
           request.resource.data.status == "submitted") ||
         canManageNationalRaces();
-      allow read: if (isSignedIn() && resource.data.athleteUserId == request.auth.uid) || canManageNationalRaces();
+      // Caisse jour J : les postes (et l'orga) lisent les athlètes retenus pour
+      // remettre le ticket gratuit de l'accompagnateur, jamais les autres demandes.
+      allow read: if (isSignedIn() && resource.data.athleteUserId == request.auth.uid) || canManageNationalRaces() ||
+        ((isAdminOrManager() || isValidCashSession()) && resource.data.status == "selected");
       allow update: if canManageNationalRaces() ||
         (isSignedIn() &&
          resource.data.athleteUserId == request.auth.uid &&

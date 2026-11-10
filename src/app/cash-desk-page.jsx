@@ -185,6 +185,7 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
   const [guestLists, setGuestLists] = useState([]);
   const [guests, setGuests] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
+  const [nationalRaceAthletes, setNationalRaceAthletes] = useState([]);
   const [vipAdmin, setVipAdmin] = useState([]);
   const [vipPublic, setVipPublic] = useState([]);
   const [vipPortals, setVipPortals] = useState([]);
@@ -253,6 +254,13 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
       onSnapshot(byEdition("doorGuestLists"), (snapshot) => setGuestLists(mapSnapshot(snapshot)), fail("les listes")),
       onSnapshot(byEdition("doorGuests"), (snapshot) => setGuests(mapSnapshot(snapshot)), fail("les invités")),
       onSnapshot(byEdition("doorCheckIns"), (snapshot) => setCheckIns(mapSnapshot(snapshot)), fail("les entrées")),
+      // Seules les demandes retenues sont lisibles par un poste de caisse
+      // (firestore.rules) : la requête doit filtrer sur status.
+      onSnapshot(
+        query(collection(db, "nationalRaceRequests"), where("editionId", "==", activeEditionId), where("status", "==", "selected")),
+        (snapshot) => setNationalRaceAthletes(mapSnapshot(snapshot)),
+        fail("les athlètes des courses nationales"),
+      ),
     ];
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -313,9 +321,10 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
         vipPortalEntries: Object.values(vipPortalEntries).flat(),
         guestLists,
         guests,
+        nationalRaceAthletes,
         checkIns,
       }),
-    [activeEditionId, checkIns, guestLists, guests, post, vipAdmin, vipPortalEntries, vipPublic],
+    [activeEditionId, checkIns, guestLists, guests, nationalRaceAthletes, post, vipAdmin, vipPortalEntries, vipPublic],
   );
 
   const postEntriesCount = checkIns.reduce(

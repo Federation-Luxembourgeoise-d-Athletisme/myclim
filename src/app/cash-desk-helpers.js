@@ -107,9 +107,33 @@ function buildDoorEntries({
   vipPublicRegistrations = [],
   guestLists = [],
   guests = [],
+  nationalRaceAthletes = [],
   checkIns = [],
 } = {}) {
   const entries = [];
+
+  // Athlètes retenus des courses nationales (sur tous les postes) : l'athlète
+  // entre avec son accréditation par l'entrée athlètes (warm-up) ; la caisse
+  // remet 1 ticket gratuit à l'accompagnateur, qui donne le nom de l'athlète.
+  nationalRaceAthletes
+    .filter((record) => record.status === "selected" && (!record.editionId || String(record.editionId) === String(editionId)))
+    .forEach((record) => {
+      const raceLabel = `${normalizeCashText(record.event)} ${record.gender === "femme" ? "F" : "H"}`.trim();
+      entries.push({
+        key: buildCheckInKey(editionId, "national_race", record.id),
+        sourceType: "national_race",
+        sourceId: record.id,
+        sourceLabel: `Courses nationales · ${raceLabel}`,
+        isVip: false,
+        listId: "national_races",
+        listName: "Courses nationales",
+        fullName: buildPersonName(record.firstName, record.lastName),
+        organization: normalizeCashText(record.isLuxLicensed ? record.club : record.foreignClub),
+        companions: [],
+        places: 1,
+        notes: `1 ticket accompagnateur de l'athlète${record.role === "pacer" ? " (lièvre)" : ""}. L'athlète entre avec son accréditation par l'entrée athlètes (warm-up).`,
+      });
+    });
 
   if (post?.showVipLists) {
     const seenVipKeys = new Set();
