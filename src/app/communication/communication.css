@@ -1476,3 +1476,9 @@
 .com-import-table td:first-child {
   white-space: nowrap;
 }
+
+/* Photos déposées depuis l'ordinateur (en plus de la galerie) */
+.com-photo-drop { width: 100%; padding: 14px 12px; border: 1.5px dashed #b9c6d4; border-radius: 8px; background: #f8fafc; color: #17324a; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.com-photo-drop:hover:not(:disabled), .com-photo-drop.is-over { border-color: #17324a; background: #eef4fb; }
+.com-photo-drop:disabled { cursor: progress; opacity: 0.75; }
+.com-photo-credit { width: 100%; margin-top: 3px; padding: 2px 6px; font-size: 0.72rem; border: 1px solid #e1e7ee; border-radius: 4px; }
