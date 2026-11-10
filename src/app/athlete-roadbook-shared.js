@@ -215,6 +215,10 @@ const DEFAULT_ROADBOOK = {
       "Infield\nÉchauffement\nZone coachs\nSalle des juges\nZone mixte\nZone VIP",
     ),
     planImageUrl: "",
+    // « accreditation » : zones et plan repris des accréditations (zones
+    // recopiées à chaque enregistrement, plan = celui du dos des badges).
+    // « custom » : zones saisies et plan téléversé dans le roadbook.
+    source: "accreditation",
   },
   photos: {
     text: L(
@@ -304,6 +308,7 @@ function normalizeRoadbook(stored) {
       intro: normalizeLocalized(stored.venue?.intro, base.venue.intro),
       zones: normalizeLocalized(stored.venue?.zones, base.venue.zones),
       planImageUrl: String(stored.venue?.planImageUrl || ""),
+      source: stored.venue?.source === "custom" ? "custom" : "accreditation",
     },
     photos: {
       text: normalizeLocalized(stored.photos?.text, base.photos.text),
@@ -355,6 +360,24 @@ function normalizeRoadbook(stored) {
       extraTicketsLabel:
         typeof stored.bookings?.extraTicketsLabel === "string" ? stored.bookings.extraTicketsLabel : base.bookings.extraTicketsLabel,
     },
+  };
+}
+
+// Noms des zones d'accréditation, dans l'ordre des numéros du plan des badges.
+function getAccreditationZoneNames(zones = []) {
+  return [...zones]
+    .sort((left, right) => Number(left.order) - Number(right.order))
+    .map((zone) => String(zone.name || "").trim())
+    .filter(Boolean);
+}
+
+// Recopie les zones des accréditations dans le roadbook (la page publique ne
+// peut pas lire les réglages d'accréditation, réservés à l'organisation).
+function withAccreditationZones(roadbook, zoneNames) {
+  if (roadbook.venue.source !== "accreditation" || !zoneNames.length) return roadbook;
+  return {
+    ...roadbook,
+    venue: { ...roadbook.venue, zones: { ...roadbook.venue.zones, en: zoneNames.join("\n") } },
   };
 }
 
@@ -482,7 +505,9 @@ export {
   DEFAULT_ROADBOOK,
   LABEL_FIELDS,
   ROADBOOK_SECTION_IDS,
+  getAccreditationZoneNames,
   roadbookFromPreviousEdition,
+  withAccreditationZones,
   ROADBOOK_COLLECTION,
   ROADBOOK_LANGUAGES,
   SCHEDULE_ITEM_ICONS,

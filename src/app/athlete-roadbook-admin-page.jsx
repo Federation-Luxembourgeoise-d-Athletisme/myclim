@@ -21,10 +21,13 @@ import {
   SCHEDULE_ITEM_ICONS,
   cloneDefaultRoadbook,
   formatScheduleDay,
+  getAccreditationZoneNames,
   normalizeRoadbook,
   parseCallTimeRows,
   roadbookFromPreviousEdition,
+  withAccreditationZones,
 } from "./athlete-roadbook-shared";
+import accreditationPlanUrl from "../assets/accreditation-plan.png";
 
 const TABS = [
   { id: "general", label: "Infos générales" },
@@ -204,7 +207,8 @@ function AthleteRoadbookAdminPage({ Panel }) {
     setSaving(true);
     setError("");
     try {
-      await setDoc(doc(db, ROADBOOK_COLLECTION, editionId), { ...nextDraft, editionId, updatedAt: serverTimestamp() });
+      const toSave = withAccreditationZones(nextDraft, accreditationZoneNames);
+      await setDoc(doc(db, ROADBOOK_COLLECTION, editionId), { ...toSave, editionId, updatedAt: serverTimestamp() });
       setDirty(false);
       setStatusMessage(message);
     } catch (saveError) {
@@ -219,6 +223,8 @@ function AthleteRoadbookAdminPage({ Panel }) {
   // il pointe et on permet de le régler sur le lien du roadbook en un clic.
   const roadbookUrl = buildAppUrl("/roadbook");
   const [badgeQr, setBadgeQr] = useState(undefined);
+  // Zones d'accès des accréditations (ordre = numéros du plan des badges).
+  const [accreditationZoneNames, setAccreditationZoneNames] = useState([]);
   useEffect(() => {
     const unsubscribe = onSnapshot(
       doc(db, ...ACCREDITATION_CONFIGURATION_DOC_PATH),
@@ -226,6 +232,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
         const configuration = normalizeAccreditationConfigurationPayload(snapshot.exists() ? snapshot.data() : {});
         const resource = configuration.qrResources.find((entry) => entry.id === BADGE_QR_RESOURCE_ID);
         setBadgeQr(resource ? { url: resource.targetType === "url" ? resource.url : "", type: resource.targetType } : null);
+        setAccreditationZoneNames(getAccreditationZoneNames(configuration.zones));
       },
       () => setBadgeQr(null),
     );
@@ -327,6 +334,13 @@ function AthleteRoadbookAdminPage({ Panel }) {
   // Lien court et stable d'une année à l'autre (il suit l'édition du site).
   const publicUrl = roadbookUrl;
   const badgeQrOk = badgeQr?.url === publicUrl;
+  // Zones enregistrées dans le roadbook différentes de celles des accréditations.
+  const zonesOutdated = Boolean(
+    draft &&
+      draft.venue.source !== "custom" &&
+      accreditationZoneNames.length &&
+      String(draft.venue.zones?.en || "") !== accreditationZoneNames.join("\n"),
+  );
 
   return (
     <RoadbookDraftContext.Provider value={{ draft, update }}>
@@ -377,11 +391,16 @@ function AthleteRoadbookAdminPage({ Panel }) {
 
       <Panel
         title={`Édition ${edition?.year || editionId || "—"}`}
-        subtitle="Repris automatiquement de Site web → Édition courante (rien à ressaisir ici)."
+        subtitle="Date, lieu, horaire et live results : ceux saisis dans Édition (onglets Infos et Programme), rien à ressaisir ici."
         actions={
-          <Link className="button button--secondary button--small" to="/app/edition">
-            Modifier l'édition
-          </Link>
+          <div className="roadbook-admin-bar__actions">
+            <Link className="button button--secondary button--small" to="/app/edition">
+              Infos de l'édition
+            </Link>
+            <Link className="button button--secondary button--small" to="/app/edition/programme">
+              Horaire
+            </Link>
+          </div>
         }
       >
         <div className="roadbook-admin-facts">
@@ -411,6 +430,9 @@ function AthleteRoadbookAdminPage({ Panel }) {
               {draft.status === "published" ? "Publié" : "Brouillon"}
             </span>
             {dirty ? <span className="roadbook-admin-bar__dirty">Modifications non enregistrées</span> : null}
+            {!dirty && zonesOutdated ? (
+              <span className="roadbook-admin-bar__dirty">Zones modifiées dans les accréditations : enregistre pour les mettre à jour</span>
+            ) : null}
             <div className="roadbook-admin-bar__actions">
               <a className="button button--secondary button--small" href={previewUrl} target="_blank" rel="noreferrer">
                 Aperçu
@@ -418,7 +440,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
               <button className="button button--secondary button--small" type="button" disabled={saving} onClick={togglePublished}>
                 {draft.status === "published" ? "Repasser en brouillon" : "Publier"}
               </button>
-              <button className="button button--primary button--small" type="button" disabled={saving || !dirty} onClick={() => save()}>
+              <button className="button button--primary button--small" type="button" disabled={saving || (!dirty && !zonesOutdated)} onClick={() => save()}>
                 {saving ? "Enregistrement…" : "Enregistrer"}
               </button>
             </div>
@@ -748,17 +770,59 @@ function AthleteRoadbookAdminPage({ Panel }) {
           ) : null}
 
           {activeTab === "venue" ? (
-            <Panel title="La Coque" subtitle="Le plan du roadbook est propre aux athlètes (différent de celui des accréditations).">
+            <Panel title="La Coque" subtitle="Zones d'accès et plan : repris des accréditations par défaut, pour rester identiques aux badges.">
               <L label="Comment s'y rendre" path={["venue", "intro"]} multiline />
-              <L label="Zones d'accès (une par ligne, dans l'ordre des numéros du plan)" path={["venue", "zones"]} multiline />
-              <FileUpload
-                value={draft.venue.planImageUrl}
-                onChange={(url) => update(["venue", "planImageUrl"], url)}
-                accept="image/*"
-                storagePath="athlete-roadbook"
-                label="Plan de la Coque"
-                helperText="Image · Max 20 MB"
-              />
+              <div className="roadbook-admin-row">
+                <label className="roadbook-admin-check">
+                  <input
+                    type="radio"
+                    name="venue-source"
+                    checked={draft.venue.source !== "custom"}
+                    onChange={() => update(["venue", "source"], "accreditation")}
+                  />
+                  Reprendre les zones et le plan des accréditations
+                </label>
+                <label className="roadbook-admin-check">
+                  <input
+                    type="radio"
+                    name="venue-source"
+                    checked={draft.venue.source === "custom"}
+                    onChange={() => update(["venue", "source"], "custom")}
+                  />
+                  Saisir des zones et un plan propres au roadbook
+                </label>
+              </div>
+              {draft.venue.source !== "custom" ? (
+                <div className="roadbook-admin-venue">
+                  <div>
+                    <p className="roadbook-admin-single"><span>Zones d'accès (accréditations)</span></p>
+                    {accreditationZoneNames.length ? (
+                      <ol className="roadbook-admin-zones">
+                        {accreditationZoneNames.map((zone) => <li key={zone}>{zone}</li>)}
+                      </ol>
+                    ) : (
+                      <p className="panel-note">Zones des accréditations pas encore chargées.</p>
+                    )}
+                    <p className="panel-note">
+                      Pour les changer : <Link to="/app/accreditations">Accréditations</Link>. Elles sont recopiées dans le
+                      roadbook à chaque enregistrement.
+                    </p>
+                  </div>
+                  <img className="roadbook-admin-plan" src={accreditationPlanUrl} alt="Plan des accréditations" />
+                </div>
+              ) : (
+                <>
+                  <L label="Zones d'accès (une par ligne, dans l'ordre des numéros du plan)" path={["venue", "zones"]} multiline />
+                  <FileUpload
+                    value={draft.venue.planImageUrl}
+                    onChange={(url) => update(["venue", "planImageUrl"], url)}
+                    accept="image/*"
+                    storagePath="athlete-roadbook"
+                    label="Plan de la Coque"
+                    helperText="Image · Max 20 MB"
+                  />
+                </>
+              )}
             </Panel>
           ) : null}
 

@@ -19,6 +19,7 @@ import {
 } from "../app/athlete-roadbook-shared";
 import cmcmLogo from "../assets/cmcm-logo.png";
 import waLogo from "../assets/wa-indoor-tour-silver.png";
+import accreditationPlanUrl from "../assets/accreditation-plan.png";
 import { AthleteHubSections } from "./athlete-hub-sections";
 import "./athlete-roadbook.css";
 
@@ -311,6 +312,9 @@ function AthleteRoadbookPage() {
   const emergencyHref = roadbook.emergency.phone ? `tel:${roadbook.emergency.phone.replace(/[^\d+]/g, "")}` : "";
   const emergencyLabel = t(roadbook.emergency.label) || labels.emergency;
   const zones = splitLines(t(roadbook.venue.zones));
+  // Plan : celui du dos des badges d'accréditation (zones numérotées 1 à 6),
+  // sauf si un plan propre au roadbook a été choisi.
+  const planUrl = roadbook.venue.source === "custom" ? roadbook.venue.planImageUrl : accreditationPlanUrl;
   const callTimes = roadbook.callTimes.filter((row) => callTimeMatchesFilter(row, callTimeFilter));
   const extraTicketsUrl = roadbook.bookings.extraTicketsUrl;
   const head = (section, index) => <SectionHead index={index} eyebrow={section.eyebrow} title={section.title} />;
@@ -397,7 +401,7 @@ function AthleteRoadbookPage() {
           <section key={section.id} id="venue" className="rb-section">
             {head(section, index)}
             {t(roadbook.venue.intro) ? <LineList text={t(roadbook.venue.intro)} className="rb-lead" /> : null}
-            <div className={`rb-venue ${roadbook.venue.planImageUrl ? "" : "rb-venue--noplan"}`}>
+            <div className={`rb-venue ${planUrl ? "" : "rb-venue--noplan"}`}>
               {zones.length ? (
                 <div className="rb-zones">
                   <h3>{labels.accessZones}</h3>
@@ -408,7 +412,7 @@ function AthleteRoadbookPage() {
                   </ol>
                 </div>
               ) : null}
-              {roadbook.venue.planImageUrl ? <img className="rb-plan" src={roadbook.venue.planImageUrl} alt={section.title} /> : null}
+              {planUrl ? <img className="rb-plan" src={planUrl} alt={section.title} /> : null}
             </div>
           </section>
         );

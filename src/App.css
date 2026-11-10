@@ -11139,3 +11139,30 @@ button.xc-card:hover { border-color: #9fb3c8; }
     grid-column: 1 / -1;
   }
 }
+
+.roadbook-admin-venue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 220px);
+  gap: 16px;
+  align-items: start;
+}
+
+.roadbook-admin-zones {
+  margin: 4px 0 8px;
+  padding-left: 22px;
+  font-size: 0.9rem;
+  color: #17324a;
+}
+
+.roadbook-admin-plan {
+  width: 100%;
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .roadbook-admin-venue {
+    grid-template-columns: 1fr;
+  }
+}
