@@ -696,6 +696,7 @@ export function AuthProvider({ children }) {
           gender: formData.gender,
           nationality: String(formData.nationality || "").trim(),
           worldAthleticsUrl: String(formData.worldAthleticsUrl || "").trim(),
+          pacerPayment: formData.pacerPayment || "",
           event,
           raceCode: getNationalRaceCode(event, formData.gender),
           isLuxLicensed,

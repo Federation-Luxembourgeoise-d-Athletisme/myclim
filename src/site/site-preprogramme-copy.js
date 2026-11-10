@@ -100,7 +100,7 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Is there an entry fee for the national races?",
-        a: "No. Taking part in the national races is free.",
+        a: "No, registration is free. The 800 m form only asks whether you would be willing to pay for a pacer: without that, a pacer is not guaranteed, but wavelights are used in every race.",
       },
       {
         q: "Where do national race athletes go on meeting day?",
@@ -223,7 +223,7 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Faut-il payer pour participer aux courses nationales ?",
-        a: "Non. La participation aux courses nationales est gratuite.",
+        a: "Non, l'inscription est gratuite. Le formulaire du 800 m demande seulement si vous seriez prêt(e) à payer pour un lièvre : sans cela, un lièvre n'est pas garanti, mais des wavelights sont utilisées dans chaque course.",
       },
       {
         q: "Par où arrivent les athlètes des courses nationales le jour du meeting ?",

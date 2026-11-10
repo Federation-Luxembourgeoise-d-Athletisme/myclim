@@ -178,7 +178,7 @@ function AddAthleteForm({ race, raceLabel, initial = null, onCancel, onSubmit, i
       </div>
       <label className="field">
         <span>{text.worldAthletics}</span>
-        <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." type="url" value={form.worldAthleticsUrl} onChange={update} />
+        <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." required type="url" value={form.worldAthleticsUrl} onChange={update} />
       </label>
       <div className="field-grid">
         <label className="field">
@@ -696,6 +696,7 @@ function NationalRacesPage(props) {
         request.previousSeasonBest,
         request.otherTime,
         request.worldAthleticsUrl,
+        request.pacerPayment === "oui" ? csv.yes : request.pacerPayment === "non" ? csv.no : "",
         request.email,
         request.phone,
         request.seltecEntered ? csv.yes : csv.no,
@@ -880,6 +881,7 @@ function NationalRacesPage(props) {
                   {request.worldAthleticsUrl ? (
                     <a href={request.worldAthleticsUrl} rel="noreferrer" target="_blank">{copy.worldAthleticsLink}</a>
                   ) : null}
+                  {request.pacerPayment ? <span>{request.pacerPayment === "oui" ? copy.pacerPaymentYes : copy.pacerPaymentNo}</span> : null}
                   {request.notes ? <span>{fill(copy.note, { note: request.notes })}</span> : null}
                   <span>{request.email} · {request.phone}</span>
                   <span>{fill(copy.receivedOn, { date: formatDateTimeForDisplay(request.submittedAt) })}</span>

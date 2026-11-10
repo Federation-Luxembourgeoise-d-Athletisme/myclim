@@ -280,6 +280,9 @@ function createEmptyNationalRaceForm() {
     // un club luxembourgeois, pas de la nationalité.
     nationality: "",
     worldAthleticsUrl: "",
+    // Question 8 du Forms de la commission : prêt(e) à payer un lièvre (oui /
+    // non). Sans réponse « oui » suffisante, pas de lièvre garanti.
+    pacerPayment: "",
     isLuxLicensed: "oui",
     club: "",
     bibNumber: "",

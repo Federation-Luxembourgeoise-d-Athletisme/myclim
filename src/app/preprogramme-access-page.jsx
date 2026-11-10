@@ -537,8 +537,8 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
           <AuthFormField label={t("natNationalityLabel")} hint={t("natNationalityHint")} required>
             <input name="nationality" required value={formData.nationality} onChange={handleChange} />
           </AuthFormField>
-          <AuthFormField label={t("natWorldAthleticsLabel")} hint={t("natWorldAthleticsHint")}>
-            <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." type="url" value={formData.worldAthleticsUrl} onChange={handleChange} />
+          <AuthFormField label={t("natWorldAthleticsLabel")} hint={t("natWorldAthleticsHint")} required>
+            <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." required type="url" value={formData.worldAthleticsUrl} onChange={handleChange} />
           </AuthFormField>
         </div>
         {isTooYoung ? (
@@ -705,6 +705,23 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
             </div>
           );
         })}
+      </section>
+
+      <section className="form-section-card">
+        <div className="form-section-head">
+          <h3>{t("natPacerPaymentLabel")} <span className="field-required" aria-hidden="true">*</span></h3>
+          <p className="availability-lead">{t("natPacerPaymentHint")}</p>
+        </div>
+        <div className="lunex-choice-row">
+          <label className="selection-card selection-card--inline">
+            <input checked={formData.pacerPayment === "oui"} name="pacerPayment" required type="radio" value="oui" onChange={handleChange} />
+            <div><strong>{t("natYes")}</strong></div>
+          </label>
+          <label className="selection-card selection-card--inline">
+            <input checked={formData.pacerPayment === "non"} name="pacerPayment" type="radio" value="non" onChange={handleChange} />
+            <div><strong>{t("natNo")}</strong></div>
+          </label>
+        </div>
       </section>
 
       <AuthFormField label={t("u14NotesLabel")}>
