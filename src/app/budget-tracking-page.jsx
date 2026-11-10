@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { deleteObject, ref as storageRef } from "firebase/storage";
 import { db, storage } from "../services/firebase";
@@ -8,6 +8,7 @@ import sponsorsStripUrl from "../assets/accreditation-sponsors-strip.png";
 import { useBudgetInvoiceConfiguration } from "./config-hooks";
 import { useDocumentsCollection } from "./documents-hooks";
 import { useActiveEdition } from "./edition";
+import { useUnsavedChangesGuard } from "./unsaved-changes-guard";
 import { canUserUploadBudgetInvoice } from "./budget-invoice-config";
 import { useComLang } from "./communication/com-i18n";
 import {
@@ -999,6 +1000,9 @@ function buildBudgetPrintDocument({
   </html>`;
 }
 
+const UNSAVED_BUDGET_MESSAGE =
+  "Tu as des modifications non enregistrées dans le budget. Quitter quand même et les perdre ?";
+
 const MEET_DIRECTOR_HINT =
   "Calculé automatiquement : 10 % de Frais déplacement + Engagement + Prize money + Primes performance exceptionnelle + Extra apparence fee.";
 
@@ -1986,7 +1990,11 @@ function BudgetTrackingPage({ Panel }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedEditionId, setSelectedEditionId] = useState("");
+  const draftEditionIdRef = useRef("");
+  const draftBudgetRef = useRef(null);
+  const isDraftDirtyRef = useRef(false);
   const [draftBudget, setDraftBudget] = useState(null);
+  draftBudgetRef.current = draftBudget;
   const [activeTab, setActiveTab] = useState("overview");
   const [linesCollectionKey, setLinesCollectionKey] = useState("expenses");
   const [isEditMode, setIsEditMode] = useState(false);
@@ -2104,6 +2112,21 @@ function BudgetTrackingPage({ Panel }) {
 
   useEffect(() => {
     if (!selectedBudget) return;
+
+    // Même édition mise à jour depuis Firestore (enregistrement fait ailleurs) :
+    // on ne jette jamais une saisie en cours, et on ne sort pas du mode édition.
+    if (draftEditionIdRef.current === selectedBudget.editionId) {
+      // Écho de notre propre enregistrement : le brouillon correspond déjà au document.
+      const currentDraft = draftBudgetRef.current;
+      if (isDraftDirtyRef.current && currentDraft && buildBudgetDiff(selectedBudget, currentDraft).length) {
+        setSaveStatus("Ce budget vient d'être modifié ailleurs. Tes modifications en cours sont conservées ; en enregistrant, elles remplaceront les lignes concernées.");
+        return;
+      }
+      setDraftBudget(recalculateBudgetFormulas(structuredClone(selectedBudget)));
+      return;
+    }
+
+    draftEditionIdRef.current = selectedBudget.editionId;
     setDraftBudget(recalculateBudgetFormulas(structuredClone(selectedBudget)));
     setActiveTab("overview");
     if (selectedBudget.editionId === pendingNewBudgetId) {
@@ -2168,6 +2191,14 @@ function BudgetTrackingPage({ Panel }) {
   );
   const hasPersistedBudget = Boolean(persistedBudget);
   const hasUnsavedChanges = isBudgetEditable && (Boolean(budgetDiff.length) || !hasPersistedBudget);
+  // Uniquement les vraies saisies : un budget pas encore stocké ne doit pas bloquer la navigation.
+  const isDraftDirty = isBudgetEditable && Boolean(budgetDiff.length);
+  isDraftDirtyRef.current = isDraftDirty;
+  useUnsavedChangesGuard(isDraftDirty, UNSAVED_BUDGET_MESSAGE);
+
+  function confirmDiscardDraft() {
+    return !isDraftDirty || window.confirm(UNSAVED_BUDGET_MESSAGE);
+  }
   const totals = useMemo(() => (draftBudget ? getBudgetTotals(draftBudget) : null), [draftBudget]);
   const hasCurrentActualValues = useMemo(
     () => (draftBudget
@@ -2947,6 +2978,7 @@ function BudgetTrackingPage({ Panel }) {
             <select
               value={selectedEditionId}
               onChange={(event) => {
+                if (!confirmDiscardDraft()) return;
                 setHasUserSelectedEdition(true);
                 setSelectedEditionId(event.target.value);
               }}
@@ -2987,7 +3019,17 @@ function BudgetTrackingPage({ Panel }) {
               </button>
             ) : (
               <>
-                <button className="button button--secondary" type="button" onClick={() => setIsEditMode(false)}>
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={() => {
+                    if (!isDraftDirty) {
+                      setIsEditMode(false);
+                    } else if (window.confirm(UNSAVED_BUDGET_MESSAGE)) {
+                      resetDraft();
+                    }
+                  }}
+                >
                   Fermer
                 </button>
                 <button className="button button--secondary" type="button" onClick={resetDraft} disabled={!hasUnsavedChanges || isSaving}>

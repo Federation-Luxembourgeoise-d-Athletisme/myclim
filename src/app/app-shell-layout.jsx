@@ -23,6 +23,7 @@ import { getDisplayName, normalizeRole } from "./utils";
 import { LanguageSwitch } from "./language";
 import { NotificationBell } from "./notifications/notifications-ui";
 import { InstallAppBanner } from "./install-app-banner";
+import { confirmLeaveIfUnsaved } from "./unsaved-changes-guard";
 import { useLanguage } from "./language-context";
 import { db } from "../services/firebase";
 
@@ -162,11 +163,13 @@ function AppShell(props) {
   }, [location.pathname, location.search, location.state, navigate]);
 
   function handleViewAsChange(nextRole) {
+    if (!confirmLeaveIfUnsaved()) return;
     setPreferredViewAsRole(nextRole);
     navigate(nextRole === "admin" ? APP_ROUTES.home : getDefaultRouteByRoles(VIEW_AS_ROLES[nextRole] || []));
   }
 
   async function handleLogout() {
+    if (!confirmLeaveIfUnsaved()) return;
     await logout();
     navigate("/login");
   }
