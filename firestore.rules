@@ -762,6 +762,42 @@ service cloud.firestore {
       allow read, write: if canManageBudget();
     }
 
+    // ── Décomptes (remboursements) ──────────────────────────────────────────
+    // Ils contiennent un IBAN : la personne elle-même, les admins et le rôle
+    // budget seulement. La personne crée et envoie le sien ; un décompte
+    // préparé par l'organisation garde son motif, ses lignes et son acompte ;
+    // seuls admin/budget font avancer le suivi (vérifié, transmis, payé).
+    function isOwnClaim(data) {
+      return isSignedIn() && data.ownerUid == request.auth.uid;
+    }
+
+    function ownerEditableStatus(status) {
+      return status in ["draft", "preset", "rejected"];
+    }
+
+    match /expenseClaims/{claimId} {
+      allow read: if canManageBudget() || isOwnClaim(resource.data);
+      allow create: if canManageBudget() ||
+        (isOwnClaim(request.resource.data) && request.resource.data.status in ["draft", "submitted"]);
+      allow update: if canManageBudget() ||
+        (isOwnClaim(resource.data) &&
+         isOwnClaim(request.resource.data) &&
+         ownerEditableStatus(resource.data.status) &&
+         request.resource.data.status in ["draft", "preset", "rejected", "submitted"] &&
+         (resource.data.status != "preset" ||
+          (request.resource.data.reason == resource.data.reason &&
+           request.resource.data.lines == resource.data.lines &&
+           request.resource.data.advance == resource.data.advance &&
+           request.resource.data.preset == resource.data.preset)));
+      allow delete: if canManageBudget() || (isOwnClaim(resource.data) && resource.data.status == "draft");
+    }
+
+    // Profil privé (adresse, IBAN, banque) réutilisé d'un décompte à l'autre.
+    match /userPrivate/{userId} {
+      allow read: if isOwner(userId) || canManageBudget();
+      allow write: if isOwner(userId);
+    }
+
     // ── Site public (gestion contenu) ───────────────────────────────────────
     match /siteSponsors/{docId} {
       allow read: if true;

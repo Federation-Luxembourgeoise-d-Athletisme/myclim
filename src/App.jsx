@@ -34,6 +34,8 @@ import { MeetingDayProgrammePage } from "./app/meeting-day-programme-page";
 import { OrganisationTeamsPage } from "./app/organisation-teams-page";
 import { RetroplanningPage } from "./app/retroplanning-page";
 import { MyPlanningPage } from "./app/my-planning-page";
+import { MyExpenseClaimsPage } from "./app/my-expense-claims-page";
+import { ExpenseClaimsAdminPage } from "./app/expense-claims-admin-page";
 import { AccreditationsPage as AccreditationsPageScreen } from "./app/accreditations-page";
 import {
   AppShell as AppShellScreen,
@@ -660,6 +662,7 @@ export default function App() {
               {/* Budget : admin et rôle budget seulement (pas les gestionnaires). */}
               <Route element={<RequireRouteAccess allowedRoles={["admin", "budget"]} />}>
                 <Route path="budget" element={<BudgetTrackingPage />} />
+                <Route path="decomptes" element={<ExpenseClaimsAdminPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
                 <Route path="candidatures" element={<TabbedPage eyebrowKey="navSectionVolunteers" titleKey="navApplications" title="Candidatures" tabs={APPLICATIONS_TABS} />}>
@@ -741,6 +744,7 @@ export default function App() {
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="retroplanning" element={<RetroplanningPage />} />
               <Route path="mon-planning" element={<MyPlanningPage />} />
+              <Route path="mes-decomptes" element={<MyExpenseClaimsPage />} />
               <Route path="athletes" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navEntries" title="Engagés" tabs={ENTRIES_TABS} />}>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
                   <Route index element={<AthletesListPage />} />
