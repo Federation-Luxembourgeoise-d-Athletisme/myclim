@@ -162,9 +162,19 @@ function buildVipPortalId(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+// Libellés courts du tour pour l'écran d'administration (listes, filtres).
+const VIP_TOUR_SHORT_LABEL_KEYS = {
+  coque: "vipTourShortCoque",
+  coulisses: "vipTourShortCoulisses",
+  none: "vipTourShortNone",
+};
+
 function createEmptyVipAdminRegistrationData(overrides = {}) {
   return {
     ...createEmptyVipFormData(),
+    // Ajout manuel : pas de tour tant qu'on ne l'a pas choisi (avant, la
+    // valeur par défaut « Coque » inscrivait tout le monde au tour sans le dire).
+    vipTourChoice: "none",
     pickupPoint: "Accueil VIP",
     badgePrintStatus: "non_imprime",
     registrationStatus: "confirmed",
@@ -174,6 +184,7 @@ function createEmptyVipAdminRegistrationData(overrides = {}) {
 
 export {
   VIP_TOUR_OPTIONS,
+  VIP_TOUR_SHORT_LABEL_KEYS,
   VIP_INVITATION_CATEGORY_SUGGESTIONS,
   VIP_PICKUP_POINT_OPTIONS,
   buildVipRegistrationPayload,

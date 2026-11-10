@@ -10135,3 +10135,399 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .stats-event-index button:hover { background: #eaf1fb; }
 
 .stats-event-flash td { background: #fff3dc !important; transition: background 0.6s; }
+
+/* ── Module VIP (vip-admin-page.jsx) : version compacte et sobre ───────────
+   Tout est scopé sous .vip-admin pour ne pas toucher aux autres pages. */
+.vip-admin {
+  --vip-ink: #17324a;
+  --vip-muted: #627788;
+  --vip-line: #e3e9ef;
+  --vip-soft: #f6f9fc;
+  --vip-accent: #1a4aa1;
+  gap: 14px;
+}
+
+.vip-admin-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.vip-admin-head h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: -0.01em;
+  color: var(--vip-ink);
+}
+
+.vip-admin-head p {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  color: var(--vip-muted);
+}
+
+.vip-admin-kpis {
+  display: flex;
+  margin: 0;
+  background: #fff;
+  border: 1px solid var(--vip-line);
+  border-radius: 10px;
+}
+
+.vip-admin-kpis > div {
+  padding: 7px 16px;
+  border-left: 1px solid var(--vip-line);
+}
+
+.vip-admin-kpis > div:first-child {
+  border-left: 0;
+}
+
+.vip-admin-kpis dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vip-muted);
+  white-space: nowrap;
+}
+
+.vip-admin-kpis dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--vip-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.vip-explainer {
+  font-size: 0.86rem;
+  color: var(--vip-muted);
+}
+
+.vip-explainer summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--vip-accent);
+  font-weight: 600;
+}
+
+.vip-explainer[open] {
+  background: #fff;
+  border: 1px solid var(--vip-line);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.vip-admin-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--vip-line);
+}
+
+.vip-admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  padding: 8px 14px;
+  margin-bottom: -1px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vip-muted);
+  cursor: pointer;
+}
+
+.vip-admin-tab:hover {
+  color: var(--vip-ink);
+}
+
+.vip-admin-tab.is-active {
+  color: var(--vip-ink);
+  border-bottom-color: var(--vip-ink);
+}
+
+.vip-admin-tab__count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #edf1f5;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: var(--vip-muted);
+}
+
+.vip-admin-tab.is-active .vip-admin-tab__count {
+  background: var(--vip-ink);
+  color: #fff;
+}
+
+/* Panneaux */
+.vip-admin .panel {
+  padding: 14px 16px;
+  gap: 12px;
+  border-radius: 12px;
+  box-shadow: none;
+  border: 1px solid var(--vip-line);
+}
+
+.vip-admin .panel-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--vip-ink);
+}
+
+.vip-admin .panel-head p {
+  font-size: 0.8rem;
+}
+
+.vip-admin-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Boutons : plats, petits, une seule couleur forte */
+.vip-admin .button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.3;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.vip-admin .button:hover {
+  transform: none;
+}
+
+.vip-admin .button--primary {
+  background: var(--vip-ink);
+  color: #fff;
+}
+
+.vip-admin .button--primary:hover {
+  background: #0f2436;
+}
+
+.vip-admin .button--secondary {
+  background: #fff;
+  color: var(--vip-ink);
+  border: 1px solid #cfd9e3;
+}
+
+.vip-admin .button--secondary:hover,
+.vip-admin .button--neutral:hover {
+  background: var(--vip-soft);
+}
+
+/* Champs : bas, alignés, libellés discrets */
+.vip-admin input:not([type="checkbox"]):not([type="radio"]),
+.vip-admin select,
+.vip-admin textarea {
+  height: 32px;
+  padding: 4px 9px;
+  border: 1px solid #cfd9e3;
+  border-radius: 7px;
+  font-size: 0.86rem;
+  background: #fff;
+  color: var(--vip-ink);
+  box-shadow: none;
+}
+
+.vip-admin textarea {
+  height: auto;
+  min-height: 60px;
+}
+
+.vip-admin input:focus,
+.vip-admin select:focus,
+.vip-admin textarea:focus {
+  outline: none;
+  border-color: var(--vip-accent);
+  box-shadow: 0 0 0 3px rgba(26, 74, 161, 0.12);
+}
+
+.vip-admin .vip-admin-form--inline {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 12px;
+  align-items: start;
+}
+
+.vip-admin .vip-admin-form .field {
+  gap: 3px;
+}
+
+.vip-admin .vip-admin-form .field > span:first-child {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vip-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vip-admin .vip-admin-form input,
+.vip-admin .vip-admin-form select {
+  padding: 4px 9px;
+  border-radius: 7px;
+}
+
+.vip-admin .vip-admin-form .button {
+  padding: 7px 14px;
+}
+
+.vip-admin .vip-admin-form__phone .phone-input {
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.vip-admin .vip-admin-form__actions {
+  margin: 0;
+}
+
+/* Filtres et puces de tour */
+.vip-admin .vip-admin-filters {
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.vip-admin-tour-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vip-admin-tour-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cfd9e3;
+  border-radius: 999px;
+  background: #fff;
+  padding: 3px 4px 3px 11px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--vip-ink);
+  cursor: pointer;
+}
+
+.vip-admin-tour-chip strong {
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #edf1f5;
+  line-height: 20px;
+  text-align: center;
+}
+
+.vip-admin-tour-chip.is-active {
+  border-color: var(--vip-ink);
+  background: var(--vip-ink);
+  color: #fff;
+}
+
+.vip-admin-tour-chip.is-active strong {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Tableaux denses */
+.vip-admin .data-table--vip {
+  font-size: 0.85rem;
+}
+
+.vip-admin .data-table--vip th {
+  padding: 7px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vip-muted);
+  background: var(--vip-soft);
+  border-bottom: 1px solid var(--vip-line);
+}
+
+.vip-admin .data-table--vip td {
+  padding: 7px 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--vip-line);
+}
+
+.vip-admin .data-table--vip tbody tr:hover td {
+  background: #fafcfe;
+}
+
+.vip-admin .data-table--vip td select {
+  width: 100%;
+  height: 28px;
+  font-size: 0.82rem;
+}
+
+.vip-admin .table-stack--tight {
+  gap: 1px;
+}
+
+.vip-admin .table-stack--tight strong {
+  color: var(--vip-ink);
+}
+
+.vip-admin .vip-table-muted {
+  font-size: 0.78rem;
+}
+
+.vip-admin .vip-admin-actions--compact .button {
+  padding: 4px 9px;
+  font-size: 0.78rem;
+}
+
+.vip-admin .vip-admin-bulkbar {
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .vip-admin-kpis {
+    width: 100%;
+  }
+
+  .vip-admin-kpis > div {
+    flex: 1;
+    padding: 6px 10px;
+  }
+}
+
+/* AuthFormField ignore className : on élargit téléphone et notes par leur contenu. */
+.vip-admin .vip-admin-form--inline .field:has(.phone-input),
+.vip-admin .vip-admin-form--inline .field:has([name="notes"]) {
+  grid-column: span 2;
+}
+
+.vip-admin .phone-input {
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.vip-admin .phone-picker__trigger {
+  height: 32px;
+  min-height: 0;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-size: 0.86rem;
+}
+
+.vip-admin .data-table--vip .table-stack--tight > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
