@@ -859,7 +859,11 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
   const teamById = new Map(team.map((u) => [u.uid, u]));
   const names = (uids) => uids.map((id) => (teamById.get(id) ? memberName(teamById.get(id)) : "?")).join(", ");
   const pending = validation?.etat === "demandee";
-  const canAnswer = pending && validation.demandeeA.includes(uid);
+  const isAsked = Boolean(validation?.demandeeA?.includes(uid));
+  const answered = validation?.etat === "validee" || validation?.etat === "a_revoir";
+  // Une personne sollicitée peut changer sa réponse après coup (si elle s'est trompée).
+  const [changing, setChanging] = useState(false);
+  const canAnswer = isAsked && (pending || (answered && changing));
 
   // En cas d'échec, la saisie reste ouverte avec l'erreur : la demande n'est pas partie.
   async function submit(action) {
@@ -873,6 +877,7 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
       }
       setText("");
       setAsking(false);
+      setChanging(false);
     } finally {
       setBusy(false);
     }
@@ -894,7 +899,8 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
         <ol className="com-history">
           {validation.history.map((entry, i) => (
             <li key={i}>
-              <strong>{entry.nom}</strong> {pick(ACTION_LABELS[entry.action], lang)}
+              <strong>{entry.nom}</strong> {entry.changement ? `${tr("a changé d'avis :", "changed their answer:")} ` : ""}
+              {pick(ACTION_LABELS[entry.action], lang)}
               <span className="com-muted"> · {fmtWhen(entry.at, locale)}</span>
               {entry.message ? <p>« {entry.message} »</p> : null}
             </li>
@@ -905,13 +911,23 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
       {canAnswer ? (
         <div className="com-validation-box is-answer">
           <textarea className="com-input" placeholder={tr("Commentaire (facultatif)", "Comment (optional)")} value={text} onChange={(e) => setText(e.target.value)} />
+          {changing ? <p className="com-muted" style={{ margin: 0 }}>{tr("Changer ta réponse :", "Change your answer:")}</p> : null}
           <div className="com-row">
-            <button type="button" disabled={busy} className="button button--secondary button--small" onClick={() => submit(() => onAnswer("validee", text))}>
-              👍 {tr("Valider", "Approve")}
-            </button>
-            <button type="button" disabled={busy} className="button button--danger-soft button--small" onClick={() => submit(() => onAnswer("a_revoir", text))}>
-              👎 {tr("À revoir", "Needs changes")}
-            </button>
+            {validation.etat !== "validee" ? (
+              <button type="button" disabled={busy} className="button button--secondary button--small" onClick={() => submit(() => onAnswer("validee", text))}>
+                👍 {tr("Valider", "Approve")}
+              </button>
+            ) : null}
+            {validation.etat !== "a_revoir" ? (
+              <button type="button" disabled={busy} className="button button--danger-soft button--small" onClick={() => submit(() => onAnswer("a_revoir", text))}>
+                👎 {tr("À revoir", "Needs changes")}
+              </button>
+            ) : null}
+            {changing ? (
+              <button type="button" className="com-btn-ghost" onClick={() => { setChanging(false); setError(null); }}>
+                {tr("Annuler", "Cancel")}
+              </button>
+            ) : null}
           </div>
           {error ? <p className="com-error">{error}</p> : null}
         </div>
@@ -955,13 +971,20 @@ function ValidationPanel({ validation, uid, team, onRequest, onAnswer }) {
           </span>
         </div>
       ) : (
-        <button type="button" className="button button--secondary button--small" style={{ alignSelf: "flex-start" }} onClick={() => setAsking(true)}>
-          {validation
-            ? pending
-              ? tr("Relancer la demande", "Send a reminder")
-              : tr("Redemander la validation", "Request approval again")
-            : tr("Demander la validation", "Request approval")}
-        </button>
+        <div className="com-row">
+          {isAsked && answered ? (
+            <button type="button" className="button button--secondary button--small" onClick={() => setChanging(true)}>
+              ✏️ {tr("Changer ma réponse", "Change my answer")}
+            </button>
+          ) : null}
+          <button type="button" className="button button--secondary button--small" onClick={() => setAsking(true)}>
+            {validation
+              ? pending
+                ? tr("Relancer la demande", "Send a reminder")
+                : tr("Redemander la validation", "Request approval again")
+              : tr("Demander la validation", "Request approval")}
+          </button>
+        </div>
       )}
     </div>
   );
