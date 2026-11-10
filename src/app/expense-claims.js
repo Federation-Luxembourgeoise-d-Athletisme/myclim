@@ -107,7 +107,14 @@ function normalizeClaim(data = {}) {
     certifiedAt: String(data.certifiedAt || ""),
     preset: data.preset && typeof data.preset === "object" ? { byName: String(data.preset.byName || ""), note: String(data.preset.note || "") } : null,
     history: Array.isArray(data.history) ? data.history : [],
+    // Justificatif → facture du budget déjà créée (fileUrl → id du document).
+    budgetInvoiceIds: data.budgetInvoiceIds && typeof data.budgetInvoiceIds === "object" ? { ...data.budgetInvoiceIds } : {},
   };
+}
+
+// Justificatifs pas encore envoyés au budget comme factures à classer.
+function getReceiptsNotInBudget(claim) {
+  return claim.receipts.filter((receipt) => !claim.budgetInvoiceIds?.[receipt.fileUrl]);
 }
 
 function computeClaimTotals(claim) {
@@ -170,6 +177,7 @@ export {
   formatIban,
   getClaimStatus,
   getClaimSubmitProblems,
+  getReceiptsNotInBudget,
   isValidIban,
   normalizeClaim,
   normalizeIban,

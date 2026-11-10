@@ -3,7 +3,7 @@ import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, up
 import { db } from "../services/firebase";
 import { enqueueTransactionalMail, buildExpenseClaimSubmittedMail, buildExpenseClaimPresetMail } from "../services/mailQueue";
 import { buildClaimExcelAttachment } from "./expense-claim-export";
-import { DECOMPTE_RECIPIENT, claimOwnerName, computeClaimTotals, normalizeClaim } from "./expense-claims";
+import { DECOMPTE_RECIPIENT, claimOwnerName, computeClaimTotals, getReceiptsNotInBudget, normalizeClaim } from "./expense-claims";
 
 const EXPENSE_CLAIMS = "expenseClaims";
 // Profil privé (adresse, IBAN, banque) : lisible par la personne, les admins
@@ -112,9 +112,52 @@ async function submitClaim(claim, { appUrl }) {
   return { id, mailError };
 }
 
-async function setClaimStatus(claim, status, byName) {
+// Chaque justificatif d'un décompte devient une facture du budget (« à
+// classer »), comme une facture déposée : on la range ensuite sur sa ligne
+// budgétaire. Fait par un admin / rôle budget (au passage à « Vérifié »).
+async function sendClaimInvoicesToBudget(claim, { uid }) {
+  const pending = getReceiptsNotInBudget(claim);
+  if (!pending.length) return 0;
+  const created = { ...(claim.budgetInvoiceIds || {}) };
+  const owner = claimOwnerName(claim);
+  for (const receipt of pending) {
+    const reference = await addDoc(collection(db, "documents"), {
+      documentType: "invoice",
+      title: receipt.fileName,
+      reference: receipt.fileUrl,
+      fileName: receipt.fileName,
+      fileUrl: receipt.fileUrl,
+      filePath: receipt.filePath,
+      mimeType: receipt.mimeType,
+      scope: "private",
+      teams: [],
+      visibility: "Facture privée",
+      editionId: String(claim.editionYear || "").trim(),
+      uploadedByUid: uid,
+      uploadedByName: owner,
+      ownerUid: claim.ownerUid,
+      invoiceNote: `Décompte de ${owner} — ${claim.reason}`,
+      paymentMethod: "reimbursement",
+      expenseClaimId: claim.id,
+      invoiceStatus: "unclassified",
+      linkedBudgetEditionId: "",
+      linkedBudgetCollectionKey: "",
+      linkedBudgetRowId: "",
+      linkedBudgetRowLabel: "",
+      linkedBudgetSectionName: "",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    created[receipt.fileUrl] = reference.id;
+  }
+  await updateDoc(doc(db, EXPENSE_CLAIMS, claim.id), { budgetInvoiceIds: created, updatedAt: serverTimestamp() });
+  return pending.length;
+}
+
+async function setClaimStatus(claim, status, byName, uid) {
   const history = [...(claim.history || []), { status, at: new Date().toISOString(), byName }];
   await updateDoc(doc(db, EXPENSE_CLAIMS, claim.id), { status, history, updatedAt: serverTimestamp() });
+  if (status === "checked") await sendClaimInvoicesToBudget(claim, { uid });
 }
 
 // Décompte préparé par un organisateur pour une ou plusieurs personnes : une
@@ -155,6 +198,7 @@ export {
   EXPENSE_CLAIMS,
   createPresetClaims,
   saveClaimDraft,
+  sendClaimInvoicesToBudget,
   setClaimStatus,
   submitClaim,
   useAllExpenseClaims,

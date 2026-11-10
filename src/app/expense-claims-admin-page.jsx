@@ -4,7 +4,7 @@ import { db } from "../services/firebase";
 import { useAuth } from "../context/auth-context";
 import { useSiteEditionYear } from "./edition";
 import { downloadClaimExcel, printClaimPdf } from "./expense-claim-export";
-import { createPresetClaims, setClaimStatus, useAllExpenseClaims } from "./expense-claims-hooks";
+import { createPresetClaims, sendClaimInvoicesToBudget, setClaimStatus, useAllExpenseClaims } from "./expense-claims-hooks";
 import {
   CLAIM_STATUSES,
   NEXT_STATUS,
@@ -13,6 +13,7 @@ import {
   formatAmount,
   formatIban,
   getClaimStatus,
+  getReceiptsNotInBudget,
   summarizeClaims,
   toAmount,
 } from "./expense-claims";
@@ -182,10 +183,22 @@ export function ExpenseClaimsAdminPage() {
   async function changeStatus(claim, status) {
     setBusy(true);
     try {
-      await setClaimStatus(claim, status, byName);
+      await setClaimStatus(claim, status, byName, currentUser?.uid || "");
     } catch (statusError) {
       console.error(statusError);
       window.alert("Le changement de statut a échoué.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendToBudget(claim) {
+    setBusy(true);
+    try {
+      await sendClaimInvoicesToBudget(claim, { uid: currentUser?.uid || "" });
+    } catch (sendError) {
+      console.error(sendError);
+      window.alert("L'envoi des factures au budget a échoué.");
     } finally {
       setBusy(false);
     }
@@ -324,9 +337,17 @@ export function ExpenseClaimsAdminPage() {
                     <a href={receipt.fileUrl} rel="noreferrer" target="_blank">
                       {receipt.fileName}
                     </a>
+                    {selected.budgetInvoiceIds[receipt.fileUrl] ? <span className="xc-inbudget">dans le budget ✓</span> : null}
                   </li>
                 ))}
               </ul>
+              {getReceiptsNotInBudget(selected).length && !["preset", "draft", "submitted"].includes(selected.status) ? (
+                <button className="mdp-btn xc-tobudget" disabled={busy} type="button" onClick={() => sendToBudget(selected)}>
+                  Envoyer {getReceiptsNotInBudget(selected).length} facture(s) au budget pour les classer
+                </button>
+              ) : selected.status === "submitted" ? (
+                <p className="mdp-muted">En le marquant vérifié, chaque justificatif devient une facture « à classer » dans Budget.</p>
+              ) : null}
               <p className="mdp-collist__group">Historique</p>
               <ul className="xc-history">
                 {selected.history.map((entry, index) => (
