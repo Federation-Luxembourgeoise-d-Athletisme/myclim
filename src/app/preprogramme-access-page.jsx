@@ -471,11 +471,11 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
     // des trois (record, meilleure perf. 2026 ou autres temps en texte libre).
     // Un PB/SB saisi doit en revanche être lisible pour le classement admin.
     const eventEntries = selectedEvents.map((eventName) => formData.events[eventName]);
-    if (eventEntries.some((entry) => [entry.personalBest, entry.seasonBest].some((value) => value && parsePerformanceToSeconds(value) === null))) {
+    if (eventEntries.some((entry) => [entry.personalBest, entry.seasonBest, entry.previousSeasonBest].some((value) => value && parsePerformanceToSeconds(value) === null))) {
       setError(t("natErrorPerformanceFormat"));
       return;
     }
-    if (eventEntries.some((entry) => ![entry.personalBest, entry.seasonBest, entry.otherTime].some((value) => String(value || "").trim()))) {
+    if (eventEntries.some((entry) => ![entry.personalBest, entry.seasonBest, entry.previousSeasonBest, entry.otherTime].some((value) => String(value || "").trim()))) {
       setError(t("natErrorPerformance"));
       return;
     }
@@ -531,6 +531,14 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
               <option value="femme">{t("natGenderWomen")}</option>
               <option value="homme">{t("natGenderMen")}</option>
             </select>
+          </AuthFormField>
+        </div>
+        <div className="field-grid">
+          <AuthFormField label={t("natNationalityLabel")} hint={t("natNationalityHint")} required>
+            <input name="nationality" required value={formData.nationality} onChange={handleChange} />
+          </AuthFormField>
+          <AuthFormField label={t("natWorldAthleticsLabel")} hint={t("natWorldAthleticsHint")}>
+            <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." type="url" value={formData.worldAthleticsUrl} onChange={handleChange} />
           </AuthFormField>
         </div>
         {isTooYoung ? (
@@ -640,7 +648,7 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
         {NATIONAL_RACE_PUBLIC_EVENTS.map((eventName) => {
           const entry = formData.events[eventName];
           const placeholder = eventName === "800 m" ? "2:05.30" : "7.45";
-          const hasUnreadableTime = [entry.personalBest, entry.seasonBest].some(
+          const hasUnreadableTime = [entry.personalBest, entry.seasonBest, entry.previousSeasonBest].some(
             (value) => value && parsePerformanceToSeconds(value) === null,
           );
           return (
@@ -662,8 +670,9 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
                       <span>{t("natTimeColDate")}</span>
                     </div>
                     {[
-                      { key: "personalBest", label: t("natPersonalBest"), timePlaceholder: placeholder },
                       { key: "seasonBest", label: t("natSeasonBest"), timePlaceholder: placeholder },
+                      { key: "previousSeasonBest", label: t("natPreviousSeasonBest"), timePlaceholder: placeholder },
+                      { key: "personalBest", label: t("natPersonalBest"), timePlaceholder: placeholder },
                       { key: "otherTime", label: t("natOtherTimes"), timePlaceholder: t("natOtherTimePlaceholder") },
                     ].map((row) => (
                       <div key={row.key} className="preprogramme-time-row">

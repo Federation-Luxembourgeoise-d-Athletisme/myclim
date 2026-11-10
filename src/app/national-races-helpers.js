@@ -91,10 +91,14 @@ function parsePerformanceToSeconds(value) {
   return Number.isFinite(total) && total > 0 ? total : null;
 }
 
-// La sélection se fait sur le SB (2026 ou 2027) ; le PB ne sert que s'il n'y
-// a pas de SB lisible.
+// La sélection se fait sur le SB 2026/2027, à défaut le SB 2025 (accepté par
+// la commission), puis le PB s'il n'y a aucun SB lisible.
 function getBestPerformanceSeconds(request) {
-  return parsePerformanceToSeconds(request?.seasonBest) ?? parsePerformanceToSeconds(request?.personalBest);
+  return (
+    parsePerformanceToSeconds(request?.seasonBest) ??
+    parsePerformanceToSeconds(request?.previousSeasonBest) ??
+    parsePerformanceToSeconds(request?.personalBest)
+  );
 }
 
 function isNationalRacePacer(request) {
@@ -223,11 +227,14 @@ function getBestTimeSummary(request) {
   const candidates = [
     { label: "PB", prefix: "personalBest" },
     { label: "SB", prefix: "seasonBest" },
+    { label: "SB 2025", prefix: "previousSeasonBest" },
   ]
     .map((row) => ({ ...row, seconds: parsePerformanceToSeconds(request?.[row.prefix]) }))
-    .filter((row) => row.seconds !== null)
-    .sort((left, right) => left.seconds - right.seconds);
-  const row = candidates[0] || (request?.otherTime ? { label: "Autre temps", prefix: "otherTime" } : null);
+    .filter((row) => row.seconds !== null);
+  // Même ordre que le classement : SB 2026/2027, puis SB 2025, puis PB.
+  const row =
+    ["seasonBest", "previousSeasonBest", "personalBest"].map((prefix) => candidates.find((candidate) => candidate.prefix === prefix)).find(Boolean) ||
+    (request?.otherTime ? { label: "Autre temps", prefix: "otherTime" } : null);
 
   return row
     ? {
@@ -250,6 +257,9 @@ function createEmptyNationalRaceEventEntry() {
     seasonBest: "",
     seasonBestPlace: "",
     seasonBestDate: "",
+    previousSeasonBest: "",
+    previousSeasonBestPlace: "",
+    previousSeasonBestDate: "",
     otherTime: "",
     otherTimePlace: "",
     otherTimeDate: "",
@@ -266,6 +276,10 @@ function createEmptyNationalRaceForm() {
     confirmPassword: "",
     birthDate: "",
     gender: "",
+    // Information à part : les places réservées dépendent de la licence dans
+    // un club luxembourgeois, pas de la nationalité.
+    nationality: "",
+    worldAthleticsUrl: "",
     isLuxLicensed: "oui",
     club: "",
     bibNumber: "",

@@ -80,6 +80,13 @@ function formToRequestFields(form) {
     lastName: form.lastName.trim(),
     email: form.email.trim(),
     phone: form.phone.trim(),
+    // Date de naissance obligatoire : SELTEC en a besoin pour l'engagement.
+    birthDate: form.birthDate,
+    birthYear: form.birthDate ? new Date(form.birthDate).getFullYear() : null,
+    nationality: form.nationality.trim(),
+    worldAthleticsUrl: form.worldAthleticsUrl.trim(),
+    previousSeasonBest: form.previousSeasonBest.trim(),
+    previousSeasonBestDate: form.previousSeasonBestDate,
     isLuxLicensed: isLux,
     club: isLux ? form.club : "",
     bibNumber: isLux ? form.bibNumber.trim() : "",
@@ -98,6 +105,11 @@ const EMPTY_ADD_FORM = {
   lastName: "",
   email: "",
   phone: "",
+  birthDate: "",
+  nationality: "",
+  worldAthleticsUrl: "",
+  previousSeasonBest: "",
+  previousSeasonBestDate: "",
   isLuxLicensed: "oui",
   club: "",
   bibNumber: "",
@@ -128,7 +140,7 @@ function AddAthleteForm({ race, raceLabel, initial = null, onCancel, onSubmit, i
 
   function handleSubmit(event) {
     event.preventDefault();
-    if (form.seasonBest && parsePerformanceToSeconds(form.seasonBest) === null) {
+    if ([form.seasonBest, form.previousSeasonBest].some((value) => value && parsePerformanceToSeconds(value) === null)) {
       setError(text.timeFormat);
       return;
     }
@@ -160,6 +172,14 @@ function AddAthleteForm({ race, raceLabel, initial = null, onCancel, onSubmit, i
         <label className="field"><span>{text.email}</span><input name="email" required type="email" value={form.email} onChange={update} /></label>
         <label className="field"><span>{text.phone}</span><input name="phone" value={form.phone} onChange={update} /></label>
       </div>
+      <div className="field-grid">
+        <label className="field"><span>{text.birthDate}</span><input name="birthDate" required type="date" value={form.birthDate} onChange={update} /></label>
+        <label className="field"><span>{text.nationality}</span><input name="nationality" required value={form.nationality} onChange={update} /></label>
+      </div>
+      <label className="field">
+        <span>{text.worldAthletics}</span>
+        <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." type="url" value={form.worldAthleticsUrl} onChange={update} />
+      </label>
       <div className="field-grid">
         <label className="field">
           <span>{text.licence}</span>
@@ -194,6 +214,13 @@ function AddAthleteForm({ race, raceLabel, initial = null, onCancel, onSubmit, i
       <div className="field-grid">
         <label className="field"><span>{text.place}</span><input name="seasonBestPlace" value={form.seasonBestPlace} onChange={update} /></label>
         <label className="field"><span>{text.date}</span><input name="seasonBestDate" type="date" value={form.seasonBestDate} onChange={update} /></label>
+      </div>
+      <div className="field-grid">
+        <label className="field">
+          <span>{text.previousSeasonBest}</span>
+          <input inputMode="decimal" name="previousSeasonBest" placeholder={race.event === "800 m" ? "2:05.30" : "7.45"} value={form.previousSeasonBest} onChange={update} />
+        </label>
+        <label className="field"><span>{text.previousDate}</span><input name="previousSeasonBestDate" type="date" value={form.previousSeasonBestDate} onChange={update} /></label>
       </div>
       <label className="field"><span>{text.notes}</span><input name="notes" value={form.notes} onChange={update} /></label>
       {error ? <p className="form-error">{error}</p> : null}
@@ -546,9 +573,7 @@ function NationalRacesPage(props) {
           raceCode: selectedRace.code,
           source: "commission",
           addedBy: authorName,
-          birthDate: "",
-          birthYear: null,
-          isMinor: false,
+          isMinor: (getAthleteAge(fields.birthDate) ?? 18) < 18,
           status: "submitted",
           seltecEntered: false,
           submittedAt: serverTimestamp(),
@@ -660,6 +685,7 @@ function NationalRacesPage(props) {
         request.firstName,
         request.gender === "femme" ? "F" : "M",
         request.birthDate,
+        request.nationality,
         request.isLuxLicensed ? csv.yes : csv.no,
         request.isLuxLicensed ? request.club : request.foreignClub,
         request.bibNumber,
@@ -667,7 +693,9 @@ function NationalRacesPage(props) {
         request.foreignLicenceNumber,
         request.personalBest,
         request.seasonBest,
+        request.previousSeasonBest,
         request.otherTime,
+        request.worldAthleticsUrl,
         request.email,
         request.phone,
         request.seltecEntered ? csv.yes : csv.no,
@@ -837,6 +865,7 @@ function NationalRacesPage(props) {
                   {[
                     { label: "PB", prefix: "personalBest" },
                     { label: "SB", prefix: "seasonBest" },
+                    { label: "SB 2025", prefix: "previousSeasonBest" },
                     { label: "Autre", prefix: "otherTime" },
                   ]
                     .filter((row) => request[row.prefix])
@@ -847,6 +876,10 @@ function NationalRacesPage(props) {
                         {request[`${row.prefix}Date`] ? ` · ${formatDateForDisplay(request[`${row.prefix}Date`])}` : ""}
                       </span>
                     ))}
+                  {request.nationality ? <span>{fill(copy.nationality, { nationality: request.nationality })}</span> : null}
+                  {request.worldAthleticsUrl ? (
+                    <a href={request.worldAthleticsUrl} rel="noreferrer" target="_blank">{copy.worldAthleticsLink}</a>
+                  ) : null}
                   {request.notes ? <span>{fill(copy.note, { note: request.notes })}</span> : null}
                   <span>{request.email} · {request.phone}</span>
                   <span>{fill(copy.receivedOn, { date: formatDateTimeForDisplay(request.submittedAt) })}</span>
