@@ -122,8 +122,20 @@ service cloud.firestore {
         );
     }
 
+    // Budget et factures : admin et rôle « budget » seulement (décision de
+    // Margot du 10/11/2026 : les gestionnaires — dont les étudiants LUNEX —
+    // voient toute la gestion sauf le budget). Le dépôt d'une facture reste
+    // ouvert aux personnes autorisées dans Réglages (canManageInvoiceViaConfig).
+    function canManageBudget() {
+      return isAdmin() || isBudgetManager();
+    }
+
     function canManageInvoices() {
-      return isAdminOrManager() || isBudgetManager() || canManageInvoiceViaConfig();
+      return canManageBudget() || canManageInvoiceViaConfig();
+    }
+
+    function isInvoiceDocument(res) {
+      return res != null && res.data.get("documentType", "document") == "invoice";
     }
 
     function isWebsiteManager() {
@@ -720,7 +732,9 @@ service cloud.firestore {
     // Lecture ouverte aux bénévoles et chefs d'équipe (actuellement bloqué par catch-all)
     match /documents/{docId} {
       allow read:   if isSignedIn();
-      allow write:  if isAdminOrManager();
+      // Documents : admins et gestionnaires ; factures : budget seulement.
+      allow write:  if canManageBudget() ||
+        (isAdminOrManager() && !isInvoiceDocument(resource) && !isInvoiceDocument(request.resource));
       // Un chef d'équipe peut publier des documents pour son équipe et retirer
       // uniquement ceux qu'il a lui-même ajoutés (pas les documents admin/globaux).
       allow create: if (
@@ -745,7 +759,7 @@ service cloud.firestore {
     // ── Budget ────────────────────────────────────────────────────────────────
     // Le rôle "budget" pilote le module budget/factures sans être gestionnaire.
     match /budgets/{document=**} {
-      allow read, write: if isAdminOrManager() || isBudgetManager();
+      allow read, write: if canManageBudget();
     }
 
     // ── Site public (gestion contenu) ───────────────────────────────────────

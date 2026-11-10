@@ -657,7 +657,8 @@ export default function App() {
                   <Route path="maintenance" element={<MaintenancePage />} />
                 </Route>
               </Route>
-              <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "budget"]} />}>
+              {/* Budget : admin et rôle budget seulement (pas les gestionnaires). */}
+              <Route element={<RequireRouteAccess allowedRoles={["admin", "budget"]} />}>
                 <Route path="budget" element={<BudgetTrackingPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire"]} />}>
