@@ -3,11 +3,15 @@ import { serverTimestamp, setDoc } from "firebase/firestore";
 import { useTeamConfiguration } from "./config-hooks";
 import { useSiteEditionYear } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
-import { programmeDocRef, useSundayProgramme } from "./meeting-day-programme-hooks";
+import { programmeDocRef, useAllDayProgrammes, useDayProgramme } from "./meeting-day-programme-hooks";
+import { useOrganisationTeams } from "./organisation-hooks";
+import { findOrganisationTeam } from "./organisation-teams";
 import legacySunday2026 from "./sunday-2026-legacy.json";
+import legacyPlanning2026 from "./planning-2026-legacy.json";
 import {
   COQUE_PLACES,
   GENERAL_COLUMN_KEY,
+  PLANNING_DAYS,
   PROGRAMME_CATEGORIES,
   PROGRAMME_END,
   PROGRAMME_START,
@@ -16,26 +20,40 @@ import {
   buildProgrammeColumns,
   getCategory,
   getColumnActivities,
+  getPlanningDay,
+  getPlanningDayDate,
   getProgrammeTimeOptions,
   getTeamSubRoleNames,
   getTrackEntries,
   getVolunteerColumns,
   getVolunteerTimeline,
-  importLegacySunday,
+  importLegacyDay,
   layoutLanes,
   normalizeProgramme,
+  sortActivitiesForList,
   toMinutes,
   toTimeLabel,
 } from "./meeting-day-programme";
 
-// Équipes & affectations › Programme du dimanche : la grille du jour du
-// meeting (maquette design/programme validée par Margot le 09/11/2026).
+// Équipes & affectations › Planning : un onglet par jour de la CLIM Week
+// (lundi → lundi). Le dimanche est la grille du jour du meeting (maquette
+// design/programme validée par Margot le 09/11/2026) ; les autres jours
+// reprennent le même principe, en grille ou en liste (décision du 09/11/2026).
 
 const ROW_PX = 20;
 const SAVE_DELAY_MS = 600;
+const LEGACY = { ...legacyPlanning2026, sunday: legacySunday2026 };
 
 function newId(prefix) {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+}
+
+function formatDayDate(date) {
+  return date ? date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+}
+
+function columnLabel(column) {
+  return column.kind === "subrole" ? `${column.teamName} › ${column.name}` : column.name;
 }
 
 function ActivityBlock({ activity, lane, laneCount, selected, onSelect, showMulti }) {
@@ -43,7 +61,7 @@ function ActivityBlock({ activity, lane, laneCount, selected, onSelect, showMult
   const top = ((toMinutes(activity.start) - PROGRAMME_START) / PROGRAMME_STEP) * ROW_PX;
   const height = Math.max(((toMinutes(activity.end) - toMinutes(activity.start)) / PROGRAMME_STEP) * ROW_PX - 1, ROW_PX - 1);
   const width = 100 / laneCount;
-  const details = [activity.place, activity.owner && `Resp. ${activity.owner}`, activity.note].filter(Boolean).join(" · ");
+  const details = [activity.people, activity.place, activity.owner && `Resp. ${activity.owner}`, activity.note].filter(Boolean).join(" · ");
   return (
     <button
       className={`mdp-block${selected ? " mdp-block--selected" : ""}`}
@@ -64,7 +82,8 @@ function ActivityBlock({ activity, lane, laneCount, selected, onSelect, showMult
     >
       <small>{activity.start}</small> {activity.title}
       {showMulti && activity.columns.length > 1 ? <span className="mdp-block__multi">×{activity.columns.length}</span> : null}
-      {activity.place && height > 34 ? <small className="mdp-block__place">{activity.place}</small> : null}
+      {activity.people && height > 34 ? <small className="mdp-block__place">{activity.people}</small> : null}
+      {!activity.people && activity.place && height > 34 ? <small className="mdp-block__place">{activity.place}</small> : null}
     </button>
   );
 }
@@ -73,14 +92,49 @@ export function MeetingDayProgrammePage() {
   const { siteEditionYear, loading: yearLoading } = useSiteEditionYear();
   const { editions } = useMeetingEditions();
   const { roles: teams } = useTeamConfiguration();
+  const { teams: orgTeams } = useOrganisationTeams(true);
   const year = siteEditionYear || editions[0]?.year || null;
   const edition = editions.find((item) => Number(item.year || item.id) === Number(year)) || null;
-  const { programme: remoteProgramme, exists, loading, error } = useSundayProgramme(year);
+  const allDays = useAllDayProgrammes(year);
+  const [dayKey, setDayKey] = useState("sunday");
+
+  if (yearLoading) return <p className="mdp-status">Chargement du planning…</p>;
+  if (!year) return <p className="mdp-status">Choisissez d'abord l'édition affichée dans Site web › Édition.</p>;
+
+  return (
+    <section className="mdp-planning">
+      <nav className="mdp-days" aria-label="Jours du planning">
+        {PLANNING_DAYS.map((day) => {
+          const date = getPlanningDayDate(edition?.date, day.key);
+          const count = allDays[day.key]?.exists ? allDays[day.key].programme.activities.length : 0;
+          return (
+            <button
+              key={day.key}
+              aria-current={day.key === dayKey ? "page" : undefined}
+              className={`mdp-day${day.key === dayKey ? " mdp-day--on" : ""}${day.key === "sunday" ? " mdp-day--meeting" : ""}`}
+              type="button"
+              onClick={() => setDayKey(day.key)}
+            >
+              <strong>{day.key === "sunday" ? "Dimanche" : day.label}</strong>
+              <span>{[formatDayDate(date), count ? `${count}` : "—"].filter(Boolean).join(" · ")}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <PlanningDayEditor key={`${year}-${dayKey}`} dayKey={dayKey} edition={edition} orgTeams={orgTeams} teams={teams} year={year} />
+    </section>
+  );
+}
+
+function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
+  const day = getPlanningDay(dayKey);
+  const isMeetingDay = dayKey === "sunday";
+  const { programme: remoteProgramme, exists, loading, error } = useDayProgramme(year, dayKey);
 
   const [draft, setDraft] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [hiddenCategories, setHiddenCategories] = useState(() => new Set());
-  const [view, setView] = useState("grid");
+  const [view, setView] = useState("board");
   const [teamViewKey, setTeamViewKey] = useState("");
   const [sidePanel, setSidePanel] = useState("activity");
   const [newColumnName, setNewColumnName] = useState("");
@@ -90,16 +144,22 @@ export function MeetingDayProgrammePage() {
 
   // Le brouillon local sert à l'édition ; il suit Firestore tant qu'on ne tape pas.
   const programme = draft || remoteProgramme;
-  const columns = useMemo(() => (programme ? buildProgrammeColumns(teams, programme) : []), [programme, teams]);
-  const trackEntries = useMemo(() => getTrackEntries(edition?.timetable), [edition]);
+  const columns = useMemo(() => (programme ? buildProgrammeColumns(teams, programme, orgTeams) : []), [programme, teams, orgTeams]);
+  const allColumns = useMemo(
+    () => (programme ? buildProgrammeColumns(teams, programme, orgTeams, { all: true }) : []),
+    [programme, teams, orgTeams],
+  );
+  const trackEntries = useMemo(() => (isMeetingDay ? getTrackEntries(edition?.timetable) : []), [edition, isMeetingDay]);
   const timeOptions = useMemo(() => getProgrammeTimeOptions(), []);
   const rows = (PROGRAMME_END - PROGRAMME_START) / PROGRAMME_STEP;
   const selected = programme?.activities.find((activity) => activity.id === selectedId) || null;
+  const dayDate = getPlanningDayDate(edition?.date, dayKey);
+  const dayTitle = `${isMeetingDay ? "Dimanche" : day.label}${dayDate ? ` ${formatDayDate(dayDate)}` : ""}`;
 
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
   function update(mutator) {
-    const next = normalizeProgramme(mutator(structuredClone(programme)));
+    const next = normalizeProgramme(mutator(structuredClone(programme)), dayKey);
     setDraft(next);
     setSaveState("Enregistrement…");
     saveVersion.current += 1;
@@ -107,13 +167,13 @@ export function MeetingDayProgrammePage() {
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
       try {
-        await setDoc(programmeDocRef(year), { ...next, updatedAt: serverTimestamp() });
+        await setDoc(programmeDocRef(year, dayKey), { ...next, updatedAt: serverTimestamp() });
         // Une saisie arrivée pendant l'enregistrement garde son brouillon.
         if (version !== saveVersion.current) return;
         setSaveState("Enregistré");
         setDraft(null);
       } catch (saveError) {
-        console.error("Impossible d'enregistrer le programme du dimanche.", saveError);
+        console.error("Impossible d'enregistrer le planning.", saveError);
         setSaveState("L'enregistrement a échoué. Réessayez dans un instant.");
       }
     }, SAVE_DELAY_MS);
@@ -144,36 +204,50 @@ export function MeetingDayProgrammePage() {
         place: "",
         owner: "",
         note: "",
+        people: "",
+        allDay: false,
         columns: columnKey ? [columnKey] : [GENERAL_COLUMN_KEY],
       });
       return current;
     });
     setSelectedId(id);
     setSidePanel("activity");
-    setView("grid");
+    setView("board");
   }
 
   function importLastYear() {
-    if (exists && !window.confirm("Remplacer le programme actuel par le dimanche de l'an dernier ?")) return;
-    update(() => importLegacySunday(legacySunday2026, teams));
+    if (exists && !window.confirm(`Remplacer le planning actuel du ${dayTitle.toLowerCase()} par celui de l'an dernier ?`)) return;
+    update(() => importLegacyDay(dayKey, LEGACY, teams, orgTeams, findOrganisationTeam));
   }
 
-  if (yearLoading || loading) return <p className="mdp-status">Chargement du programme du dimanche…</p>;
-  if (!year) return <p className="mdp-status">Choisissez d'abord l'édition affichée dans Site web › Édition.</p>;
+  function toggleSet(field, id, on) {
+    update((current) => {
+      current[field] = on ? [...new Set([...current[field], id])] : current[field].filter((item) => item !== id);
+      return current;
+    });
+  }
+
+  if (loading) return <p className="mdp-status">Chargement du {dayTitle.toLowerCase()}…</p>;
   if (error) return <p className="mdp-status mdp-status--error">{error}</p>;
+
+  const hasLegacy = Boolean(LEGACY[dayKey]?.activities?.length || LEGACY.week?.some((row) => row.day === dayKey));
 
   if (!exists && !draft) {
     return (
       <section className="mdp-empty">
-        <h3>Programme du dimanche {year}</h3>
+        <h3>Planning · {dayTitle}</h3>
         <p>
-          Le programme est vide. Partez du dimanche de l'an dernier (fichier « Task and Organisation »), puis ajustez
-          les horaires et les activités.
+          {hasLegacy
+            ? "Ce jour est vide. Partez de l'an dernier (fichier « Task and Organisation » : grille des 3 jours et CLIM Week), puis ajustez."
+            : "Ce jour est vide. Ajoutez des activités, en grille (colonnes par équipe) ou en liste."}
+          {!orgTeams.length ? " Astuce : créez d'abord les équipes de l'organisation (onglet Équipes organisation) pour retrouver Apex, TV, LUNEX… en colonnes." : ""}
         </p>
         <div className="mdp-empty__actions">
-          <button className="button button--primary" type="button" onClick={importLastYear}>
-            Importer le dimanche de l'an dernier
-          </button>
+          {hasLegacy ? (
+            <button className="button button--primary" type="button" onClick={importLastYear}>
+              Importer l'an dernier
+            </button>
+          ) : null}
           <button className="button button--secondary" type="button" onClick={() => update((current) => current)}>
             Commencer vide
           </button>
@@ -182,21 +256,38 @@ export function MeetingDayProgrammePage() {
     );
   }
 
-  const volunteerColumnsChoices = columns.filter((column) => column.kind === "team" || column.kind === "subrole");
-  const teamColumn = volunteerColumnsChoices.find((column) => column.key === teamViewKey) || volunteerColumnsChoices[0];
+  const teamViewChoices = columns.filter((column) => column.kind === "team" || column.kind === "subrole" || column.kind === "org");
+  const teamColumn = teamViewChoices.find((column) => column.key === teamViewKey) || teamViewChoices[0];
   const teamTimeline = teamColumn
-    ? getVolunteerTimeline(
-        programme.activities,
-        getVolunteerColumns(columns, [teamColumn.teamName], teamColumn.kind === "subrole" ? { [teamColumn.teamName]: teamColumn.name } : {}),
-      )
+    ? teamColumn.kind === "org"
+      ? getVolunteerTimeline(programme.activities, [columns[0], teamColumn])
+      : getVolunteerTimeline(
+          programme.activities,
+          getVolunteerColumns(columns, [teamColumn.teamName], teamColumn.kind === "subrole" ? { [teamColumn.teamName]: teamColumn.name } : {}),
+        )
     : [];
+  const visibleActivities = programme.activities.filter((activity) => !hiddenCategories.has(activity.category));
+  const allDayActivities = visibleActivities.filter((activity) => activity.allDay);
+  const listActivities = sortActivitiesForList(visibleActivities);
+  const columnByKey = new Map(allColumns.map((column) => [column.key, column]));
+  const isGrid = programme.mode === "grid";
+  // Une colonne où des activités se chevauchent s’élargit (une voie = 92 px,
+  // 5 voies au plus) pour rester lisible.
+  const columnLayouts = columns.map((column) => {
+    const activities = getColumnActivities(visibleActivities, column).filter((activity) => !activity.allDay);
+    const { laneById, laneCount } = layoutLanes(activities);
+    return { column, activities, laneById, laneCount, width: laneCount <= 1 ? 132 : Math.min(laneCount, 5) * 92 };
+  });
 
   return (
     <section className="mdp">
       <div className="mdp-bar">
-        <div className="mdp-seg">
-          <button className={view === "grid" ? "is-on" : ""} type="button" onClick={() => setView("grid")}>
+        <div className="mdp-seg" aria-label="Affichage du jour">
+          <button className={view === "board" && isGrid ? "is-on" : ""} type="button" onClick={() => { setView("board"); if (!isGrid) update((current) => ({ ...current, mode: "grid" })); }}>
             Grille
+          </button>
+          <button className={view === "board" && !isGrid ? "is-on" : ""} type="button" onClick={() => { setView("board"); if (isGrid) update((current) => ({ ...current, mode: "list" })); }}>
+            Liste
           </button>
           <button className={view === "team" ? "is-on" : ""} type="button" onClick={() => setView("team")}>
             Vue d'une équipe
@@ -204,9 +295,9 @@ export function MeetingDayProgrammePage() {
         </div>
         {view === "team" ? (
           <select value={teamColumn?.key || ""} onChange={(event) => setTeamViewKey(event.target.value)}>
-            {volunteerColumnsChoices.map((column) => (
+            {teamViewChoices.map((column) => (
               <option key={column.key} value={column.key}>
-                {column.kind === "subrole" ? `${column.teamName} › ${column.name}` : column.name}
+                {column.kind === "org" ? `Organisation · ${column.name}` : columnLabel(column)}
               </option>
             ))}
           </select>
@@ -246,21 +337,18 @@ export function MeetingDayProgrammePage() {
 
       {view === "team" && teamColumn ? (
         <div className="mdp-team">
-          <p className="mdp-team__eyebrow">Ce que voient le chef d'équipe et les bénévoles · lecture seule</p>
+          <p className="mdp-team__eyebrow">Ce que voit l'équipe · lecture seule</p>
           <h3>
-            {teamColumn.kind === "subrole" ? `${teamColumn.teamName} › ` : ""}
-            {teamColumn.name} — dimanche {year}
+            {columnLabel(teamColumn)} — {dayTitle.toLowerCase()} {year}
           </h3>
-          <p className="mdp-muted">Leur équipe + les activités générales (bordure pointillée), dans leur espace MyCLIM.</p>
+          <p className="mdp-muted">Leur équipe + les activités générales (bordure pointillée).</p>
           <div className="mdp-timeline">
             {teamTimeline.length === 0 ? <p className="mdp-muted">Aucune activité.</p> : null}
             {teamTimeline.map((activity) => {
               const category = getCategory(activity.category);
               return (
                 <div key={activity.id} className="mdp-timeline__row">
-                  <span className="mdp-timeline__time">
-                    {activity.start} – {activity.end}
-                  </span>
+                  <span className="mdp-timeline__time">{activity.allDay ? "Journée" : `${activity.start} – ${activity.end}`}</span>
                   <div
                     className={`mdp-timeline__body${activity.general ? " mdp-timeline__body--general" : ""}`}
                     style={{ background: category.background, borderLeftColor: category.border }}
@@ -269,7 +357,10 @@ export function MeetingDayProgrammePage() {
                       {activity.title}
                       {activity.general ? <span className="mdp-muted"> · général</span> : null}
                     </strong>
-                    <span>{[activity.place, activity.owner && `Resp. ${activity.owner}`, activity.note].filter(Boolean).join(" · ") || category.label}</span>
+                    <span>
+                      {[activity.people, activity.place, activity.owner && `Resp. ${activity.owner}`, activity.note].filter(Boolean).join(" · ") ||
+                        category.label}
+                    </span>
                   </div>
                 </div>
               );
@@ -278,119 +369,200 @@ export function MeetingDayProgrammePage() {
         </div>
       ) : (
         <div className="mdp-board">
-          <div className="mdp-gridwrap">
-            <div className="mdp-grid" style={{ gridTemplateColumns: `46px 160px repeat(${columns.length}, 132px)` }}>
-              <div className="mdp-hcell mdp-hcell--time" />
-              <div className="mdp-hcell mdp-hcell--track">
-                Programme piste<small>timetable de l'édition {year}</small>
-              </div>
-              {columns.map((column) => (
-                <div key={column.key} className={`mdp-hcell mdp-hcell--${column.kind}`} title={column.name}>
-                  {column.kind === "subrole" ? <span className="mdp-hcell__team">{column.teamName} ›</span> : null}
-                  {column.name}
-                  {column.kind === "general" ? <small>visible par toutes les équipes</small> : null}
-                  {column.kind === "extra" ? <small>colonne libre</small> : null}
+          {isGrid ? (
+            <div className="mdp-gridwrap">
+              <div
+                className="mdp-grid"
+                style={{ gridTemplateColumns: `46px ${isMeetingDay ? "160px " : ""}${columnLayouts.map((layout) => `${layout.width}px`).join(" ")}` }}
+              >
+                <div className="mdp-hcell mdp-hcell--time" />
+                {isMeetingDay ? (
+                  <div className="mdp-hcell mdp-hcell--track">
+                    Programme piste<small>timetable de l'édition {year}</small>
+                  </div>
+                ) : null}
+                {columns.map((column) => (
+                  <div key={column.key} className={`mdp-hcell mdp-hcell--${column.kind}`} title={column.name}>
+                    {column.kind === "subrole" ? <span className="mdp-hcell__team">{column.teamName} ›</span> : null}
+                    {column.name}
+                    {column.kind === "general" ? <small>visible par toutes les équipes</small> : null}
+                    {column.kind === "org" ? <small>organisation</small> : null}
+                    {column.kind === "extra" ? <small>colonne libre</small> : null}
+                  </div>
+                ))}
+
+                {allDayActivities.length ? (
+                  <>
+                    <div className="mdp-allday-label">Journée</div>
+                    {isMeetingDay ? <div className="mdp-allday" /> : null}
+                    {columns.map((column) => (
+                      <div key={column.key} className="mdp-allday">
+                        {allDayActivities
+                          .filter((activity) => activityMatchesColumn(activity, column))
+                          .map((activity) => (
+                            <button
+                              key={activity.id}
+                              className={`mdp-chip${activity.id === selectedId ? " mdp-chip--on" : ""}`}
+                              style={{ borderLeftColor: getCategory(activity.category).border }}
+                              title={[activity.title, activity.people, activity.note].filter(Boolean).join(" · ")}
+                              type="button"
+                              onClick={() => {
+                                setSelectedId(activity.id);
+                                setSidePanel("activity");
+                              }}
+                            >
+                              {activity.title}
+                              {activity.people ? <small> · {activity.people}</small> : null}
+                            </button>
+                          ))}
+                      </div>
+                    ))}
+                  </>
+                ) : null}
+
+                <div className="mdp-tcol">
+                  {Array.from({ length: rows }, (_, index) => {
+                    const minute = PROGRAMME_START + index * PROGRAMME_STEP;
+                    return (
+                      <div key={minute} className={`mdp-tlabel${minute % 60 === 0 ? " mdp-tlabel--hour" : ""}`}>
+                        {minute % 30 === 0 ? toTimeLabel(minute) : ""}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
 
-              <div className="mdp-tcol">
-                {Array.from({ length: rows }, (_, index) => {
-                  const minute = PROGRAMME_START + index * PROGRAMME_STEP;
-                  return (
-                    <div key={minute} className={`mdp-tlabel${minute % 60 === 0 ? " mdp-tlabel--hour" : ""}`}>
-                      {minute % 30 === 0 ? toTimeLabel(minute) : ""}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mdp-col mdp-col--track">
-                {Array.from({ length: rows }, (_, index) => {
-                  const minute = PROGRAMME_START + index * PROGRAMME_STEP;
-                  const entries = trackEntries.filter(
-                    (entry) => toMinutes(entry.time) >= minute && toMinutes(entry.time) < minute + PROGRAMME_STEP,
-                  );
-                  const text = entries.map((entry) => `${entry.time} ${entry.label}`).join("\n");
-                  return (
-                    <div key={minute} className={`mdp-slot${(minute + PROGRAMME_STEP) % 60 === 0 ? " mdp-slot--hour" : ""}`} title={text}>
-                      {entries.length ? (
-                        <span className="mdp-track">
-                          {entries.at(0).time} {entries.at(0).label}
-                          {entries.length > 1 ? ` +${entries.length - 1}` : ""}
-                        </span>
-                      ) : null}
-                    </div>
-                  );
-                })}
-                {trackEntries.length === 0 ? <p className="mdp-track__empty">Timetable de l'édition pas encore saisi (Site web › Édition).</p> : null}
-              </div>
-
-              {columns.map((column) => {
-                const activities = getColumnActivities(programme.activities, column).filter(
-                  (activity) => !hiddenCategories.has(activity.category),
-                );
-                const { laneById, laneCount } = layoutLanes(activities);
-                return (
-                  <div key={column.key} className={`mdp-col mdp-col--${column.kind}`}>
+                {isMeetingDay ? (
+                  <div className="mdp-col mdp-col--track">
                     {Array.from({ length: rows }, (_, index) => {
                       const minute = PROGRAMME_START + index * PROGRAMME_STEP;
+                      const entries = trackEntries.filter(
+                        (entry) => toMinutes(entry.time) >= minute && toMinutes(entry.time) < minute + PROGRAMME_STEP,
+                      );
+                      const text = entries.map((entry) => `${entry.time} ${entry.label}`).join("\n");
                       return (
-                        <button
-                          key={minute}
-                          aria-label={`Ajouter une activité à ${toTimeLabel(minute)} dans ${column.name}`}
-                          className={`mdp-slot mdp-slot--add${(minute + PROGRAMME_STEP) % 60 === 0 ? " mdp-slot--hour" : ""}`}
-                          type="button"
-                          onClick={() => addActivity(column.key, toTimeLabel(minute))}
-                        />
+                        <div key={minute} className={`mdp-slot${(minute + PROGRAMME_STEP) % 60 === 0 ? " mdp-slot--hour" : ""}`} title={text}>
+                          {entries.length ? (
+                            <span className="mdp-track">
+                              {entries.at(0).time} {entries.at(0).label}
+                              {entries.length > 1 ? ` +${entries.length - 1}` : ""}
+                            </span>
+                          ) : null}
+                        </div>
                       );
                     })}
-                    {activities.map((activity) => (
-                      <ActivityBlock
-                        key={activity.id}
-                        activity={activity}
-                        lane={laneById.get(activity.id)}
-                        laneCount={laneCount}
-                        selected={activity.id === selectedId}
-                        showMulti
-                        onSelect={(id) => {
-                          setSelectedId(id);
-                          setSidePanel("activity");
-                        }}
-                      />
-                    ))}
+                    {trackEntries.length === 0 ? <p className="mdp-track__empty">Timetable de l'édition pas encore saisi (Site web › Édition).</p> : null}
                   </div>
-                );
-              })}
+                ) : null}
+
+                {columnLayouts.map(({ column, activities, laneById, laneCount }) => {
+                  return (
+                    <div key={column.key} className={`mdp-col mdp-col--${column.kind}`}>
+                      {Array.from({ length: rows }, (_, index) => {
+                        const minute = PROGRAMME_START + index * PROGRAMME_STEP;
+                        return (
+                          <button
+                            key={minute}
+                            aria-label={`Ajouter une activité à ${toTimeLabel(minute)} dans ${column.name}`}
+                            className={`mdp-slot mdp-slot--add${(minute + PROGRAMME_STEP) % 60 === 0 ? " mdp-slot--hour" : ""}`}
+                            type="button"
+                            onClick={() => addActivity(column.key, toTimeLabel(minute))}
+                          />
+                        );
+                      })}
+                      {activities.map((activity) => (
+                        <ActivityBlock
+                          key={activity.id}
+                          activity={activity}
+                          lane={laneById.get(activity.id)}
+                          laneCount={laneCount}
+                          selected={activity.id === selectedId}
+                          showMulti
+                          onSelect={(id) => {
+                            setSelectedId(id);
+                            setSidePanel("activity");
+                          }}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="mdp-listwrap">
+              <table className="data-table data-table--sheet mdp-list">
+                <thead>
+                  <tr>
+                    <th>Heure</th>
+                    <th>Tâche / activité</th>
+                    <th>Équipes</th>
+                    <th>Personnes</th>
+                    <th>Lieu</th>
+                    <th>Infos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listActivities.length === 0 ? (
+                    <tr>
+                      <td className="orgt-muted" colSpan={6}>
+                        Aucune activité ce jour-là. « + Activité » pour en ajouter une.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {listActivities.map((activity) => (
+                    <tr
+                      key={activity.id}
+                      className={activity.id === selectedId ? "orgt-row--active" : ""}
+                      onClick={() => {
+                        setSelectedId(activity.id);
+                        setSidePanel("activity");
+                      }}
+                    >
+                      <td className="mdp-list__time">{activity.allDay ? "Journée" : `${activity.start}–${activity.end}`}</td>
+                      <td className="mdp-list__title">
+                        <i style={{ background: getCategory(activity.category).border }} />
+                        {activity.title}
+                      </td>
+                      <td>
+                        {activity.columns
+                          .map((key) => columnByKey.get(key))
+                          .filter(Boolean)
+                          .map((column) => (column.kind === "general" ? "Général" : columnLabel(column)))
+                          .join(", ") || "—"}
+                      </td>
+                      <td>{activity.people || "—"}</td>
+                      <td>{activity.place || "—"}</td>
+                      <td className="mdp-list__note">{[activity.owner && `Resp. ${activity.owner}`, activity.note].filter(Boolean).join(" · ") || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <aside className="mdp-panel">
             {sidePanel === "columns" ? (
               <>
-                <h3>Colonnes</h3>
-                <p className="mdp-muted">Les équipes viennent d'Équipes. Une équipe détaillée a une colonne par sous-rôle.</p>
+                <h3>Colonnes du {dayTitle.toLowerCase()}</h3>
+                <p className="mdp-muted">Équipes bénévoles affichées ce jour-là. Une équipe détaillée a une colonne par sous-rôle.</p>
                 <div className="mdp-teams">
                   {teams.map((team) => {
+                    const shown = !programme.hiddenTeamIds.includes(team.id);
                     const split = programme.splitTeamIds.includes(team.id);
                     const subRoles = getTeamSubRoleNames(team, programme);
                     return (
                       <div key={team.id} className="mdp-teams__row">
                         <label>
-                          <input
-                            checked={split}
-                            type="checkbox"
-                            onChange={(event) =>
-                              update((current) => {
-                                current.splitTeamIds = event.target.checked
-                                  ? [...current.splitTeamIds, team.id]
-                                  : current.splitTeamIds.filter((id) => id !== team.id);
-                                return current;
-                              })
-                            }
-                          />
+                          <input checked={shown} type="checkbox" onChange={(event) => toggleSet("hiddenTeamIds", team.id, !event.target.checked)} />
                           {team.roleName}
                         </label>
-                        {split ? (
+                        {shown ? (
+                          <label className="mdp-teams__split">
+                            <input checked={split} type="checkbox" onChange={(event) => toggleSet("splitTeamIds", team.id, event.target.checked)} />
+                            par sous-rôle
+                          </label>
+                        ) : null}
+                        {shown && split ? (
                           <div className="mdp-teams__subs">
                             {subRoles.map((subRole) => (
                               <span key={subRole} className="mdp-tag">
@@ -416,8 +588,27 @@ export function MeetingDayProgrammePage() {
                     );
                   })}
                 </div>
+                <h3 className="mdp-panel__sub">Équipes de l'organisation</h3>
+                {orgTeams.length ? (
+                  <div className="mdp-teams">
+                    {orgTeams.map((team) => (
+                      <div key={team.id} className="mdp-teams__row">
+                        <label>
+                          <input
+                            checked={programme.visibleOrgTeamIds.includes(team.id)}
+                            type="checkbox"
+                            onChange={(event) => toggleSet("visibleOrgTeamIds", team.id, event.target.checked)}
+                          />
+                          {team.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mdp-muted">Aucune équipe : créez-les dans l'onglet Équipes organisation.</p>
+                )}
                 <h3 className="mdp-panel__sub">Colonnes libres</h3>
-                <p className="mdp-muted">Hors bénévoles : staff, prestataires, technique…</p>
+                <p className="mdp-muted">Pour ce qui n'est ni une équipe bénévole ni une équipe de l'organisation.</p>
                 {programme.extraColumns.map((column) => (
                   <div key={column.id} className="mdp-extra">
                     <input
@@ -454,7 +645,7 @@ export function MeetingDayProgrammePage() {
                   </div>
                 ))}
                 <div className="mdp-extra">
-                  <input placeholder="Nouvelle colonne (ex. Apex)" value={newColumnName} onChange={(event) => setNewColumnName(event.target.value)} />
+                  <input placeholder="Nouvelle colonne" value={newColumnName} onChange={(event) => setNewColumnName(event.target.value)} />
                   <button
                     className="mdp-btn"
                     type="button"
@@ -471,9 +662,11 @@ export function MeetingDayProgrammePage() {
                     Ajouter
                   </button>
                 </div>
-                <button className="mdp-btn mdp-panel__import" type="button" onClick={importLastYear}>
-                  Réimporter le dimanche de l'an dernier
-                </button>
+                {hasLegacy ? (
+                  <button className="mdp-btn mdp-panel__import" type="button" onClick={importLastYear}>
+                    Réimporter l'an dernier pour ce jour
+                  </button>
+                ) : null}
               </>
             ) : selected ? (
               <>
@@ -482,24 +675,30 @@ export function MeetingDayProgrammePage() {
                   <span>Titre</span>
                   <input value={selected.title} onChange={(event) => updateSelected({ title: event.target.value })} />
                 </label>
-                <div className="mdp-field-row">
-                  <label className="mdp-field">
-                    <span>Début</span>
-                    <select value={selected.start} onChange={(event) => updateSelected({ start: event.target.value })}>
-                      {timeOptions.map((time) => (
-                        <option key={time}>{time}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="mdp-field">
-                    <span>Fin</span>
-                    <select value={selected.end} onChange={(event) => updateSelected({ end: event.target.value })}>
-                      {timeOptions.map((time) => (
-                        <option key={time}>{time}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                <label className="mdp-check">
+                  <input checked={selected.allDay} type="checkbox" onChange={(event) => updateSelected({ allDay: event.target.checked })} />
+                  Toute la journée (poste, sans horaire précis)
+                </label>
+                {!selected.allDay ? (
+                  <div className="mdp-field-row">
+                    <label className="mdp-field">
+                      <span>Début</span>
+                      <select value={selected.start} onChange={(event) => updateSelected({ start: event.target.value })}>
+                        {timeOptions.map((time) => (
+                          <option key={time}>{time}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="mdp-field">
+                      <span>Fin</span>
+                      <select value={selected.end} onChange={(event) => updateSelected({ end: event.target.value })}>
+                        {timeOptions.map((time) => (
+                          <option key={time}>{time}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
                 <label className="mdp-field">
                   <span>Catégorie</span>
                   <select value={selected.category} onChange={(event) => updateSelected({ category: event.target.value })}>
@@ -509,6 +708,14 @@ export function MeetingDayProgrammePage() {
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className="mdp-field">
+                  <span>Personnes / effectif</span>
+                  <input
+                    placeholder="ex. LUNEX (2), Margot, All hands"
+                    value={selected.people}
+                    onChange={(event) => updateSelected({ people: event.target.value })}
+                  />
                 </label>
                 <div className="mdp-field-row">
                   <label className="mdp-field">
@@ -531,7 +738,7 @@ export function MeetingDayProgrammePage() {
                 </label>
                 <div className="mdp-field">
                   <span>
-                    Colonnes ({selected.columns.length}){" "}
+                    Affectée à ({selected.columns.length}){" "}
                     <button
                       className="mdp-linkbtn"
                       type="button"
@@ -546,17 +753,18 @@ export function MeetingDayProgrammePage() {
                         })
                       }
                     >
-                      toutes les équipes
+                      toutes les équipes bénévoles
                     </button>
                   </span>
                   <div className="mdp-collist">
                     {[
                       ["general", "Général"],
-                      ["team", "Équipes"],
+                      ["team", "Équipes bénévoles"],
                       ["subrole", "Sous-rôles"],
+                      ["org", "Équipes de l'organisation"],
                       ["extra", "Colonnes libres"],
                     ].map(([kind, label]) => {
-                      const group = columns.filter((column) => column.kind === kind);
+                      const group = allColumns.filter((column) => column.kind === kind);
                       if (!group.length) return null;
                       return (
                         <div key={kind}>
@@ -566,17 +774,32 @@ export function MeetingDayProgrammePage() {
                               <input
                                 checked={activityMatchesColumn(selected, column)}
                                 type="checkbox"
-                                onChange={(event) =>
-                                  updateSelected({
-                                    columns: event.target.checked
-                                      ? [...selected.columns, column.key]
-                                      : selected.columns.filter(
-                                          (key) => key !== column.key && !(column.kind === "subrole" && key === `team:${column.teamId}`),
-                                        ),
-                                  })
-                                }
+                                onChange={(event) => {
+                                  const on = event.target.checked;
+                                  // Un seul enregistrement : l'affectation, et l'équipe cochée
+                                  // rendue visible dans la grille de ce jour.
+                                  update((current) => {
+                                    current.activities = current.activities.map((activity) =>
+                                      activity.id !== selected.id
+                                        ? activity
+                                        : {
+                                            ...activity,
+                                            columns: on
+                                              ? [...activity.columns, column.key]
+                                              : activity.columns.filter(
+                                                  (key) => key !== column.key && !(column.kind === "subrole" && key === `team:${column.teamId}`),
+                                                ),
+                                          },
+                                    );
+                                    if (on && column.kind === "org") current.visibleOrgTeamIds = [...new Set([...current.visibleOrgTeamIds, column.orgTeamId])];
+                                    if (on && (column.kind === "team" || column.kind === "subrole")) {
+                                      current.hiddenTeamIds = current.hiddenTeamIds.filter((id) => id !== column.teamId);
+                                    }
+                                    return current;
+                                  });
+                                }}
                               />
-                              {column.kind === "subrole" ? `${column.teamName} › ${column.name}` : column.name}
+                              {columnLabel(column)}
                             </label>
                           ))}
                         </div>
@@ -622,7 +845,9 @@ export function MeetingDayProgrammePage() {
               <>
                 <h3>Activité</h3>
                 <p className="mdp-muted">
-                  Cliquez sur un bloc pour le modifier, ou sur une case vide pour ajouter une activité à cette heure dans cette colonne.
+                  {isGrid
+                    ? "Cliquez sur un bloc pour le modifier, ou sur une case vide pour ajouter une activité à cette heure dans cette colonne."
+                    : "Cliquez sur une ligne pour la modifier, ou « + Activité » pour en ajouter une."}
                 </p>
                 <p className="mdp-muted">
                   {programme.activities.length} activités · {columns.length} colonnes · 8:00 à 20:00 par 15 min.
@@ -635,4 +860,3 @@ export function MeetingDayProgrammePage() {
     </section>
   );
 }
-

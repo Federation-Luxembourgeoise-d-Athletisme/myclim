@@ -122,8 +122,20 @@ service cloud.firestore {
         );
     }
 
+    // Budget et factures : admin et rôle « budget » seulement (décision de
+    // Margot du 10/11/2026 : les gestionnaires — dont les étudiants LUNEX —
+    // voient toute la gestion sauf le budget). Le dépôt d'une facture reste
+    // ouvert aux personnes autorisées dans Réglages (canManageInvoiceViaConfig).
+    function canManageBudget() {
+      return isAdmin() || isBudgetManager();
+    }
+
     function canManageInvoices() {
-      return isAdminOrManager() || isBudgetManager() || canManageInvoiceViaConfig();
+      return canManageBudget() || canManageInvoiceViaConfig();
+    }
+
+    function isInvoiceDocument(res) {
+      return res != null && res.data.get("documentType", "document") == "invoice";
     }
 
     function isWebsiteManager() {
@@ -409,6 +421,40 @@ service cloud.firestore {
       allow write: if isAdminOrManager();
     }
 
+    // Équipes de l'organisation (staff, communication, LUNEX, Apex…) : elles
+    // contiennent les e-mails et téléphones du staff → admins et gestionnaires.
+    match /appSettings/organisationTeams {
+      allow read, write: if isAdminOrManager();
+    }
+
+    // Fiche d'un membre de l'organisation (identifiant = son e-mail) : ses
+    // équipes, pour « Mon planning ». Lisible par lui seul ; recopiée par les
+    // admins et gestionnaires à chaque enregistrement des équipes.
+    match /organisationMembers/{memberEmail} {
+      allow read: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.email != null && request.auth.token.email.lower() == memberEmail);
+      allow write: if isAdminOrManager();
+    }
+
+    // Rétroplanning : admins et gestionnaires gèrent tout ; un membre d'une
+    // équipe de l'organisation (son e-mail est dans perimeterEmails, recalculé
+    // à chaque enregistrement des équipes) lit les tâches de son périmètre et
+    // peut seulement en changer le statut.
+    function isInTaskPerimeter(data) {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in data.perimeterEmails;
+    }
+
+    match /meetingTasks/{taskId} {
+      allow read: if isAdminOrManager() || isInTaskPerimeter(resource.data);
+      allow create, delete: if isAdminOrManager();
+      allow update: if isAdminOrManager() ||
+        (isInTaskPerimeter(resource.data) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"]) &&
+         request.resource.data.status in ["todo", "doing", "done"]);
+    }
+
     match /appSettings/teamsConfiguration {
       allow read:  if isSignedIn();
       allow write: if isAdminOrManager();
@@ -689,7 +735,9 @@ service cloud.firestore {
     // Lecture ouverte aux bénévoles et chefs d'équipe (actuellement bloqué par catch-all)
     match /documents/{docId} {
       allow read:   if isSignedIn();
-      allow write:  if isAdminOrManager();
+      // Documents : admins et gestionnaires ; factures : budget seulement.
+      allow write:  if canManageBudget() ||
+        (isAdminOrManager() && !isInvoiceDocument(resource) && !isInvoiceDocument(request.resource));
       // Un chef d'équipe peut publier des documents pour son équipe et retirer
       // uniquement ceux qu'il a lui-même ajoutés (pas les documents admin/globaux).
       allow create: if (
@@ -714,7 +762,43 @@ service cloud.firestore {
     // ── Budget ────────────────────────────────────────────────────────────────
     // Le rôle "budget" pilote le module budget/factures sans être gestionnaire.
     match /budgets/{document=**} {
-      allow read, write: if isAdminOrManager() || isBudgetManager();
+      allow read, write: if canManageBudget();
+    }
+
+    // ── Décomptes (remboursements) ──────────────────────────────────────────
+    // Ils contiennent un IBAN : la personne elle-même, les admins et le rôle
+    // budget seulement. La personne crée et envoie le sien ; un décompte
+    // préparé par l'organisation garde son motif, ses lignes et son acompte ;
+    // seuls admin/budget font avancer le suivi (vérifié, transmis, payé).
+    function isOwnClaim(data) {
+      return isSignedIn() && data.ownerUid == request.auth.uid;
+    }
+
+    function ownerEditableStatus(status) {
+      return status in ["draft", "preset", "rejected"];
+    }
+
+    match /expenseClaims/{claimId} {
+      allow read: if canManageBudget() || isOwnClaim(resource.data);
+      allow create: if canManageBudget() ||
+        (isOwnClaim(request.resource.data) && request.resource.data.status in ["draft", "submitted"]);
+      allow update: if canManageBudget() ||
+        (isOwnClaim(resource.data) &&
+         isOwnClaim(request.resource.data) &&
+         ownerEditableStatus(resource.data.status) &&
+         request.resource.data.status in ["draft", "preset", "rejected", "submitted"] &&
+         (resource.data.status != "preset" ||
+          (request.resource.data.reason == resource.data.reason &&
+           request.resource.data.lines == resource.data.lines &&
+           request.resource.data.advance == resource.data.advance &&
+           request.resource.data.preset == resource.data.preset)));
+      allow delete: if canManageBudget() || (isOwnClaim(resource.data) && resource.data.status == "draft");
+    }
+
+    // Profil privé (adresse, IBAN, banque) réutilisé d'un décompte à l'autre.
+    match /userPrivate/{userId} {
+      allow read: if isOwner(userId) || canManageBudget();
+      allow write: if isOwner(userId);
     }
 
     // ── Site public (gestion contenu) ───────────────────────────────────────

@@ -1601,3 +1601,57 @@ The CMCM Luxembourg Indoor Meeting team`,
     }),
   };
 }
+
+// ─── Décomptes (remboursements) ──────────────────────────────────────────────
+
+function formatEuro(value) {
+  return `${Number(value || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
+
+// À Margot : un décompte vient d'être envoyé (l'Excel rempli est en pièce jointe).
+export function buildExpenseClaimSubmittedMail({ to, ownerName, ownerEmail, reason, toPay, receipts = [], trackingUrl }) {
+  const receiptLinks = receipts
+    .map((receipt) => `<li><a href="${escapeMailHtml(receipt.fileUrl)}">${escapeMailHtml(receipt.fileName)}</a></li>`)
+    .join("");
+  return {
+    type: "expense-claim-submitted",
+    to,
+    subject: `Décompte à vérifier — ${ownerName} — ${formatEuro(toPay)}`,
+    body: `${ownerName} (${ownerEmail}) a envoyé un décompte.\nMotif : ${reason}\nMontant à payer : ${formatEuro(toPay)}\nJustificatifs : ${receipts.length}\n\nLe décompte rempli est en pièce jointe. Suivi : ${trackingUrl}`,
+    html: buildBrandedEmailShell({
+      title: "Décompte à vérifier",
+      preheader: `${ownerName} — ${formatEuro(toPay)}`,
+      content: `
+        <p style="margin:0 0 14px 0;font-size:16px;line-height:1.7;"><strong>${escapeMailHtml(ownerName)}</strong> (${escapeMailHtml(ownerEmail)}) a envoyé un décompte.</p>
+        <p style="margin:0 0 6px 0;font-size:15px;">Motif : ${escapeMailHtml(reason)}</p>
+        <p style="margin:0 0 14px 0;font-size:15px;">Montant à payer : <strong>${escapeMailHtml(formatEuro(toPay))}</strong></p>
+        <p style="margin:0 0 6px 0;font-size:15px;">Justificatifs (${receipts.length}) :</p>
+        <ul style="margin:0 0 16px 18px;padding:0;font-size:15px;">${receiptLinks}</ul>
+        <p style="margin:0 0 16px 0;font-size:15px;">Le décompte rempli (modèle FLA) est en pièce jointe.</p>
+        <p style="margin:0;"><a href="${escapeMailHtml(trackingUrl)}" style="font-weight:700;">Ouvrir le suivi des décomptes</a></p>
+      `,
+    }),
+  };
+}
+
+// À la personne : un décompte préparé l'attend dans son espace.
+export function buildExpenseClaimPresetMail({ to, firstName, reason, byName, url }) {
+  const greeting = firstName ? `Bonjour ${firstName},` : "Bonjour,";
+  return {
+    type: "expense-claim-preset",
+    to,
+    subject: "Un décompte à compléter vous attend — CMCM Luxembourg Indoor Meeting",
+    body: `${greeting}\n\n${byName} a préparé un décompte pour vous (${reason}). Complétez votre adresse et votre IBAN, ajoutez vos justificatifs, puis renvoyez-le : ${url}\n\nL'équipe CMCM Luxembourg Indoor Meeting`,
+    html: buildBrandedEmailShell({
+      title: "Un décompte à compléter",
+      preheader: reason,
+      content: `
+        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(greeting)}</p>
+        <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;">${escapeMailHtml(byName)} a préparé un décompte pour vous : <strong>${escapeMailHtml(reason)}</strong>.</p>
+        <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;">Complétez votre adresse et votre IBAN, ajoutez vos justificatifs, puis renvoyez-le depuis votre espace.</p>
+        <p style="margin:0 0 20px 0;"><a href="${escapeMailHtml(url)}" style="font-weight:700;">Ouvrir mes décomptes</a></p>
+        <p style="margin:0;font-size:15px;line-height:1.7;">Cordialement,<br /><strong>L'équipe CMCM Luxembourg Indoor Meeting</strong></p>
+      `,
+    }),
+  };
+}

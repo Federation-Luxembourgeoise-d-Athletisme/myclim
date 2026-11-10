@@ -24,6 +24,7 @@ import { LanguageSwitch } from "./language";
 import { NotificationBell } from "./notifications/notifications-ui";
 import { InstallAppBanner } from "./install-app-banner";
 import { confirmLeaveIfUnsaved } from "./unsaved-changes-guard";
+import { useHasOwnMeetingTasks, useMyOrganisationTeams } from "./organisation-hooks";
 import { useLanguage } from "./language-context";
 import { db } from "../services/firebase";
 
@@ -122,9 +123,15 @@ function AppShell(props) {
     }),
     [effectiveRoles, portalSettings, portalSettingsLoading],
   );
+  // Membre d’une équipe de l’organisation (hors admin/gestionnaire) : lien
+  // « Mes échéances » vers ses tâches du Rétroplanning.
+  const isManagerRole = effectiveRoles.includes("admin") || effectiveRoles.includes("gestionnaire");
+  const hasOwnMeetingTasks = useHasOwnMeetingTasks(currentUser?.email, !isManagerRole);
+  // Membre d'une équipe de l'organisation (y compris gestionnaires) : « Mon planning ».
+  const hasOrganisationTeams = useMyOrganisationTeams(currentUser?.email).teams.length > 0;
   const navigation = useMemo(
-    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess }),
-    [athletePortalAccess, effectiveRoles],
+    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess, hasOwnMeetingTasks, hasOrganisationTeams }),
+    [athletePortalAccess, effectiveRoles, hasOwnMeetingTasks, hasOrganisationTeams],
   );
   const linkLabel = (link) => (t(link.labelKey) || link.label).replace("{edition}", activeEditionId || "");
   const flatNavigation = useMemo(() => flattenNavigationItems(navigation), [navigation]);
@@ -876,7 +883,7 @@ function EditionSettingsPage(props) {
       .sort((left, right) => Number(right) - Number(left));
 
     return [
-      { value: "test", label: `test — ${t("dashboardTemplateConfiguration")}` },
+      { value: "test", label: `Exemple 2026 — ${t("dashboardTemplateConfiguration")}` },
       ...numericEditionIds.map((editionId) => {
         const edition = (meetingEditions || []).find((entry) => normalizeEditionId(entry.year) === editionId);
         return {

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/auth-context";
 import cmcmLogo from "../../assets/cmcm-logo.png";
-import { VISUEL_TYPES, cancelOccurrence, deletePublication, isVideo, moveSeries, publicationHandlers, updateItem } from "./com-actions.js";
+import { VISUEL_TYPES, cancelOccurrence, deletePublication, isVideo, moveSeries, publicationHandlers, updateItem, uploadVisuel } from "./com-actions.js";
 import { memberName, useComPartners, useCommunicationTeam, useEvenements, usePublicationItem, usePublications, useRubriques } from "./com-data.js";
 import { addDays, dayName, fmtLong, fmtShort, gridDayNames, monthGridDays, monthName, parseYmd, todayYmd, ymd } from "./com-dates.js";
 import { CANAUX, CANAL_LABELS, MAX_LIENS, STATUTS, STATUT_LABELS, TEXT_LIMITS, VALIDATION_ETAT_LABELS, linkLabel } from "./com-domain.js";
@@ -183,7 +183,20 @@ function PublicationPage({ item }) {
             </button>
           ) : null}
           <PostTextEditor value={item.texte} canaux={item.canaux} credit={creditLine(item.photos, lang)} mentions={mentions} onSave={(texte) => h.update({ texte })} onToast={setToast} />
-          <PhotosPanel photos={item.photos} hasVisuel={Boolean(item.visuelUrl)} onChange={(photos) => h.update({ photos })} />
+          <PhotosPanel
+            photos={item.photos}
+            hasVisuel={Boolean(item.visuelUrl)}
+            onChange={(photos) => h.update({ photos })}
+            onUpload={async (files) => {
+              // Photos déposées depuis l'ordinateur : même stockage que le visuel final.
+              const added = [];
+              for (const file of files) {
+                const { url, path } = await uploadVisuel(item.id, file, lang);
+                added.push({ id: `upload-${path}`, source: "upload", path, credit: "", thumbUrl: url, largeUrl: url, downloadUrl: url });
+              }
+              return added;
+            }}
+          />
           <section className="com-card">
             <VisuelPanel
               canvaUrl={item.canvaUrl}

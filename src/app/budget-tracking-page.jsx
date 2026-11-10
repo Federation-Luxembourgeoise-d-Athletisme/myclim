@@ -2273,8 +2273,8 @@ function BudgetTrackingPage({ Panel }) {
       draftBudget.currentEditionId === latestBudget.currentEditionId &&
       (activeRoles.includes("admin") || activeRoles.includes("budget") || canUploadInvoices),
   );
-  // Les règles Firestore ne laissent supprimer un document qu'aux admins et gestionnaires.
-  const canDeleteInvoices = activeRoles.includes("admin") || activeRoles.includes("gestionnaire");
+  // Les règles Firestore ne laissent supprimer une facture qu'aux admins et au rôle budget.
+  const canDeleteInvoices = activeRoles.includes("admin") || activeRoles.includes("budget");
   useEffect(() => {
     setInvoiceLinkDrafts((currentDrafts) =>
       Object.fromEntries(
