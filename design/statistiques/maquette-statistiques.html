@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statistiques — maquette</title>
+<style>
+:root{
+  --ink:#17324a;--muted:#627788;--dim:#8aa0b0;--line:rgba(130,148,166,.22);
+  --bg:#e9eef3;--card:#fff;--side:#f6f9fc;--blue:#1a4aa1;--blue-soft:#eaf1fb;
+  --green:#0f7a4a;--green-soft:#e5f5ec;--amber:#a15c00;--amber-soft:#fff3dc;--red:#b42318;--red-soft:#fdecea;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.45}
+.wrap{max-width:1240px;margin:0 auto;padding:22px 16px 60px}
+h1{margin:0 0 4px;font-size:26px}
+h3{margin:30px 0 10px;font-size:18px}
+.lead{margin:0 0 16px;color:var(--muted);max-width:920px}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
+.why .c{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:13.5px}
+.why .c > b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.why .c.old > b{color:var(--red)} .why .c.new > b{color:var(--green)}
+.why ul{margin:4px 0 0;padding-left:18px}
+.frame{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(15,23,42,.06);overflow:hidden}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+
+/* Barre unique : titre + édition + recherche + onglets */
+.top{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:14px 18px 0}
+.top-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.top-row h2{margin:0;font-size:22px}
+.ed{display:flex;align-items:center;border:1px solid #c5d9f1;border-radius:999px;overflow:hidden}
+.ed button{border:0;background:#fff;color:var(--blue);font:700 15px inherit;font-family:inherit;padding:6px 11px;cursor:pointer}
+.ed button:disabled{color:var(--dim);cursor:default}
+.ed select{border:0;font:700 15px inherit;font-family:inherit;color:var(--ink);background:#fff;padding:6px 2px;cursor:pointer}
+.search{position:relative;flex:1;min-width:240px;max-width:420px;margin-left:auto}
+.search input{width:100%;font:inherit;font-size:14px;border:1px solid #c9d6e2;border-radius:999px;padding:8px 14px 8px 34px;background:var(--side)}
+.search::before{content:"⌕";position:absolute;left:13px;top:6px;font-size:17px;color:var(--dim)}
+.sugg{position:absolute;left:0;right:0;top:42px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(15,23,42,.12);padding:6px;display:none}
+.sugg.on{display:block}
+.sugg .grp{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:6px 8px 2px}
+.sugg a{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:13.5px;cursor:pointer}
+.sugg a:hover{background:var(--blue-soft)}
+.sugg a small{color:var(--muted);margin-left:auto;font-size:12px}
+.tabs{display:flex;gap:2px;margin-top:12px;overflow-x:auto}
+.tabs button{border:0;background:none;font:600 14px inherit;font-family:inherit;color:var(--muted);padding:9px 14px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--blue)}
+.tabs .scope{font-size:11px;font-weight:700;color:var(--dim);margin-left:4px}
+
+.body{padding:18px}
+.pane{display:none}.pane.on{display:block}
+
+/* Vue d'ensemble */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.k{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--side)}
+.k .l{font-size:12px;color:var(--muted);font-weight:600}
+.k .v{font-size:28px;font-weight:800;margin:2px 0}
+.k .d{font-size:12px;font-weight:700}
+.up{color:var(--green)} .down{color:var(--red)} .eq{color:var(--dim)}
+.cols{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-top:14px}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.box h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
+.box h4 a{margin-left:auto;font-size:12.5px;color:var(--blue);font-weight:600;cursor:pointer;text-decoration:none}
+.bars{display:flex;align-items:flex-end;gap:5px;height:130px;padding-top:6px}
+.bars div{flex:1;background:#c9d9ef;border-radius:4px 4px 0 0;position:relative;cursor:pointer}
+.bars div.sel{background:var(--blue)}
+.bars div span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--dim)}
+.bars-legend{margin-top:24px;font-size:12px;color:var(--muted)}
+.list{display:grid;gap:0}
+.li{display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
+.li:first-child{border-top:0}
+.li .e{font-weight:700;font-size:12.5px;color:var(--muted)}
+.li .m{font-weight:800;font-variant-numeric:tabular-nums}
+.tag{font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 7px;margin-left:6px}
+.tag.mr{background:var(--amber-soft);color:var(--amber)}
+.tag.nr{background:var(--green-soft);color:var(--green)}
+.flags{display:flex;flex-wrap:wrap;gap:6px}
+.flags span{background:var(--side);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12.5px}
+.flags b{margin-left:4px}
+
+/* Résultats */
+.idx{position:sticky;top:118px;z-index:3;display:flex;flex-wrap:wrap;gap:6px;background:#fff;padding:4px 0 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.idx button{border:1px solid #c5d9f1;background:#fff;border-radius:999px;padding:4px 11px;font:600 12.5px inherit;font-family:inherit;color:var(--blue);cursor:pointer}
+.idx button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.idx .sep{width:1px;background:var(--line);margin:0 4px}
+.ev{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.ev-h{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--side);cursor:pointer}
+.ev-h b{font-size:14.5px}
+.ev-h small{color:var(--muted)}
+.ev-h .win{margin-left:auto;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:6px 12px;border-top:1px solid var(--line);text-align:left}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:700}
+td.r{font-weight:800;width:40px} td.p{font-weight:800;font-variant-numeric:tabular-nums}
+.heats{font-size:12.5px;color:var(--blue);padding:7px 12px;border-top:1px solid var(--line);cursor:pointer}
+
+/* Athlète */
+.ath{display:grid;grid-template-columns:240px 1fr;gap:14px}
+@media (max-width:760px){.ath{grid-template-columns:1fr}}
+.ath .id{background:var(--side);border-radius:14px;padding:14px}
+.ath .id .nm{font-size:20px;font-weight:800}
+.note{font-size:12.5px;color:var(--muted);margin-top:12px;padding:9px 12px;border:1px dashed #c5d9f1;border-radius:10px;background:var(--blue-soft)}
+.btn{border:1px solid #c5d9f1;background:#fff;color:var(--blue);border-radius:999px;padding:4px 11px;font:600 12px inherit;font-family:inherit;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--blue-soft)}
+.fact{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+.fact:first-child{border-top:0}
+.fact > div{flex:1}
+.fact .fc{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--blue)}
+.annot{font-size:12px;color:var(--amber);background:var(--amber-soft);border-radius:8px;padding:5px 9px;display:inline-block;margin:0 0 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Maquette · Athlètes › Statistiques</p>
+  <h1>Statistiques du meeting — navigation simplifiée</h1>
+  <p class="lead">Pensé pour <b>préparer la com</b> : on arrive sur <b>toutes les éditions confondues</b> (chiffres clés, faits marquants prêts à copier, records les plus anciens, palmarès, Luxembourg). Le sélecteur en haut permet ensuite de zoomer sur une édition, et la <b>recherche</b> mène directement à un athlète, une épreuve ou une année. Les chiffres ci-dessous sont des exemples.</p>
+
+  <div class="why">
+    <div class="c old"><b>Aujourd'hui</b>
+      <ul>
+        <li>Titre « Résultats &amp; records » puis un 2ᵉ titre dans chaque onglet</li>
+        <li>Un panneau de 20+ boutons d'années (et les outils admin) avant les résultats</li>
+        <li>Toutes les épreuves les unes sous les autres : il faut faire défiler</li>
+        <li>Les « chiffres du meeting » (nations, records…) ne sont que sur le site public</li>
+        <li>Changer d'onglet fait perdre l'année choisie</li>
+      </ul>
+    </div>
+    <div class="c new"><b>Proposition</b>
+      <ul>
+        <li>1er onglet <b>Vue d'ensemble</b>, par défaut <b>toutes éditions</b> : chiffres et faits pour la com</li>
+        <li>Sélecteur « Toutes les éditions / 2026 / 2025… », partagé par tous les onglets</li>
+        <li>Recherche globale : « Lux », « 60 m H », « 2019 » → saut direct</li>
+        <li>Index d'épreuves collant dans Résultats, séries repliées</li>
+        <li>Import, clôture d'édition, visibilité stats → Réglages › Maintenance</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="top">
+      <div class="top-row">
+        <h2>Statistiques</h2>
+        <div class="ed" title="Édition affichée — gardée en changeant d'onglet">
+          <button id="prev" aria-label="Édition précédente">‹</button>
+          <select id="year"></select>
+          <button id="next" aria-label="Édition suivante">›</button>
+        </div>
+        <div class="search">
+          <input id="q" placeholder="Athlète, épreuve, pays ou année…" autocomplete="off">
+          <div class="sugg" id="sugg"></div>
+        </div>
+      </div>
+      <div class="tabs" id="tabs">
+        <button data-t="overview" class="on">Vue d'ensemble</button>
+        <button data-t="results">Résultats</button>
+        <button data-t="records">Records<span class="scope">tous temps</span></button>
+        <button data-t="winners">Palmarès<span class="scope">tous temps</span></button>
+        <button data-t="athlete">Athlètes</button>
+      </div>
+    </div>
+
+    <div class="body">
+      <!-- Vue d'ensemble -->
+      <div class="pane on" id="p-overview">
+        <span class="annot" id="ovAnnot">Page d'arrivée du menu « Statistiques »</span>
+
+        <!-- Toutes les éditions (par défaut) -->
+        <div id="ov-all">
+          <div class="kpis" id="kpisAll"></div>
+          <div class="cols">
+            <div class="box">
+              <h4>Faits marquants pour la com <span style="font-weight:400;color:var(--muted)">· calculés automatiquement</span></h4>
+              <div id="facts"></div>
+            </div>
+            <div class="box">
+              <h4>Records du meeting les plus anciens <a data-go="records">Tous les records ›</a></h4>
+              <div class="list" id="oldRecs"></div>
+            </div>
+          </div>
+          <div class="cols">
+            <div class="box">
+              <h4>Athlètes engagés par édition <span style="font-weight:400;color:var(--muted)">· cliquer pour ouvrir une édition</span></h4>
+              <div class="bars" id="barsAll"></div>
+              <div class="bars-legend">&nbsp;</div>
+            </div>
+            <div class="box">
+              <h4>Le plus de victoires <a data-go="winners">Palmarès ›</a></h4>
+              <div class="list" id="topWins"></div>
+            </div>
+          </div>
+          <div class="cols">
+            <div class="box">
+              <h4>🇱🇺 Luxembourg au meeting</h4>
+              <div class="list" id="luxBox"></div>
+            </div>
+            <div class="box">
+              <h4>Nations les plus représentées <span style="font-weight:400;color:var(--muted)">· toutes éditions</span></h4>
+              <div class="flags" id="flagsAll"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Une édition -->
+        <div id="ov-ed">
+        <div class="kpis" id="kpis"></div>
+        <div class="cols">
+          <div class="box">
+            <h4>Athlètes engagés par édition <a data-go="results">Voir les résultats ›</a></h4>
+            <div class="bars" id="bars"></div>
+            <div class="bars-legend">Cliquer sur une barre change l'édition affichée.</div>
+          </div>
+          <div class="box">
+            <h4>Records battus <span id="recYear" style="font-weight:400;color:var(--muted)"></span> <a data-go="records">Tous les records ›</a></h4>
+            <div class="list" id="recList"></div>
+          </div>
+        </div>
+        <div class="cols">
+          <div class="box">
+            <h4>Vainqueurs <span id="winYear" style="font-weight:400;color:var(--muted)"></span> <a data-go="results">Détail ›</a></h4>
+            <div class="list" id="winList"></div>
+          </div>
+          <div class="box">
+            <h4>Nations représentées</h4>
+            <div class="flags" id="flags"></div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <!-- Résultats -->
+      <div class="pane" id="p-results">
+        <div class="idx" id="idx"></div>
+        <div id="evs"></div>
+      </div>
+
+      <!-- Records -->
+      <div class="pane" id="p-records">
+        <div class="idx"><button class="on">Tous</button><button>Hommes</button><button>Femmes</button><span class="sep"></span><button>Records du meeting</button><button>Records nationaux Lux</button></div>
+        <table>
+          <tr><th>Épreuve</th><th>Performance</th><th>Athlète</th><th>Année</th></tr>
+          <tr><td>60 m H</td><td class="p">6.51</td><td>A. Exemple (USA)</td><td><a href="#" data-year="2024">2024</a></td></tr>
+          <tr><td>60 m F</td><td class="p">7.08</td><td>B. Exemple (JAM)</td><td><a href="#" data-year="2026">2026</a></td></tr>
+          <tr><td>800 m H</td><td class="p">1:45.02</td><td>C. Exemple (KEN)</td><td><a href="#" data-year="2019">2019</a></td></tr>
+          <tr><td>Saut en hauteur F</td><td class="p">1.97</td><td>D. Exemple (UKR)</td><td><a href="#" data-year="2023">2023</a></td></tr>
+        </table>
+        <p class="note">Cliquer sur l'année ouvre les Résultats de cette édition, sur l'épreuve.</p>
+      </div>
+
+      <!-- Palmarès -->
+      <div class="pane" id="p-winners">
+        <div class="idx"><button class="on">Par épreuve</button><button>Par athlète (multi-vainqueurs)</button><button>🇱🇺 Luxembourgeois</button></div>
+        <table>
+          <tr><th>Épreuve</th><th>2026</th><th>2025</th><th>2024</th><th>2023</th></tr>
+          <tr><td>60 m H</td><td>A. Exemple</td><td>E. Exemple</td><td>A. Exemple</td><td>F. Exemple</td></tr>
+          <tr><td>60 m F</td><td>B. Exemple</td><td>B. Exemple</td><td>G. Exemple</td><td>H. Exemple</td></tr>
+          <tr><td>800 m H</td><td>I. Exemple</td><td>C. Exemple</td><td>C. Exemple</td><td>J. Exemple</td></tr>
+        </table>
+        <p class="note">Remplace « Hall of Winners » : un tableau épreuve × année, lisible d'un coup d'œil.</p>
+      </div>
+
+      <!-- Athlète -->
+      <div class="pane" id="p-athlete">
+        <div class="ath">
+          <div class="id">
+            <div class="eyebrow">Fiche athlète</div>
+            <div class="nm">Exemple, Charline</div>
+            <div style="color:var(--muted);font-size:13px">🇱🇺 LUX · née en 2001</div>
+            <div class="kpis" style="margin-top:12px;grid-template-columns:1fr 1fr">
+              <div class="k"><div class="l">Participations</div><div class="v">6</div></div>
+              <div class="k"><div class="l">Victoires</div><div class="v">2</div></div>
+            </div>
+          </div>
+          <div>
+            <table>
+              <tr><th>Année</th><th>Épreuve</th><th>Place</th><th>Perf.</th></tr>
+              <tr><td>2026</td><td>800 m F</td><td>1</td><td class="p">2:03.40 <span class="tag nr">NR</span></td></tr>
+              <tr><td>2025</td><td>800 m F</td><td>3</td><td class="p">2:05.11</td></tr>
+              <tr><td>2024</td><td>800 m F</td><td>1</td><td class="p">2:04.87</td></tr>
+              <tr><td>2023</td><td>400 m F</td><td>4</td><td class="p">55.30</td></tr>
+            </table>
+          </div>
+        </div>
+        <p class="note">On y arrive surtout par la recherche du haut. L'onglet sans recherche affiche la base athlètes actuelle (liste filtrable).</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Dans le menu</h3>
+  <p class="lead">« Résultats &amp; records » devient <b>Statistiques</b> et ouvre directement la Vue d'ensemble de la dernière édition. Accès inchangé : admin, meeting director, gestionnaires.</p>
+</div>
+
+<script>
+const YEARS=[2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2022,2023,2024,2025,2026];
+const DATA={};
+YEARS.forEach((y,i)=>{DATA[y]={ath:60+i*6+(i%3)*7,nat:12+Math.round(i*1.1)+(i%2)*2,mr:i%3,nr:1+(i%4),lux:8+Math.round(i/2)}});
+const FACTS=[
+  ["23 éditions depuis 2003, plus de 2 400 athlètes venus de 71 nations.","Chiffres clés"],
+  ["Le record du meeting du 800 m hommes (1:45.02) tient depuis 2011 : 15 ans sans être battu.","Record le plus ancien"],
+  ["A. Exemple a remporté le 60 m 4 fois (2018, 2019, 2024, 2026) : personne n'a fait mieux.","Le plus de victoires"],
+  ["14 records nationaux luxembourgeois ont été battus au meeting, dont 3 en 2026.","Luxembourg"],
+  ["3 champions olympiques ont couru au Coque depuis 2003.","Têtes d'affiche"],
+  ["Édition record : 2026 avec 199 athlètes engagés (+45 % en 10 ans).","Croissance"]];
+const OLD_RECS=[["800 m H","1:45.02","C. Exemple (KEN)",2011],["Perche F","4.71","T. Exemple (GER)",2013],["60 m haies F","7.87","U. Exemple (USA)",2015],["Poids H","21.10","V. Exemple (POL)",2017]];
+const TOP_WINS=[["A. Exemple (USA)","60 m","4 victoires"],["C. Exemple (KEN)","800 m","3 victoires"],["Q. Exemple (LUX)","Poids","3 victoires"],["B. Exemple (JAM)","60 m F","2 victoires"]];
+const LUX=[["Participations luxembourgeoises","312"],["Victoires luxembourgeoises","11"],["Records nationaux battus au meeting","14"],["Meilleure perf. lux. (table WA)","C. Exemple, 800 m F, 2:03.40 (2026)"]];
+const NATIONS_ALL=[["🇱🇺 LUX",312],["🇫🇷 FRA",241],["🇧🇪 BEL",198],["🇩🇪 GER",187],["🇳🇱 NED",120],["🇺🇸 USA",64],["🇵🇹 POR",51],["🇬🇧 GBR",47],["🇯🇲 JAM",33],["🇰🇪 KEN",29],["+ 61 autres",""]];
+const NATIONS=[["🇱🇺 LUX",24],["🇫🇷 FRA",17],["🇧🇪 BEL",15],["🇩🇪 GER",14],["🇳🇱 NED",9],["🇺🇸 USA",7],["🇯🇲 JAM",5],["🇰🇪 KEN",4],["🇵🇹 POR",4],["🇬🇧 GBR",3],["+ 22 autres",""]];
+const EVENTS=[
+  ["60 m H","Finale","A. Exemple (USA)","6.55"],["60 m F","Finale","B. Exemple (JAM)","7.08"],
+  ["60 m haies H","Finale","K. Exemple (FRA)","7.61"],["60 m haies F","Finale","L. Exemple (NED)","7.94"],
+  ["400 m H","Finale","M. Exemple (BEL)","46.20"],["800 m H","Finale","I. Exemple (KEN)","1:46.33"],
+  ["800 m F","Finale","C. Exemple (LUX)","2:03.40"],["1500 m H","Finale","N. Exemple (POR)","3:39.80"],
+  ["Hauteur F","Concours","D. Exemple (UKR)","1.94"],["Perche H","Concours","O. Exemple (GER)","5.71"],
+  ["Longueur F","Concours","P. Exemple (GBR)","6.62"],["Poids H","Concours","Q. Exemple (LUX)","19.85"]];
+let year="all";
+const $=s=>document.querySelector(s);
+
+function fillYears(){ $("#year").innerHTML=`<option value="all" ${year==="all"?"selected":""}>Toutes les éditions</option>`+[...YEARS].reverse().map(y=>`<option ${y===year?"selected":""}>${y}</option>`).join(""); }
+function renderAll(){
+  const tot=YEARS.reduce((s,y)=>s+DATA[y].ath,0);
+  $("#kpisAll").innerHTML=[
+    ["Éditions",YEARS.length,"depuis 2003"],["Athlètes différents","2 412","base athlètes"],["Nations",71,"au moins un engagé"],
+    ["Records du meeting",38,"en vigueur"],["Records nationaux battus",57,"toutes nations"],
+  ].map(([l,v,s])=>`<div class="k"><div class="l">${l}</div><div class="v">${v}</div><div class="d eq">${s}</div></div>`).join("");
+  $("#facts").innerHTML=FACTS.map(([t,c])=>`<div class="fact"><div><div class="fc">${c}</div>${t}</div><button class="btn small" data-copy="${t}">Copier</button></div>`).join("");
+  $("#oldRecs").innerHTML=OLD_RECS.map(r=>`<div class="li"><span class="e">${r[0]}</span><span>${r[2]} · <a href="#" data-year="${r[3]}">${r[3]}</a></span><span class="m">${r[1]}</span></div>`).join("");
+  const max=Math.max(...YEARS.map(y=>DATA[y].ath));
+  $("#barsAll").innerHTML=YEARS.map(y=>`<div data-y="${y}" style="height:${DATA[y].ath/max*100}%" title="${y} : ${DATA[y].ath} athlètes"><span>${y%2?"":String(y).slice(2)}</span></div>`).join("");
+  $("#topWins").innerHTML=TOP_WINS.map(w=>`<div class="li"><span class="e">${w[1]}</span><span>${w[0]}</span><span class="m">${w[2]}</span></div>`).join("");
+  $("#luxBox").innerHTML=LUX.map(l=>`<div class="li" style="grid-template-columns:1fr auto"><span>${l[0]}</span><span class="m">${l[1]}</span></div>`).join("");
+  $("#flagsAll").innerHTML=NATIONS_ALL.map(([n,c])=>`<span>${n}${c?`<b>${c}</b>`:""}</span>`).join("");
+}
+function delta(a,b,unit=""){ if(b==null) return '<span class="eq">première édition</span>'; const d=a-b; return d>0?`<span class="up">▲ +${d}${unit} vs ${prevYear()}</span>`:d<0?`<span class="down">▼ ${d}${unit} vs ${prevYear()}</span>`:`<span class="eq">= ${prevYear()}</span>`; }
+function prevYear(){ const i=YEARS.indexOf(year); return i>0?YEARS[i-1]:null; }
+function render(){
+  fillYears();
+  const all=year==="all";
+  $("#ov-all").style.display=all?"":"none"; $("#ov-ed").style.display=all?"none":"";
+  $("#ovAnnot").textContent=all?"Page d'arrivée : toutes les éditions confondues":"Édition "+year+" — revenir à « Toutes les éditions » dans le sélecteur";
+  $("#prev").disabled=all||YEARS.indexOf(year)===0; $("#next").disabled=all||YEARS.indexOf(year)===YEARS.length-1;
+  if(all){ renderAll(); return; }
+  const d=DATA[year], p=prevYear()?DATA[prevYear()]:null;
+  $("#kpis").innerHTML=[
+    ["Athlètes engagés",d.ath,delta(d.ath,p&&p.ath)],
+    ["Nations",d.nat,delta(d.nat,p&&p.nat)],
+    ["Records du meeting",d.mr,delta(d.mr,p&&p.mr)],
+    ["Records nationaux",d.nr,delta(d.nr,p&&p.nr)],
+    ["Athlètes luxembourgeois",d.lux,delta(d.lux,p&&p.lux)],
+  ].map(([l,v,dd])=>`<div class="k"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${dd}</div></div>`).join("");
+  const max=Math.max(...YEARS.map(y=>DATA[y].ath));
+  $("#bars").innerHTML=YEARS.map(y=>`<div data-y="${y}" class="${y===year?"sel":""}" style="height:${DATA[y].ath/max*100}%" title="${y} : ${DATA[y].ath} athlètes"><span>${String(y).slice(2)}</span></div>`).join("");
+  $("#recYear").textContent="· "+year; $("#winYear").textContent="· "+year;
+  const recs=EVENTS.slice(0,Math.max(1,d.mr+d.nr)).map((e,i)=>`<div class="li"><span class="e">${e[0]}</span><span>${e[2]}</span><span class="m">${e[3]}<span class="tag ${i<d.mr?"mr":"nr"}">${i<d.mr?"MR":"NR"}</span></span></div>`);
+  $("#recList").innerHTML=recs.join("");
+  $("#winList").innerHTML=EVENTS.slice(0,6).map(e=>`<div class="li"><span class="e">${e[0]}</span><span>${e[2]}</span><span class="m">${e[3]}</span></div>`).join("");
+  $("#flags").innerHTML=NATIONS.map(([n,c])=>`<span>${n}${c?`<b>${c}</b>`:""}</span>`).join("");
+  $("#idx").innerHTML='<button class="on" data-f="all">Toutes</button><button data-f="H">Hommes</button><button data-f="F">Femmes</button><span class="sep"></span>'+EVENTS.map((e,i)=>`<button data-jump="${i}">${e[0]}</button>`).join("");
+  $("#evs").innerHTML=EVENTS.map((e,i)=>`<div class="ev" id="ev${i}"><div class="ev-h"><b>${e[0]}</b><small>${e[1]} · ${year}</small><span class="win">🥇 ${e[2]} — <b>${e[3]}</b></span></div>
+    <table><tr><th>Pl.</th><th>Athlète</th><th>Nat.</th><th>Perf.</th></tr>
+    <tr><td class="r">1</td><td>${e[2].split(" (")[0]}</td><td>${e[2].match(/\((.+)\)/)[1]}</td><td class="p">${e[3]}</td></tr>
+    <tr><td class="r">2</td><td>R. Exemple</td><td>FRA</td><td class="p">—</td></tr>
+    <tr><td class="r">3</td><td>S. Exemple</td><td>BEL</td><td class="p">—</td></tr></table>
+    ${e[1]==="Finale"?'<div class="heats">▸ Afficher les séries (2)</div>':""}</div>`).join("");
+}
+function tab(t){ if(t==="results"&&year==="all"){year=YEARS[YEARS.length-1];render();} document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t)); document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id==="p-"+t)); }
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-t]"); if(b) tab(b.dataset.t);
+  const g=e.target.closest("[data-go]"); if(g) tab(g.dataset.go);
+  const bar=e.target.closest(".bars [data-y]"); if(bar){year=+bar.dataset.y;render();}
+  const yl=e.target.closest("[data-year]"); if(yl){e.preventDefault();year=+yl.dataset.year;render();tab("results");}
+  const j=e.target.closest("[data-jump]"); if(j){document.querySelectorAll("#idx button").forEach(x=>x.classList.remove("on"));j.classList.add("on");document.getElementById("ev"+j.dataset.jump).scrollIntoView({behavior:"smooth",block:"center"});}
+  const s=e.target.closest(".sugg a"); if(s){ $("#sugg").classList.remove("on"); $("#q").value=""; if(s.dataset.y){year=+s.dataset.y;render();tab("overview");} else if(s.dataset.ev!=null){tab("results");setTimeout(()=>document.getElementById("ev"+s.dataset.ev).scrollIntoView({behavior:"smooth",block:"center"}),50);} else tab("athlete"); }
+  if(!e.target.closest(".search")) $("#sugg").classList.remove("on");
+});
+$("#year").onchange=e=>{year=e.target.value==="all"?"all":+e.target.value;render();};
+document.addEventListener("click",e=>{const c=e.target.closest("[data-copy]"); if(!c) return; try{navigator.clipboard.writeText(c.dataset.copy);}catch(_){} c.textContent="Copié ✓"; setTimeout(()=>c.textContent="Copier",1400);});
+$("#prev").onclick=()=>{year=YEARS[YEARS.indexOf(year)-1];render();};
+$("#next").onclick=()=>{year=YEARS[YEARS.indexOf(year)+1];render();};
+$("#q").addEventListener("input",e=>{
+  const q=e.target.value.trim().toLowerCase(); const box=$("#sugg");
+  if(!q){box.classList.remove("on");return;}
+  const ys=YEARS.filter(y=>String(y).includes(q)).map(y=>`<a data-y="${y}">Édition ${y}<small>${DATA[y].ath} athlètes</small></a>`);
+  const evs=EVENTS.map((ev,i)=>[ev,i]).filter(([ev])=>ev[0].toLowerCase().includes(q)).map(([ev,i])=>`<a data-ev="${i}">${ev[0]}<small>résultats ${year}</small></a>`);
+  const ath=["Exemple, Charline · LUX","Exemple, Quentin · LUX","Exemple, Bianca · JAM"].filter(a=>a.toLowerCase().includes(q)||"lux".includes(q)&&a.includes("LUX")).map(a=>`<a data-a="1">${a}<small>fiche athlète</small></a>`);
+  box.innerHTML=(ath.length?'<div class="grp">Athlètes</div>'+ath.join(""):"")+(evs.length?'<div class="grp">Épreuves</div>'+evs.join(""):"")+(ys.length?'<div class="grp">Éditions</div>'+ys.join(""):"")||'<div class="grp">Aucun résultat</div>';
+  box.classList.add("on");
+});
+render();
+</script>
+</body>
+</html>

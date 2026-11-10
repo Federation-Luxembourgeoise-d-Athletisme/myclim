@@ -105,6 +105,8 @@ const AthleteTransportVolunteerPageScreen = lazyNamed(() => import("./app/athlet
 const MeetingHistoryPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingHistoryPage");
 const MeetingRecordsPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingRecordsPage");
 const MeetingWinnersPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingWinnersPage");
+const StatisticsLayout = lazyNamed(() => import("./app/statistics-layout"), "StatisticsLayout");
+const StatisticsOverviewPage = lazyNamed(() => import("./app/statistics-overview-page"), "StatisticsOverviewPage");
 const WebsiteNewsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteNewsPage");
 const WebsiteSponsorsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteSponsorsPage");
 const WebsitePressPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsitePressPage");
@@ -230,13 +232,6 @@ const EDITION_TABS = [
 const USERS_TABS = [
   { to: "/app/utilisateurs", end: true, label: "Utilisateurs & rôles" },
   { to: "/app/utilisateurs/inviter", label: "Inviter" },
-];
-
-const RESULTS_TABS = [
-  { to: "/app/resultats", end: true, label: "Résultats" },
-  { to: "/app/resultats/records", label: "Records" },
-  { to: "/app/resultats/hall-of-winners", label: "Hall of Winners" },
-  { to: "/app/resultats/base-athletes", label: "Base athlètes" },
 ];
 
 const ENTRIES_TABS = [
@@ -636,6 +631,8 @@ export default function App() {
           <Route path="/vip" element={<VipAccessPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/vip/orga/:portalId" element={<VipPartnerPortalPage />} />
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
+          {/* Lien court à partager (QR des badges) ; l'ancienne adresse reste valable. */}
+          <Route path="/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/athletes/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/caisse" element={<CashDeskPage />} />
           <Route path="/links" element={<SiteLinks />} />
@@ -746,7 +743,7 @@ export default function App() {
               <Route path="mon-planning" element={<MyPlanningPage />} />
               <Route path="mes-decomptes" element={<MyExpenseClaimsPage />} />
               <Route path="athletes" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navEntries" title="Engagés" tabs={ENTRIES_TABS} />}>
-                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "gestionnaire", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
                   <Route index element={<AthletesListPage />} />
                 </Route>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
@@ -760,8 +757,10 @@ export default function App() {
                 <Route path="mes-transports" element={<AthleteTransportVolunteerPage />} />
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
-                <Route path="resultats" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navResultsRecords" title="Résultats & records" tabs={RESULTS_TABS} />}>
-                  <Route index element={<MeetingHistoryPage maintenance="hide" />} />
+                {/* Statistiques : barre commune (édition partagée + recherche), voir statistics-layout.jsx. */}
+                <Route path="resultats" element={<StatisticsLayout />}>
+                  <Route index element={<StatisticsOverviewPage />} />
+                  <Route path="editions" element={<MeetingHistoryPage maintenance="hide" />} />
                   <Route path="records" element={<MeetingRecordsPage />} />
                   <Route path="hall-of-winners" element={<MeetingWinnersPage />} />
                   <Route path="base-athletes" element={<AthleteRegistryPage maintenance="hide" />} />

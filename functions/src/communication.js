@@ -68,9 +68,13 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
       if (!demandeeA.length) throw new HttpsError("failed-precondition", tr("Choisis au moins une personne à qui demander la validation.", "Choose at least one person to ask for approval."));
       next = { etat: "demandee", demandeePar: uid, demandeeA, history: [...(current?.history || []), entry] };
     } else {
-      if (!current || current.etat !== "demandee") throw new HttpsError("failed-precondition", tr("Aucune demande de validation en attente pour cette publication.", "No pending approval request for this publication."));
+      // Réponse à une demande en attente, ou changement d'une réponse déjà
+      // donnée (on s'est trompé) : réservé aux personnes sollicitées.
+      const answered = current && ["validee", "a_revoir"].includes(current.etat);
+      if (!current || (current.etat !== "demandee" && !answered)) throw new HttpsError("failed-precondition", tr("Aucune demande de validation en attente pour cette publication.", "No pending approval request for this publication."));
       if (!current.demandeeA.includes(uid)) throw new HttpsError("permission-denied", tr("La validation de cette publication a été demandée à quelqu'un d'autre.", "Approval for this publication was requested from someone else."));
-      next = { ...current, etat: action, history: [...current.history, entry] };
+      if (answered && current.etat === action) throw new HttpsError("failed-precondition", tr("Cette réponse est déjà enregistrée.", "This answer is already recorded."));
+      next = { ...current, etat: action, history: [...(current.history || []), answered ? { ...entry, changement: true } : entry] };
     }
 
     transaction.update(ref, { validation: next, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
@@ -99,6 +103,11 @@ export const comPublicationValidation = onCall({ region: REGION }, async (reques
   };
   const withMessage = (text, label) => (message ? `${text}
 ${label} ${message}` : text);
+  // Réponse changée après coup : on le dit dans le titre.
+  if (validation.history[validation.history.length - 1]?.changement) {
+    titles.validee = { fr: `👍 ${author} a changé d'avis : publication validée`, en: `👍 ${author} changed their answer: approved` };
+    titles.a_revoir = { fr: `👎 ${author} a changé d'avis : publication à revoir`, en: `👎 ${author} changed their answer: needs changes` };
+  }
 
   // Cloche, push et e-mail selon les préférences de chacun (voir notifications.js).
   // Un envoi raté ne doit pas faire échouer la validation, déjà enregistrée.

@@ -28,10 +28,9 @@ async function exportRegistryRows(rows) {
     { header: "Meilleure place (finale)", key: "bestFinalRank", width: 12 },
     { header: "Victoires", key: "wins", width: 9 },
     { header: "Podiums", key: "podiums", width: 9 },
-    { header: "À nettoyer", key: "suspect", width: 30 },
   ];
   sheet.getRow(1).font = { bold: true };
-  rows.forEach(({ entry, stats, suspectReasons }) => {
+  rows.forEach(({ entry, stats }) => {
     sheet.addRow({
       lastName: entry.lastName || "",
       firstName: entry.firstName || "",
@@ -45,7 +44,6 @@ async function exportRegistryRows(rows) {
       bestFinalRank: stats.bestFinalRank ?? "",
       wins: stats.wins,
       podiums: stats.podiums,
-      suspect: suspectReasons.join(", "),
     });
   });
   sheet.views = [{ state: "frozen", ySplit: 1 }];
@@ -129,10 +127,6 @@ function AthleteRegistryFilters({ state, totalCount, selectedCount, onClearSelec
         </label>
       </div>
       <div className="registry-filters__row registry-filters__row--meta">
-        <label className="registry-filters__check">
-          <input type="checkbox" checked={filters.suspect} onChange={(event) => setFilter("suspect", event.target.checked)} />
-          Seulement les fiches à nettoyer
-        </label>
         <span className="registry-filters__count">
           <strong>{filteredRows.length}</strong> sur {totalCount} fiches
           {selectedCount ? ` · ${selectedCount} sélectionnée${selectedCount > 1 ? "s" : ""}` : ""}
@@ -200,7 +194,7 @@ function AthleteRegistryTable({ state, selectedIds, onToggle, onOpen, openDocId 
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map(({ entry, stats, suspectReasons }) => (
+            {visibleRows.map(({ entry, stats }) => (
               <tr key={entry._docId} className={openDocId === entry._docId ? "registry-table__row--open" : ""}>
                 <td>
                   <input
@@ -214,9 +208,6 @@ function AthleteRegistryTable({ state, selectedIds, onToggle, onOpen, openDocId 
                   <button type="button" className="sheet-link" onClick={() => onOpen(entry._docId)} title="Ouvrir la fiche">
                     {entry.lastName || "—"}
                   </button>
-                  {suspectReasons.length ? (
-                    <span className="registry-flag" title={suspectReasons.join(" · ")}>à nettoyer</span>
-                  ) : null}
                 </td>
                 <td>{entry.firstName || "—"}</td>
                 <td className="sheet-nowrap">{entry.nationality || "—"}</td>

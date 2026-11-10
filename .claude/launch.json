@@ -143,9 +143,25 @@
         "5185",
         "--strictPort"
       ],
-      "env": { "VITE_USE_FIREBASE_EMULATORS": "true" },
+      "env": {
+        "VITE_USE_FIREBASE_EMULATORS": "true"
+      },
       "cwd": ".claude/worktrees/nouvelle-arborescence-25bf5a",
       "port": 5185
+    },
+    {
+      "name": "myclim-stats-emulators",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5186",
+        "--strictPort"
+      ],
+      "env": {
+        "VITE_USE_FIREBASE_EMULATORS": "true"
+      },
+      "port": 5186
     }
   ]
 }

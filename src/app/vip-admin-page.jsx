@@ -18,6 +18,7 @@ import {
   VIP_INVITATION_CATEGORY_SUGGESTIONS,
   VIP_PICKUP_POINT_OPTIONS,
   VIP_TOUR_OPTIONS,
+  VIP_TOUR_SHORT_LABEL_KEYS,
   buildVipFullName,
   buildVipPortalId,
   buildVipRegistrationPayload,
@@ -112,17 +113,6 @@ function formatMailStatus(status, t) {
   }
 }
 
-function formatBadgeStatus(status, t) {
-  switch (String(status || "").trim().toLowerCase()) {
-    case "en_file":
-      return t("vipBadgeQueued");
-    case "imprime":
-      return t("vipBadgePrinted");
-    default:
-      return t("vipBadgeNotPrinted");
-  }
-}
-
 function formatRegistrationSource(sourceType, t) {
   switch (String(sourceType || "").trim()) {
     case "public_form":
@@ -209,6 +199,10 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   const { t } = useLanguage();
   const { activeEditionId, activeEditionLabel, loading: editionLoading } = useActiveEdition(true);
   const [activeVipTab, setActiveVipTab] = useState("invitations");
+  // Formulaires d'ajout repliés derrière un bouton (page plus compacte).
+  const [showInvitationForm, setShowInvitationForm] = useState(false);
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const tourShortLabel = (value) => t(VIP_TOUR_SHORT_LABEL_KEYS[value || "none"] || "vipTourShortNone");
   const [partnerPortals, setPartnerPortals] = useState([]);
   const [partnerPortalSecrets, setPartnerPortalSecrets] = useState({});
   const [invitations, setInvitations] = useState([]);
@@ -986,39 +980,26 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   );
 
   return (
-    <div className="stacked-entry">
-      <Panel
-        title={t("vipAdminTitle")}
-        subtitle={t("vipAdminSubtitle").replace("{edition}", activeEditionLabel)}
-      >
-        <div className="vip-admin-stats">
-          <article className="vip-admin-stat-card">
-            <strong>{invitationRows.length}</strong>
-            <span>{t("vipAdminStatInvitations")}</span>
-          </article>
-          <article className="vip-admin-stat-card">
-            <strong>{registrationRows.length}</strong>
-            <span>{t("vipAdminStatRegistrations")}</span>
-          </article>
-          <article className="vip-admin-stat-card">
-            <strong>{registrationRows.filter((row) => row.badgePrintStatus === "en_file").length}</strong>
-            <span>{t("vipAdminStatQueued")}</span>
-          </article>
-          <article className="vip-admin-stat-card">
-            <strong>{registrationRows.filter((row) => row.badgePrintStatus === "imprime").length}</strong>
-            <span>{t("vipAdminStatPrinted")}</span>
-          </article>
+    <div className="stacked-entry vip-admin">
+      <header className="vip-admin-head">
+        <div>
+          <h1>{t("vipAdminTitle")}</h1>
+          <p>{t("vipAdminSubtitle").replace("{edition}", activeEditionLabel)}</p>
         </div>
-        {editionLoading || loading ? <p>{t("vipAdminLoading")}</p> : null}
-        {error ? <p className="form-error">{error}</p> : null}
-        {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
-        <p className="panel-note">
-          {t("vipAdminImportNotePrefix")} <strong>{vipImport2027.metadata.recordCount}</strong>{" "}
-          {t("vipAdminImportNoteSuffix")}
-        </p>
-      </Panel>
+        <dl className="vip-admin-kpis">
+          <div><dt>{t("vipAdminStatInvitations")}</dt><dd>{invitationRows.length}</dd></div>
+          <div><dt>{t("vipAdminStatRegistrations")}</dt><dd>{registrationRows.length}</dd></div>
+          <div><dt>{t("vipAdminStatQueued")}</dt><dd>{registrationRows.filter((row) => row.badgePrintStatus === "en_file").length}</dd></div>
+          <div><dt>{t("vipAdminStatPrinted")}</dt><dd>{registrationRows.filter((row) => row.badgePrintStatus === "imprime").length}</dd></div>
+        </dl>
+      </header>
+      {editionLoading || loading ? <p className="panel-note">{t("vipAdminLoading")}</p> : null}
+      {error ? <p className="form-error">{error}</p> : null}
+      {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
 
-      <Panel title={t("vipExplainerTitle")} subtitle={t("vipExplainerSubtitle")}>
+      <details className="vip-explainer">
+        <summary>{t("vipExplainerToggle")}</summary>
+        <p className="panel-note">{t("vipExplainerSubtitle")}</p>
         <ol className="vip-explainer-list">
           <li>
             <strong>{t("vipExplainerStep1Title")}</strong> {t("vipExplainerStep1Tab")}
@@ -1041,35 +1022,40 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
           {t("vipExplainerFooterPrefix")} <strong>{t("vipExplainerFooterHighlight")}</strong>{" "}
           {t("vipExplainerFooterSuffix")}
         </p>
-      </Panel>
+        <p className="panel-note">
+          {t("vipAdminImportNotePrefix")} <strong>{vipImport2027.metadata.recordCount}</strong>{" "}
+          {t("vipAdminImportNoteSuffix")}
+        </p>
+      </details>
 
-      <div className="admin-subtabs" role="tablist" aria-label={t("vipTabNavAriaLabel")}>
-        <button
-          className={`admin-subtab ${activeVipTab === "invitations" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => setActiveVipTab("invitations")}
-        >
-          {t("vipTabInvitations")}
-        </button>
-        <button
-          className={`admin-subtab ${activeVipTab === "registrations" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => setActiveVipTab("registrations")}
-        >
-          {t("vipTabRegistrations")}
-        </button>
-        <button
-          className={`admin-subtab ${activeVipTab === "partner-portals" ? "admin-subtab--active" : ""}`}
-          type="button"
-          onClick={() => setActiveVipTab("partner-portals")}
-        >
-          {t("vipTabPartnerPortals")}
-        </button>
+      <div className="vip-admin-tabs" role="tablist" aria-label={t("vipTabNavAriaLabel")}>
+        {[
+          ["invitations", t("vipTabInvitations"), invitationRows.length],
+          ["registrations", t("vipTabRegistrations"), registrationRows.length],
+          ["partner-portals", t("vipTabPartnerPortals"), partnerPortalRows.length],
+        ].map(([key, label, count]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={activeVipTab === key}
+            className={`vip-admin-tab${activeVipTab === key ? " is-active" : ""}`}
+            type="button"
+            onClick={() => setActiveVipTab(key)}
+          >
+            {label}
+            <span className="vip-admin-tab__count">{count}</span>
+          </button>
+        ))}
       </div>
 
       {activeVipTab === "invitations" ? (
         <>
-          <Panel title={t("vipAddInvitationTitle")} subtitle={t("vipAddInvitationSubtitle")}>
+          {showInvitationForm ? (
+          <Panel
+            title={t("vipAddInvitationTitle")}
+            subtitle={t("vipAddInvitationSubtitle")}
+            actions={<button type="button" className="button button--neutral" onClick={() => setShowInvitationForm(false)}>{t("vipHideForm")}</button>}
+          >
             <form className="auth-form auth-form--compact vip-admin-form vip-admin-form--inline" onSubmit={handleInvitationSubmit}>
               <AuthFormField label={t("vipFieldFirstName")} required>
                 <input name="firstName" required value={invitationForm.firstName} onChange={handleInvitationChange} />
@@ -1083,10 +1069,11 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               <AuthFormField label={t("vipFieldOrganization")}>
                 <input name="organization" value={invitationForm.organization} onChange={handleInvitationChange} />
               </AuthFormField>
-              <AuthFormField label={t("vipFieldCategory")} required hint={t("vipFieldCategoryHint")}>
+              <AuthFormField label={t("vipFieldCategory")} required>
                 <input
                   list="vip-invitation-category-suggestions"
                   name="category"
+                  title={t("vipFieldCategoryHint")}
                   required
                   value={invitationForm.category}
                   onChange={handleInvitationChange}
@@ -1102,10 +1089,11 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                   <option value="en">{t("vipLangEnglish")}</option>
                 </select>
               </AuthFormField>
-              <AuthFormField label={t("vipFieldMailGreeting")} hint={t("vipFieldMailGreetingHint")}>
+              <AuthFormField label={t("vipFieldMailGreeting")}>
                 <input
                   name="mailGreetingLabel"
                   placeholder={t("vipMailGreetingPlaceholder")}
+                  title={t("vipFieldMailGreetingHint")}
                   value={invitationForm.mailGreetingLabel}
                   onChange={handleInvitationChange}
                 />
@@ -1131,19 +1119,27 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               </div>
             </form>
           </Panel>
+          ) : null}
 
           <Panel
             title={t("vipInvitationListTitle")}
             subtitle={t("vipInvitationListSubtitle")}
             actions={
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={handleExportInvitationsExcel}
-                disabled={isExportingVip || filteredInvitationRows.length === 0}
-              >
-                {isExportingVip ? "Export…" : `Exporter Excel (${filteredInvitationRows.length})`}
-              </button>
+              <div className="vip-admin-head-actions">
+                {showInvitationForm ? null : (
+                  <button type="button" className="button button--primary" onClick={() => setShowInvitationForm(true)}>
+                    + {t("vipNewInvitation")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={handleExportInvitationsExcel}
+                  disabled={isExportingVip || filteredInvitationRows.length === 0}
+                >
+                  {isExportingVip ? "Export…" : `Excel (${filteredInvitationRows.length})`}
+                </button>
+              </div>
             }
           >
             <div className="vip-admin-filters">
@@ -1334,7 +1330,12 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
         </>
       ) : activeVipTab === "registrations" ? (
         <>
-          <Panel title={t("vipAddRegistrantTitle")} subtitle={t("vipAddRegistrantSubtitle")}>
+          {showRegistrationForm ? (
+          <Panel
+            title={t("vipAddRegistrantTitle")}
+            subtitle={t("vipAddRegistrantSubtitle")}
+            actions={<button type="button" className="button button--neutral" onClick={() => setShowRegistrationForm(false)}>{t("vipHideForm")}</button>}
+          >
             <form className="auth-form auth-form--compact vip-admin-form vip-admin-form--inline" onSubmit={handleRegistrationSubmit}>
               <AuthFormField label={t("vipFieldFirstName")} required>
                 <input name="firstName" required value={registrationForm.firstName} onChange={handleRegistrationChange} />
@@ -1358,6 +1359,13 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                   ))}
                 </select>
               </AuthFormField>
+              <AuthFormField label={t("vipFieldTour")} required>
+                <select name="vipTourChoice" value={registrationForm.vipTourChoice} onChange={handleRegistrationChange}>
+                  {VIP_TOUR_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{tourShortLabel(option.value)}</option>
+                  ))}
+                </select>
+              </AuthFormField>
               <AuthFormField className="vip-admin-form__wide" label={t("vipFieldNotes")}>
                 <input name="notes" value={registrationForm.notes} onChange={handleRegistrationChange} />
               </AuthFormField>
@@ -1368,19 +1376,27 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               </div>
             </form>
           </Panel>
+          ) : null}
 
           <Panel
             title={t("vipRegistrantListTitle")}
             subtitle={t("vipRegistrantListSubtitle")}
             actions={
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={handleExportRegistrationsExcel}
-                disabled={isExportingVip || filteredRegistrationRows.length === 0}
-              >
-                {isExportingVip ? "Export…" : `Exporter Excel (${filteredRegistrationRows.length})`}
-              </button>
+              <div className="vip-admin-head-actions">
+                {showRegistrationForm ? null : (
+                  <button type="button" className="button button--primary" onClick={() => setShowRegistrationForm(true)}>
+                    + {t("vipNewRegistrant")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={handleExportRegistrationsExcel}
+                  disabled={isExportingVip || filteredRegistrationRows.length === 0}
+                >
+                  {isExportingVip ? "Export…" : `Excel (${filteredRegistrationRows.length})`}
+                </button>
+              </div>
             }
           >
             <div className="vip-admin-filters">
@@ -1407,19 +1423,23 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                 <option value="tous">{t("vipFilterAllTours")}</option>
                 {VIP_TOUR_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {getVipTourChoiceLabel(option.value)}
+                    {tourShortLabel(option.value)}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="vip-admin-stats">
+            <div className="vip-admin-tour-chips">
               {VIP_TOUR_OPTIONS.map((option) => (
-                <article key={option.value} className="vip-admin-stat-card">
-                  <strong>
-                    {registrationRows.filter((row) => (row.vipTourChoice || "none") === option.value).length}
-                  </strong>
-                  <span>{getVipTourChoiceLabel(option.value)}</span>
-                </article>
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`vip-admin-tour-chip${registrationTourFilter === option.value ? " is-active" : ""}`}
+                  title={getVipTourChoiceLabel(option.value)}
+                  onClick={() => setRegistrationTourFilter(registrationTourFilter === option.value ? "tous" : option.value)}
+                >
+                  {tourShortLabel(option.value)}
+                  <strong>{registrationRows.filter((row) => (row.vipTourChoice || "none") === option.value).length}</strong>
+                </button>
               ))}
             </div>
             <div className="table-wrap">
@@ -1439,7 +1459,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                       <td>
                         <div className="table-stack table-stack--tight">
                           <strong>{buildVipFullName(registration) || "—"}</strong>
-                          <span>{registration.email || "—"}</span>
+                          <span title={registration.email || ""}>{registration.email || "—"}</span>
                           <span className="vip-table-muted">{registration.organization || "—"}</span>
                         </div>
                       </td>
@@ -1453,21 +1473,33 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                           </span>
                         </div>
                       </td>
-                      <td>{getVipTourChoiceLabel(registration.vipTourChoice)}</td>
                       <td>
-                        <div className="vip-admin-inline-field">
-                          <select
-                            value={registration.badgePrintStatus || "non_imprime"}
-                            onChange={(event) =>
-                              handleRegistrationFieldUpdate(registration, { badgePrintStatus: event.target.value })
-                            }
-                          >
-                            <option value="non_imprime">{t("vipBadgeNotPrinted")}</option>
-                            <option value="en_file">{t("vipBadgeQueued")}</option>
-                            <option value="imprime">{t("vipBadgePrinted")}</option>
-                          </select>
-                          <span className="panel-note">{formatBadgeStatus(registration.badgePrintStatus, t)}</span>
-                        </div>
+                        {/* Tour modifiable ici, quelle que soit la source de l'inscription. */}
+                        <select
+                          aria-label={t("vipColVipTour")}
+                          title={getVipTourChoiceLabel(registration.vipTourChoice || "none")}
+                          value={registration.vipTourChoice || "none"}
+                          onChange={(event) =>
+                            handleRegistrationFieldUpdate(registration, { vipTourChoice: event.target.value })
+                          }
+                        >
+                          {VIP_TOUR_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{tourShortLabel(option.value)}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          aria-label={t("vipColAccreditation")}
+                          value={registration.badgePrintStatus || "non_imprime"}
+                          onChange={(event) =>
+                            handleRegistrationFieldUpdate(registration, { badgePrintStatus: event.target.value })
+                          }
+                        >
+                          <option value="non_imprime">{t("vipBadgeNotPrinted")}</option>
+                          <option value="en_file">{t("vipBadgeQueued")}</option>
+                          <option value="imprime">{t("vipBadgePrinted")}</option>
+                        </select>
                       </td>
                       <td>
                         <select

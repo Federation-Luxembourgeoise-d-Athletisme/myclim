@@ -17,6 +17,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
@@ -236,6 +237,9 @@ export function AuthProvider({ children }) {
         unsubscribeUserProfile();
         unsubscribeUserProfile = onSnapshot(
           userRef,
+          // Rappel aussi quand seule la confirmation du serveur arrive (voir
+          // plus bas : on attend cette confirmation avant de créer un profil).
+          { includeMetadataChanges: true },
           async (userSnapshot) => {
             if (userSnapshot.exists()) {
               const profileData = userSnapshot.data();
@@ -271,8 +275,25 @@ export function AuthProvider({ children }) {
               setUserProfile(normalizedProfile);
               setLoading(false);
             } else {
+              // Profil introuvable. Avant, on écrivait tout de suite un profil
+              // « bénévole » par-dessus (merge) : si la réponse était juste
+              // momentanément vide (cache local d'un nouveau navigateur…), les
+              // rôles et le nom d'un compte existant étaient écrasés — c'est
+              // arrivé au compte admin le 10/11/2026. On ne crée donc le profil
+              // que si le serveur confirme qu'il n'existe pas, et jamais par-dessus.
+              if (userSnapshot.metadata.fromCache) return; // la réponse du serveur suit
               const fallbackProfile = buildBaseProfile(user, {});
-              await setDoc(userRef, fallbackProfile, { merge: true });
+              try {
+                const created = await runTransaction(db, async (transaction) => {
+                  const fresh = await transaction.get(userRef);
+                  if (fresh.exists()) return false;
+                  transaction.set(userRef, fallbackProfile);
+                  return true;
+                });
+                if (!created) return; // le profil existe : le prochain instantané l'apporte
+              } catch (creationError) {
+                console.warn("Unable to create missing user profile", creationError);
+              }
               setUserProfile({ id: user.uid, ...fallbackProfile, createdAt: null, updatedAt: null });
               setLoading(false);
             }
