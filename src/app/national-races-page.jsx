@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import { db } from "../services/firebase";
@@ -13,6 +14,7 @@ import {
   compareNationalRaceRequests,
   getBestTimeSummary,
   getNationalRaceAthleteQuota,
+  getNationalRaceSelectionDate,
   getProposedNationalRaceSelection,
   isNationalRaceMailPending,
   isNationalRacePacer,
@@ -21,6 +23,8 @@ import {
 import { useNationalRaceMailTemplates, useNationalRaceRequests } from "./national-races-hooks";
 import { useNationalRacesAdminCopy } from "./national-races-admin-copy";
 import { useActiveEdition } from "./edition";
+import { useLanguage } from "./language-context";
+import { useMeetingEditions } from "./meeting-history-hooks";
 import { formatDateForDisplay, formatDateTimeForDisplay, getTimestampMs, luxCompetitionClubs } from "./u14-helpers";
 
 // Module Courses nationales (commission des athlètes). Textes français /
@@ -452,7 +456,16 @@ function NationalRacesPage(props) {
   // "" (fermé), "new" (ajout) ou l'id de la demande en cours de modification.
   const [athleteFormTarget, setAthleteFormTarget] = useState("");
   const [mailPreviewId, setMailPreviewId] = useState("");
+  const [isMailDrawerOpen, setIsMailDrawerOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState("");
   const { activeEditionId } = useActiveEdition();
+  const { language } = useLanguage();
+  const { editions } = useMeetingEditions();
+  const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
+  const selectionDate = getNationalRaceSelectionDate(activeEdition?.date);
+  const selectionDateLabel = selectionDate
+    ? selectionDate.toLocaleDateString(language === "fr" ? "fr-LU" : "en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : "-";
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const authorName = getAuthorName(userProfile, currentUser);
@@ -704,87 +717,114 @@ function NationalRacesPage(props) {
     ]);
   }
 
+  const ui = copy.ui;
+  const luxInProposal = proposal.reservedIds.size;
+  const proposedIds = new Set(proposal.selection.map((request) => request.id));
+  const drawerOpen = Boolean(athleteFormTarget || mailPreviewRequest || isEditingTemplates || isMailDrawerOpen);
+
+  function closeDrawer() {
+    setAthleteFormTarget("");
+    setMailPreviewId("");
+    setIsEditingTemplates(false);
+    setIsMailDrawerOpen(false);
+  }
+
+  function openDrawer(setter) {
+    closeDrawer();
+    setter();
+  }
+
   return (
-    <div className="page">
-      <section className="page-header">
+    <div className="page natx">
+      <header className="natx-head">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
+          <p className="natx-eyebrow">{fill(ui.eyebrow, { edition: activeEditionId })}</p>
           <h1>{copy.title}</h1>
-          <p>{copy.intro}</p>
+          <p className="natx-lead">{ui.lead}</p>
         </div>
-        <div className="nat-actions">
-          <button className="button button--secondary" type="button" onClick={handleExport}>{copy.export}</button>
-        </div>
-      </section>
-
-      {error || templatesError ? <p className="status-note">{error || templatesError}</p> : null}
-      {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
-      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
-
-      <section className="metric-grid">
-        <article className="metric-card"><span>{copy.metrics.total}</span><strong>{metrics.total}</strong></article>
-        <article className="metric-card metric-card--accent"><span>{copy.metrics.selected}</span><strong>{metrics.selected} / {metrics.places}</strong></article>
-        <article className="metric-card"><span>{copy.metrics.undecided}</span><strong>{metrics.undecided}</strong></article>
-        <article className="metric-card metric-card--warn"><span>{copy.metrics.pending}</span><strong>{metrics.pending}</strong></article>
-      </section>
-
-      <div className="nat-chip-row">
-        {raceSummaries.map((race) => (
-          <button
-            key={race.code}
-            className={`nat-chip${selectedRace.code === race.code ? " nat-chip--active" : ""}${race.selected > race.athleteQuota ? " nat-chip--over" : ""}`}
-            type="button"
-            onClick={() => {
-              setSelectedRaceCode(race.code);
-              setCheckedIds([]);
-              setAthleteFormTarget("");
-            }}
-          >
-            {raceLabel(race.code, race.label)} · {race.selected}/{race.athleteQuota}
-            {race.hasPacer ? ` + ${copy.pacerShort}` : ""}
-            <span className="nat-muted"> ({race.total})</span>
+        <div className="natx-head__actions">
+          <button className="natx-btn" type="button" onClick={() => openDrawer(() => setIsMailDrawerOpen(true))}>
+            {ui.mailsButton}
+            {metrics.pending ? <span className="natx-count natx-count--warn">{metrics.pending}</span> : null}
           </button>
-        ))}
+          <button className="natx-btn" type="button" onClick={() => openDrawer(() => setIsEditingTemplates(true))}>{ui.templatesButton}</button>
+          <button className="natx-btn" type="button" onClick={handleExport}>{copy.export}</button>
+        </div>
+      </header>
+
+      {error || templatesError ? <p className="natx-alert natx-alert--danger">{error || templatesError}</p> : null}
+      {statusMessage ? <p className="natx-alert natx-alert--ok">{statusMessage}</p> : null}
+      {errorMessage ? <p className="natx-alert natx-alert--danger">{errorMessage}</p> : null}
+
+      <div className="natx-kpis">
+        <div><span>{copy.metrics.total}</span><strong>{metrics.total}</strong></div>
+        <div><span>{copy.metrics.selected}</span><strong>{metrics.selected}<small> / {metrics.places}</small></strong></div>
+        <div><span>{copy.metrics.undecided}</span><strong>{metrics.undecided}</strong></div>
+        <div className={metrics.pending ? "natx-kpi--warn" : ""}><span>{copy.metrics.pending}</span><strong>{metrics.pending}</strong></div>
+        <div><span>{ui.selectionDate}</span><strong className="natx-kpi__text">{selectionDateLabel}</strong></div>
       </div>
 
-      {selectedRace.selected > selectedRace.athleteQuota ? (
-        <div className="notice-card notice-card--warn">
-          <strong>{copy.quotaTitle}</strong>
-          <p>{fill(copy.quotaBody, { count: selectedRace.selected, quota: selectedRace.athleteQuota, race: selectedRaceLabel })}</p>
-        </div>
-      ) : null}
+      <nav className="natx-tabs" aria-label={ui.racesLabel}>
+        {raceSummaries.map((race) => {
+          const ratio = race.athleteQuota ? Math.min(1, race.selected / race.athleteQuota) : 0;
+          const pending = requests.filter((request) => request.raceCode === race.code && isNationalRaceMailPending(request)).length;
+          return (
+            <button
+              key={race.code}
+              aria-pressed={selectedRace.code === race.code}
+              className={`natx-tab${selectedRace.code === race.code ? " natx-tab--active" : ""}${race.selected > race.athleteQuota ? " natx-tab--over" : ""}`}
+              type="button"
+              onClick={() => {
+                setSelectedRaceCode(race.code);
+                setCheckedIds([]);
+                setExpandedId("");
+                closeDrawer();
+              }}
+            >
+              <span className="natx-tab__top">
+                <strong>{raceLabel(race.code, race.label)}</strong>
+                <span className="natx-tab__mode">{race.invitationOnly ? ui.modeInvitation : ui.modeOpen}</span>
+              </span>
+              <span className="natx-meter"><span style={{ width: `${ratio * 100}%` }} /></span>
+              <span className="natx-tab__meta">
+                <span>{fill(ui.tabSelected, { selected: race.selected, quota: race.athleteQuota })}{race.hasPacer ? ` + ${copy.pacerShort}` : ""}</span>
+                <span>{fill(ui.tabRequests, { count: race.total })}{pending ? ` · ${fill(ui.tabMails, { count: pending })}` : ""}</span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
-      <div className="nat-actions">
-        <span className="nat-muted">
-          {selectedRace.invitationOnly
-            ? copy.raceRules.invitation
-            : fill(copy.raceRules.open, { quota: selectedRace.quota, lux: selectedRace.luxReserved })}
-        </span>
-        <span className="nat-spacer" />
-        <button className="button button--primary button--small" type="button" onClick={() => setAthleteFormTarget(athleteFormTarget === "new" ? "" : "new")}>
+      <section className="natx-race">
+        <div className="natx-race__facts">
+          <span className="natx-fact"><b>{selectedRace.quota}</b> {ui.factPlaces}</span>
+          {selectedRace.allowsPacer ? (
+            <span className="natx-fact">{ui.factPacer} <b>{selectedRace.hasPacer ? ui.yes : ui.no}</b></span>
+          ) : null}
+          {selectedRace.luxReserved ? (
+            <span className="natx-fact">{ui.factLux} <b>{luxInProposal}/{selectedRace.luxReserved}</b></span>
+          ) : null}
+          <span className="natx-fact">{ui.factBasis}</span>
+          {selectedRace.invitationOnly ? <span className="natx-fact natx-fact--note">{ui.factInvitation}</span> : null}
+        </div>
+        <button className="natx-btn natx-btn--primary" type="button" onClick={() => openDrawer(() => setAthleteFormTarget("new"))}>
           {selectedRace.invitationOnly ? copy.add.inviteButton : copy.add.addButton}
         </button>
-      </div>
+      </section>
 
-      {athleteFormTarget && (athleteFormTarget === "new" || editedRequest) ? (
-        <AddAthleteForm
-          key={athleteFormTarget}
-          initial={editedRequest}
-          isSaving={isBusy}
-          race={selectedRace}
-          raceLabel={selectedRaceLabel}
-          onCancel={() => setAthleteFormTarget("")}
-          onSubmit={handleSaveAthlete}
-        />
+      {selectedRace.selected > selectedRace.athleteQuota ? (
+        <p className="natx-alert natx-alert--warn">
+          <b>{copy.quotaTitle}.</b> {fill(copy.quotaBody, { count: selectedRace.selected, quota: selectedRace.athleteQuota, race: selectedRaceLabel })}
+        </p>
       ) : null}
 
-      <div className="nat-card nat-card--flush">
-        <div className="nat-bulk">
-          <span className="nat-muted">{checkedInRace.length ? fill(copy.bulkSelected, { count: checkedInRace.length }) : copy.bulkHint}</span>
+      <div className="natx-board">
+        <div className="natx-toolbar">
+          <span className="natx-muted">{checkedInRace.length ? fill(copy.bulkSelected, { count: checkedInRace.length }) : copy.bulkHint}</span>
           {DECISIONS.map((decision) => (
             <button
               key={decision.status}
-              className="button button--secondary button--small"
+              className="natx-btn natx-btn--sm"
               disabled={isBusy || !checkedInRace.length}
               type="button"
               onClick={() => setStatuses(raceRequests.filter((request) => checkedInRace.includes(request.id)), decision.status)}
@@ -792,191 +832,268 @@ function NationalRacesPage(props) {
               {copy.statuses[decision.status]}
             </button>
           ))}
-          <span className="nat-spacer" />
-          <button className="button button--secondary button--small" disabled={isBusy || !raceRequests.length} type="button" onClick={handleSelectTop}>
+          <span className="natx-spacer" />
+          <span className="natx-legend"><i className="natx-legend__proposed" /> {ui.legendProposed}</span>
+          <button className="natx-btn natx-btn--sm natx-btn--accent" disabled={isBusy || !proposal.selection.length} type="button" onClick={handleSelectTop}>
             {selectedRace.luxReserved
-              ? fill(copy.selectProposal, { count: proposal.selection.length, lux: proposal.reservedIds.size })
+              ? fill(copy.selectProposal, { count: proposal.selection.length, lux: luxInProposal })
               : fill(copy.selectTop, { count: proposal.selection.length })}
           </button>
         </div>
-        <div className="nat-row nat-row--head">
-          <span />
-          <span>{copy.columns.position}</span>
-          <span>{copy.columns.athlete}</span>
-          <span>{copy.columns.best}</span>
-          <span>{copy.columns.decision}</span>
-          <span>{copy.columns.mail}</span>
-          <span>{copy.columns.message}</span>
-        </div>
-        {loading ? <p className="nat-muted nat-pad">{copy.loading}</p> : null}
-        {!loading && !raceRequests.length ? <p className="nat-muted nat-pad">{copy.emptyRace}</p> : null}
-        {raceRequests.map((request, index) => {
-          const age = getAthleteAge(request.birthDate);
-          const best = getBestTimeSummary(request);
-          const isWithdrawn = request.status === "withdrawn";
-          const messageDraft = messageDrafts[request.id] ?? request.athleteMessage ?? "";
-          return (
-            <div key={request.id} className={`nat-row${isWithdrawn ? " nat-row--withdrawn" : ""}`}>
-              <input
-                aria-label={fill(copy.select, { name: `${request.firstName} ${request.lastName}` })}
-                checked={checkedInRace.includes(request.id)}
-                disabled={isWithdrawn}
-                type="checkbox"
-                onChange={() =>
-                  setCheckedIds((current) => (current.includes(request.id) ? current.filter((id) => id !== request.id) : [...current, request.id]))
-                }
-              />
-              <span>{index + 1}</span>
-              <span className="table-stack">
-                <strong>{request.firstName} {request.lastName}</strong>
-                <span className="nat-muted">
-                  {request.birthYear || "-"}
-                  {age !== null ? ` · ${fill(copy.age, { age })}` : ""} ·{" "}
-                  {request.isLuxLicensed
-                    ? `${request.club} · ${fill(copy.bib, { bib: request.bibNumber || "-" })}`
-                    : `${request.foreignClub} · ${request.foreignCountry}`}
-                </span>
-                <span className="nat-badges">
-                  {isNationalRacePacer(request) ? <span className="status-pill status-pill--accent">{copy.pacer}</span> : null}
-                  {proposal.reservedIds.has(request.id) ? <span className="status-pill status-pill--ok">{copy.luxSeat}</span> : null}
-                  {request.source === "commission" ? <span className="status-pill">{selectedRace.invitationOnly ? copy.invited : copy.addedByCommission}</span> : null}
-                  {request.isLuxLicensed ? null : <span className="status-pill status-pill--warn">{copy.foreign}</span>}
-                  {request.isMinor ? (
-                    <span
-                      className={request.guardianConsent ? "status-pill status-pill--accent" : "status-pill status-pill--danger"}
-                      title={`${request.guardianFirstName} ${request.guardianLastName} · ${request.guardianEmail}`}
-                    >
-                      {copy.minor}
-                    </span>
-                  ) : null}
-                  {isWithdrawn ? <span className="status-pill status-pill--danger">{copy.withdrawn}</span> : null}
-                </span>
-              </span>
-              <span className="table-stack">
-                {best ? (
-                  <>
-                    <strong>{best.time} <span className="nat-muted">{copy.timeLabels[best.label] || best.label}</span></strong>
-                    <span className="nat-muted">{[best.place, best.date ? formatDateForDisplay(best.date) : ""].filter(Boolean).join(" · ")}</span>
-                  </>
-                ) : (
-                  <span className="nat-muted">{copy.noTime}</span>
-                )}
-                <details className="nat-details">
-                  <summary>{copy.detail}</summary>
-                  {[
-                    { label: "PB", prefix: "personalBest" },
-                    { label: "SB", prefix: "seasonBest" },
-                    { label: "SB 2025", prefix: "previousSeasonBest" },
-                    { label: "Autre", prefix: "otherTime" },
-                  ]
-                    .filter((row) => request[row.prefix])
-                    .map((row) => (
-                      <span key={row.prefix}>
-                        {copy.timeLabels[row.label]} {request[row.prefix]}
-                        {request[`${row.prefix}Place`] ? ` · ${request[`${row.prefix}Place`]}` : ""}
-                        {request[`${row.prefix}Date`] ? ` · ${formatDateForDisplay(request[`${row.prefix}Date`])}` : ""}
-                      </span>
-                    ))}
-                  {request.nationality ? <span>{fill(copy.nationality, { nationality: request.nationality })}</span> : null}
-                  {request.worldAthleticsUrl ? (
-                    <a href={request.worldAthleticsUrl} rel="noreferrer" target="_blank">{copy.worldAthleticsLink}</a>
-                  ) : null}
-                  {request.pacerPayment ? <span>{request.pacerPayment === "oui" ? copy.pacerPaymentYes : copy.pacerPaymentNo}</span> : null}
-                  {request.notes ? <span>{fill(copy.note, { note: request.notes })}</span> : null}
-                  <span>{request.email} · {request.phone}</span>
-                  <span>{fill(copy.receivedOn, { date: formatDateTimeForDisplay(request.submittedAt) })}</span>
-                  {request.status === "selected" ? (
-                    <label className="nat-inline-check">
-                      <input
-                        checked={Boolean(request.seltecEntered)}
-                        type="checkbox"
-                        onChange={(event) =>
-                          updateRequest(request, { seltecEntered: event.target.checked }, event.target.checked ? copy.seltecOn : copy.seltecOff)
-                        }
-                      />
-                      {copy.seltec}
-                    </label>
-                  ) : null}
-                  <span className="nat-actions">
-                    <button className="button button--secondary button--small" type="button" onClick={() => {
-                        setAthleteFormTarget(request.id);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}>
-                      {copy.add.editButton}
-                    </button>
-                    {NATIONAL_RACE_NOTIFIABLE_STATUSES.includes(request.status) ? (
-                      <button
-                        className={`button button--secondary button--small${mailPreviewId === request.id ? " nat-button--active" : ""}`}
-                        type="button"
-                        onClick={() => setMailPreviewId(mailPreviewId === request.id ? "" : request.id)}
-                      >
-                        {copy.mailPanel.preview}
-                      </button>
+
+        <div className="natx-table-wrap">
+          <table className="natx-table">
+            <thead>
+              <tr>
+                <th aria-label={copy.select} />
+                <th>#</th>
+                <th>{copy.columns.athlete}</th>
+                <th>{ui.colLicence}</th>
+                <th>{copy.columns.best}</th>
+                <th title={ui.colPacerPayTitle}>{ui.colPacerPay}</th>
+                <th>{copy.columns.decision}</th>
+                <th>{copy.columns.mail}</th>
+                <th aria-label={ui.colActions} />
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td className="natx-empty" colSpan={9}>{copy.loading}</td></tr>
+              ) : null}
+              {!loading && !raceRequests.length ? (
+                <tr><td className="natx-empty" colSpan={9}>{selectedRace.invitationOnly ? ui.emptyInvitation : copy.emptyRace}</td></tr>
+              ) : null}
+              {raceRequests.map((request, index) => {
+                const age = getAthleteAge(request.birthDate);
+                const best = getBestTimeSummary(request);
+                const isWithdrawn = request.status === "withdrawn";
+                const isPacer = isNationalRacePacer(request);
+                const isExpanded = expandedId === request.id;
+                const messageDraft = messageDrafts[request.id] ?? request.athleteMessage ?? "";
+                const rowClass = [
+                  "natx-row",
+                  isWithdrawn ? "natx-row--withdrawn" : "",
+                  proposedIds.has(request.id) ? "natx-row--proposed" : "",
+                  isExpanded ? "natx-row--open" : "",
+                ].filter(Boolean).join(" ");
+                return (
+                  <Fragment key={request.id}>
+                    <tr className={rowClass}>
+                      <td>
+                        <input
+                          aria-label={fill(copy.select, { name: `${request.firstName} ${request.lastName}` })}
+                          checked={checkedInRace.includes(request.id)}
+                          disabled={isWithdrawn}
+                          type="checkbox"
+                          onChange={() =>
+                            setCheckedIds((current) => (current.includes(request.id) ? current.filter((id) => id !== request.id) : [...current, request.id]))
+                          }
+                        />
+                      </td>
+                      <td className="natx-rank">{isPacer ? "L" : index + 1}</td>
+                      <td>
+                        <button className="natx-name" type="button" onClick={() => setExpandedId(isExpanded ? "" : request.id)}>
+                          {request.lastName.toUpperCase()} {request.firstName}
+                        </button>
+                        <span className="natx-sub">
+                          {[request.nationality, age !== null ? fill(copy.age, { age }) : request.birthYear].filter(Boolean).join(" · ")}
+                        </span>
+                        <span className="natx-tags">
+                          {isPacer ? <span className="natx-tag natx-tag--pacer">{copy.pacer}</span> : null}
+                          {proposal.reservedIds.has(request.id) ? <span className="natx-tag natx-tag--lux">{copy.luxSeat}</span> : null}
+                          {request.source === "commission" ? <span className="natx-tag">{selectedRace.invitationOnly ? copy.invited : copy.addedByCommission}</span> : null}
+                          {request.isMinor ? <span className={`natx-tag${request.guardianConsent ? "" : " natx-tag--danger"}`}>{copy.minor}</span> : null}
+                          {isWithdrawn ? <span className="natx-tag natx-tag--danger">{copy.withdrawn}</span> : null}
+                        </span>
+                      </td>
+                      <td>
+                        {request.isLuxLicensed ? (
+                          <>
+                            <span className="natx-lic natx-lic--lux">LUX</span> {request.club}
+                            <span className="natx-sub">{fill(copy.bib, { bib: request.bibNumber || "-" })}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="natx-lic">{ui.foreignShort}</span> {request.foreignClub}
+                            <span className="natx-sub">{request.foreignCountry}</span>
+                          </>
+                        )}
+                      </td>
+                      <td>
+                        {best ? (
+                          <>
+                            <span className="natx-time">{best.time}</span> <span className="natx-time-label">{copy.timeLabels[best.label] || best.label}</span>
+                            <span className="natx-sub">{[best.place, best.date ? formatDateForDisplay(best.date) : ""].filter(Boolean).join(" · ")}</span>
+                          </>
+                        ) : (
+                          <span className="natx-muted">{copy.noTime}</span>
+                        )}
+                      </td>
+                      <td>
+                        {request.pacerPayment ? (
+                          <span className={`natx-yn natx-yn--${request.pacerPayment === "oui" ? "yes" : "no"}`}>{request.pacerPayment === "oui" ? ui.yes : ui.no}</span>
+                        ) : <span className="natx-muted">-</span>}
+                      </td>
+                      <td>
+                        {isWithdrawn ? (
+                          <span className="natx-muted">-</span>
+                        ) : (
+                          <span className="natx-seg" role="group" aria-label={copy.decisionGroup}>
+                            {DECISIONS.map((decision) => (
+                              <button
+                                key={decision.status}
+                                aria-pressed={request.status === decision.status}
+                                className={`natx-seg__item${request.status === decision.status ? ` natx-seg__item--${decision.status}` : ""}`}
+                                disabled={isBusy}
+                                type="button"
+                                onClick={() => setStatuses([request], request.status === decision.status ? "submitted" : decision.status)}
+                              >
+                                {copy.decisions[decision.status]}
+                              </button>
+                            ))}
+                          </span>
+                        )}
+                      </td>
+                      <td><MailStatus request={request} /></td>
+                      <td className="natx-row-actions">
+                        {NATIONAL_RACE_NOTIFIABLE_STATUSES.includes(request.status) ? (
+                          <button className="natx-link" type="button" onClick={() => openDrawer(() => setMailPreviewId(request.id))}>{copy.mailPanel.preview}</button>
+                        ) : null}
+                        <button className="natx-link" type="button" onClick={() => openDrawer(() => setAthleteFormTarget(request.id))}>{copy.add.editButton}</button>
+                        <button
+                          aria-expanded={isExpanded}
+                          aria-label={copy.detail}
+                          className="natx-chevron"
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? "" : request.id)}
+                        >
+                          ▾
+                        </button>
+                      </td>
+                    </tr>
+                    {isExpanded ? (
+                      <tr className="natx-detail">
+                        <td colSpan={9}>
+                          <div className="natx-detail__grid">
+                            <div>
+                              <h4>{ui.detailTimes}</h4>
+                              <dl>
+                                {[
+                                  { label: "SB", prefix: "seasonBest" },
+                                  { label: "SB 2025", prefix: "previousSeasonBest" },
+                                  { label: "PB", prefix: "personalBest" },
+                                  { label: "Autre", prefix: "otherTime" },
+                                ].map((row) => (
+                                  <Fragment key={row.prefix}>
+                                    <dt>{copy.timeLabels[row.label]}</dt>
+                                    <dd>
+                                      {request[row.prefix]
+                                        ? [request[row.prefix], request[`${row.prefix}Place`], request[`${row.prefix}Date`] ? formatDateForDisplay(request[`${row.prefix}Date`]) : ""].filter(Boolean).join(" · ")
+                                        : "-"}
+                                    </dd>
+                                  </Fragment>
+                                ))}
+                              </dl>
+                            </div>
+                            <div>
+                              <h4>{ui.detailIdentity}</h4>
+                              <dl>
+                                <dt>{copy.add.birthDate}</dt><dd>{request.birthDate ? formatDateForDisplay(request.birthDate) : "-"}</dd>
+                                <dt>{copy.add.nationality}</dt><dd>{request.nationality || "-"}</dd>
+                                <dt>{ui.detailLicence}</dt>
+                                <dd>{request.isLuxLicensed ? `${request.club} · ${fill(copy.bib, { bib: request.bibNumber || "-" })}` : `${request.foreignClub} · ${request.foreignCountry} · ${request.foreignLicenceNumber || "-"}`}</dd>
+                                <dt>World Athletics</dt>
+                                <dd>{request.worldAthleticsUrl ? <a href={request.worldAthleticsUrl} rel="noreferrer" target="_blank">{copy.worldAthleticsLink}</a> : "-"}</dd>
+                              </dl>
+                            </div>
+                            <div>
+                              <h4>{ui.detailContact}</h4>
+                              <dl>
+                                <dt>{copy.add.email}</dt><dd>{request.email || "-"}</dd>
+                                <dt>{copy.add.phone}</dt><dd>{request.phone || "-"}</dd>
+                                {request.isMinor ? (
+                                  <>
+                                    <dt>{ui.detailGuardian}</dt>
+                                    <dd>{`${request.guardianFirstName || ""} ${request.guardianLastName || ""} · ${request.guardianEmail || ""}`}</dd>
+                                  </>
+                                ) : null}
+                                <dt>{ui.detailReceived}</dt><dd>{formatDateTimeForDisplay(request.submittedAt)}</dd>
+                                {request.notes ? (<><dt>{ui.detailNote}</dt><dd>{request.notes}</dd></>) : null}
+                              </dl>
+                            </div>
+                            <div>
+                              <h4>{ui.detailFollowUp}</h4>
+                              <label className="natx-field">
+                                <span>{copy.messageLabel}</span>
+                                <input
+                                  placeholder={copy.messagePlaceholder}
+                                  value={messageDraft}
+                                  onBlur={() => {
+                                    if (messageDraft.trim() === (request.athleteMessage || "")) return;
+                                    updateRequest(request, { athleteMessage: messageDraft.trim() }, copy.messageSaved);
+                                  }}
+                                  onChange={(event) => setMessageDrafts((current) => ({ ...current, [request.id]: event.target.value }))}
+                                />
+                              </label>
+                              {request.status === "selected" ? (
+                                <label className="natx-check">
+                                  <input
+                                    checked={Boolean(request.seltecEntered)}
+                                    type="checkbox"
+                                    onChange={(event) =>
+                                      updateRequest(request, { seltecEntered: event.target.checked }, event.target.checked ? copy.seltecOn : copy.seltecOff)
+                                    }
+                                  />
+                                  {copy.seltec}
+                                </label>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
                     ) : null}
-                  </span>
-                </details>
-              </span>
-              <span>
-                {isWithdrawn ? (
-                  <span className="nat-muted">-</span>
-                ) : (
-                  <span className="nat-seg" role="group" aria-label={copy.decisionGroup}>
-                    {DECISIONS.map((decision) => (
-                      <button
-                        key={decision.status}
-                        aria-pressed={request.status === decision.status}
-                        className={`nat-seg__item${request.status === decision.status ? ` ${decision.className}` : ""}`}
-                        disabled={isBusy}
-                        type="button"
-                        onClick={() => setStatuses([request], request.status === decision.status ? "submitted" : decision.status)}
-                      >
-                        {copy.decisions[decision.status]}
-                      </button>
-                    ))}
-                  </span>
-                )}
-              </span>
-              <span><MailStatus request={request} /></span>
-              <span>
-                <input
-                  aria-label={copy.messageLabel}
-                  className="nat-message-input"
-                  placeholder={copy.messagePlaceholder}
-                  value={messageDraft}
-                  onBlur={() => {
-                    if (messageDraft.trim() === (request.athleteMessage || "")) return;
-                    updateRequest(request, { athleteMessage: messageDraft.trim() }, copy.messageSaved);
-                  }}
-                  onChange={(event) => setMessageDrafts((current) => ({ ...current, [request.id]: event.target.value }))}
-                />
-              </span>
-            </div>
-          );
-        })}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {mailPreviewRequest ? (
-        <MailPreviewCard request={mailPreviewRequest} templates={templates} onClose={() => setMailPreviewId("")} />
-      ) : null}
-
-      {isEditingTemplates ? (
-        <TemplateEditor
-          isSaving={isBusy}
-          templates={templates}
-          onClose={() => setIsEditingTemplates(false)}
-          onSave={handleSaveTemplates}
-        />
-      ) : (
-        <MailPanel
-          isSending={isSending}
-          lastSend={lastSend}
-          pendingRequests={pendingRequests}
-          templates={templates}
-          onEditTemplates={() => setIsEditingTemplates(true)}
-          onSend={handleSend}
-          onSendTest={handleSendTest}
-        />
-      )}
+      {drawerOpen ? createPortal(
+        <div className="natx natx-drawer-layer">
+          <button aria-label={ui.close} className="natx-drawer-backdrop" type="button" onClick={closeDrawer} />
+          <aside className="natx-drawer" aria-modal="true" role="dialog">
+            <button aria-label={ui.close} className="natx-drawer__close" type="button" onClick={closeDrawer}>×</button>
+            {athleteFormTarget && (athleteFormTarget === "new" || editedRequest) ? (
+              <AddAthleteForm
+                key={athleteFormTarget}
+                initial={editedRequest}
+                isSaving={isBusy}
+                race={editedRequest ? raceSummaries.find((race) => race.code === editedRequest.raceCode) || selectedRace : selectedRace}
+                raceLabel={editedRequest ? raceLabel(editedRequest.raceCode, editedRequest.event) : selectedRaceLabel}
+                onCancel={closeDrawer}
+                onSubmit={handleSaveAthlete}
+              />
+            ) : null}
+            {mailPreviewRequest ? <MailPreviewCard request={mailPreviewRequest} templates={templates} onClose={closeDrawer} /> : null}
+            {isEditingTemplates ? (
+              <TemplateEditor isSaving={isBusy} templates={templates} onClose={closeDrawer} onSave={handleSaveTemplates} />
+            ) : null}
+            {isMailDrawerOpen ? (
+              <MailPanel
+                isSending={isSending}
+                lastSend={lastSend}
+                pendingRequests={pendingRequests}
+                templates={templates}
+                onEditTemplates={() => openDrawer(() => setIsEditingTemplates(true))}
+                onSend={handleSend}
+                onSendTest={handleSendTest}
+              />
+            ) : null}
+          </aside>
+        </div>
+      , document.body) : null}
     </div>
   );
 }

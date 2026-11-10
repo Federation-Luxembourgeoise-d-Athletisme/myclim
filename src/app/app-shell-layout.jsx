@@ -290,7 +290,9 @@ function AppShell(props) {
           </div>
           <div className="sidebar-footer__actions">
             <span className="status-pill status-pill--accent">
-              {formatRoleLabel(roles.includes("admin") ? viewAsRole : primaryRole, t)}
+              {/* getPrimaryRole retombe sur « benevole » pour les rôles qu'il ne
+                  classe pas (commission, kiné…) : on affiche alors le vrai rôle. */}
+              {formatRoleLabel(roles.includes("admin") ? viewAsRole : roles.includes(primaryRole) ? primaryRole : roles[0] || primaryRole, t)}
             </span>
             <LanguageSwitch variant="on-light" />
             <button className="button button--secondary sidebar-footer__logout" onClick={handleLogout} type="button">
@@ -425,6 +427,15 @@ function DashboardHome(props) {
   const roles = getActiveRoles(userProfile);
   const outletContext = useOutletContext() ?? {};
   const activeRole = outletContext.activeRole || getPrimaryRole(userProfile);
+  // La commission des athlètes n'a pas d'accueil propre : getPrimaryRole la
+  // classe en bénévole, elle verrait « Ma mission ». On l'envoie sur son module.
+  const navigateHome = useNavigate();
+  const isCommissionOnly =
+    activeRole === "commission_athletes" ||
+    (roles.includes("commission_athletes") && !roles.some((role) => ["admin", "gestionnaire", "benevole", "chef_equipe"].includes(role)));
+  useEffect(() => {
+    if (isCommissionOnly) navigateHome(APP_ROUTES.nationalRaces, { replace: true });
+  }, [isCommissionOnly, navigateHome]);
   const { application: volunteerApplication } = useVolunteerApplication(currentUser?.uid);
   const { roles: teamRoles, teamAssignments, loading: teamsLoading } = useTeamConfiguration();
   const { applications: volunteerApplications, loading: volunteerApplicationsLoading } = useVolunteerApplicationsList(
