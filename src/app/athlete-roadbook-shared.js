@@ -36,6 +36,66 @@ const CALL_TIME_COLUMNS = [
 
 const L = (en, fr) => ({ en, fr });
 
+// Le roadbook est en anglais (athlètes internationaux) : tous les textes fixes
+// de la page sont modifiables ici depuis le back office (novembre 2026).
+const ROADBOOK_SECTION_IDS = ["arrival", "schedule", "competition", "venue", "timetable", "calltimes", "links"];
+
+const DEFAULT_SECTIONS = {
+  arrival: { eyebrow: "Travel", title: "Arrival & departure", nav: "Arrival & departure", visible: true },
+  schedule: { eyebrow: "Your stay", title: "Athlete schedule", nav: "Athlete schedule", visible: true },
+  competition: { eyebrow: "Rules", title: "Competition information", nav: "Competition info", visible: true },
+  venue: { eyebrow: "Venue", title: "The Coque", nav: "The Coque", visible: true },
+  timetable: { eyebrow: "Competition day", title: "Timetable", nav: "Timetable", visible: true },
+  calltimes: { eyebrow: "Call room", title: "Call times", nav: "Call times", visible: true },
+  links: { eyebrow: "Follow the meeting", title: "Photos & links", nav: "Photos & links", visible: true },
+};
+
+const DEFAULT_LABELS = {
+  heroEyebrow: "Athletes information",
+  titleLead: "Athletes",
+  titleAccent: "roadbook",
+  fromAirport: "From Findel Airport",
+  toAirport: "To Findel Airport",
+  tramHours: "Tram hours",
+  fromTrainStation: "From the train station",
+  toTrainStation: "To the train station",
+  accessZones: "Access zones",
+  timetableEmpty: "The timetable will be published soon.",
+  callTimesEmpty: "Call times will be published soon.",
+  livePhotos: "Live photos",
+  emagazine: "E-magazine",
+  liveResults: "Live results",
+  emergency: "Emergency contact",
+  bookingsEyebrow: "My bookings",
+  physioTitle: "Physio booking",
+  ticketsTitle: "Free tickets for your guests",
+  quickPhysio: "Book a physio session",
+  quickTickets: "Invite your guests (free tickets)",
+};
+
+const LABEL_FIELDS = [
+  ["heroEyebrow", "Sur-titre du haut de page"],
+  ["titleLead", "Titre (1er mot)"],
+  ["titleAccent", "Titre (mot en rouge)"],
+  ["fromAirport", "Carte « depuis l'aéroport »"],
+  ["toAirport", "Carte « vers l'aéroport »"],
+  ["tramHours", "Carte « horaires du tram »"],
+  ["fromTrainStation", "Carte « depuis la gare »"],
+  ["toTrainStation", "Carte « vers la gare »"],
+  ["accessZones", "Titre des zones d'accès"],
+  ["timetableEmpty", "Horaire pas encore publié"],
+  ["callTimesEmpty", "Call times pas encore publiés"],
+  ["livePhotos", "Lien photos"],
+  ["emagazine", "Lien e-magazine"],
+  ["liveResults", "Lien live results"],
+  ["emergency", "Contact d'urgence (par défaut)"],
+  ["bookingsEyebrow", "Groupe « réservations » du menu"],
+  ["physioTitle", "Titre réservation kiné"],
+  ["ticketsTitle", "Titre places invités"],
+  ["quickPhysio", "Bouton d'accès rapide kiné"],
+  ["quickTickets", "Bouton d'accès rapide places invités"],
+];
+
 const DEFAULT_ROADBOOK = {
   status: "draft",
   intro: L(
@@ -174,6 +234,15 @@ const DEFAULT_ROADBOOK = {
   },
   callTimes: [],
   callTimesFileName: "",
+  labels: { ...DEFAULT_LABELS },
+  sections: JSON.parse(JSON.stringify(DEFAULT_SECTIONS)),
+  // Sections libres ajoutées depuis le back office (affichées avant « Photos & links »).
+  extraSections: [],
+  // Places en plus des 2 places gratuites : lien de billetterie facultatif.
+  bookings: {
+    extraTicketsUrl: "",
+    extraTicketsLabel: "Need more seats? Buy tickets",
+  },
 };
 
 function cloneDefaultRoadbook() {
@@ -251,6 +320,54 @@ function normalizeRoadbook(stored) {
     },
     callTimes: Array.isArray(stored.callTimes) ? stored.callTimes.map(normalizeCallTimeRow) : [],
     callTimesFileName: String(stored.callTimesFileName || ""),
+    labels: Object.fromEntries(
+      Object.entries(DEFAULT_LABELS).map(([key, fallback]) => [
+        key,
+        typeof stored.labels?.[key] === "string" ? stored.labels[key] : fallback,
+      ]),
+    ),
+    sections: Object.fromEntries(
+      ROADBOOK_SECTION_IDS.map((id) => {
+        const saved = stored.sections?.[id] || {};
+        const fallback = DEFAULT_SECTIONS[id];
+        return [id, {
+          eyebrow: typeof saved.eyebrow === "string" ? saved.eyebrow : fallback.eyebrow,
+          title: typeof saved.title === "string" ? saved.title : fallback.title,
+          nav: typeof saved.nav === "string" ? saved.nav : fallback.nav,
+          visible: saved.visible !== false,
+        }];
+      }),
+    ),
+    extraSections: Array.isArray(stored.extraSections)
+      ? stored.extraSections.map((section, index) => ({
+          id: String(section.id || `extra-${index}`),
+          eyebrow: String(section.eyebrow || ""),
+          title: String(section.title || ""),
+          text: String(section.text || ""),
+          imageUrl: String(section.imageUrl || ""),
+          linkUrl: String(section.linkUrl || ""),
+          linkLabel: String(section.linkLabel || ""),
+          visible: section.visible !== false,
+        }))
+      : [],
+    bookings: {
+      extraTicketsUrl: String(stored.bookings?.extraTicketsUrl || ""),
+      extraTicketsLabel:
+        typeof stored.bookings?.extraTicketsLabel === "string" ? stored.bookings.extraTicketsLabel : base.bookings.extraTicketsLabel,
+    },
+  };
+}
+
+// Nouveau roadbook à partir de celui de l'édition précédente : on garde tout
+// le contenu, sauf ce qui change forcément d'une année à l'autre.
+function roadbookFromPreviousEdition(previous) {
+  const next = normalizeRoadbook(previous);
+  return {
+    ...next,
+    status: "draft",
+    callTimes: [],
+    callTimesFileName: "",
+    photos: { ...next.photos, url: "" },
   };
 }
 
@@ -361,7 +478,11 @@ function parseCallTimeRows(rows = []) {
 
 export {
   CALL_TIME_COLUMNS,
+  DEFAULT_LABELS,
   DEFAULT_ROADBOOK,
+  LABEL_FIELDS,
+  ROADBOOK_SECTION_IDS,
+  roadbookFromPreviousEdition,
   ROADBOOK_COLLECTION,
   ROADBOOK_LANGUAGES,
   SCHEDULE_ITEM_ICONS,

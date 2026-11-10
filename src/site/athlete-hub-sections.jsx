@@ -195,8 +195,14 @@ function IdentifyForm({ copy, onIdentified }) {
   );
 }
 
-function AthleteHubSections({ language, indexOffset }) {
-  const copy = HUB_COPY[language] || HUB_COPY.en;
+// overrides : titres modifiés dans le back office du roadbook (eyebrow,
+// physioTitle, ticketsTitle) ; les autres textes restent ceux d'ici.
+function AthleteHubSections({ language, indexOffset, overrides = {} }) {
+  const baseCopy = HUB_COPY[language] || HUB_COPY.en;
+  const copy = {
+    ...baseCopy,
+    ...Object.fromEntries(Object.entries(overrides).filter(([, value]) => typeof value === "string" && value.trim())),
+  };
   const [passes, setPasses] = useState(readPasses);
   const [activeAthleteId, setActiveAthleteId] = useState(() => readPasses()[0]?.athlete.id || "");
   const [addingAthlete, setAddingAthlete] = useState(false);

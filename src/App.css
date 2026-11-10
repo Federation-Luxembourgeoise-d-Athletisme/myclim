@@ -10948,3 +10948,194 @@ button.xc-card:hover { border-color: #9fb3c8; }
   border-left: 0;
   background: #fff;
 }
+
+/* ── Éditeur du roadbook athlètes (athlete-roadbook-admin-page.jsx) ─────── */
+.roadbook-admin-single {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.roadbook-admin-single > span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #627788;
+}
+
+.roadbook-admin-single input,
+.roadbook-admin-single select,
+.roadbook-admin-single textarea,
+.roadbook-admin-calltimes input,
+.roadbook-admin-item__head select {
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px solid #cfd9e3;
+  border-radius: 7px;
+  background: #fff;
+  color: #17324a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.roadbook-admin-single input,
+.roadbook-admin-single select,
+.roadbook-admin-item__head select {
+  height: 32px;
+}
+
+.roadbook-admin-single textarea {
+  min-height: 80px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.roadbook-admin-field__hint {
+  color: #8aa0b0;
+  font-size: 0.76rem;
+}
+
+.roadbook-admin-row,
+.roadbook-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px 12px;
+}
+
+.roadbook-admin-item,
+.roadbook-admin-day {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e3e9ef;
+  border-radius: 10px;
+  background: #fafcfe;
+}
+
+.roadbook-admin-day legend {
+  padding: 0 6px;
+  font-weight: 700;
+  color: #17324a;
+}
+
+.roadbook-admin-item__head,
+.roadbook-admin-day__actions,
+.roadbook-admin-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.roadbook-admin-item__head select {
+  width: auto;
+}
+
+.roadbook-admin-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.88rem;
+  color: #17324a;
+}
+
+.roadbook-admin-check small {
+  color: #8aa0b0;
+}
+
+.roadbook-admin-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.roadbook-admin-bar__actions {
+  margin-left: auto;
+}
+
+.roadbook-admin-bar__dirty {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #a15c00;
+}
+
+.roadbook-admin-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 0.88rem;
+  color: #627788;
+}
+
+.roadbook-admin-facts strong {
+  color: #17324a;
+}
+
+.roadbook-admin-links {
+  display: grid;
+  gap: 6px;
+}
+
+.roadbook-admin-link {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.88rem;
+}
+
+.roadbook-admin-link > span {
+  font-weight: 700;
+  color: #17324a;
+}
+
+.roadbook-admin-link a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1a4aa1;
+}
+
+.roadbook-admin-calltimes td {
+  padding: 3px 4px;
+}
+
+.roadbook-admin-calltimes input {
+  min-width: 70px;
+  height: 28px;
+  padding: 3px 6px;
+  font-size: 0.82rem;
+}
+
+.roadbook-admin-calltimes td:first-child input {
+  min-width: 160px;
+}
+
+.roadbook-admin-file {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.roadbook-admin-file input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .roadbook-admin-link {
+    grid-template-columns: 1fr auto;
+  }
+
+  .roadbook-admin-link > span {
+    grid-column: 1 / -1;
+  }
+}

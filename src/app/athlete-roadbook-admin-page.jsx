@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { buildAppUrl } from "../services/app-url";
 import { useSiteEditionYear } from "./edition";
@@ -8,23 +8,34 @@ import { FileUpload } from "./file-upload";
 import { inferEditionDisplayNumber } from "./meeting-edition-utils";
 import meetingEditionsSeed from "../data/meetingEditions.json";
 import { useMeetingEditions } from "./meeting-history-hooks";
+import { normalizeAccreditationConfigurationPayload } from "./accreditation-config";
+import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./seed-data";
+
+// Ressource QR des badges qui doit mener au roadbook (voir accreditation-config).
+const BADGE_QR_RESOURCE_ID = "athlete-roadbook";
 import {
   CALL_TIME_COLUMNS,
+  LABEL_FIELDS,
   ROADBOOK_COLLECTION,
+  ROADBOOK_SECTION_IDS,
   SCHEDULE_ITEM_ICONS,
   cloneDefaultRoadbook,
   formatScheduleDay,
   normalizeRoadbook,
   parseCallTimeRows,
+  roadbookFromPreviousEdition,
 } from "./athlete-roadbook-shared";
 
 const TABS = [
   { id: "general", label: "Infos générales" },
+  { id: "bookings", label: "Kiné & places" },
   { id: "arrival", label: "Arrivée & départ" },
   { id: "schedule", label: "Programme" },
   { id: "competition", label: "Compétition" },
   { id: "venue", label: "La Coque" },
   { id: "calltimes", label: "Call times" },
+  { id: "extra", label: "Sections libres" },
+  { id: "labels", label: "Titres & sections" },
 ];
 
 function newId(prefix) {
@@ -69,8 +80,10 @@ async function downloadCallTimesTemplate() {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-// Champ bilingue EN/FR. Lit et écrit le brouillon via le contexte, pour rester
-// un composant stable (pas recréé à chaque rendu, donc sans perte de focus).
+// Champ de texte du roadbook (en anglais : la page est en anglais). Lit et
+// écrit le brouillon via le contexte, pour rester un composant stable (pas
+// recréé à chaque rendu, donc sans perte de focus). Les textes français déjà
+// enregistrés sont conservés tels quels dans les données, sans être affichés.
 const RoadbookDraftContext = createContext(null);
 
 function L({ label, path, multiline = false, hint }) {
@@ -78,20 +91,67 @@ function L({ label, path, multiline = false, hint }) {
   const value = getIn(draft, path) || { en: "", fr: "" };
   const Tag = multiline ? "textarea" : "input";
   return (
-    <div className="roadbook-admin-field">
-      <span className="roadbook-admin-field__label">{label}</span>
-      <div className="roadbook-admin-field__langs">
-        {["en", "fr"].map((language) => (
-          <label key={language}>
-            <small>{language.toUpperCase()}</small>
-            <Tag rows={multiline ? 4 : undefined} value={value[language] || ""} onChange={(event) => update([...path, language], event.target.value)} />
-          </label>
-        ))}
-      </div>
+    <label className="roadbook-admin-single">
+      <span>{label}</span>
+      <Tag rows={multiline ? 4 : undefined} value={value.en || ""} onChange={(event) => update([...path, "en"], event.target.value)} />
       {hint ? <small className="roadbook-admin-field__hint">{hint}</small> : null}
+    </label>
+  );
+}
+
+// Champ texte simple (libellés, titres de section) : chemin vers une chaîne.
+function T({ label, path, placeholder }) {
+  const { draft, update } = useContext(RoadbookDraftContext);
+  return (
+    <label className="roadbook-admin-single">
+      <span>{label}</span>
+      <input value={getIn(draft, path) || ""} placeholder={placeholder} onChange={(event) => update(path, event.target.value)} />
+    </label>
+  );
+}
+
+function CopyLink({ label, url }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+  return (
+    <div className="roadbook-admin-link">
+      <span>{label}</span>
+      <a href={url} target="_blank" rel="noreferrer">{url}</a>
+      <button type="button" className="button button--secondary button--small" onClick={copy}>
+        {copied ? "Copié ✓" : "Copier"}
+      </button>
     </div>
   );
 }
+
+async function downloadQrCode(url, filename) {
+  const QRCode = (await import("qrcode")).default;
+  const dataUrl = await QRCode.toDataURL(url, { margin: 2, width: 1024 });
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+const SECTION_LABELS_FR = {
+  arrival: "Arrivée & départ",
+  schedule: "Programme",
+  competition: "Compétition",
+  venue: "La Coque",
+  timetable: "Horaire",
+  calltimes: "Call times",
+  links: "Photos & liens",
+};
 
 function AthleteRoadbookAdminPage({ Panel }) {
   const { siteEditionYear, loading: siteYearLoading } = useSiteEditionYear();
@@ -155,10 +215,70 @@ function AthleteRoadbookAdminPage({ Panel }) {
     }
   }
 
-  function createFromTemplate() {
-    const initial = cloneDefaultRoadbook();
-    setDraft(initial);
-    save(initial, "Roadbook créé à partir du contenu 2026 corrigé. Vérifie les horaires avant de publier.");
+  // QR « Roadbook athlete » des badges d'accréditation : on affiche vers quoi
+  // il pointe et on permet de le régler sur le lien du roadbook en un clic.
+  const roadbookUrl = buildAppUrl("/roadbook");
+  const [badgeQr, setBadgeQr] = useState(undefined);
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, ...ACCREDITATION_CONFIGURATION_DOC_PATH),
+      (snapshot) => {
+        const configuration = normalizeAccreditationConfigurationPayload(snapshot.exists() ? snapshot.data() : {});
+        const resource = configuration.qrResources.find((entry) => entry.id === BADGE_QR_RESOURCE_ID);
+        setBadgeQr(resource ? { url: resource.targetType === "url" ? resource.url : "", type: resource.targetType } : null);
+      },
+      () => setBadgeQr(null),
+    );
+    return unsubscribe;
+  }, []);
+
+  async function pointBadgeQrToRoadbook() {
+    setError("");
+    try {
+      const reference = doc(db, ...ACCREDITATION_CONFIGURATION_DOC_PATH);
+      const snapshot = await getDoc(reference);
+      const configuration = normalizeAccreditationConfigurationPayload(snapshot.exists() ? snapshot.data() : {});
+      const qrResources = configuration.qrResources.map((resource) =>
+        resource.id === BADGE_QR_RESOURCE_ID ? { ...resource, targetType: "url", url: roadbookUrl, documentId: "" } : resource,
+      );
+      await setDoc(reference, { qrResources, updatedAt: serverTimestamp() }, { merge: true });
+      setStatusMessage("Le QR « Roadbook athlete » des badges pointe maintenant vers le roadbook.");
+    } catch (qrError) {
+      console.error("Badge QR update failed", qrError);
+      setError("Impossible de mettre à jour le QR des badges.");
+    }
+  }
+
+  // Édition précédente (la plus récente avant celle-ci, hors éditions annulées).
+  const previousEdition = useMemo(() => {
+    const currentYear = Number(edition?.year || edition?.id);
+    if (!currentYear) return null;
+    return editions
+      .filter((candidate) => !candidate.cancelled && Number(candidate.year || candidate.id) < currentYear)
+      .sort((left, right) => Number(right.year || right.id) - Number(left.year || left.id))[0] || null;
+  }, [editions, edition]);
+
+  // On repart du roadbook de l'an dernier s'il a été enregistré ; sinon du
+  // contenu 2026 corrigé intégré à l'app.
+  async function createFromTemplate() {
+    setSaving(true);
+    let initial = null;
+    let message = "Roadbook créé à partir du contenu 2026 corrigé. Vérifie les horaires avant de publier.";
+    try {
+      if (previousEdition) {
+        const previous = await getDoc(doc(db, ROADBOOK_COLLECTION, String(previousEdition.id)));
+        if (previous.exists()) {
+          initial = roadbookFromPreviousEdition(previous.data());
+          message = `Roadbook créé à partir de celui de ${previousEdition.year || previousEdition.id} (call times et lien photos à refaire). Vérifie les horaires avant de publier.`;
+        }
+      }
+    } catch (loadError) {
+      console.warn("Previous roadbook not readable, using the built-in content", loadError);
+    }
+    setSaving(false);
+    const next = initial || cloneDefaultRoadbook();
+    setDraft(next);
+    save(next, message);
   }
 
   function togglePublished() {
@@ -203,8 +323,10 @@ function AthleteRoadbookAdminPage({ Panel }) {
   const editionNumber = inferEditionDisplayNumber(edition, [...editions, ...meetingEditionsSeed]);
   const editionDate = edition?.date?.toDate?.() || (edition?.date ? new Date(edition.date) : null);
   const timetableCount = Array.isArray(edition?.timetable) ? edition.timetable.length : 0;
-  const previewUrl = buildAppUrl("/athletes/roadbook?preview=1");
-  const publicUrl = buildAppUrl("/athletes/roadbook");
+  const previewUrl = buildAppUrl("/roadbook?preview=1");
+  // Lien court et stable d'une année à l'autre (il suit l'édition du site).
+  const publicUrl = roadbookUrl;
+  const badgeQrOk = badgeQr?.url === publicUrl;
 
   return (
     <RoadbookDraftContext.Provider value={{ draft, update }}>
@@ -214,14 +336,44 @@ function AthleteRoadbookAdminPage({ Panel }) {
           <p className="eyebrow">Accréditations · Athlètes</p>
           <h1>Roadbook athlètes</h1>
           <p>
-            Page publique <a href={publicUrl} target="_blank" rel="noreferrer">{publicUrl}</a>, à mettre derrière le QR
-            « Roadbook athlete » des badges. Textes en anglais et en français ; une ligne = un point de liste.
+            Page en anglais, entièrement modifiable ici. Dans les textes, une ligne = un point de liste.
           </p>
         </div>
       </section>
 
       {error ? <p className="form-error">{error}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
+
+      <Panel
+        title="Lien à partager"
+        subtitle={draft?.status === "published" ? "Le roadbook est publié : ces liens sont actifs." : "Le roadbook est en brouillon : les athlètes verront « pas encore disponible » tant qu'il n'est pas publié."}
+        actions={
+          <button type="button" className="button button--secondary button--small" onClick={() => downloadQrCode(publicUrl, "roadbook-qr.png")}>
+            Télécharger le QR
+          </button>
+        }
+      >
+        <div className="roadbook-admin-links">
+          <CopyLink label="Roadbook" url={publicUrl} />
+          <CopyLink label="Réservation kiné" url={`${publicUrl}#physio`} />
+          <CopyLink label="Places invités" url={`${publicUrl}#tickets`} />
+        </div>
+        <p className="panel-note">Le même lien sert chaque année : il affiche toujours l'édition courante du site.</p>
+        {badgeQr === undefined ? null : badgeQr === null ? (
+          <p className="panel-note">QR « Roadbook athlete » introuvable dans les réglages d'accréditation.</p>
+        ) : (
+          <div className="roadbook-admin-bar">
+            <span className={`status-pill ${badgeQrOk ? "status-pill--ok" : "status-pill--pending"}`}>
+              {badgeQrOk ? "QR des badges : pointe vers ce lien" : badgeQr.url ? "QR des badges : autre lien" : "QR des badges : ancienne image, pas de lien"}
+            </span>
+            {badgeQrOk ? null : (
+              <button type="button" className="button button--secondary button--small" onClick={pointBadgeQrToRoadbook}>
+                Mettre ce lien sur le QR des badges
+              </button>
+            )}
+          </div>
+        )}
+      </Panel>
 
       <Panel
         title={`Édition ${edition?.year || editionId || "—"}`}
@@ -244,8 +396,9 @@ function AthleteRoadbookAdminPage({ Panel }) {
       {!draft ? (
         <Panel title="Pas encore de roadbook pour cette édition">
           <p className="panel-note">
-            Le roadbook sera pré-rempli avec le contenu 2026 corrigé (trajets, programme, règles, zones). Il reste en
-            brouillon tant que tu ne le publies pas.
+            Le roadbook repart de celui de {previousEdition ? previousEdition.year || previousEdition.id : "l'an dernier"} s'il
+            a été enregistré, sinon du contenu 2026 corrigé (trajets, programme, règles, zones). Il reste en brouillon tant
+            que tu ne le publies pas.
           </p>
           <button className="button button--primary" type="button" disabled={saving} onClick={createFromTemplate}>
             Créer le roadbook
@@ -317,6 +470,142 @@ function AthleteRoadbookAdminPage({ Panel }) {
                   <input type="url" value={draft.links.liveResultsUrl} onChange={(event) => update(["links", "liveResultsUrl"], event.target.value)} />
                 </label>
               </div>
+            </Panel>
+          ) : null}
+
+          {activeTab === "bookings" ? (
+            <Panel
+              title="Kiné & places"
+              subtitle="Boutons d'accès rapide en haut du roadbook et sections « My bookings » (réservation kiné, 2 places gratuites pour les invités)."
+            >
+              <div className="roadbook-admin-row">
+                <T label="Bouton d'accès kiné" path={["labels", "quickPhysio"]} />
+                <T label="Bouton d'accès places invités" path={["labels", "quickTickets"]} />
+              </div>
+              <div className="roadbook-admin-row">
+                <T label="Titre de la section kiné" path={["labels", "physioTitle"]} />
+                <T label="Titre de la section places" path={["labels", "ticketsTitle"]} />
+                <T label="Groupe du menu" path={["labels", "bookingsEyebrow"]} />
+              </div>
+              <div className="roadbook-admin-row">
+                <label className="roadbook-admin-single">
+                  <span>Places en plus : lien de billetterie (facultatif)</span>
+                  <input
+                    type="url"
+                    value={draft.bookings.extraTicketsUrl}
+                    placeholder="https://…"
+                    onChange={(event) => update(["bookings", "extraTicketsUrl"], event.target.value)}
+                  />
+                </label>
+                <T label="Texte du bouton places en plus" path={["bookings", "extraTicketsLabel"]} />
+              </div>
+              <p className="panel-note">
+                Les créneaux kiné se gèrent dans <Link to="/app/kine">Kiné</Link> ; les invités des athlètes arrivent dans la liste
+                « Invités des athlètes » de la caisse. Sans lien de billetterie, le bouton « places en plus » n'apparaît pas.
+              </p>
+            </Panel>
+          ) : null}
+
+          {activeTab === "labels" ? (
+            <>
+              <Panel title="Sections" subtitle="Afficher ou masquer chaque section, et changer ses titres (menu de gauche et page).">
+                {ROADBOOK_SECTION_IDS.map((id) => (
+                  <div key={id} className="roadbook-admin-item">
+                    <div className="roadbook-admin-item__head">
+                      <label className="roadbook-admin-check">
+                        <input
+                          type="checkbox"
+                          checked={draft.sections[id].visible !== false}
+                          onChange={(event) => update(["sections", id, "visible"], event.target.checked)}
+                        />
+                        <strong>{SECTION_LABELS_FR[id]}</strong>
+                        {id === "timetable" ? <small> (contenu repris de l'édition du site)</small> : null}
+                      </label>
+                    </div>
+                    <div className="roadbook-admin-row">
+                      <T label="Sur-titre" path={["sections", id, "eyebrow"]} />
+                      <T label="Titre" path={["sections", id, "title"]} />
+                      <T label="Menu" path={["sections", id, "nav"]} />
+                    </div>
+                  </div>
+                ))}
+              </Panel>
+              <Panel title="Libellés de la page" subtitle="Tous les petits textes fixes du roadbook.">
+                <div className="roadbook-admin-grid">
+                  {LABEL_FIELDS.map(([key, label]) => (
+                    <T key={key} label={label} path={["labels", key]} />
+                  ))}
+                </div>
+              </Panel>
+            </>
+          ) : null}
+
+          {activeTab === "extra" ? (
+            <Panel
+              title="Sections libres"
+              subtitle="Pour ajouter une information qui n'entre dans aucune section (accréditation, repas, dopage…). Elles s'affichent avant « Photos & links »."
+              actions={
+                <button
+                  className="button button--secondary button--small"
+                  type="button"
+                  onClick={() =>
+                    update(["extraSections"], [
+                      ...draft.extraSections,
+                      { id: newId("extra"), eyebrow: "", title: "", text: "", imageUrl: "", linkUrl: "", linkLabel: "", visible: true },
+                    ])
+                  }
+                >
+                  Ajouter une section
+                </button>
+              }
+            >
+              {draft.extraSections.length === 0 ? <p className="panel-note">Aucune section libre pour l'instant.</p> : null}
+              {draft.extraSections.map((section, index) => (
+                <div key={section.id} className="roadbook-admin-item">
+                  <div className="roadbook-admin-item__head">
+                    <label className="roadbook-admin-check">
+                      <input
+                        type="checkbox"
+                        checked={section.visible !== false}
+                        onChange={(event) => update(["extraSections", index, "visible"], event.target.checked)}
+                      />
+                      Afficher
+                    </label>
+                    <button type="button" className="button button--secondary button--small" onClick={() => update(["extraSections"], moveItem(draft.extraSections, index, -1))}>↑</button>
+                    <button type="button" className="button button--secondary button--small" onClick={() => update(["extraSections"], moveItem(draft.extraSections, index, 1))}>↓</button>
+                    <button
+                      type="button"
+                      className="button button--danger-soft button--small"
+                      onClick={() => window.confirm("Supprimer cette section ?") && update(["extraSections"], draft.extraSections.filter((_, itemIndex) => itemIndex !== index))}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                  <div className="roadbook-admin-row">
+                    <T label="Sur-titre" path={["extraSections", index, "eyebrow"]} />
+                    <T label="Titre" path={["extraSections", index, "title"]} />
+                  </div>
+                  <label className="roadbook-admin-single">
+                    <span>Texte (une ligne = un point de liste)</span>
+                    <textarea rows={4} value={section.text} onChange={(event) => update(["extraSections", index, "text"], event.target.value)} />
+                  </label>
+                  <div className="roadbook-admin-row">
+                    <label className="roadbook-admin-single">
+                      <span>Lien (facultatif)</span>
+                      <input type="url" value={section.linkUrl} placeholder="https://…" onChange={(event) => update(["extraSections", index, "linkUrl"], event.target.value)} />
+                    </label>
+                    <T label="Texte du lien" path={["extraSections", index, "linkLabel"]} />
+                  </div>
+                  <FileUpload
+                    value={section.imageUrl}
+                    onChange={(url) => update(["extraSections", index, "imageUrl"], url)}
+                    accept="image/*"
+                    storagePath="athlete-roadbook"
+                    label="Image (facultatif)"
+                    helperText="Image · Max 20 MB"
+                  />
+                </div>
+              ))}
             </Panel>
           ) : null}
 
@@ -500,28 +789,58 @@ function AthleteRoadbookAdminPage({ Panel }) {
               ) : null}
               {draft.callTimes.length ? (
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <table className="data-table roadbook-admin-calltimes">
                     <thead>
                       <tr>
                         {CALL_TIME_COLUMNS.map((column) => (
-                          <th key={column.key}>{column.label.fr}</th>
+                          <th key={column.key}>{column.label.en}</th>
                         ))}
+                        <th aria-label="Actions" />
                       </tr>
                     </thead>
                     <tbody>
-                      {draft.callTimes.map((row) => (
-                        <tr key={row.id || row.event}>
+                      {draft.callTimes.map((row, rowIndex) => (
+                        <tr key={row.id || rowIndex}>
                           {CALL_TIME_COLUMNS.map((column) => (
-                            <td key={column.key}>{row[column.key]}</td>
+                            <td key={column.key}>
+                              <input
+                                value={row[column.key] || ""}
+                                aria-label={column.label.en}
+                                onChange={(event) => update(["callTimes", rowIndex, column.key], event.target.value)}
+                              />
+                            </td>
                           ))}
+                          <td>
+                            <button
+                              type="button"
+                              className="button button--danger-soft button--small"
+                              onClick={() => update(["callTimes"], draft.callTimes.filter((_, index) => index !== rowIndex))}
+                            >
+                              ✕
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="panel-note">Aucun call time importé pour l'instant.</p>
+                <p className="panel-note">Aucun call time pour l'instant : importe l'Excel ou ajoute les lignes à la main.</p>
               )}
+              <div>
+                <button
+                  type="button"
+                  className="button button--secondary button--small"
+                  onClick={() =>
+                    update(["callTimes"], [
+                      ...draft.callTimes,
+                      CALL_TIME_COLUMNS.reduce((row, column) => ({ ...row, [column.key]: "" }), { id: newId("ct") }),
+                    ])
+                  }
+                >
+                  Ajouter une ligne
+                </button>
+              </div>
             </Panel>
           ) : null}
         </>

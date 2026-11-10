@@ -631,6 +631,8 @@ export default function App() {
           <Route path="/vip" element={<VipAccessPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/vip/orga/:portalId" element={<VipPartnerPortalPage />} />
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
+          {/* Lien court à partager (QR des badges) ; l'ancienne adresse reste valable. */}
+          <Route path="/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/athletes/roadbook" element={<AthleteRoadbookPage />} />
           <Route path="/caisse" element={<CashDeskPage />} />
           <Route path="/links" element={<SiteLinks />} />

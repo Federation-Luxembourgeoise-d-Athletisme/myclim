@@ -1120,3 +1120,52 @@ ul.rb-lead {
     display: none;
   }
 }
+
+/* Accès directs aux réservations (kiné, places invités, places en plus). */
+.rb-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.rb-quick__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--rb-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--rb-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rb-quick__btn:hover {
+  border-color: var(--rb-red);
+  color: var(--rb-red);
+}
+
+.rb-quick__btn--primary {
+  border-color: var(--rb-red);
+  background: var(--rb-red);
+  color: #fff;
+}
+
+.rb-quick__btn--primary:hover {
+  background: #c50018;
+  color: #fff;
+}
+
+.rb-extra-tickets {
+  margin: 0 0 24px;
+}
+
+@media print {
+  .rb-quick,
+  .rb-extra-tickets {
+    display: none;
+  }
+}
