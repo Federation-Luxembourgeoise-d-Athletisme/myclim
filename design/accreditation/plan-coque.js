@@ -26,6 +26,17 @@ const PLAN_MAPS = [
 ];
 const PLAN_LEVELS = { piste: "Piste (R-1)", rdc: "Arcades (entrée)", etage: "Galerie (R+1)" };
 
+// Petites icônes (rond de 20 px) à la place des étiquettes, comme sur le plan 2026 : prennent moins
+// de place, la légende dit ce que c'est. Tracés blancs sur une grille de 24.
+const PLAN_ICONS = {
+  bar: { label: "Bar", svg: `<path d="M5 4h14l-7 8z" /><path d="M12 12v7" /><path d="M8 20h8" />` },
+  ticket: { label: "Vente (cartes)", svg: `<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" /><path d="M15 7v10" stroke-dasharray="2 2" />` },
+  signature: { label: "Signing zone", svg: `<path d="M3 16c2.5-1 3.5-8 5.5-8s-1 8 1 8 2-3.5 3-3.5 1 2.5 2 2.5 2-1 3-2" /><path d="M3 20h18" />` },
+  camera: { label: "Photobooth", svg: `<path d="M4 8h3l1.5-2h7L17 8h3v11H4z" /><circle cx="12" cy="13.5" r="3.2" />` },
+};
+const planIconSvg = (name) =>
+  PLAN_ICONS[name] ? `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PLAN_ICONS[name].svg}</svg>` : "";
+
 const on = (...keys) => Object.fromEntries(PLAN_MAPS.map((m) => [m.key, keys.includes(m.key)]));
 const at = (X, Y) => ({ x: Math.round((X / PLAN_W) * 10000) / 100, y: Math.round((Y / PLAN_H) * 10000) / 100 });
 
@@ -47,13 +58,13 @@ const PLAN_DEFAULT_ELEMENTS = [
   { id: "m8", kind: "mark", label: "Staff", desc: "Accueil bénévoles, juges et presse, retrait des badges", color: "#27a9e1", level: "rdc", ...at(928, 850), maps: on("vol", "acc") },
 
   // Stands (niveau des arcades)
-  { id: "m3", kind: "mark", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 335), maps: on("web", "vol") },
-  { id: "m2", kind: "mark", label: "Bar & food", desc: "Bar et restauration, le long du mur du gymnase", color: "#e5719a", level: "rdc", ...at(700, 445), maps: on("web", "vol") },
+  { id: "m3", kind: "mark", icon: "ticket", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 335), maps: on("web", "vol") },
+  { id: "m2", kind: "mark", icon: "bar", label: "Bar & food", desc: "Bar et restauration, le long du mur du gymnase", color: "#e5719a", level: "rdc", ...at(700, 445), maps: on("web", "vol") },
   // Les stands qui occupent un espace sont des zones (w x h en unités du plan), les points restent des étiquettes
   { id: "m5", kind: "area", label: "Discovery corner", desc: "Athletics Discovery Corner : ateliers pour les enfants, dans le couloir entre la buvette et l'amphithéâtre", color: "#e30613", level: "rdc", ...at(530, 180), shape: [[-100,-67],[56,-136],[60,-120],[23,-92],[15,-40],[30,15],[70,46],[95,42],[128,103],[31,116],[-45,47],[-74,10]], bg: "piste", pictos: [["runner", -28, -66, 1.7], ["hurdle", 40, 75, 1.4], ["star", 30, -108, 1], ["star", -40, -30, 0.8], ["star", 85, 60, 0.9]], maps: on("web", "vol") },
-  { id: "m16", kind: "mark", label: "Photobooth", desc: "Photobooth (à placer sur le plan)", color: "#9157e6", level: "rdc", ...at(900, 1150), maps: on("web", "vol") },
+  { id: "m16", kind: "mark", icon: "camera", label: "Photobooth", desc: "Photobooth (à placer sur le plan)", color: "#9157e6", level: "rdc", ...at(900, 1150), maps: on("web", "vol") },
   { id: "m17", kind: "mark", label: "Asport", desc: "Stand Asport : vêtements (à placer sur le plan)", color: "#0d8fd3", level: "rdc", ...at(900, 1215), maps: on("web", "vol") },
-  { id: "m4", kind: "mark", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(240, 420), maps: on("web", "vol") },
+  { id: "m4", kind: "mark", icon: "signature", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(240, 420), maps: on("web", "vol") },
 
   // Toilettes : à la porte de chaque bloc, femmes / hommes comme sur le plan d'architecte
   // (buvette : deux blocs femmes sur les côtés, hommes en haut ; salons : trois blocs mixtes ;
@@ -175,11 +186,20 @@ function migrateFromPrev(old) {
   return [...fresh, ...old.filter((el) => !known.has(el.id))];
 }
 
+// Repères enregistrés avant les icônes : ils prennent l'icône du plan de départ (on peut l'enlever ensuite).
+function withDefaultIcons(list) {
+  return list.map((el) => {
+    if ("icon" in el) return el;
+    const icon = PLAN_DEFAULT_ELEMENTS.find((item) => item.id === el.id)?.icon;
+    return icon ? { ...el, icon } : el;
+  });
+}
+
 // Les modifications faites dans l'éditeur sont gardées dans le navigateur ; les badges les relisent.
 function loadPlanElements() {
   try {
     const stored = JSON.parse(localStorage.getItem(PLAN_STORE));
-    if (Array.isArray(stored)) return stored;
+    if (Array.isArray(stored)) return withDefaultIcons(stored);
     const before = JSON.parse(localStorage.getItem(PLAN_STORE_PREV));
     if (Array.isArray(before)) {
       const moved = migrateFromPrev(before);

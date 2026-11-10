@@ -51,6 +51,12 @@
   .el.ghost { opacity: .22; }
   .el.sel .zone, .el.sel .pill, .el.sel .ctrl { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--accent); }
   .zone { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 15px/1 "Barlow Condensed", Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  /* Icône ronde de 20 px (bar, vente de cartes, signing zone, photobooth) */
+  .picto { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); display: grid; place-items: center; }
+  .picto svg { width: 62%; height: 62%; display: block; }
+  .legend i.ico, .card .leg i.ico { width: 20px; height: 20px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+  .legend i.ico svg, .card .leg i.ico svg { width: 62%; height: 62%; }
+  .el.sel .picto { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--accent); }
   .pill { padding: 5px 10px; border-radius: 999px; color: #fff; font: 700 13px/1 Barlow, Arial, sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,.25); border: 2px solid #fff; }
   /* Flèche d'entrée : montre par où on entre (orientable) */
   .door { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: #fff; font: 900 15px/1 Arial, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
@@ -123,6 +129,7 @@
   .badge-back .mini { position: absolute; inset: 0; margin: auto; height: 100%; max-width: 100%; }
   .badge-back .zone { width: 15px; height: 15px; font-size: 9.5px; border-width: 1.5px; }
   .badge-back .pill { padding: 2px 5px; font-size: 6.5px; border-width: 1px; }
+  .badge-back .picto { width: 9px; height: 9px; border-width: 1px; }
   .badge-back .ctrl { width: 13px; height: 13px; font-size: 8.5px; border-width: 1px; }
 
   .card { width: 150mm; background: #fff; box-shadow: 0 2mm 6mm rgba(10, 30, 50, .12); display: flex; flex-direction: column; }
@@ -132,6 +139,7 @@
   .card .body { display: grid; grid-template-columns: 1fr 52mm; gap: 3mm; padding: 3mm 4mm 4mm; }
   .card .mini { width: 100%; }
   .card .pill { padding: 2px 6px; font-size: 8px; border-width: 1px; }
+  .card .picto { width: 12px; height: 12px; border-width: 1px; }
   .card .zone { width: 16px; height: 16px; font-size: 10px; border-width: 1.5px; }
   .card .ctrl { width: 15px; height: 15px; font-size: 9px; border-width: 1px; }
   .card .leg { font-size: 8.5pt; line-height: 1.3; display: grid; gap: 1.6mm; align-content: start; }
@@ -231,6 +239,7 @@
     : el.kind === "area" && el.shape ? `<div class="area-label" style="color:${color}">${esc(el.label)}</div>`
     : el.kind === "area" ? `<div class="area" style="background:${color}1f;border-color:${color};color:${color}">${esc(el.label)}</div>`
     : el.kind === "door" ? `<div class="door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></div>`
+    : PLAN_ICONS[el.icon] ? `<div class="picto" style="background:${color}" title="${esc(el.label)}">${planIconSvg(el.icon)}</div>`
     : `<div class="pill" style="background:${color}">${esc(el.label)}</div>`;
   // Zones dessinées. Fond « piste » : couleur de piste d'athlétisme (bleue, comme à la Coque) + couloirs blancs + pictos
   // (enfant qui court, haie) pour comprendre d'un coup d'œil que c'est un espace pour essayer l'athlétisme.
@@ -282,6 +291,7 @@
       const key = `mark|${el.label}|${el.desc}|${el.color}|${el.level}`;
       if (seen.has(key)) return null;
       seen.add(key);
+      if (PLAN_ICONS[el.icon]) return { k: `<i class="ico" style="background:${el.color}">${planIconSvg(el.icon)}</i>`, t: `<b>${esc(el.label)}</b> — ${esc(el.desc || "")}<small>${where(el)}</small>`, lvl: el.level };
       return { k: `<i style="background:${el.color}">${esc(el.label)}</i>`, t: esc(el.desc || el.label) + `<small>${where(el)}</small>`, lvl: el.level };
     };
     const lines = items.sort((a, b) => (a.kind === "zone" ? a.num : 99) - (b.kind === "zone" ? b.num : 99)).map(line).filter(Boolean);
@@ -350,6 +360,7 @@
       ${zoneField}
       <label class="field">${el.kind === "zone" ? "Nom de la zone" : "Texte sur le plan"} <small>${el.kind === "mark" ? "1 ou 2 mots" : ""}</small><input type="text" data-f="label" maxlength="${el.kind === "mark" || el.kind === "area" ? 16 : 30}" value="${esc(el.label)}" /></label>
       ${descField}
+      ${el.kind === "mark" ? `<label class="field">Affichage sur le plan <small>une icône prend moins de place ; son texte va dans la légende</small><select data-f="icon"><option value="">Étiquette de texte</option>${Object.entries(PLAN_ICONS).map(([k, v]) => `<option value="${k}" ${k === el.icon ? "selected" : ""}>Icône : ${v.label}</option>`).join("")}</select></label>` : ""}
       <label class="field">Niveau<select data-f="level">${Object.entries(PLAN_LEVELS).map(([k, l]) => `<option value="${k}" ${k === el.level ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       ${el.kind === "zone" ? "" : `<div class="field">Couleur<div class="colors">${PALETTE.map((c) => `<button data-color="${c}" class="${c === el.color ? "on" : ""}" style="background:${c}"></button>`).join("")}</div></div>`}
       <div class="field">Visible sur
