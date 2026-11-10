@@ -1,5 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
+import { eventAnchorId, eventLabel } from "./statistics-compute";
+import { useStatisticsEdition } from "./statistics-edition";
 import { formatEditionLabel } from "./meeting-edition-utils";
 import { canAccessStatistics, getActiveRoles } from "./navigation";
 import {
@@ -751,7 +754,8 @@ function MeetingHistoryPage({ Panel, maintenance }) {
 
   const { editions, loading: editionsLoading } = useMeetingEditions();
   const { winners: allWinners } = useAllWinners();
-  const [selectedYear, setSelectedYear] = useState(null);
+  // Édition choisie dans la barre du module Statistiques (?edition=).
+  const { edition: selectedYear } = useStatisticsEdition();
   const [closingYear, setClosingYear] = useState(null);
   const [closeStatus, setCloseStatus] = useState(null);
   const [seeding, setSeeding] = useState(false);
@@ -762,11 +766,16 @@ function MeetingHistoryPage({ Panel, maintenance }) {
   const [expandedHeatGroups, setExpandedHeatGroups] = useState({});
   const registryIdx = useRegistryIndex();
 
-  // Pick the most recent non-closed edition by default once loaded
+  // « Toutes les éditions » : on montre la dernière édition déjà disputée
+  // (pas celle de l'année prochaine, encore sans résultats).
+  // Réglages › Maintenance garde l'ancienne cible : la dernière édition non clôturée.
   const effectiveYear = selectedYear
-    ?? editions.find((e) => !e.isClosed)?.year
+    ?? (maintenance === "only"
+      ? editions.find((e) => !e.isClosed)?.year
+      : editions.find((e) => !e.cancelled && e.year <= new Date().getFullYear())?.year)
     ?? editions[0]?.year
     ?? null;
+  const location = useLocation();
 
   const { results, loading: resultsLoading } = useMeetingResultsForYear(effectiveYear);
 
@@ -833,6 +842,22 @@ function MeetingHistoryPage({ Panel, maintenance }) {
     setExpandedHeatGroups((prev) => ({ ...prev, [eventKey]: !prev[eventKey] }));
   }
 
+  // Saut direct à une épreuve (index ci-dessus ou recherche : #evt-60m-W).
+  function scrollToEvent(anchorId) {
+    const row = document.getElementById(anchorId);
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "start" });
+    row.classList.add("stats-event-flash");
+    setTimeout(() => row.classList.remove("stats-event-flash"), 1600);
+  }
+
+  const hashAnchor = location.hash ? decodeURIComponent(location.hash.slice(1)) : "";
+  useEffect(() => {
+    if (!hashAnchor || resultsLoading || !eventGroups.length) return undefined;
+    const timer = setTimeout(() => scrollToEvent(hashAnchor), 80);
+    return () => clearTimeout(timer);
+  }, [hashAnchor, resultsLoading, eventGroups.length]);
+
   async function handleSeed() {
     setSeeding(true);
     setSeedLog([]);
@@ -884,7 +909,12 @@ function MeetingHistoryPage({ Panel, maintenance }) {
   function renderSectionRows(group, options = {}) {
     const useSectionPosition = options.useSectionPosition === true;
     return [
-      <tr key={`grp-${group.discipline}-${group.gender}-${group.round}-${group.finalGroup}-${group.heat}`} className="event-group-header">
+      <tr
+        key={`grp-${group.discipline}-${group.gender}-${group.round}-${group.finalGroup}-${group.heat}`}
+        id={options.anchorId}
+        className="event-group-header"
+        style={options.anchorId ? { scrollMarginTop: 48 } : undefined}
+      >
         <td colSpan={isAdmin ? 9 : 8} style={{ paddingTop: "0.65rem", paddingBottom: "0.4rem" }}>
           <span style={{ fontWeight: 700, fontSize: "0.88rem", marginRight: 8 }}>
             {group.discipline}
@@ -1090,115 +1120,52 @@ function MeetingHistoryPage({ Panel, maintenance }) {
         </div>
       </section>
 
-      {/* Edition picker */}
-      <section className="panel-grid panel-grid--1">
-        <Panel title="Choisir une édition">
-          {editionsLoading ? (
-            <p className="panel-note">Chargement des éditions…</p>
-          ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
-              {editions.map((ed) => (
-                ed.cancelled ? (
-                  <span
-                    key={ed.year}
-                    title={ed.note}
-                    style={{
-                      padding: "0.35rem 0.9rem",
-                      borderRadius: 20,
-                      border: "1.5px dashed #d1d5db",
-                      background: "#f9fafb",
-                      color: "#9ca3af",
-                      fontSize: "0.88rem",
-                      cursor: "default",
-                      userSelect: "none",
-                      textDecoration: "line-through",
-                    }}
-                  >
-                    {ed.year}
-                  </span>
-                ) : (
-                  <div key={ed.year} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                    <button
-                      onClick={() => setSelectedYear(ed.year)}
-                      style={{
-                        padding: "0.35rem 0.9rem",
-                        borderRadius: 20,
-                        border: "1.5px solid",
-                        cursor: "pointer",
-                        fontWeight: effectiveYear === ed.year ? 700 : 400,
-                        background: effectiveYear === ed.year ? "#1d4ed8" : "#f8fafc",
-                        color: effectiveYear === ed.year ? "#fff" : "#374151",
-                        borderColor: effectiveYear === ed.year ? "#1d4ed8" : "#cbd5e1",
-                        fontSize: "0.88rem",
-                        opacity: ed.visibleInStats === false ? 0.45 : 1,
-                      }}
-                    >
-                      {ed.year}
-                      {ed.isClosed && (
-                        <span style={{ marginLeft: 4, fontSize: "0.68rem", opacity: 0.75 }}>✓</span>
-                      )}
-                    </button>
-                    {isAdmin && (
-                      <label title="Visible dans les statistiques publiques" style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: "0.68rem", color: "#6b7280" }}>
-                        <input
-                          type="checkbox"
-                          checked={ed.visibleInStats !== false}
-                          onChange={() => handleToggleVisibility(ed.year, ed.visibleInStats !== false)}
-                          style={{ width: 12, height: 12 }}
-                        />
-                        stats
-                      </label>
-                    )}
-                  </div>
-                )
-              ))}
-            </div>
-          )}
+      {/* Édition : choisie dans la barre du module Statistiques. */}
+      {selectedEdition ? (
+        selectedEdition.cancelled ? (
+          <div className="notice-card notice-card--warn">
+            <strong>{selectedEdition.year} — édition annulée</strong>
+            {selectedEdition.note ? <p>{selectedEdition.note}</p> : null}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem 1rem", alignItems: "center", fontSize: "0.85rem", color: "#555" }}>
+            <strong style={{ color: "#17324a" }}>Édition {selectedEdition.year}{selectedYear ? "" : " (la plus récente)"}</strong>
+            <span>📅 {formatEditionDate(selectedEdition.date)}</span>
+            {selectedEdition.venue ? <span>🏟 {selectedEdition.venue}</span> : null}
+            {formatEditionLabel(selectedEdition, { withHash: true }) && (
+              <span>🏆 {formatEditionLabel(selectedEdition, { withHash: true })}</span>
+            )}
+            {selectedEdition.label && <span>🏅 {selectedEdition.label}</span>}
+            {selectedEdition.isClosed && (
+              <span style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 12, fontWeight: 600, fontSize: "0.75rem" }}>Clôturée</span>
+            )}
+            {isAdmin && (
+              <label title="Visible dans les statistiques publiques du site" style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: "0.78rem", color: "#6b7280" }}>
+                <input
+                  type="checkbox"
+                  checked={selectedEdition.visibleInStats !== false}
+                  onChange={() => handleToggleVisibility(selectedEdition.year, selectedEdition.visibleInStats !== false)}
+                />
+                visible sur le site public
+              </label>
+            )}
+          </div>
+        )
+      ) : editionsLoading ? <p className="panel-note">Chargement des éditions…</p> : null}
 
-          {selectedEdition && (
-            selectedEdition.cancelled ? (
-              <div style={{
-                marginTop: "0.75rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                padding: "0.6rem 1rem",
-                background: "#fef9c3",
-                border: "1px solid #fde047",
-                borderRadius: 8,
-                fontSize: "0.85rem",
-                color: "#854d0e",
-              }}>
-                <span style={{ fontSize: "1.1rem" }}>🚫</span>
-                <span><strong>{selectedEdition.year}</strong> — {selectedEdition.note}</span>
-              </div>
-            ) : (
-              <div style={{
-                marginTop: "0.75rem",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "1rem",
-                alignItems: "center",
-                fontSize: "0.85rem",
-                color: "#555",
-              }}>
-                <span>📅 {formatEditionDate(selectedEdition.date)}</span>
-                <span>🏟 {selectedEdition.venue}</span>
-                {formatEditionLabel(selectedEdition, { withHash: true }) && (
-                  <span>🏆 {formatEditionLabel(selectedEdition, { withHash: true })}</span>
-                )}
-                {selectedEdition.label && <span>🏅 {selectedEdition.label}</span>}
-                {selectedEdition.isClosed && (
-                  <span style={{
-                    background: "#dcfce7", color: "#15803d",
-                    padding: "2px 8px", borderRadius: 12, fontWeight: 600, fontSize: "0.75rem",
-                  }}>Clôturée</span>
-                )}
-              </div>
-            )
-          )}
-        </Panel>
-      </section>
+      {eventGroups.length > 1 ? (
+        <nav className="stats-event-index" aria-label="Aller à une épreuve">
+          {eventGroups.map((eventGroup) => (
+            <button
+              key={eventGroup.key}
+              type="button"
+              onClick={() => scrollToEvent(eventAnchorId(eventGroup.discipline, eventGroup.gender))}
+            >
+              {eventLabel(eventGroup.discipline, eventGroup.gender)}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       {/* Results */}
       <section className="panel-grid panel-grid--1">
@@ -1302,7 +1269,8 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                       : (eventGroup.others.length ? eventGroup.others : eventGroup.heats);
                     const qualifyingHeats = eventGroup.finals.length ? eventGroup.heats : [];
                     const showHeats = !!expandedHeatGroups[eventGroup.key];
-                    const rows = primarySections.flatMap((group) => renderSectionRows(group));
+                    const anchorId = eventAnchorId(eventGroup.discipline, eventGroup.gender);
+                    const rows = primarySections.flatMap((group, index) => renderSectionRows(group, { anchorId: index === 0 ? anchorId : undefined }));
 
                     if (!qualifyingHeats.length) return rows;
 

@@ -14,8 +14,15 @@ const EMPTY_FILTERS = {
   suspect: false,
 };
 
-function useRegistryFilters(rows) {
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+// initialSearch : recherche venue de l'adresse (?recherche=, depuis la
+// recherche du module Statistiques) ; une nouvelle valeur remplace la saisie.
+function useRegistryFilters(rows, initialSearch = "") {
+  const [filters, setFilters] = useState(() => ({ ...EMPTY_FILTERS, search: initialSearch }));
+  const [appliedSearch, setAppliedSearch] = useState(initialSearch);
+  if (initialSearch !== appliedSearch) {
+    setAppliedSearch(initialSearch);
+    setFilters((prev) => ({ ...prev, search: initialSearch }));
+  }
   const [sortKey, setSortKey] = useState("name");
   const [sortDirection, setSortDirection] = useState(1);
   const deferredSearch = useDeferredValue(filters.search);

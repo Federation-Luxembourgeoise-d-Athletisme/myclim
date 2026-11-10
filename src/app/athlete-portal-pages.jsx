@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useSearchParams } from "react-router-dom";
 import { deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAuth } from "../context/auth-context";
 import { canAccessStatistics, getActiveRoles } from "./navigation";
@@ -1230,7 +1230,7 @@ function AthletePortalOverview({ Panel }) {
             <NavLink className="button button--secondary button-link" to="/app/athletes">Voir les athlètes</NavLink>
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/athletes/import">Staff & historique des imports</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/base-athletes">Base athlètes</NavLink>}
-            {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats">Résultats du meeting</NavLink>}
+            {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/editions">Résultats du meeting</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/records">Records du meeting</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/resultats/hall-of-winners">Hall of Winners</NavLink>}
             {isAdmin && <NavLink className="button button--secondary button-link" to="/app/reglages/portail-athletes">Réglages du portail</NavLink>}
@@ -3995,7 +3995,9 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     })),
     [currentAthletesByRegistryId, registry],
   );
-  const registryFilterState = useRegistryFilters(registryRows);
+  // Recherche venue de la barre du module Statistiques (?recherche=Nom).
+  const [registrySearchParams] = useSearchParams();
+  const registryFilterState = useRegistryFilters(registryRows, registrySearchParams.get("recherche") || "");
   const suspectRows = useMemo(() => registryRows.filter((row) => row.suspectReasons.length), [registryRows]);
 
   const selectedRegistryEntry = useMemo(

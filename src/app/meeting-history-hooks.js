@@ -469,6 +469,36 @@ export async function fetchAllMeetingResults() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// Tous les résultats (≈ 4 000 docs) pour le module Statistiques : lus une
+// fois puis gardés en mémoire 10 minutes, pour que changer d'onglet ou
+// d'édition ne relise pas toute la collection.
+const ALL_RESULTS_TTL_MS = 10 * 60 * 1000;
+let allResultsCache = null; // { at, promise }
+
+function loadAllMeetingResultsCached() {
+  if (!allResultsCache || Date.now() - allResultsCache.at > ALL_RESULTS_TTL_MS) {
+    const promise = fetchAllMeetingResults().catch((error) => {
+      allResultsCache = null;
+      throw error;
+    });
+    allResultsCache = { at: Date.now(), promise };
+  }
+  return allResultsCache.promise;
+}
+
+export function useAllMeetingResults() {
+  const [state, setState] = useState({ results: [], loading: true, error: "" });
+  useEffect(() => {
+    let cancelled = false;
+    loadAllMeetingResultsCached().then(
+      (results) => { if (!cancelled) setState({ results, loading: false, error: "" }); },
+      (error) => { if (!cancelled) setState({ results: [], loading: false, error: error.message }); },
+    );
+    return () => { cancelled = true; };
+  }, []);
+  return state;
+}
+
 export async function rebuildMeetingRecords(onProgress) {
   onProgress?.("Lecture des résultats pour recalculer les records…");
   const resultsSnap = await getDocs(collection(db, MEETING_RESULTS_COL));
