@@ -82,7 +82,7 @@ const FIELD_GROUPS = [
 //   outdoor    = N-1  (previous outdoor season, completed)
 // Example: CMCM 2026 → indoor 2025, indoorCurrent 2026, outdoor 2025
 const DEFAULT_PORTAL_SETTINGS = {
-  accessRoles: ["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"],
+  accessRoles: ["admin", "meeting_director", "gestionnaire", "chef_transport_athletes", "benevole_transport_athletes"],
   importerRoles: ["admin", "meeting_director"],
   // WA service base URL: /api/wa → proxied to the Netlify Function wa-athlete,
   // itself backed by worldathletics.nimarion.de. Works the same in local dev
@@ -93,7 +93,8 @@ const DEFAULT_PORTAL_SETTINGS = {
   fieldVisibility: {
     admin:            ALL_ATHLETE_FIELDS.map((f) => f.key),
     meeting_director: ALL_ATHLETE_FIELDS.map((f) => f.key),
-    gestionnaire:              ["event", "lastName", "firstName", "nationality", "status", "heat", "lane"],
+    // Toutes les colonnes, en lecture seule (canEdit = admin / meeting director).
+    gestionnaire:     ALL_ATHLETE_FIELDS.map((f) => f.key),
     chef_equipe:               ["event", "lastName", "firstName", "nationality"],
     chef_transport_athletes:   ["event", "lastName", "firstName", "nationality", "manager", "arrivalDay", "arrivalTime", "arrivalFlight", "arrivalFrom", "departureDay", "departureTime", "departureFlight", "departureTo"],
     benevole_transport_athletes: ["event", "lastName", "firstName", "nationality", "arrivalDay", "arrivalTime", "arrivalFlight", "arrivalFrom"],

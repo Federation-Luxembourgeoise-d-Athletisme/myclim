@@ -259,7 +259,9 @@ function buildNavigationFromRoles(roles, options = {}) {
       section("mySpace", personalLinkKeys(roles, options)),
       section("steering", [has("gestionnaire_site") && "edition", "retroplanning", has("budget") && "budget", has("budget") && "expenseClaims", "documents"]),
       section("volunteers", ["applications", "teams"]),
+      // Engagés en lecture seule (modifs et imports : admin / meeting director).
       section("athletes", [
+        "entries",
         has("chef_transport_athletes") && "transport",
         "roadbook",
         "physio",

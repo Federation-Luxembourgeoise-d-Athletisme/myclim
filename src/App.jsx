@@ -746,7 +746,7 @@ export default function App() {
               <Route path="mon-planning" element={<MyPlanningPage />} />
               <Route path="mes-decomptes" element={<MyExpenseClaimsPage />} />
               <Route path="athletes" element={<TabbedPage eyebrowKey="navSectionAthletes" titleKey="navEntries" title="Engagés" tabs={ENTRIES_TABS} />}>
-                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
+                <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director", "gestionnaire", "chef_transport_athletes", "benevole_transport_athletes"]} />}>
                   <Route index element={<AthletesListPage />} />
                 </Route>
                 <Route element={<RequireRouteAccess allowedRoles={["admin", "meeting_director"]} />}>
