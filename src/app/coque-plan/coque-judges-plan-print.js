@@ -25,7 +25,7 @@ export function judgesPlanBoxHtml(elements, teams, lang = "fr") {
   return `<div class="judges-plan"><div class="coque-plan__layer">${judgesPlanSvg(elements, lang)}</div>${items}</div>`;
 }
 
-export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "" } = {}) {
+export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", autoPrint = true } = {}) {
   const en = lang === "en";
   const t = (fr, enText) => (en ? enText : fr);
   const teamBlocks = teams
@@ -118,6 +118,6 @@ export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "" }
     </aside>
   </main>
 </div>
-<script>window.addEventListener("load", () => setTimeout(() => window.print(), 250));</script>
+${autoPrint ? `<script>window.addEventListener("load", () => setTimeout(() => window.print(), 250));</script>` : ""}
 </body></html>`;
 }

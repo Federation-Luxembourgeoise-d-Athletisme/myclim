@@ -157,12 +157,20 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   }
   function print() {
     const win = window.open("", "_blank", "width=900,height=1100");
-    if (!win) {
-      setMessage(tr("Fenêtre d'impression bloquée par le navigateur.", "Print window blocked by the browser."));
+    if (win) {
+      win.document.write(judgesPlanPrintHtml(elements, teams, { lang }));
+      win.document.close();
       return;
     }
-    win.document.write(judgesPlanPrintHtml(elements, teams, { lang }));
-    win.document.close();
+    // Fenêtres bloquées : impression depuis un cadre invisible dans la page
+    document.getElementById("judges-plan-print-frame")?.remove();
+    const frame = document.createElement("iframe");
+    frame.id = "judges-plan-print-frame";
+    frame.title = "print";
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    frame.onload = () => setTimeout(() => frame.contentWindow?.print(), 250);
+    frame.srcdoc = judgesPlanPrintHtml(elements, teams, { lang, autoPrint: false });
+    document.body.appendChild(frame);
   }
 
   // Glisser-déposer (position en % du cadre) et extrémités des lignes (unités du plan)

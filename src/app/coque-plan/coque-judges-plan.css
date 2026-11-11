@@ -78,3 +78,7 @@
 .jpe-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .jpe-pair input { min-width: 0; }
 .jpe-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+/* Zones : le texte peut passer sur deux lignes ; listes déroulantes sans texte rogné */
+.judges-plan .coque-plan__el:has(.cp-area) { white-space: normal; }
+.judges-plan .cp-area { padding: 2px; line-height: 1.05; }
+.jpe .cpe-field select { padding-top: 0; padding-bottom: 0; line-height: 28px; }
