@@ -8,6 +8,7 @@ import {
   getNationalRaceStatusKey,
   getNationalRaceStatusPillClass,
 } from "./national-races-helpers";
+import { formatNationalRaceLane } from "./national-races-heats";
 import { useNationalRaceRequests } from "./national-races-hooks";
 import { formatDateTimeForDisplay } from "./u14-helpers";
 import { useAuth } from "../context/auth-context";
@@ -16,7 +17,7 @@ import { db } from "../services/firebase";
 function MyNationalRacePage(props) {
   const { DataTable, Panel } = props;
   const { currentUser } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { requests, loading, error } = useNationalRaceRequests({ athleteUserId: currentUser?.uid || "", enabled: Boolean(currentUser) });
   const [busyRequestId, setBusyRequestId] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -83,7 +84,16 @@ function MyNationalRacePage(props) {
               : visibleRequests.length
                 ? visibleRequests.map((request) => ({
                     id: request.id,
-                    race: getNationalRaceDefinition(request.raceCode)?.label || request.event,
+                    // Série et couloir visibles une fois la sélection annoncée.
+                    race:
+                      request.visibleStatus === "selected" && formatNationalRaceLane(request, language) ? (
+                        <div className="table-stack">
+                          <span>{getNationalRaceDefinition(request.raceCode)?.label || request.event}</span>
+                          <strong>{formatNationalRaceLane(request, language)}</strong>
+                        </div>
+                      ) : (
+                        getNationalRaceDefinition(request.raceCode)?.label || request.event
+                      ),
                     performance: (
                       <div className="table-stack">
                         {request.personalBest ? <strong>{t("natPersonalBestShort")} {request.personalBest}</strong> : null}

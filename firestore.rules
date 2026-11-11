@@ -521,6 +521,14 @@ service cloud.firestore {
       allow delete: if canManageNationalRaces();
     }
 
+    // Séries et couloirs par course et par édition : l'admin fixe le nombre
+    // de séries / couloirs, la commission le lit pour placer les retenus
+    // (champs heat / lane des demandes, déjà couverts par la règle ci-dessus).
+    match /nationalRaceConfigs/{editionId} {
+      allow read: if canManageNationalRaces();
+      allow write: if isAdmin();
+    }
+
     // Modèles de mails des décisions (retenu / attente / non retenu).
     match /appSettings/nationalRaceMailTemplates {
       allow read, write: if canManageNationalRaces();

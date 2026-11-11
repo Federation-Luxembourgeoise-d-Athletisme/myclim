@@ -22,7 +22,10 @@ import {
   parseWaid,
   waProfileUrl,
 } from "./national-races-helpers";
-import { useNationalRaceMailTemplates, useNationalRaceRequests } from "./national-races-hooks";
+import { useNationalRaceConfig, useNationalRaceMailTemplates, useNationalRaceRequests } from "./national-races-hooks";
+import { NATIONAL_RACE_CONFIG_COLLECTION, formatNationalRaceLane, getFirstFreeLane, validateNationalRaceLane } from "./national-races-heats";
+import { NationalRaceStartList } from "./national-races-start-list";
+import { getActiveRoles } from "./navigation";
 import { useNationalRacesAdminCopy } from "./national-races-admin-copy";
 import { WaStatsPanel } from "./national-races-wa-stats";
 import { useActiveEdition } from "./edition";
@@ -492,7 +495,11 @@ function NationalRacesPage(props) {
   const [mailPreviewId, setMailPreviewId] = useState("");
   const [isMailDrawerOpen, setIsMailDrawerOpen] = useState(false);
   const [expandedId, setExpandedId] = useState("");
+  // "selection" (décisions) ou "startlist" (séries et couloirs).
+  const [view, setView] = useState("selection");
   const { activeEditionId } = useActiveEdition();
+  const { config: raceConfig, error: configError } = useNationalRaceConfig(activeEditionId);
+  const isAdmin = getActiveRoles(userProfile).includes("admin");
   const { language } = useLanguage();
   const { editions } = useMeetingEditions();
   const activeEdition = editions.find((edition) => String(edition.year || edition.id) === String(activeEditionId)) || null;
@@ -568,6 +575,8 @@ function NationalRacesPage(props) {
       targetRequests.forEach((request) => {
         batch.update(doc(db, NATIONAL_RACE_REQUESTS_COLLECTION, request.id), {
           status,
+          // Plus retenu : il libère son couloir.
+          ...(status !== "selected" && (request.heat || request.lane) ? { heat: null, lane: null } : {}),
           decidedBy: authorName,
           decidedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -645,6 +654,70 @@ function NationalRacesPage(props) {
     }
   }
 
+  // Place un retenu dans une série / un couloir (null, null = retirer).
+  // Sans couloir choisi, garde le sien s'il reste dans la série, sinon prend
+  // le premier couloir libre.
+  async function handlePlace(request, heat, lane) {
+    const name = `${request.firstName} ${request.lastName}`;
+    const config = raceConfig[request.raceCode];
+    const peers = requests.filter((other) => other.raceCode === request.raceCode);
+    let targetLane = lane;
+    if (heat && !lane) {
+      targetLane =
+        request.heat === heat && request.lane ? request.lane : getFirstFreeLane({ heat, raceRequests: peers, config, excludeId: request.id });
+    }
+    const result = validateNationalRaceLane({ request, heat, lane: targetLane, raceRequests: peers, config });
+    if (!result.ok) {
+      setStatusMessage("");
+      setErrorMessage(
+        fill(copy.heats.errors[result.code], {
+          heat: result.heat,
+          lane: result.lane,
+          lanes: result.lanes,
+          heats: result.heats,
+          name: result.conflict ? `${result.conflict.firstName} ${result.conflict.lastName}` : "",
+        }),
+      );
+      return;
+    }
+    setIsBusy(true);
+    try {
+      await updateDoc(doc(db, NATIONAL_RACE_REQUESTS_COLLECTION, request.id), {
+        heat: heat || null,
+        lane: heat ? targetLane : null,
+        laneSetBy: authorName,
+        laneSetAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      flash(
+        heat
+          ? fill(copy.heats.saved, { name, placement: formatNationalRaceLane({ heat, lane: targetLane }, language) })
+          : fill(copy.heats.cleared, { name }),
+      );
+    } catch {
+      setErrorMessage(copy.heats.failed);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  // Réglage admin : nombre de séries et de couloirs de la course.
+  async function handleSaveConfig(race, values) {
+    setIsBusy(true);
+    try {
+      await setDoc(
+        doc(db, NATIONAL_RACE_CONFIG_COLLECTION, String(activeEditionId)),
+        { editionId: String(activeEditionId), races: { [race.code]: values }, updatedAt: serverTimestamp(), updatedBy: authorName },
+        { merge: true },
+      );
+      flash(fill(copy.heats.settingsSaved, { race: raceLabel(race.code, race.label), heats: values.heats, lanes: values.lanes }));
+    } catch {
+      setErrorMessage(copy.heats.settingsFailed);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function handleSend(targetRequests) {
     if (!targetRequests.length) return [];
     const question =
@@ -716,7 +789,9 @@ function NationalRacesPage(props) {
     const selected = requests.filter((request) => request.status === "selected").sort((left, right) => {
       const raceOrder = NATIONAL_RACE_DEFINITIONS.findIndex((race) => race.code === left.raceCode) -
         NATIONAL_RACE_DEFINITIONS.findIndex((race) => race.code === right.raceCode);
-      return raceOrder || compareNationalRaceRequests(left, right);
+      // Puis série et couloir (non placés en fin de course), puis classement.
+      const heatOrder = (left.heat || 99) - (right.heat || 99) || (left.lane || 99) - (right.lane || 99);
+      return raceOrder || heatOrder || compareNationalRaceRequests(left, right);
     });
     if (!selected.length) {
       flash(text.nothingToExport);
@@ -724,10 +799,12 @@ function NationalRacesPage(props) {
     }
     const { csv } = copy;
     downloadCsv(`${csv.file}-${new Date().toISOString().slice(0, 10)}.csv`, [
-      csv.headers,
+      [...csv.headers.slice(0, 2), copy.heats.csvHeat, copy.heats.csvLane, ...csv.headers.slice(2)],
       ...selected.map((request) => [
         raceLabel(request.raceCode, request.event),
         isNationalRacePacer(request) ? csv.pacer : csv.athlete,
+        request.heat && request.lane ? request.heat : "",
+        request.heat && request.lane ? request.lane : "",
         request.lastName,
         request.firstName,
         request.gender === "femme" ? "F" : "M",
@@ -754,6 +831,8 @@ function NationalRacesPage(props) {
   const ui = copy.ui;
   const luxInProposal = proposal.reservedIds.size;
   const proposedIds = new Set(proposal.selection.map((request) => request.id));
+  const selectedInRace = raceRequests.filter((request) => request.status === "selected").length;
+  const placedInRace = raceRequests.filter((request) => request.status === "selected" && request.heat && request.lane).length;
   const drawerOpen = Boolean(athleteFormTarget || mailPreviewRequest || isEditingTemplates || isMailDrawerOpen);
 
   function closeDrawer() {
@@ -786,7 +865,7 @@ function NationalRacesPage(props) {
         </div>
       </header>
 
-      {error || templatesError ? <p className="natx-alert natx-alert--danger">{error || templatesError}</p> : null}
+      {error || templatesError || configError ? <p className="natx-alert natx-alert--danger">{error || templatesError || configError}</p> : null}
       {statusMessage ? <p className="natx-alert natx-alert--ok">{statusMessage}</p> : null}
       {errorMessage ? <p className="natx-alert natx-alert--danger">{errorMessage}</p> : null}
 
@@ -838,6 +917,7 @@ function NationalRacesPage(props) {
           {selectedRace.luxReserved ? (
             <span className="natx-fact">{ui.factLux} <b>{luxInProposal}/{selectedRace.luxReserved}</b></span>
           ) : null}
+          <span className="natx-fact">{copy.heats.settingsHeats} <b>{raceConfig[selectedRace.code].heats}</b> · {copy.heats.settingsLanes} <b>{raceConfig[selectedRace.code].lanes}</b></span>
           <span className="natx-fact">{ui.factBasis}</span>
           {selectedRace.invitationOnly ? <span className="natx-fact natx-fact--note">{ui.factInvitation}</span> : null}
         </div>
@@ -852,6 +932,36 @@ function NationalRacesPage(props) {
         </p>
       ) : null}
 
+      <div className="natx-seg natx-view" role="tablist" aria-label={copy.heats.viewStartList}>
+        {[
+          { key: "selection", label: copy.heats.viewSelection },
+          { key: "startlist", label: `${copy.heats.viewStartList} · ${fill(copy.heats.placed, { placed: placedInRace, total: selectedInRace })}` },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            aria-selected={view === tab.key}
+            className={`natx-seg__item${view === tab.key ? " natx-view__item--active" : ""}`}
+            role="tab"
+            type="button"
+            onClick={() => setView(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {view === "startlist" ? (
+        <NationalRaceStartList
+          config={raceConfig[selectedRace.code]}
+          isAdmin={isAdmin}
+          isBusy={isBusy}
+          notice={errorMessage}
+          race={selectedRace}
+          raceRequests={raceRequests}
+          onPlace={handlePlace}
+          onSaveConfig={handleSaveConfig}
+        />
+      ) : (
       <div className="natx-board">
         <div className="natx-toolbar">
           <span className="natx-muted">{checkedInRace.length ? fill(copy.bulkSelected, { count: checkedInRace.length }) : copy.bulkHint}</span>
@@ -1098,6 +1208,7 @@ function NationalRacesPage(props) {
           </table>
         </div>
       </div>
+      )}
 
       {drawerOpen ? createPortal(
         <div className="natx natx-drawer-layer">

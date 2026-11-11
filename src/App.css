@@ -11238,3 +11238,141 @@ button.xc-card:hover { border-color: #9fb3c8; }
 @media (max-width: 640px) {
   .natwa { overflow-x: auto; }
 }
+
+/* Courses nationales · séries et couloirs (startlist dense). */
+.natx-view {
+  justify-self: start;
+}
+
+.natx-view .natx-seg__item {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.natx-view__item--active {
+  background: var(--natx-ink) !important;
+  color: #fff !important;
+}
+
+.natx-sl {
+  min-width: 760px;
+}
+
+.natx-sl td {
+  padding: 4px 10px;
+  vertical-align: middle;
+}
+
+.natx-sl__lane {
+  width: 52px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--natx-ink);
+  text-align: center;
+}
+
+.natx-sl__pick {
+  width: 70px;
+}
+
+.natx-sl__name {
+  margin-right: 6px;
+  font-weight: 600;
+  color: var(--natx-ink);
+}
+
+.natx-sl__heat th {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--natx-line);
+  background: var(--natx-soft);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--natx-ink);
+}
+
+.natx-sl__heat th > span + span {
+  margin-left: 10px;
+}
+
+.natx-sl__heat--full th {
+  background: #eef1f5;
+}
+
+.natx-sl__heat--unplaced th {
+  background: #fafbfc;
+  color: var(--natx-muted);
+}
+
+.natx-sl__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--natx-muted);
+}
+
+.natx-sl__free {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--natx-muted);
+}
+
+.natx-tag--full {
+  background: var(--natx-ink);
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.natx-sl__row--empty td {
+  color: var(--natx-muted);
+}
+
+.natx .natx-sl__select {
+  width: auto;
+  height: 26px;
+  min-width: 52px;
+  padding: 0 4px;
+  border: 1px solid #d5dce6;
+  border-radius: 5px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  color: var(--natx-ink);
+}
+
+.natx .natx-sl__select--wide {
+  width: 240px !important;
+  min-width: 0;
+  color: var(--natx-muted);
+}
+
+.natx-sl__setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--natx-muted);
+}
+
+.natx .natx-sl__setting select {
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid #d5dce6;
+  border-radius: 5px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--natx-ink);
+}
+
+.natx-sl__empty,
+.natx-sl__none {
+  padding: 14px 12px;
+}
+
+.natx-sl__notice {
+  margin: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--natx-line);
+}

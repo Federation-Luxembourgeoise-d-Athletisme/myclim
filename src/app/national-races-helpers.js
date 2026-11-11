@@ -1,4 +1,5 @@
 import { normalizeComparableValue } from "./u14-helpers";
+import { fillNationalRacePlacement, formatNationalRaceLane } from "./national-races-heats";
 
 // Courses nationales du pré-programme (adultes), pilotées par la commission
 // des athlètes : l'inscription passe d'abord par MyCLIM, la commission
@@ -22,10 +23,10 @@ const NATIONAL_RACE_MIN_AGE = 14;
 const NATIONAL_RACE_ADULT_AGE = 18;
 
 const NATIONAL_RACE_DEFINITIONS = [
-  { code: "NAT60F", event: "60 m", gender: "femme", label: "60 m Femmes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false },
-  { code: "NAT60M", event: "60 m", gender: "homme", label: "60 m Hommes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false },
-  { code: "NAT800F", event: "800 m", gender: "femme", label: "800 m Femmes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true },
-  { code: "NAT800M", event: "800 m", gender: "homme", label: "800 m Hommes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true },
+  { code: "NAT60F", event: "60 m", gender: "femme", label: "60 m Femmes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false, lanes: 8 },
+  { code: "NAT60M", event: "60 m", gender: "homme", label: "60 m Hommes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false, lanes: 8 },
+  { code: "NAT800F", event: "800 m", gender: "femme", label: "800 m Femmes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true, lanes: 8 },
+  { code: "NAT800M", event: "800 m", gender: "homme", label: "800 m Hommes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true, lanes: 8 },
 ];
 
 const NATIONAL_RACE_STATUSES = ["submitted", "selected", "waitlist", "not_selected", "withdrawn"];
@@ -40,9 +41,9 @@ const DEFAULT_NATIONAL_RACE_MAIL_TEMPLATES = {
   selected: {
     subject: "Courses nationales : vous êtes retenu(e) pour le {course} / You have been selected",
     bodyFr:
-      "Bonjour {prenom},\n\nLa commission des athlètes vous a retenu(e) pour le {course} du pré-programme du CMCM Luxembourg Indoor Meeting.\n\nL'organisation se charge de votre engagement. Le jour du meeting :\n- vous entrez par l'entrée des athlètes internationaux, par la salle d'échauffement (warm-up) ;\n- vous y récupérez votre accréditation ;\n- une entrée gratuite est prévue pour 1 accompagnateur : il donne votre nom à la caisse pour recevoir son ticket.\n\nMerci de nous prévenir au plus vite si vous ne pouvez plus participer.\n\n{message}Sportivement,\nLa commission des athlètes",
+      "Bonjour {prenom},\n\nLa commission des athlètes vous a retenu(e) pour le {course} du pré-programme du CMCM Luxembourg Indoor Meeting.\n\nL'organisation se charge de votre engagement. Le jour du meeting :\n- vous entrez par l'entrée des athlètes internationaux, par la salle d'échauffement (warm-up) ;\n- vous y récupérez votre accréditation ;\n- une entrée gratuite est prévue pour 1 accompagnateur : il donne votre nom à la caisse pour recevoir son ticket.\n\n{placement}Merci de nous prévenir au plus vite si vous ne pouvez plus participer.\n\n{message}Sportivement,\nLa commission des athlètes",
     bodyEn:
-      "Hello {prenom},\n\nThe athletes' commission has selected you for the {course} of the CMCM Luxembourg Indoor Meeting pre-programme.\n\nThe organisers handle your entry. On meeting day:\n- you come in through the international athletes' entrance, via the warm-up area;\n- you collect your accreditation there;\n- one free entry is provided for 1 companion: they give your name at the ticket desk to receive their ticket.\n\nPlease let us know as soon as possible if you can no longer take part.\n\nThe athletes' commission",
+      "Hello {prenom},\n\nThe athletes' commission has selected you for the {course} of the CMCM Luxembourg Indoor Meeting pre-programme.\n\nThe organisers handle your entry. On meeting day:\n- you come in through the international athletes' entrance, via the warm-up area;\n- you collect your accreditation there;\n- one free entry is provided for 1 companion: they give your name at the ticket desk to receive their ticket.\n\n{placement}Please let us know as soon as possible if you can no longer take part.\n\nThe athletes' commission",
   },
   waitlist: {
     subject: "Courses nationales : vous êtes sur liste d'attente pour le {course} / Waiting list",
@@ -197,8 +198,10 @@ function normalizeNationalRaceMailTemplates(data) {
   );
 }
 
-function fillTemplate(text, request, raceLabel, message) {
-  return String(text || "")
+function fillTemplate(text, request, raceLabel, message, placement = null) {
+  // Série et couloir : seulement dans les corps de mail (placement fourni).
+  const withPlacement = placement === null ? String(text || "") : fillNationalRacePlacement(text, placement);
+  return withPlacement
     .replace(/\{prenom\}/g, request.firstName || "")
     .replace(/\{nom\}/g, request.lastName || "")
     .replace(/\{course\}/g, raceLabel)
@@ -211,7 +214,13 @@ function buildNationalRaceDecisionMail(request, templates) {
   const template = templates[request.status];
   const raceLabel = getNationalRaceDefinition(request.raceCode)?.label || request.event;
   const message = String(request.athleteMessage || "").trim();
-  const body = `${fillTemplate(template.bodyFr, request, raceLabel, message)}\n\n---\n\n${fillTemplate(template.bodyEn, request, raceLabel, "")}`;
+  // Série / couloir ajoutés au mail « retenu » dès que la commission les a fixés.
+  const isSelected = request.status === "selected";
+  const placementFr = isSelected ? formatNationalRaceLane(request, "fr", ", ") : "";
+  const placementEn = isSelected ? formatNationalRaceLane(request, "en", ", ") : "";
+  const bodyFr = fillTemplate(template.bodyFr, request, raceLabel, message, placementFr ? `Votre placement : ${placementFr}.` : "");
+  const bodyEn = fillTemplate(template.bodyEn, request, raceLabel, "", placementEn ? `Your start: ${placementEn}.` : "");
+  const body = `${bodyFr}\n\n---\n\n${bodyEn}`;
 
   return {
     type: `national-race-${request.status}`,
@@ -219,7 +228,7 @@ function buildNationalRaceDecisionMail(request, templates) {
     ...(request.isMinor && request.guardianEmail ? { cc: request.guardianEmail } : {}),
     subject: fillTemplate(template.subject, request, raceLabel, ""),
     body,
-    metadata: { requestId: request.id, raceCode: request.raceCode, status: request.status },
+    metadata: { requestId: request.id, raceCode: request.raceCode, status: request.status, heat: request.heat ?? null, lane: request.lane ?? null },
   };
 }
 
