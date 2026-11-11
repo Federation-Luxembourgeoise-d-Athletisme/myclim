@@ -43,6 +43,30 @@ import {
 } from "./athlete-registry-tools";
 import { useRegistryFilters } from "./athlete-registry-filters";
 import { searchWaAthletes } from "../site/emagazine-athlete-data";
+import { useLanguage } from "./language-context";
+
+// Entries pages: French when the app is in French, English otherwise (the
+// meeting director reads English/German, not French).
+function useTr() {
+  const { language } = useLanguage();
+  return (fr, en) => (language === "fr" ? fr : en);
+}
+
+// Staff roles are stored in French (see _STAFF_ROLE_PATTERNS); shown translated.
+const STAFF_ROLE_EN = {
+  "Médical": "Medical",
+  "Accompagnateur": "Companion",
+  "Famille / invité": "Family / guest",
+  "Autre": "Other",
+};
+
+function staffRoleLabel(role, tr) {
+  return tr(role, STAFF_ROLE_EN[role] || role);
+}
+
+function fieldLabel(field, tr) {
+  return tr(field.label, field.labelEn || field.label);
+}
 
 const PLATFORM_ROLES = [
   { key: "admin",                      label: "Administrateur" },
@@ -100,14 +124,15 @@ function expandTravelField(raw, prefix) {
 }
 
 // Short day label for dense tables: "dim. 17" (falls back to "J17").
-function formatTravelDayShort(day, referenceDate) {
+function formatTravelDayShort(day, referenceDate, language = "fr") {
   const ref = referenceDate?.toDate ? referenceDate.toDate() : referenceDate ? new Date(referenceDate) : null;
-  if (!ref || Number.isNaN(ref.getTime())) return `J${day}`;
+  if (!ref || Number.isNaN(ref.getTime())) return `${language === "fr" ? "J" : "D"}${day}`;
   const resolved = new Date(ref.getFullYear(), ref.getMonth(), day);
-  return `${resolved.toLocaleDateString("fr-FR", { weekday: "short" })} ${day}`;
+  return `${resolved.toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", { weekday: "short" })} ${day}`;
 }
 
 function TravelCell({ raw, prefix, referenceDate, compact = false }) {
+  const { language } = useLanguage();
   if (!raw) return <span style={{ color: "#bbb" }}>—</span>;
   const p = parseTravelEntry(raw);
   if (!p) return <span style={{ fontSize: "0.82rem", color: "#555" }}>{raw}</span>;
@@ -116,7 +141,7 @@ function TravelCell({ raw, prefix, referenceDate, compact = false }) {
   if (compact) {
     return (
       <span className="ath-travel" title={raw}>
-        <strong>{formatTravelDayShort(p.day, referenceDate)}{p.time ? ` ${p.time}` : ""}</strong>
+        <strong>{formatTravelDayShort(p.day, referenceDate, language)}{p.time ? ` ${p.time}` : ""}</strong>
         {p.flightNo ? <span className="ath-travel__flight"> {p.flightNo}</span> : null}
         {p.city ? <span className="ath-travel__city"> {arrow}{p.city}</span> : null}
       </span>
@@ -125,7 +150,7 @@ function TravelCell({ raw, prefix, referenceDate, compact = false }) {
   return (
     <div style={{ lineHeight: 1.65, fontSize: "0.82rem" }}>
       <div style={{ fontWeight: 600 }}>
-        {formatTravelDay(p.day, referenceDate)}{p.time ? ` · ${p.time}` : ""}
+        {formatTravelDay(p.day, referenceDate, language)}{p.time ? ` · ${p.time}` : ""}
       </div>
       {(p.flightNo || p.city) ? (
         <div style={{ color: "#555" }}>
@@ -514,14 +539,14 @@ function applyTravelFields(merged, record, presentFields) {
 // fields are deliberately excluded (they change via the Sync button, not via
 // import, so surfacing them here would be noise unrelated to this file).
 const DIFFABLE_ATHLETE_FIELDS = [
-  { key: "event",     label: "Épreuve" },
-  { key: "status",    label: "Statut" },
-  { key: "heat",      label: "Série" },
-  { key: "lane",      label: "Couloir" },
-  { key: "manager",   label: "Manager" },
-  { key: "arrival",   label: "Arrivée" },
-  { key: "departure", label: "Départ" },
-  { key: "waid",      label: "WAID" },
+  { key: "event",     label: "Épreuve",  labelEn: "Event" },
+  { key: "status",    label: "Statut",   labelEn: "Status" },
+  { key: "heat",      label: "Série",    labelEn: "Heat" },
+  { key: "lane",      label: "Couloir",  labelEn: "Lane" },
+  { key: "manager",   label: "Manager",  labelEn: "Manager" },
+  { key: "arrival",   label: "Arrivée",  labelEn: "Arrival" },
+  { key: "departure", label: "Départ",   labelEn: "Departure" },
+  { key: "waid",      label: "WAID",     labelEn: "WAID" },
 ];
 
 function athleteDisplayLabel(a) {
@@ -712,47 +737,49 @@ function mergeAccompanyingPersons(existing, incoming) {
 // worth translating for whoever reads the roster in the meantime. Keyed on
 // the trimmed, lowercased raw value; the raw text stays visible as a tooltip.
 const PENDING_STATUS_TRANSLATIONS = {
-  "unser angebot": "Invité(e), pas encore confirmé(e)",
-  "abwarten": "En attente",
-  "warten": "En attente",
+  "unser angebot": ["Invité(e), pas encore confirmé(e)", "Invited, not yet confirmed"],
+  "abwarten": ["En attente", "Pending"],
+  "warten": ["En attente", "Pending"],
 };
 
 // The hotel column often carries German hotel-admin shorthand rather than a
 // hotel name — room type (DZ/EZ) and who booked it. Translate what we
 // recognize, keep the raw text visible on hover for anything else.
 const HOTEL_ABBREVIATION_TRANSLATIONS = [
-  [/\bdz\b/gi, "chambre double"],
-  [/\bez\b/gi, "chambre simple"],
-  [/\bohne\b/gi, "sans hôtel"],
-  [/selber gebucht/gi, "réservé par ses soins"],
-  [/\bstorniert\b/gi, "annulé"],
+  [/\bdz\b/gi, "chambre double", "double room"],
+  [/\bez\b/gi, "chambre simple", "single room"],
+  [/\bohne\b/gi, "sans hôtel", "no hotel"],
+  [/selber gebucht/gi, "réservé par ses soins", "self-booked"],
+  [/\bstorniert\b/gi, "annulé", "cancelled"],
 ];
 
-function translateHotelText(raw) {
+function translateHotelText(raw, tr) {
   let translated = raw;
   let changed = false;
-  for (const [re, fr] of HOTEL_ABBREVIATION_TRANSLATIONS) {
-    if (re.test(translated)) { changed = true; translated = translated.replace(re, fr); }
+  for (const [re, fr, en] of HOTEL_ABBREVIATION_TRANSLATIONS) {
+    if (re.test(translated)) { changed = true; translated = translated.replace(re, tr(fr, en)); }
   }
   return changed ? translated : null;
 }
 
 function HotelCell({ value }) {
+  const tr = useTr();
   if (!value) return "—";
-  const translated = translateHotelText(value);
+  const translated = translateHotelText(value, tr);
   if (!translated) return value;
-  return <span title={`Texte d'origine : ${value}`}>{translated}</span>;
+  return <span title={`${tr("Texte d'origine : ", "Original text: ")}${value}`}>{translated}</span>;
 }
 
 function StatusBadge({ status }) {
+  const tr = useTr();
   if (!status) return "—";
   if (status === "ok")  return <span className="status-pill status-pill--ok">OK</span>;
   if (status === "out") return <span className="status-pill status-pill--warn">Out</span>;
   const translated = PENDING_STATUS_TRANSLATIONS[String(status).trim().toLowerCase()];
   if (translated) {
     return (
-      <span className="status-pill status-pill--pending" title={`Texte d'origine : ${status}`}>
-        {translated}
+      <span className="status-pill status-pill--pending" title={`${tr("Texte d'origine : ", "Original text: ")}${status}`}>
+        {tr(translated[0], translated[1])}
       </span>
     );
   }
@@ -763,12 +790,15 @@ function StatusBadge({ status }) {
 // registry (so their past-editions history is actually available) and opens
 // their unified profile card on click — same target as clicking the name.
 function RegistryLinkCell({ athlete, onOpen }) {
+  const tr = useTr();
   const linked = Boolean(athlete.registryAthleteId);
   return (
     <button
       type="button"
       onClick={onOpen}
-      title={linked ? "Relié à l'historique — voir la fiche" : "Pas encore relié à l'historique — voir la fiche"}
+      title={linked
+        ? tr("Relié à l'historique — voir la fiche", "Linked to the history — open the profile")
+        : tr("Pas encore relié à l'historique — voir la fiche", "Not linked to the history yet — open the profile")}
       style={{
         appearance: "none",
         border: "none",
@@ -787,21 +817,23 @@ function RegistryLinkCell({ athlete, onOpen }) {
 }
 
 function WaBadge({ value }) {
+  const tr = useTr();
   if (!value) return <span style={{ color: "#aaa" }}>—</span>;
   return (
-    <span style={{ color: "#1d4ed8", whiteSpace: "nowrap" }} title="Source : World Athletics">
+    <span style={{ color: "#1d4ed8", whiteSpace: "nowrap" }} title={tr("Source : World Athletics", "Source: World Athletics")}>
       {value}
     </span>
   );
 }
 
 function FileTypeBadge({ type }) {
+  const tr = useTr();
   const map = {
-    COMBINED:    ["Combiné (toutes les données)", "status-pill status-pill--accent"],
-    START_LIST:  ["Liste de départ",     "status-pill status-pill--accent"],
-    FINAL_LANES: ["Séries & couloirs",   "status-pill"],
-    TRAVEL:      ["Voyages",             "status-pill"],
-    UNKNOWN:     ["Inconnu",             "status-pill status-pill--warn"],
+    COMBINED:    [tr("Combiné (toutes les données)", "Combined (all data)"), "status-pill status-pill--accent"],
+    START_LIST:  [tr("Liste de départ", "Start list"),        "status-pill status-pill--accent"],
+    FINAL_LANES: [tr("Séries & couloirs", "Heats & lanes"),   "status-pill"],
+    TRAVEL:      [tr("Voyages", "Travel"),                    "status-pill"],
+    UNKNOWN:     [tr("Inconnu", "Unknown"),                   "status-pill status-pill--warn"],
   };
   const [label, cls] = map[type] ?? map.UNKNOWN;
   return <span className={cls}>{label}</span>;
@@ -810,6 +842,7 @@ function FileTypeBadge({ type }) {
 // ─── Inline WAID editor ───────────────────────────────────────────────────────
 
 function WaidCell({ athlete, onSave }) {
+  const tr = useTr();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(athlete.waid ?? "");
   const [saving, setSaving] = useState(false);
@@ -847,10 +880,10 @@ function WaidCell({ athlete, onSave }) {
   return (
     <span
       style={{ cursor: "pointer", borderBottom: "1px dashed #999", paddingBottom: 1 }}
-      title="Cliquer pour modifier le WAID"
+      title={tr("Cliquer pour modifier le WAID", "Click to edit the WAID")}
       onClick={() => { setValue(athlete.waid ?? ""); setEditing(true); }}
     >
-      {athlete.waid ?? <span className="ath-muted">+ ajouter</span>}
+      {athlete.waid ?? <span className="ath-muted">{tr("+ ajouter", "+ add")}</span>}
     </span>
   );
 }
@@ -872,9 +905,9 @@ function parseSplitValue(value) {
 }
 
 const GENDER_OPTIONS = [
-  { value: "", label: "Genre ?" },
-  { value: "W", label: "Femmes" },
-  { value: "M", label: "Hommes" },
+  { value: "", label: "Genre ?", labelEn: "Gender?" },
+  { value: "W", label: "Femmes", labelEn: "Women" },
+  { value: "M", label: "Hommes", labelEn: "Men" },
 ];
 const _TRAILING_GENDER_RE = /\s+(women|femmes?|men|hommes?|w|f|m|h)$/i;
 
@@ -889,6 +922,7 @@ function detectTrailingGender(value) {
 }
 
 function RowDeleteCell({ athlete, onDelete }) {
+  const tr = useTr();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -908,8 +942,8 @@ function RowDeleteCell({ athlete, onDelete }) {
         className="ath-icon-btn ath-icon-btn--danger"
         type="button"
         onClick={() => setConfirming(true)}
-        title="Supprimer cette fiche (erreur d'import, doublon...)"
-        aria-label="Supprimer"
+        title={tr("Supprimer cette fiche (erreur d'import, doublon...)", "Delete this entry (import error, duplicate...)")}
+        aria-label={tr("Supprimer", "Delete")}
       >
         ✕
       </button>
@@ -918,16 +952,17 @@ function RowDeleteCell({ athlete, onDelete }) {
   return (
     <span style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap" }}>
       <button className="ath-link ath-link--danger" type="button" onClick={handleConfirm} disabled={deleting}>
-        {deleting ? "…" : "Supprimer"}
+        {deleting ? "…" : tr("Supprimer", "Delete")}
       </button>
       <button className="ath-link" type="button" onClick={() => setConfirming(false)} disabled={deleting}>
-        Annuler
+        {tr("Annuler", "Cancel")}
       </button>
     </span>
   );
 }
 
 function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
+  const tr = useTr();
   const [value, setValue] = useState(guessEventCorrection(athlete.event));
   const [gender, setGender] = useState(() => detectTrailingGender(value));
   const [saving, setSaving] = useState(false);
@@ -982,11 +1017,14 @@ function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "4px 0" }}>
       <span style={{ minWidth: 160, fontWeight: 600 }}>{athlete.lastName} {athlete.firstName}</span>
       <span style={{ color: "#888", fontSize: "0.8rem" }}>
-        brut : <em>{athlete.event || "(vide)"}</em>
+        {tr("brut :", "raw:")} <em>{athlete.event || tr("(vide)", "(empty)")}</em>
       </span>
       {staffRoleHint && (
         <span style={{ color: "#b8860b", fontSize: "0.78rem" }}>
-          ⚠ {staffRoleHint} — ce n'est pas un athlète, pas d'épreuve à corriger : supprime cette fiche (un futur import de ce fichier la reliera correctement en accompagnateur)
+          ⚠ {staffRoleLabel(staffRoleHint, tr)} — {tr(
+            "ce n'est pas un athlète, pas d'épreuve à corriger : supprime cette fiche (un futur import de ce fichier la reliera correctement en accompagnateur)",
+            "not an athlete, no event to fix: delete this entry (a later import of this file will link it correctly as staff)",
+          )}
         </span>
       )}
       <input
@@ -1001,23 +1039,23 @@ function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
         onChange={(e) => handleGenderChange(e.target.value)}
         style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
         disabled={saving}
-        title="Ce que le meeting director attend pour cette épreuve"
+        title={tr("Ce que le meeting director attend pour cette épreuve", "What the meeting director expects for this event")}
       >
-        {GENDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {GENDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{tr(o.label, o.labelEn)}</option>)}
       </select>
       {split ? (
         <button className="button button--secondary button--small" type="button" onClick={handleSplit} disabled={saving}>
-          {saving ? "…" : `Dupliquer sur ${split.disciplines.length} épreuves`}
+          {saving ? "…" : tr(`Dupliquer sur ${split.disciplines.length} épreuves`, `Duplicate to ${split.disciplines.length} events`)}
         </button>
       ) : (
         <button className="button button--secondary button--small" type="button" onClick={handleSave} disabled={saving || !value.trim()}>
-          {saving ? "…" : "Enregistrer"}
+          {saving ? "…" : tr("Enregistrer", "Save")}
         </button>
       )}
-      {saved && <span style={{ color: "#166534", fontSize: "0.78rem" }}>✓ {split ? "fiches créées" : "enregistré"}</span>}
+      {saved && <span style={{ color: "#166534", fontSize: "0.78rem" }}>✓ {split ? tr("fiches créées", "entries created") : tr("enregistré", "saved")}</span>}
       {confirmingDelete ? (
         <>
-          <span style={{ color: "#b71c1c", fontSize: "0.78rem" }}>Supprimer définitivement ?</span>
+          <span style={{ color: "#b71c1c", fontSize: "0.78rem" }}>{tr("Supprimer définitivement ?", "Delete permanently?")}</span>
           <button
             className="button button--ghost button--small"
             type="button"
@@ -1025,7 +1063,7 @@ function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
             disabled={saving}
             style={{ color: "#b71c1c", fontWeight: 700 }}
           >
-            {saving ? "…" : "Confirmer"}
+            {saving ? "…" : tr("Confirmer", "Confirm")}
           </button>
           <button
             className="button button--ghost button--small"
@@ -1033,7 +1071,7 @@ function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
             onClick={() => setConfirmingDelete(false)}
             disabled={saving}
           >
-            Annuler
+            {tr("Annuler", "Cancel")}
           </button>
         </>
       ) : (
@@ -1042,9 +1080,9 @@ function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
           type="button"
           onClick={() => setConfirmingDelete(true)}
           style={{ color: "#b71c1c" }}
-          title="Cette fiche n'est pas un vrai athlète (erreur d'import)"
+          title={tr("Cette fiche n'est pas un vrai athlète (erreur d'import)", "This entry is not a real athlete (import error)")}
         >
-          Supprimer
+          {tr("Supprimer", "Delete")}
         </button>
       )}
     </div>
@@ -1056,8 +1094,9 @@ function EventCorrectionRow({ athlete, onSave, onSplit, onDelete }) {
 function WaSyncButton({ athlete, settings, onDone }) {
   const [status, setStatus] = useState(null); // null | "syncing" | "ok" | "error"
   const [error, setError] = useState("");
+  const tr = useTr();
 
-  if (!athlete.waid) return <span className="ath-muted">sans WAID</span>;
+  if (!athlete.waid) return <span className="ath-muted">{tr("sans WAID", "no WAID")}</span>;
 
   async function handleSync() {
     setStatus("syncing");
@@ -1090,14 +1129,14 @@ function WaSyncButton({ athlete, settings, onDone }) {
     }
   }
 
-  if (status === "syncing") return <span className="ath-muted">synchro…</span>;
-  if (status === "ok")      return <span className="ath-ok">synchronisé ✓</span>;
+  if (status === "syncing") return <span className="ath-muted">{tr("synchro…", "syncing…")}</span>;
+  if (status === "ok")      return <span className="ath-ok">{tr("synchronisé ✓", "synced ✓")}</span>;
 
   if (status === "error") return (
     <div style={{ display: "flex", flexDirection: "column", gap: "3px", maxWidth: 220 }}>
       <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-        <span className="status-pill status-pill--warn" style={{ fontSize: "0.75rem" }}>erreur ✕</span>
-        <button className="button button--ghost button--small" type="button" onClick={handleSync} title="Réessayer">↻</button>
+        <span className="status-pill status-pill--warn" style={{ fontSize: "0.75rem" }}>{tr("erreur ✕", "error ✕")}</span>
+        <button className="button button--ghost button--small" type="button" onClick={handleSync} title={tr("Réessayer", "Retry")}>↻</button>
       </div>
       <span style={{
         fontSize: "0.7rem", color: "#b71c1c", lineHeight: 1.35,
@@ -1110,7 +1149,7 @@ function WaSyncButton({ athlete, settings, onDone }) {
   );
 
   return (
-    <button className="ath-link" type="button" onClick={handleSync} title="Synchroniser avec World Athletics">
+    <button className="ath-link" type="button" onClick={handleSync} title={tr("Synchroniser avec World Athletics", "Sync with World Athletics")}>
       ↻ WA
     </button>
   );
@@ -1119,6 +1158,7 @@ function WaSyncButton({ athlete, settings, onDone }) {
 // ─── Overview page ────────────────────────────────────────────────────────────
 
 function AthletePortalOverview({ Panel }) {
+  const tr = useTr();
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
@@ -1186,8 +1226,8 @@ function AthletePortalOverview({ Panel }) {
                 onChange={(e) => setViewEditionId(e.target.value)}
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
-                <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
+                <option value={activeEditionId}>{tr("Courante", "Current")} ({activeEditionId})</option>
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">{tr("Exemple 2026", "Sample 2026")}</option>}
               </select>
               {viewEditionId === "test" && (
                 <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
@@ -1446,11 +1486,12 @@ function compareEventGroups([keyA], [keyB]) {
  * Priority: current indoor SB → prev indoor SB → outdoor SB → indoor PB → outdoor PB → raw SB/PB
  */
 function GenderBadge({ gender }) {
+  const tr = useTr();
   if (!gender) return null;
   const w = gender === "W";
   return (
     <span className={`ath-gender ath-gender--${w ? "w" : "m"}`}>
-      {w ? "Femmes" : "Hommes"}
+      {w ? tr("Femmes", "Women") : tr("Hommes", "Men")}
     </span>
   );
 }
@@ -1559,16 +1600,18 @@ function parseWaidInput(value) {
 }
 
 const WA_FIELD_LABELS = {
-  lastName: "Nom",
-  firstName: "Prénom",
-  nationality: "Nationalité",
-  birthDate: "Date de naissance",
-  birthYear: "Année de naissance",
-  gender: "Genre",
-  waUrl: "Lien WA",
+  lastName: ["Nom", "Last name"],
+  firstName: ["Prénom", "First name"],
+  nationality: ["Nationalité", "Nationality"],
+  birthDate: ["Date de naissance", "Date of birth"],
+  birthYear: ["Année de naissance", "Birth year"],
+  gender: ["Genre", "Gender"],
+  waUrl: ["Lien WA", "WA link"],
 };
 
-function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onClear, title = "Fiche athlète", editable = false, registry = [], onMergeWith = null }) {
+function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onClear, title, editable = false, registry = [], onMergeWith = null }) {
+  const tr = useTr();
+  const panelTitle = title || tr("Fiche athlète", "Athlete profile");
   const primary = registryEntry || currentAthletes[0] || null;
   if (!primary) return null;
 
@@ -1642,18 +1685,18 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
   async function handleFindWaCandidates() {
     const name = [draft.firstName, draft.lastName].filter(Boolean).join(" ").trim();
     if (name.length < 3) {
-      setWaMessage("Il faut au moins un nom pour chercher sur World Athletics.");
+      setWaMessage(tr("Il faut au moins un nom pour chercher sur World Athletics.", "A name is needed to search World Athletics."));
       return;
     }
-    setWaBusy("Recherche sur World Athletics…");
+    setWaBusy(tr("Recherche sur World Athletics…", "Searching World Athletics…"));
     setWaMessage("");
     try {
       const found = await searchWaAthletes(name);
       const nationality = String(draft.nationality || "").toUpperCase();
       setWaCandidates([...found].sort((a, b) => Number(b.country === nationality) - Number(a.country === nationality)));
-      if (!found.length) setWaMessage("Personne trouvé sur World Athletics avec ce nom : colle le WAID ou le lien WA.");
+      if (!found.length) setWaMessage(tr("Personne trouvé sur World Athletics avec ce nom : colle le WAID ou le lien WA.", "Nobody found on World Athletics with this name: paste the WAID or the WA link."));
     } catch (error) {
-      setWaMessage(`World Athletics ne répond pas : ${error.message}`);
+      setWaMessage(`${tr("World Athletics ne répond pas : ", "World Athletics is not responding: ")}${error.message}`);
     } finally {
       setWaBusy("");
     }
@@ -1663,10 +1706,10 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
   async function handleFillFromWa(waidValue, candidate = null) {
     const waidToLoad = parseWaidInput(waidValue);
     if (!waidToLoad) {
-      setWaMessage("Colle le WAID ou le lien de la page World Athletics de l'athlète.");
+      setWaMessage(tr("Colle le WAID ou le lien de la page World Athletics de l'athlète.", "Paste the WAID or the link to the athlete's World Athletics page."));
       return;
     }
-    setWaBusy("Lecture du profil World Athletics…");
+    setWaBusy(tr("Lecture du profil World Athletics…", "Reading the World Athletics profile…"));
     setWaMessage("");
     try {
       const waData = await fetchAthleteFromWaService(waidToLoad, portalSettings || DEFAULT_PORTAL_SETTINGS);
@@ -1690,7 +1733,7 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
       setWaCandidates(null);
       setIsEditing(true);
     } catch (error) {
-      setWaMessage(`World Athletics ne répond pas : ${error.message}`);
+      setWaMessage(`${tr("World Athletics ne répond pas : ", "World Athletics is not responding: ")}${error.message}`);
     } finally {
       setWaBusy("");
     }
@@ -1751,7 +1794,7 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
       });
 
       await batch.commit();
-      setSaveState("✅ Fiche athlète mise à jour.");
+      setSaveState(tr("✅ Fiche athlète mise à jour.", "✅ Athlete profile updated."));
       setIsEditing(false);
       setWaChanges([]);
     } catch (error) {
@@ -1763,18 +1806,21 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
 
   return (
     <Panel
-      title={title}
-      subtitle={`${historyRows.length} résultat${historyRows.length > 1 ? "s" : ""} historique${historyRows.length > 1 ? "s" : ""} · ${currentAthletes.length} fiche${currentAthletes.length > 1 ? "s" : ""} édition courante`}
+      title={panelTitle}
+      subtitle={tr(
+        `${historyRows.length} résultat${historyRows.length > 1 ? "s" : ""} historique${historyRows.length > 1 ? "s" : ""} · ${currentAthletes.length} fiche${currentAthletes.length > 1 ? "s" : ""} édition courante`,
+        `${historyRows.length} past result${historyRows.length > 1 ? "s" : ""} · ${currentAthletes.length} entr${currentAthletes.length > 1 ? "ies" : "y"} this edition`,
+      )}
       actions={(
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           {editable ? (
             isEditing ? (
               <>
                 <button className="button button--ghost button--small" type="button" onClick={() => setIsEditing(false)} disabled={saving}>
-                  Annuler
+                  {tr("Annuler", "Cancel")}
                 </button>
                 <button className="button button--secondary button--small" type="button" onClick={handleSaveProfile} disabled={saving}>
-                  {saving ? "Enregistrement…" : "Enregistrer"}
+                  {saving ? tr("Enregistrement…", "Saving…") : tr("Enregistrer", "Save")}
                 </button>
               </>
             ) : (
@@ -1785,18 +1831,18 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
                     type="button"
                     onClick={() => { setIsEditing(true); handleFindWaCandidates(); }}
                   >
-                    Compléter avec World Athletics
+                    {tr("Compléter avec World Athletics", "Complete from World Athletics")}
                   </button>
                 ) : null}
                 <button className="button button--secondary button--small" type="button" onClick={() => setIsEditing(true)}>
-                  Modifier la fiche
+                  {tr("Modifier la fiche", "Edit profile")}
                 </button>
               </>
             )
           ) : null}
           {onClear ? (
             <button className="button button--ghost button--small" type="button" onClick={onClear}>
-              Fermer
+              {tr("Fermer", "Close")}
             </button>
           ) : null}
         </div>
@@ -1806,7 +1852,7 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
         <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
-              {isEditing ? `${draft.firstName || ""} ${draft.lastName || ""}`.trim() || "Athlète" : getAthleteDisplayName(primary)}
+              {isEditing ? `${draft.firstName || ""} ${draft.lastName || ""}`.trim() || tr("Athlète", "Athlete") : getAthleteDisplayName(primary)}
             </div>
             <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.45rem" }}>
               <span className="status-pill">{isEditing ? (draft.nationality || "NAT ?") : (primary.nationality || "NAT ?")}</span>
@@ -1817,7 +1863,7 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
           </div>
           {(isEditing ? draft.waUrl : waUrl) ? (
             <a href={isEditing ? draft.waUrl : waUrl} target="_blank" rel="noopener noreferrer" className="button button--secondary button-link">
-              Profil World Athletics
+              {tr("Profil World Athletics", "World Athletics profile")}
             </a>
           ) : null}
         </div>
@@ -1826,28 +1872,31 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
 
         {isEditing ? (
           <div className="notice-card" style={{ padding: "0.9rem 1rem", display: "grid", gap: "0.6rem" }}>
-            <strong>Identifiant World Athletics</strong>
+            <strong>{tr("Identifiant World Athletics", "World Athletics ID")}</strong>
             <p className="panel-note" style={{ margin: 0 }}>
-              Le WAID fait de la fiche une seule personne : nom, nationalité et naissance viennent alors de World Athletics.
+              {tr(
+                "Le WAID fait de la fiche une seule personne : nom, nationalité et naissance viennent alors de World Athletics.",
+                "The WAID ties the profile to one person: name, nationality and birth then come from World Athletics.",
+              )}
             </p>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
               <input
                 value={draft.waid}
                 onChange={(event) => setDraft((current) => ({ ...current, waid: parseWaidInput(event.target.value) }))}
-                placeholder="WAID ou lien de la page WA"
+                placeholder={tr("WAID ou lien de la page WA", "WAID or WA page link")}
                 style={{ flex: "1 1 220px" }}
               />
               <button className="button button--secondary button--small" type="button" disabled={Boolean(waBusy) || !draft.waid} onClick={() => handleFillFromWa(draft.waid)}>
-                Remplir depuis World Athletics
+                {tr("Remplir depuis World Athletics", "Fill from World Athletics")}
               </button>
               <button className="button button--ghost button--small" type="button" disabled={Boolean(waBusy)} onClick={handleFindWaCandidates}>
-                Chercher sur World Athletics
+                {tr("Chercher sur World Athletics", "Search World Athletics")}
               </button>
             </div>
             {waBusy || waMessage ? <p className="panel-note" style={{ margin: 0 }}>{waBusy || waMessage}</p> : null}
             {waCandidates?.length ? (
               <div style={{ display: "grid", gap: "0.35rem" }}>
-                <span className="panel-note" style={{ margin: 0 }}>Clique sur la bonne personne (vérifie le pays et l'année) :</span>
+                <span className="panel-note" style={{ margin: 0 }}>{tr("Clique sur la bonne personne (vérifie le pays et l'année) :", "Click the right person (check the country and year):")}</span>
                 {waCandidates.map((candidate) => (
                   <button
                     key={candidate.waid}
@@ -1856,17 +1905,17 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
                     style={{ justifyContent: "flex-start", textAlign: "left" }}
                     onClick={() => handleFillFromWa(candidate.waid, candidate)}
                   >
-                    {candidate.firstName} {candidate.lastName} · {candidate.country || "?"} · {candidate.birthYear || "année ?"} · WAID {candidate.waid}
+                    {candidate.firstName} {candidate.lastName} · {candidate.country || "?"} · {candidate.birthYear || tr("année ?", "year?")} · WAID {candidate.waid}
                   </button>
                 ))}
               </div>
             ) : null}
             {waChanges.length ? (
               <div className="panel-note" style={{ margin: 0 }}>
-                <strong>Rempli depuis World Athletics (pas encore enregistré) :</strong>
+                <strong>{tr("Rempli depuis World Athletics (pas encore enregistré) :", "Filled from World Athletics (not saved yet):")}</strong>
                 <ul style={{ margin: "0.3rem 0 0", paddingLeft: "1.1rem" }}>
                   {waChanges.map((change) => (
-                    <li key={change.field}>{WA_FIELD_LABELS[change.field]} : {String(change.before)} → <strong>{String(change.after)}</strong></li>
+                    <li key={change.field}>{tr(...WA_FIELD_LABELS[change.field])} : {String(change.before)} → <strong>{String(change.after)}</strong></li>
                   ))}
                 </ul>
               </div>
@@ -1874,14 +1923,14 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
             {duplicateEntry ? (
               <div className="notice-card notice-card--warn" style={{ padding: "0.7rem 0.9rem", display: "grid", gap: "0.45rem" }}>
                 <span>
-                  Ce WAID est déjà sur la fiche <strong>{getAthleteDisplayName(duplicateEntry)}</strong>
-                  {" "}({duplicateEntry.nationality || "?"}, éditions {[...new Set((duplicateEntry.editions || []).map((edition) => edition.year))].sort().join(", ") || "aucune"}).
-                  C'est la même personne : fusionne les deux fiches pour réunir leur historique.
+                  {tr("Ce WAID est déjà sur la fiche", "This WAID is already on the profile")} <strong>{getAthleteDisplayName(duplicateEntry)}</strong>
+                  {" "}({duplicateEntry.nationality || "?"}, {tr("éditions", "editions")} {[...new Set((duplicateEntry.editions || []).map((edition) => edition.year))].sort().join(", ") || tr("aucune", "none")}).
+                  {" "}{tr("C'est la même personne : fusionne les deux fiches pour réunir leur historique.", "It is the same person: merge the two profiles to combine their history.")}
                 </span>
                 {onMergeWith ? (
                   <div>
                     <button className="button button--secondary button--small" type="button" onClick={() => onMergeWith(duplicateEntry)}>
-                      Fusionner les deux fiches
+                      {tr("Fusionner les deux fiches", "Merge the two profiles")}
                     </button>
                   </div>
                 ) : null}
@@ -1893,35 +1942,35 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
         {isEditing ? (
           <div className="field-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
             <label className="field">
-              <span>Nom</span>
+              <span>{tr("Nom", "Last name")}</span>
               <input value={draft.lastName} onChange={(event) => setDraft((current) => ({ ...current, lastName: event.target.value }))} />
             </label>
             <label className="field">
-              <span>Prénom</span>
+              <span>{tr("Prénom", "First name")}</span>
               <input value={draft.firstName} onChange={(event) => setDraft((current) => ({ ...current, firstName: event.target.value }))} />
             </label>
             <label className="field">
-              <span>Nationalité</span>
+              <span>{tr("Nationalité", "Nationality")}</span>
               <input value={draft.nationality} onChange={(event) => setDraft((current) => ({ ...current, nationality: event.target.value.toUpperCase() }))} maxLength={3} />
             </label>
             <label className="field">
-              <span>Date de naissance</span>
+              <span>{tr("Date de naissance", "Date of birth")}</span>
               <input type="date" value={draft.birthDate} onChange={(event) => setDraft((current) => ({ ...current, birthDate: event.target.value }))} />
             </label>
             <label className="field">
-              <span>Année de naissance</span>
+              <span>{tr("Année de naissance", "Birth year")}</span>
               <input value={draft.birthYear} onChange={(event) => setDraft((current) => ({ ...current, birthYear: event.target.value }))} inputMode="numeric" />
             </label>
             <label className="field">
-              <span>Genre</span>
+              <span>{tr("Genre", "Gender")}</span>
               <select value={draft.gender} onChange={(event) => setDraft((current) => ({ ...current, gender: event.target.value }))}>
                 <option value="">—</option>
-                <option value="M">Hommes</option>
-                <option value="F">Femmes</option>
+                <option value="M">{tr("Hommes", "Men")}</option>
+                <option value="F">{tr("Femmes", "Women")}</option>
               </select>
             </label>
             <label className="field" style={{ gridColumn: "1 / -1" }}>
-              <span>Lien WA</span>
+              <span>{tr("Lien WA", "WA link")}</span>
               <input value={draft.waUrl} onChange={(event) => setDraft((current) => ({ ...current, waUrl: event.target.value }))} />
             </label>
           </div>
@@ -1929,35 +1978,35 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
 
         <div className="field-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
           <div className="notice-card" style={{ padding: "0.9rem 1rem" }}>
-            <strong>Naissance</strong>
+            <strong>{tr("Naissance", "Birth")}</strong>
             <p style={{ margin: "0.35rem 0 0 0" }}>{getAthleteDisplayBirth(primary)}</p>
           </div>
           <div className="notice-card" style={{ padding: "0.9rem 1rem" }}>
-            <strong>Éditions</strong>
-            <p style={{ margin: "0.35rem 0 0 0" }}>{years.length > 0 ? years.join(", ") : "Aucune"}</p>
+            <strong>{tr("Éditions", "Editions")}</strong>
+            <p style={{ margin: "0.35rem 0 0 0" }}>{years.length > 0 ? years.join(", ") : tr("Aucune", "None")}</p>
           </div>
           <div className="notice-card" style={{ padding: "0.9rem 1rem" }}>
             <strong>Disciplines</strong>
-            <p style={{ margin: "0.35rem 0 0 0" }}>{disciplines.length > 0 ? disciplines.join(", ") : "Aucune"}</p>
+            <p style={{ margin: "0.35rem 0 0 0" }}>{disciplines.length > 0 ? disciplines.join(", ") : tr("Aucune", "None")}</p>
           </div>
         </div>
 
         <div>
-          <h4 style={{ margin: "0 0 0.65rem 0" }}>Édition en cours</h4>
+          <h4 style={{ margin: "0 0 0.65rem 0" }}>{tr("Édition en cours", "Current edition")}</h4>
           {currentAthletes.length === 0 ? (
             <p className="panel-note" style={{ margin: 0 }}>
-              Cet athlète n&apos;est pas lié aux engagés de l&apos;édition en cours.
+              {tr("Cet athlète n'est pas lié aux engagés de l'édition en cours.", "This athlete is not linked to the current edition's entries.")}
             </p>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Épreuve</th>
-                    <th>Statut</th>
-                    <th>Série</th>
-                    <th>Couloir</th>
-                    <th>Voyage</th>
+                    <th>{tr("Épreuve", "Event")}</th>
+                    <th>{tr("Statut", "Status")}</th>
+                    <th>{tr("Série", "Heat")}</th>
+                    <th>{tr("Couloir", "Lane")}</th>
+                    <th>{tr("Voyage", "Travel")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1981,22 +2030,22 @@ function AthleteProfilePanel({ Panel, registryEntry, currentAthletes = [], onCle
         </div>
 
         <div>
-          <h4 style={{ margin: "0 0 0.65rem 0" }}>Historique meeting</h4>
+          <h4 style={{ margin: "0 0 0.65rem 0" }}>{tr("Historique meeting", "Meeting history")}</h4>
           {historyRows.length === 0 ? (
             <p className="panel-note" style={{ margin: 0 }}>
-              Aucun résultat historique encore lié à cette fiche.
+              {tr("Aucun résultat historique encore lié à cette fiche.", "No past result linked to this profile yet.")}
             </p>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Année</th>
-                    <th>Épreuve</th>
-                    <th>Tour</th>
+                    <th>{tr("Année", "Year")}</th>
+                    <th>{tr("Épreuve", "Event")}</th>
+                    <th>{tr("Tour", "Round")}</th>
                     <th>RK</th>
-                    <th>Résultat</th>
-                    <th>Statut</th>
+                    <th>{tr("Résultat", "Result")}</th>
+                    <th>{tr("Statut", "Status")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2398,6 +2447,7 @@ function saveHiddenAthleteColumns(hiddenCols) {
 }
 
 function AthletesListPage({ Panel }) {
+  const tr = useTr();
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
@@ -2706,9 +2756,9 @@ function AthletesListPage({ Panel }) {
 
   async function handleSyncAll() {
     const withWaid = athletes.filter((a) => a.waid);
-    if (!withWaid.length) { setSyncAllStatus("Aucun athlète avec un WAID à synchroniser."); return; }
+    if (!withWaid.length) { setSyncAllStatus(tr("Aucun athlète avec un WAID à synchroniser.", "No athlete with a WAID to sync.")); return; }
     setSyncingAll(true);
-    setSyncAllStatus(`Synchronisation de ${withWaid.length} athlètes…`);
+    setSyncAllStatus(tr(`Synchronisation de ${withWaid.length} athlètes…`, `Syncing ${withWaid.length} athletes…`));
     let ok = 0;
     const failures = [];
     setSyncAllFailures([]);
@@ -2743,7 +2793,7 @@ function AthletesListPage({ Panel }) {
       }
       await new Promise((r) => setTimeout(r, 400));
     }
-    setSyncAllStatus(`Terminé : ${ok} mis à jour, ${failures.length} en erreur.`);
+    setSyncAllStatus(tr(`Terminé : ${ok} mis à jour, ${failures.length} en erreur.`, `Done: ${ok} updated, ${failures.length} failed.`));
     setSyncAllFailures(failures);
     setSyncingAll(false);
   }
@@ -2751,12 +2801,12 @@ function AthletesListPage({ Panel }) {
   async function handleLinkAllToRegistry() {
     const candidates = athletes.filter((athlete) => athlete.lastName || athlete.firstName);
     if (!candidates.length) {
-      setLinkRegistryStatus("Aucun athlète à lier.");
+      setLinkRegistryStatus(tr("Aucun athlète à lier.", "No athlete to link."));
       return;
     }
 
     setLinkingRegistry(true);
-    setLinkRegistryStatus(`Liaison de ${candidates.length} athlètes en cours…`);
+    setLinkRegistryStatus(tr(`Liaison de ${candidates.length} athlètes en cours…`, `Linking ${candidates.length} athletes…`));
 
     let linked = 0;
     let failed = 0;
@@ -2769,21 +2819,21 @@ function AthletesListPage({ Panel }) {
       }
     }
 
-    setLinkRegistryStatus(`Liaison terminée : ${linked} liés, ${failed} en erreur.`);
+    setLinkRegistryStatus(tr(`Liaison terminée : ${linked} liés, ${failed} en erreur.`, `Linking done: ${linked} linked, ${failed} failed.`));
     setLinkingRegistry(false);
   }
 
   // ── Guards ──────────────────────────────────────────────────────────────────
   if (settingsLoading || athletesLoading) {
-    return <div className="page"><section className="page-header"><div><h1>Athlètes</h1></div></section><p className="panel-note">Chargement…</p></div>;
+    return <div className="page"><section className="page-header"><div><h1>{tr("Athlètes", "Athletes")}</h1></div></section><p className="panel-note">{tr("Chargement…", "Loading…")}</p></div>;
   }
   if (visibleFields.length === 0) {
     return (
       <div className="page">
-        <section className="page-header"><div><h1>Athlètes</h1></div></section>
+        <section className="page-header"><div><h1>{tr("Athlètes", "Athletes")}</h1></div></section>
         <div className="notice-card notice-card--warn">
-          <strong>Accès restreint</strong>
-          <p>Pas d&apos;accès aux données athlètes. Contacte un administrateur.</p>
+          <strong>{tr("Accès restreint", "Restricted access")}</strong>
+          <p>{tr("Pas d'accès aux données athlètes. Contacte un administrateur.", "No access to athlete data. Contact an administrator.")}</p>
         </div>
       </div>
     );
@@ -2807,7 +2857,7 @@ function AthletesListPage({ Panel }) {
             font: "inherit",
             textAlign: "left",
           }}
-          title="Ouvrir la fiche athlète"
+          title={tr("Ouvrir la fiche athlète", "Open the athlete profile")}
         >
           {a[f.key] ?? "—"}
         </button>
@@ -2819,8 +2869,8 @@ function AthletesListPage({ Panel }) {
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <StatusBadge status={a.status} />
           {a._std?.isPacer && (
-            <span className="ath-tag" title="Court comme lièvre, hors classement">
-              Lièvre
+            <span className="ath-tag" title={tr("Court comme lièvre, hors classement", "Runs as pacer, not ranked")}>
+              {tr("Lièvre", "Pacer")}
             </span>
           )}
         </span>
@@ -2875,11 +2925,11 @@ function AthletesListPage({ Panel }) {
       {/* ── Page header (one compact line) ── */}
       <section className="page-header">
         <div>
-          <p className="eyebrow">Portail athlètes</p>
-          <h1>Athlètes</h1>
+          <p className="eyebrow">{tr("Portail athlètes", "Athlete portal")}</p>
+          <h1>{tr("Athlètes", "Athletes")}</h1>
           <p className="ath-head__meta">
             <span>
-              <strong>{filtered.length}</strong> / {athletes.length} athlètes
+              <strong>{filtered.length}</strong> / {athletes.length} {tr("athlètes", "athletes")}
             </span>
             <span className="ath-head__sep">·</span>
             <span>
@@ -2891,14 +2941,14 @@ function AthletesListPage({ Panel }) {
               <>
                 <span className="ath-head__sep">·</span>
                 <label className="ath-head__edition">
-                  Édition
+                  {tr("Édition", "Edition")}
                   <select value={viewEditionId} onChange={(e) => setViewEditionId(e.target.value)}>
-                    <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                    {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
+                    <option value={activeEditionId}>{tr("Courante", "Current")} ({activeEditionId})</option>
+                    {normalizeEditionId(activeEditionId) !== "test" && <option value="test">{tr("Exemple 2026", "Sample 2026")}</option>}
                   </select>
                 </label>
                 {viewEditionId === "test" && (
-                  <span className="ath-head__test">Exemple 2026 : rien n&apos;apparaît ailleurs dans l&apos;app</span>
+                  <span className="ath-head__test">{tr("Exemple 2026 : rien n'apparaît ailleurs dans l'app", "Sample 2026: nothing shows anywhere else in the app")}</span>
                 )}
               </>
             )}
@@ -2908,10 +2958,10 @@ function AthletesListPage({ Panel }) {
           <div className="ath-head__actions">
             <div className="ath-head__buttons">
               <button className="ath-btn" type="button" onClick={handleLinkAllToRegistry} disabled={linkingRegistry}>
-                {linkingRegistry ? "Liaison…" : "Lier à la base athlètes"}
+                {linkingRegistry ? tr("Liaison…", "Linking…") : tr("Lier à la base athlètes", "Link to the athlete database")}
               </button>
               <button className="ath-btn ath-btn--primary" type="button" onClick={handleSyncAll} disabled={syncingAll}>
-                {syncingAll ? "Synchronisation…" : "↻ Tout synchroniser avec WA"}
+                {syncingAll ? tr("Synchronisation…", "Syncing…") : tr("↻ Tout synchroniser avec WA", "↻ Sync all with WA")}
               </button>
             </div>
             {syncAllStatus && (
@@ -2927,7 +2977,7 @@ function AthletesListPage({ Panel }) {
             {syncAllFailures.length > 0 && (
               <details style={{ marginTop: 6 }}>
                 <summary style={{ fontSize: "0.8rem", cursor: "pointer", color: "#b71c1c" }}>
-                  {syncAllFailures.length} échec{syncAllFailures.length > 1 ? "s" : ""} — voir le détail
+                  {syncAllFailures.length} {tr(`échec${syncAllFailures.length > 1 ? "s" : ""} — voir le détail`, `failure${syncAllFailures.length > 1 ? "s" : ""} — see details`)}
                 </summary>
                 <ul style={{ margin: "4px 0 0 0", padding: "0 0 0 1rem", fontSize: "0.75rem", color: "#555" }}>
                   {syncAllFailures.map((f, i) => (
@@ -2956,7 +3006,7 @@ function AthletesListPage({ Panel }) {
                 className={`ath-seg__btn${pageTab === "athletes" ? " ath-seg__btn--active" : ""}`}
                 onClick={() => setPageTab("athletes")}
               >
-                Athlètes <span>{athletes.length}</span>
+                {tr("Athlètes", "Athletes")} <span>{athletes.length}</span>
               </button>
               <button
                 type="button"
@@ -2965,7 +3015,7 @@ function AthletesListPage({ Panel }) {
                 className={`ath-seg__btn${pageTab === "staff" ? " ath-seg__btn--active" : ""}`}
                 onClick={() => setPageTab("staff")}
               >
-                Staff & accompagnateurs <span>{accompanyingPersons.length}</span>
+                {tr("Staff & accompagnateurs", "Staff & companions")} <span>{accompanyingPersons.length}</span>
               </button>
             </div>
           )}
@@ -2974,18 +3024,18 @@ function AthletesListPage({ Panel }) {
             <>
               <input
                 className="ath-filter ath-filter--search"
-                placeholder="Rechercher nom, nat., WAID…"
+                placeholder={tr("Rechercher nom, nat., WAID…", "Search name, nat., WAID…")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
               <select className="ath-filter" value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)}>
-                <option value="">Épreuve</option>
+                <option value="">{tr("Épreuve", "Event")}</option>
                 {filterOptions.disciplines.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
               <select className="ath-filter" value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
-                <option value="">Genre</option>
-                <option value="W">Femmes</option>
-                <option value="M">Hommes</option>
+                <option value="">{tr("Genre", "Gender")}</option>
+                <option value="W">{tr("Femmes", "Women")}</option>
+                <option value="M">{tr("Hommes", "Men")}</option>
               </select>
               <select className="ath-filter" value={filterNat} onChange={(e) => setFilterNat(e.target.value)}>
                 <option value="">Nation</option>
@@ -2993,42 +3043,42 @@ function AthletesListPage({ Panel }) {
               </select>
               {filterOptions.heats.length > 0 && (
                 <select className="ath-filter" value={filterHeat} onChange={(e) => setFilterHeat(e.target.value)}>
-                  <option value="">Série</option>
-                  {filterOptions.heats.map((h) => <option key={h} value={h}>Série {h}</option>)}
+                  <option value="">{tr("Série", "Heat")}</option>
+                  {filterOptions.heats.map((h) => <option key={h} value={h}>{tr("Série", "Heat")} {h}</option>)}
                 </select>
               )}
               <select className="ath-filter" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                <option value="">Statut</option>
-                <option value="ok">Confirmé (OK)</option>
-                <option value="out">Retiré (Out)</option>
+                <option value="">{tr("Statut", "Status")}</option>
+                <option value="ok">{tr("Confirmé (OK)", "Confirmed (OK)")}</option>
+                <option value="out">{tr("Retiré (Out)", "Withdrawn (Out)")}</option>
               </select>
               <select className="ath-filter" value={filterWa} onChange={(e) => setFilterWa(e.target.value)}>
-                <option value="">Synchro WA</option>
-                <option value="synced">Synchronisé WA</option>
-                <option value="has_waid">Avec WAID</option>
-                <option value="no_waid">Sans WAID</option>
+                <option value="">{tr("Synchro WA", "WA sync")}</option>
+                <option value="synced">{tr("Synchronisé WA", "Synced with WA")}</option>
+                <option value="has_waid">{tr("Avec WAID", "With WAID")}</option>
+                <option value="no_waid">{tr("Sans WAID", "Without WAID")}</option>
               </select>
               <label className="ath-check">
                 <input type="checkbox" checked={groupByEvent} onChange={(e) => setGroupByEvent(e.target.checked)} />
-                Grouper par épreuve
+                {tr("Grouper par épreuve", "Group by event")}
               </label>
 
               <span className="ath-toolbar__spacer" />
               <span className="ath-toolbar__count">
-                {filtered.length} athlète{filtered.length !== 1 ? "s" : ""}
-                {groupByEvent ? ` · ${grouped.length} épreuve${grouped.length !== 1 ? "s" : ""}` : ""}
+                {filtered.length} {tr(`athlète${filtered.length !== 1 ? "s" : ""}`, `athlete${filtered.length !== 1 ? "s" : ""}`)}
+                {groupByEvent ? ` · ${grouped.length} ${tr(`épreuve${grouped.length !== 1 ? "s" : ""}`, `event${grouped.length !== 1 ? "s" : ""}`)}` : ""}
               </span>
 
               {/* ── Column picker ── */}
               <div ref={colPickerRef} className="ath-colpicker">
                 <button className="ath-btn" type="button" onClick={() => setColPickerOpen((v) => !v)}>
-                  Colonnes
-                  {hiddenCols.size > 0 && <span className="ath-btn__badge">{hiddenCols.size} masquée{hiddenCols.size > 1 ? "s" : ""}</span>}
+                  {tr("Colonnes", "Columns")}
+                  {hiddenCols.size > 0 && <span className="ath-btn__badge">{hiddenCols.size} {tr(`masquée${hiddenCols.size > 1 ? "s" : ""}`, "hidden")}</span>}
                   <span aria-hidden="true"> ▾</span>
                 </button>
                 {colPickerOpen && (
                   <div className="col-picker-popover col-picker-popover--right">
-                    <div className="col-picker-popover__title">Afficher / masquer</div>
+                    <div className="col-picker-popover__title">{tr("Afficher / masquer", "Show / hide")}</div>
                     {toggleableCols.map((f) => {
                       const hidden = hiddenCols.has(f.key);
                       return (
@@ -3042,13 +3092,13 @@ function AthletesListPage({ Panel }) {
                               return next;
                             })}
                           />
-                          <span>{f.label}</span>
+                          <span>{fieldLabel(f, tr)}</span>
                         </label>
                       );
                     })}
                     {hiddenCols.size > 0 && (
                       <button type="button" className="ath-btn ath-btn--block" onClick={() => setHiddenCols(new Set())}>
-                        Tout afficher
+                        {tr("Tout afficher", "Show all")}
                       </button>
                     )}
                   </div>
@@ -3061,7 +3111,7 @@ function AthletesListPage({ Panel }) {
             <>
               <span className="ath-toolbar__spacer" />
               <span className="ath-toolbar__count">
-                {staffByRole.map(([role, count]) => `${count} ${role}`).join(" · ")}
+                {staffByRole.map(([role, count]) => `${count} ${staffRoleLabel(role, tr)}`).join(" · ")}
               </span>
             </>
           )}
@@ -3070,14 +3120,14 @@ function AthletesListPage({ Panel }) {
         {/* ── Staff & accompanying persons ── */}
         {canViewUnifiedProfile && pageTab === "staff" && (
           accompanyingPersons.length === 0 ? (
-            <p className="ath-empty">Aucun staff ni accompagnateur importé pour cette édition.</p>
+            <p className="ath-empty">{tr("Aucun staff ni accompagnateur importé pour cette édition.", "No staff or companions imported for this edition.")}</p>
           ) : (
             <div className="table-wrap table-wrap--athletes">
               <table className="data-table data-table--sheet ath-table">
                 <thead>
                   <tr>
-                    <th>Nom</th><th>Prénom</th><th>Nat.</th><th>Rôle</th>
-                    <th>Lié à</th><th>Statut</th><th>Hôtel</th><th>Arrivée</th><th>Départ</th><th></th>
+                    <th>{tr("Nom", "Last name")}</th><th>{tr("Prénom", "First name")}</th><th>Nat.</th><th>{tr("Rôle", "Role")}</th>
+                    <th>{tr("Lié à", "Linked to")}</th><th>{tr("Statut", "Status")}</th><th>{tr("Hôtel", "Hotel")}</th><th>{tr("Arrivée", "Arrival")}</th><th>{tr("Départ", "Departure")}</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3086,7 +3136,7 @@ function AthletesListPage({ Panel }) {
                       <td className="ath-name">{p.lastName}</td>
                       <td>{p.firstName}</td>
                       <td className="ath-code">{p.nationality || "—"}</td>
-                      <td>{p.staffRole || "—"}</td>
+                      <td>{p.staffRole ? staffRoleLabel(p.staffRole, tr) : "—"}</td>
                       <td>{p.linkedTo || "—"}</td>
                       <td>{p.status ? <StatusBadge status={p.status} /> : "—"}</td>
                       <td><HotelCell value={p.hotel} /></td>
@@ -3104,7 +3154,8 @@ function AthletesListPage({ Panel }) {
         {/* ── Athletes ── */}
         {pageTab === "athletes" && (athletes.length === 0 ? (
           <p className="ath-empty">
-            <strong>Aucun athlète pour le moment.</strong> Un meeting director peut importer une liste de départ.
+            <strong>{tr("Aucun athlète pour le moment.", "No athletes yet.")}</strong>{" "}
+            {tr("Un meeting director peut importer une liste de départ.", "A meeting director can import a start list.")}
           </p>
         ) : (
           <>
@@ -3113,7 +3164,7 @@ function AthletesListPage({ Panel }) {
                 <thead>
                   <tr>
                     {canViewUnifiedProfile && (
-                      <th className="col-sticky ath-reg" data-sticky-col="1" title="Relié à l'historique multi-éditions ?">
+                      <th className="col-sticky ath-reg" data-sticky-col="1" title={tr("Relié à l'historique multi-éditions ?", "Linked to the multi-edition history?")}>
                         Reg.
                       </th>
                     )}
@@ -3128,14 +3179,14 @@ function AthletesListPage({ Panel }) {
                           key={f.key}
                           className={isSticky ? `col-sticky${isLast ? " col-sticky--last" : ""}` : ""}
                           data-sticky-col={isSticky ? "1" : undefined}
-                          title={f.label}
+                          title={fieldLabel(f, tr)}
                         >
-                          {f.label}
+                          {fieldLabel(f, tr)}
                         </th>
                       );
                     })}
                     {canEdit && !displayedFields.find((f) => f.key === "waid") && <th>WAID</th>}
-                    {canEdit && <th>Synchro</th>}
+                    {canEdit && <th>{tr("Synchro", "Sync")}</th>}
                     {canEdit && <th aria-label="Actions"></th>}
                   </tr>
                 </thead>
@@ -3150,7 +3201,7 @@ function AthletesListPage({ Panel }) {
                           <tr className="event-group-header">
                             <td colSpan={colCount}>
                               <div className="ath-group">
-                                <span className="ath-group__title">{ev.discipline || eventKey}</span>
+                                <span className="ath-group__title">{eventKey === "(sans épreuve)" ? tr("(sans épreuve)", "(no event)") : ev.discipline || eventKey}</span>
                                 <GenderBadge gender={ev.gender} />
                                 <span className="ath-group__count">{group.length}</span>
                                 {flaggedAthletes.length > 0 && (
@@ -3163,7 +3214,7 @@ function AthletesListPage({ Panel }) {
                                       return next;
                                     })}
                                   >
-                                    {flaggedAthletes.length} à vérifier {isFixOpen ? "▴" : "▾"}
+                                    {flaggedAthletes.length} {tr("à vérifier", "to check")} {isFixOpen ? "▴" : "▾"}
                                   </button>
                                 )}
                               </div>
@@ -3191,7 +3242,7 @@ function AthletesListPage({ Panel }) {
               </table>
             </div>
             {visibleFields.some((f) => f.group === "wa") && (
-              <p className="ath-legend"><span className="ath-wa">bleu</span> = valeur issue de World Athletics</p>
+              <p className="ath-legend"><span className="ath-wa">{tr("bleu", "blue")}</span> {tr("= valeur issue de World Athletics", "= value from World Athletics")}</p>
             )}
           </>
         ))}
@@ -3204,7 +3255,7 @@ function AthletesListPage({ Panel }) {
             registryEntry={selectedRegistryEntry}
             currentAthletes={selectedCurrentAthletes}
             onClear={() => setSelectedAthleteId("")}
-            title={registryLoading ? "Fiche athlète (chargement…)" : "Fiche athlète"}
+            title={registryLoading ? tr("Fiche athlète (chargement…)", "Athlete profile (loading…)") : tr("Fiche athlète", "Athlete profile")}
           />
         </section>
       )}
@@ -3220,6 +3271,12 @@ function formatChangeValue(value) {
 }
 
 function ImportChangesDetail({ changes }) {
+  const tr = useTr();
+  // Labels are archived in French with each import; shown by field key.
+  const changeLabel = (f) => {
+    const known = DIFFABLE_ATHLETE_FIELDS.find((field) => field.key === f.field);
+    return known ? fieldLabel(known, tr) : f.label;
+  };
   const added = changes.filter((c) => c.type === "added");
   const updated = changes.filter((c) => c.type === "updated");
   const markedOut = changes.filter((c) => c.type === "markedOut");
@@ -3228,7 +3285,7 @@ function ImportChangesDetail({ changes }) {
     <div style={{ display: "grid", gap: 12, padding: "0.75rem 0.5rem", fontSize: "0.82rem" }}>
       {added.length > 0 && (
         <div>
-          <strong style={{ color: "#166534" }}>+ {added.length} ajouté{added.length > 1 ? "s" : ""}</strong>
+          <strong style={{ color: "#166534" }}>+ {added.length} {tr(`ajouté${added.length > 1 ? "s" : ""}`, "added")}</strong>
           <ul className="compact-list" style={{ margin: "4px 0 0" }}>
             {added.map((c, i) => (
               <li key={i}>{c.name}{c.event ? ` — ${c.event}` : ""}</li>
@@ -3238,7 +3295,7 @@ function ImportChangesDetail({ changes }) {
       )}
       {markedOut.length > 0 && (
         <div>
-          <strong style={{ color: "#b45309" }}>− {markedOut.length} annulé{markedOut.length > 1 ? "s" : ""} (marqué Out)</strong>
+          <strong style={{ color: "#b45309" }}>− {markedOut.length} {tr(`annulé${markedOut.length > 1 ? "s" : ""} (marqué Out)`, "withdrawn (marked Out)")}</strong>
           <ul className="compact-list" style={{ margin: "4px 0 0" }}>
             {markedOut.map((c, i) => (
               <li key={i}>{c.name}{c.event ? ` — ${c.event}` : ""}</li>
@@ -3248,7 +3305,7 @@ function ImportChangesDetail({ changes }) {
       )}
       {updated.length > 0 && (
         <div>
-          <strong style={{ color: "#1d4ed8" }}>~ {updated.length} modifié{updated.length > 1 ? "s" : ""}</strong>
+          <strong style={{ color: "#1d4ed8" }}>~ {updated.length} {tr(`modifié${updated.length > 1 ? "s" : ""}`, "changed")}</strong>
           <ul className="compact-list" style={{ margin: "4px 0 0" }}>
             {updated.map((c, i) => (
               <li key={i}>
@@ -3256,7 +3313,7 @@ function ImportChangesDetail({ changes }) {
                 {c.fields.map((f, j) => (
                   <span key={j}>
                     {j > 0 ? ", " : ""}
-                    <em>{f.label}</em> {formatChangeValue(f.before)} → {formatChangeValue(f.after)}
+                    <em>{changeLabel(f)}</em> {formatChangeValue(f.before)} → {formatChangeValue(f.after)}
                   </span>
                 ))}
               </li>
@@ -3265,13 +3322,14 @@ function ImportChangesDetail({ changes }) {
         </div>
       )}
       {added.length === 0 && markedOut.length === 0 && updated.length === 0 && (
-        <p className="panel-note" style={{ margin: 0 }}>Aucun changement détecté.</p>
+        <p className="panel-note" style={{ margin: 0 }}>{tr("Aucun changement détecté.", "No change detected.")}</p>
       )}
     </div>
   );
 }
 
 function AthleteImportPage({ Panel }) {
+  const tr = useTr();
   const { userProfile, currentUser } = useAuth();
   const roles = getActiveRoles(userProfile);
   const { settings, loading: settingsLoading } = useAthletePortalSettings();
@@ -3302,15 +3360,15 @@ function AthleteImportPage({ Panel }) {
     [parsed, athletes],
   );
 
-  if (settingsLoading) return <div className="page"><p className="panel-note">Chargement…</p></div>;
+  if (settingsLoading) return <div className="page"><p className="panel-note">{tr("Chargement…", "Loading…")}</p></div>;
 
   if (!canImport) {
     return (
       <div className="page">
-        <section className="page-header"><div><h1>Importer des athlètes</h1></div></section>
+        <section className="page-header"><div><h1>{tr("Importer des athlètes", "Import athletes")}</h1></div></section>
         <div className="notice-card notice-card--warn">
-          <strong>Accès restreint</strong>
-          <p>Seuls les meeting directors et les administrateurs peuvent importer les données athlètes.</p>
+          <strong>{tr("Accès restreint", "Restricted access")}</strong>
+          <p>{tr("Seuls les meeting directors et les administrateurs peuvent importer les données athlètes.", "Only meeting directors and administrators can import athlete data.")}</p>
         </div>
       </div>
     );
@@ -3319,13 +3377,13 @@ function AthleteImportPage({ Panel }) {
   async function handleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setStatus("Lecture du fichier…"); setParsed(null);
+    setStatus(tr("Lecture du fichier…", "Reading the file…")); setParsed(null);
     try {
       const { read, utils } = await import("xlsx");
       const wb = read(await file.arrayBuffer());
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = sheetRowsWithHyperlinks(utils, ws);
-      if (rows.length < 2) { setStatus("Le fichier semble vide."); return; }
+      if (rows.length < 2) { setStatus(tr("Le fichier semble vide.", "The file looks empty.")); return; }
       const detected = detectFileType(rows);
       const { records, staff } = parseRows(rows, detected);
       const presentFields = detected.colMap
@@ -3335,13 +3393,16 @@ function AthleteImportPage({ Panel }) {
           ])]
         : null;
       setParsed({ fileType: detected.type, records, staff, fileName: file.name, presentFields, file });
-      setStatus(`Détecté : ${detected.type} — ${records.length} athlètes${staff.length ? `, ${staff.length} staff/accompagnateurs` : ""}.${presentFields ? ` Colonnes : ${presentFields.join(", ")}.` : ""}`);
-    } catch (err) { setStatus(`Erreur : ${err.message}`); }
+      setStatus(tr(
+        `Détecté : ${detected.type} — ${records.length} athlètes${staff.length ? `, ${staff.length} staff/accompagnateurs` : ""}.${presentFields ? ` Colonnes : ${presentFields.join(", ")}.` : ""}`,
+        `Detected: ${detected.type} — ${records.length} athletes${staff.length ? `, ${staff.length} staff/companions` : ""}.${presentFields ? ` Columns: ${presentFields.join(", ")}.` : ""}`,
+      ));
+    } catch (err) { setStatus(`${tr("Erreur : ", "Error: ")}${err.message}`); }
   }
 
   async function handleImport() {
     if (!parsed) return;
-    setSaving(true); setStatus("Fusion et enregistrement…");
+    setSaving(true); setStatus(tr("Fusion et enregistrement…", "Merging and saving…"));
     try {
       const { merged, added, updated, markedOut, changes } = mergeAthletes(athletes, parsed.records, parsed.fileType, parsed.presentFields);
       const batch = writeBatch(db);
@@ -3424,13 +3485,13 @@ function AthleteImportPage({ Panel }) {
         console.error("Unable to archive this import", historyError);
       }
 
-      const parts = [`${added} ajoutés`, `${updated} mis à jour`];
-      if (markedOut > 0) parts.push(`${markedOut} marqués Out (absents du fichier)`);
-      if (parsed.staff?.length) parts.push(`${parsed.staff.length} staff/accompagnateurs`);
-      setStatus(`Terminé. ${parts.join(" · ")} · ${merged.length} au total.`);
+      const parts = [tr(`${added} ajoutés`, `${added} added`), tr(`${updated} mis à jour`, `${updated} updated`)];
+      if (markedOut > 0) parts.push(tr(`${markedOut} marqués Out (absents du fichier)`, `${markedOut} marked Out (missing from the file)`));
+      if (parsed.staff?.length) parts.push(tr(`${parsed.staff.length} staff/accompagnateurs`, `${parsed.staff.length} staff/companions`));
+      setStatus(tr(`Terminé. ${parts.join(" · ")} · ${merged.length} au total.`, `Done. ${parts.join(" · ")} · ${merged.length} in total.`));
       setParsed(null);
       if (fileRef.current) fileRef.current.value = "";
-    } catch (err) { setStatus(`Échec de l'import : ${err.message}`); }
+    } catch (err) { setStatus(`${tr("Échec de l'import : ", "Import failed: ")}${err.message}`); }
     finally { setSaving(false); }
   }
 
@@ -3438,22 +3499,22 @@ function AthleteImportPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Portail athlètes</p>
-          <h1>Importer un fichier</h1>
-          <p>Format détecté automatiquement. Les WAID et données WA existants sont toujours conservés.</p>
+          <p className="eyebrow">{tr("Portail athlètes", "Athlete portal")}</p>
+          <h1>{tr("Importer un fichier", "Import a file")}</h1>
+          <p>{tr("Format détecté automatiquement. Les WAID et données WA existants sont toujours conservés.", "Format detected automatically. Existing WAIDs and WA data are always kept.")}</p>
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-            <label style={{ fontSize: "0.8rem", color: "#607086" }}>Importer dans :</label>
+            <label style={{ fontSize: "0.8rem", color: "#607086" }}>{tr("Importer dans :", "Import into:")}</label>
             <select
               value={targetEditionId}
               onChange={(e) => setTargetEditionId(e.target.value)}
               style={FILTER_CONTROL_STYLE}
             >
-              <option value={activeEditionId}>Édition courante ({activeEditionId})</option>
-              {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
+              <option value={activeEditionId}>{tr("Édition courante", "Current edition")} ({activeEditionId})</option>
+              {normalizeEditionId(activeEditionId) !== "test" && <option value="test">{tr("Exemple 2026", "Sample 2026")}</option>}
             </select>
             {targetEditionId === "test" && (
               <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
-                Isolée — jamais affichée sur le site public ni aux bénévoles
+                {tr("Isolée — jamais affichée sur le site public ni aux bénévoles", "Isolated — never shown on the public site or to volunteers")}
               </span>
             )}
           </div>
@@ -3461,18 +3522,29 @@ function AthleteImportPage({ Panel }) {
       </section>
 
       <section className="panel-grid panel-grid--2">
-        <Panel title="Formats acceptés">
-          <ul className="compact-list">
-            <li><strong>Combiné (recommandé)</strong> — un seul fichier avec toutes les colonnes : Event, Last name, First name, Nat., Birth year, Status, WR, PB, SB, WA URL, Heat, Lane, Manager, Arrival, Departure. Met tout à jour ; peut être réimporté autant de fois que nécessaire.</li>
-            <li><strong>Liste de départ</strong> (ancien format) — Event, Name, Vorname, Nat., Jahrg., Status, WR, PB, SB, WA Profile</li>
-            <li><strong>Séries &amp; couloirs</strong> (ancien format) — idem + lignes « Heat » et colonne Lane ; met à jour uniquement séries et couloirs</li>
-            <li><strong>Voyages</strong> (ancien format) — Event, Name, Vorname, Nat., Manager, Anreise, Abreise ; met à jour uniquement la logistique</li>
-          </ul>
-          <p className="panel-note">Les données WA (WAID, PB venant de WA) ne sont jamais écrasées par un import — seulement par une synchro WA manuelle.</p>
+        <Panel title={tr("Formats acceptés", "Accepted formats")}>
+          {tr(
+            <ul className="compact-list">
+              <li><strong>Combiné (recommandé)</strong> — un seul fichier avec toutes les colonnes : Event, Last name, First name, Nat., Birth year, Status, WR, PB, SB, WA URL, Heat, Lane, Manager, Arrival, Departure. Met tout à jour ; peut être réimporté autant de fois que nécessaire.</li>
+              <li><strong>Liste de départ</strong> (ancien format) — Event, Name, Vorname, Nat., Jahrg., Status, WR, PB, SB, WA Profile</li>
+              <li><strong>Séries &amp; couloirs</strong> (ancien format) — idem + lignes « Heat » et colonne Lane ; met à jour uniquement séries et couloirs</li>
+              <li><strong>Voyages</strong> (ancien format) — Event, Name, Vorname, Nat., Manager, Anreise, Abreise ; met à jour uniquement la logistique</li>
+            </ul>,
+            <ul className="compact-list">
+              <li><strong>Combined (recommended)</strong> — one file with every column: Event, Last name, First name, Nat., Birth year, Status, WR, PB, SB, WA URL, Heat, Lane, Manager, Arrival, Departure. Updates everything; can be re-imported as often as needed.</li>
+              <li><strong>Start list</strong> (old format) — Event, Name, Vorname, Nat., Jahrg., Status, WR, PB, SB, WA Profile</li>
+              <li><strong>Heats &amp; lanes</strong> (old format) — same + “Heat” rows and a Lane column; only updates heats and lanes</li>
+              <li><strong>Travel</strong> (old format) — Event, Name, Vorname, Nat., Manager, Anreise, Abreise; only updates logistics</li>
+            </ul>,
+          )}
+          <p className="panel-note">{tr(
+            "Les données WA (WAID, PB venant de WA) ne sont jamais écrasées par un import — seulement par une synchro WA manuelle.",
+            "WA data (WAID, PBs from WA) is never overwritten by an import — only by a manual WA sync.",
+          )}</p>
         </Panel>
-        <Panel title="Fichier">
+        <Panel title={tr("Fichier", "File")}>
           <label className="field">
-            <span>Fichier Excel (.xlsx)</span>
+            <span>{tr("Fichier Excel (.xlsx)", "Excel file (.xlsx)")}</span>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} disabled={saving} />
           </label>
           {status && <p className="panel-note">{status}</p>}
@@ -3482,53 +3554,55 @@ function AthleteImportPage({ Panel }) {
       {parsed && (
         <>
           <section className="panel-grid panel-grid--2">
-            <Panel title="Résultat de la détection">
+            <Panel title={tr("Résultat de la détection", "Detection result")}>
               <ul className="compact-list">
-                <li>Fichier : <strong>{parsed.fileName}</strong></li>
-                <li>Type : <FileTypeBadge type={parsed.fileType} /></li>
-                <li>Lignes dans le fichier : <strong>{parsed.records.length}</strong></li>
+                <li>{tr("Fichier :", "File:")} <strong>{parsed.fileName}</strong></li>
+                <li>Type{tr(" :", ":")} <FileTypeBadge type={parsed.fileType} /></li>
+                <li>{tr("Lignes dans le fichier :", "Rows in the file:")} <strong>{parsed.records.length}</strong></li>
                 {parsed.presentFields ? (
-                  <li>Colonnes détectées : <strong>{parsed.presentFields.join(", ")}</strong></li>
+                  <li>{tr("Colonnes détectées :", "Detected columns:")} <strong>{parsed.presentFields.join(", ")}</strong></li>
                 ) : null}
               </ul>
               {parsed.presentFields ? (
                 <p className="panel-note">
-                  Seules ces colonnes seront mises à jour pour les athlètes reconnus — tout ce qui n&apos;est pas listé ici (ex. séries/couloirs
-                  ou voyages si ce fichier ne les contient pas) reste inchangé.
+                  {tr(
+                    "Seules ces colonnes seront mises à jour pour les athlètes reconnus — tout ce qui n'est pas listé ici (ex. séries/couloirs ou voyages si ce fichier ne les contient pas) reste inchangé.",
+                    "Only these columns are updated for recognised athletes — anything not listed here (e.g. heats/lanes or travel if this file doesn't have them) stays unchanged.",
+                  )}
                 </p>
               ) : null}
             </Panel>
             {mergePreview && (
-              <Panel title="Aperçu de la fusion">
+              <Panel title={tr("Aperçu de la fusion", "Merge preview")}>
                 <ul className="compact-list">
-                  <li>Actuellement en base : <strong>{athletes.length}</strong></li>
-                  <li>Nouveaux athlètes à ajouter : <strong>{mergePreview.added}</strong></li>
-                  <li>Athlètes existants à mettre à jour : <strong>{mergePreview.updated}</strong></li>
+                  <li>{tr("Actuellement en base :", "Currently in the database:")} <strong>{athletes.length}</strong></li>
+                  <li>{tr("Nouveaux athlètes à ajouter :", "New athletes to add:")} <strong>{mergePreview.added}</strong></li>
+                  <li>{tr("Athlètes existants à mettre à jour :", "Existing athletes to update:")} <strong>{mergePreview.updated}</strong></li>
                   {mergePreview.markedOut > 0 && (
                     <li style={{ color: "#b45309" }}>
-                      Absents de ce fichier → seront marqués <strong>Out</strong>{" "}
-                      (série, couloir et voyage effacés) : <strong>{mergePreview.markedOut}</strong>
+                      {tr("Absents de ce fichier → seront marqués", "Missing from this file → will be marked")} <strong>Out</strong>{" "}
+                      {tr("(série, couloir et voyage effacés) :", "(heat, lane and travel cleared):")} <strong>{mergePreview.markedOut}</strong>
                     </li>
                   )}
-                  <li>Total en base après import : <strong>{mergePreview.merged.length}</strong></li>
+                  <li>{tr("Total en base après import :", "Total in the database after import:")} <strong>{mergePreview.merged.length}</strong></li>
                 </ul>
-                {parsed.fileType === "COMBINED"    && <p className="panel-note">Met à jour tous les champs. Les athlètes absents de ce fichier sont marqués Out — jamais supprimés.</p>}
-                {parsed.fileType === "TRAVEL"      && <p className="panel-note">Met à jour uniquement les voyages. Aucun athlète marqué Out.</p>}
-                {parsed.fileType === "FINAL_LANES" && <p className="panel-note">Met à jour uniquement les séries et couloirs. Aucun athlète marqué Out.</p>}
+                {parsed.fileType === "COMBINED"    && <p className="panel-note">{tr("Met à jour tous les champs. Les athlètes absents de ce fichier sont marqués Out — jamais supprimés.", "Updates every field. Athletes missing from this file are marked Out — never deleted.")}</p>}
+                {parsed.fileType === "TRAVEL"      && <p className="panel-note">{tr("Met à jour uniquement les voyages. Aucun athlète marqué Out.", "Only updates travel. No athlete marked Out.")}</p>}
+                {parsed.fileType === "FINAL_LANES" && <p className="panel-note">{tr("Met à jour uniquement les séries et couloirs. Aucun athlète marqué Out.", "Only updates heats and lanes. No athlete marked Out.")}</p>}
               </Panel>
             )}
           </section>
 
           <section className="panel-grid panel-grid--1">
-            <Panel title="Aperçu — 10 premières lignes">
+            <Panel title={tr("Aperçu — 10 premières lignes", "Preview — first 10 rows")}>
               <div className="table-wrap">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Épreuve</th><th>Nom</th><th>Prénom</th><th>Nat.</th>
-                      {(parsed.fileType === "START_LIST" || parsed.fileType === "COMBINED") && <><th>Statut</th><th>WR</th><th>PB Indoor</th><th>PB Outdoor</th><th>SB</th><th>WAID</th></>}
-                      {(parsed.fileType === "FINAL_LANES" || parsed.fileType === "COMBINED") && <><th>Série</th><th>Couloir</th></>}
-                      {(parsed.fileType === "TRAVEL"      || parsed.fileType === "COMBINED") && <><th>Manager</th><th>Arrivée</th><th>Départ</th></>}
+                      <th>{tr("Épreuve", "Event")}</th><th>{tr("Nom", "Last name")}</th><th>{tr("Prénom", "First name")}</th><th>Nat.</th>
+                      {(parsed.fileType === "START_LIST" || parsed.fileType === "COMBINED") && <><th>{tr("Statut", "Status")}</th><th>WR</th><th>PB Indoor</th><th>PB Outdoor</th><th>SB</th><th>WAID</th></>}
+                      {(parsed.fileType === "FINAL_LANES" || parsed.fileType === "COMBINED") && <><th>{tr("Série", "Heat")}</th><th>{tr("Couloir", "Lane")}</th></>}
+                      {(parsed.fileType === "TRAVEL"      || parsed.fileType === "COMBINED") && <><th>Manager</th><th>{tr("Arrivée", "Arrival")}</th><th>{tr("Départ", "Departure")}</th></>}
                     </tr>
                   </thead>
                   <tbody>
@@ -3551,15 +3625,18 @@ function AthleteImportPage({ Panel }) {
               </div>
               <div className="dashboard-action-grid" style={{ marginTop: "1rem" }}>
                 <button className="button button--primary" type="button" onClick={handleImport} disabled={saving || parsed.fileType === "UNKNOWN"}>
-                  {saving ? "Import…" : `Confirmer l'import (${parsed.records.length} lignes)`}
+                  {saving ? "Import…" : tr(`Confirmer l'import (${parsed.records.length} lignes)`, `Confirm the import (${parsed.records.length} rows)`)}
                 </button>
                 <button className="button button--secondary" type="button" onClick={() => { setParsed(null); setStatus(""); if (fileRef.current) fileRef.current.value = ""; }} disabled={saving}>
-                  Annuler
+                  {tr("Annuler", "Cancel")}
                 </button>
               </div>
               {parsed.fileType === "UNKNOWN" && (
                 <p className="panel-note" style={{ color: "var(--color-danger, #c0392b)" }}>
-                  Format non reconnu. Vérifie qu&apos;il s&apos;agit bien d&apos;un fichier CMCM (liste de départ, couloirs ou voyages).
+                  {tr(
+                    "Format non reconnu. Vérifie qu'il s'agit bien d'un fichier CMCM (liste de départ, couloirs ou voyages).",
+                    "Format not recognised. Check that this is a CMCM file (start list, lanes or travel).",
+                  )}
                 </p>
               )}
             </Panel>
@@ -3568,17 +3645,20 @@ function AthleteImportPage({ Panel }) {
       )}
 
       <section className="panel-grid panel-grid--1">
-        <Panel title="Historique des imports" subtitle="Chaque fichier reçu, dans l'ordre, avec l'Excel d'origine toujours téléchargeable">
+        <Panel
+          title={tr("Historique des imports", "Import history")}
+          subtitle={tr("Chaque fichier reçu, dans l'ordre, avec l'Excel d'origine toujours téléchargeable", "Every file received, in order, with the original Excel always downloadable")}
+        >
           {historyLoading ? (
-            <p className="panel-note">Chargement…</p>
+            <p className="panel-note">{tr("Chargement…", "Loading…")}</p>
           ) : importHistory.length === 0 ? (
-            <p className="panel-note">Aucun import pour le moment.</p>
+            <p className="panel-note">{tr("Aucun import pour le moment.", "No import yet.")}</p>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Version</th><th>Fichier</th><th>Type</th><th>Colonnes</th><th>Lignes</th><th>Changements</th><th>Par</th><th>Date</th><th></th>
+                    <th>Version</th><th>{tr("Fichier", "File")}</th><th>Type</th><th>{tr("Colonnes", "Columns")}</th><th>{tr("Lignes", "Rows")}</th><th>{tr("Changements", "Changes")}</th><th>{tr("Par", "By")}</th><th>Date</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3590,7 +3670,7 @@ function AthleteImportPage({ Panel }) {
                         <tr>
                           <td>
                             {index === 0 ? (
-                              <span className="status-pill status-pill--ok" style={{ fontSize: "0.72rem" }}>actuelle</span>
+                              <span className="status-pill status-pill--ok" style={{ fontSize: "0.72rem" }}>{tr("actuelle", "current")}</span>
                             ) : (
                               <span style={{ color: "#94a3b8" }}>#{importHistory.length - index}</span>
                             )}
@@ -3623,10 +3703,10 @@ function AthleteImportPage({ Panel }) {
                           <td>
                             {entry.fileUrl ? (
                               <a href={entry.fileUrl} target="_blank" rel="noopener noreferrer" className="button button--secondary button--small">
-                                Télécharger
+                                {tr("Télécharger", "Download")}
                               </a>
                             ) : (
-                              <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>non archivé</span>
+                              <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>{tr("non archivé", "not archived")}</span>
                             )}
                           </td>
                         </tr>

@@ -25,46 +25,46 @@ const ATHLETE_REGISTRY_COLLECTION = "athleteRegistry";
 
 const ALL_ATHLETE_FIELDS = [
   // Core identity
-  { key: "event",         label: "Épreuve",           group: "identity" },
-  { key: "lastName",      label: "Nom",                group: "identity" },
-  { key: "firstName",     label: "Prénom",             group: "identity" },
-  { key: "nationality",   label: "Nationalité",        group: "identity" },
-  { key: "birthYear",     label: "Année de naissance", group: "identity" },
+  { key: "event",         label: "Épreuve", labelEn: "Event",           group: "identity" },
+  { key: "lastName",      label: "Nom", labelEn: "Last name",                group: "identity" },
+  { key: "firstName",     label: "Prénom", labelEn: "First name",             group: "identity" },
+  { key: "nationality",   label: "Nationalité", labelEn: "Nationality",        group: "identity" },
+  { key: "birthYear",     label: "Année de naissance", labelEn: "Birth year", group: "identity" },
 
   // Excel-imported performance (from start list / lanes file)
-  { key: "status",        label: "Statut (ok/out)",    group: "excel" },
-  { key: "worldRanking",  label: "Classement mondial", group: "excel" },
-  { key: "pb",            label: "PB (Excel brut)",    group: "excel" },
-  { key: "pbIndoor",      label: "PB Indoor (Excel)",  group: "excel" },
-  { key: "pbOutdoor",     label: "PB Outdoor (Excel)", group: "excel" },
-  { key: "sb",            label: "SB (Excel brut)",    group: "excel" },
+  { key: "status",        label: "Statut (ok/out)", labelEn: "Status (ok/out)",    group: "excel" },
+  { key: "worldRanking",  label: "Classement mondial", labelEn: "World ranking", group: "excel" },
+  { key: "pb",            label: "PB (Excel brut)", labelEn: "PB (raw Excel)",    group: "excel" },
+  { key: "pbIndoor",      label: "PB Indoor (Excel)", labelEn: "PB Indoor (Excel)",  group: "excel" },
+  { key: "pbOutdoor",     label: "PB Outdoor (Excel)", labelEn: "PB Outdoor (Excel)", group: "excel" },
+  { key: "sb",            label: "SB (Excel brut)", labelEn: "SB (raw Excel)",    group: "excel" },
 
   // World Athletics — source of truth
-  { key: "waid",              label: "WAID",                    group: "wa" },
-  { key: "waUrl",             label: "Lien profil WA",          group: "wa" },
-  { key: "waPbIndoor",        label: "WA PB Indoor",            group: "wa" },
-  { key: "waPbOutdoor",       label: "WA PB Outdoor",           group: "wa" },
-  { key: "waIndoorSb",        label: "WA SB Indoor (année préc.)", group: "wa" },
-  { key: "waIndoorSbCurrent", label: "WA SB Indoor (année en cours)", group: "wa" },
-  { key: "waOutdoorSb",       label: "WA SB Outdoor",           group: "wa" },
-  { key: "waFetchedAt",       label: "Dernière synchro WA",     group: "wa" },
+  { key: "waid",              label: "WAID", labelEn: "WAID",                    group: "wa" },
+  { key: "waUrl",             label: "Lien profil WA", labelEn: "WA profile link",          group: "wa" },
+  { key: "waPbIndoor",        label: "WA PB Indoor", labelEn: "WA PB Indoor",            group: "wa" },
+  { key: "waPbOutdoor",       label: "WA PB Outdoor", labelEn: "WA PB Outdoor",           group: "wa" },
+  { key: "waIndoorSb",        label: "WA SB Indoor (année préc.)", labelEn: "WA SB Indoor (previous year)", group: "wa" },
+  { key: "waIndoorSbCurrent", label: "WA SB Indoor (année en cours)", labelEn: "WA SB Indoor (current year)", group: "wa" },
+  { key: "waOutdoorSb",       label: "WA SB Outdoor", labelEn: "WA SB Outdoor",           group: "wa" },
+  { key: "waFetchedAt",       label: "Dernière synchro WA", labelEn: "Last WA sync",     group: "wa" },
 
   // Heat/lane (from lanes file)
-  { key: "heat",          label: "Série",              group: "lanes" },
-  { key: "lane",          label: "Couloir",            group: "lanes" },
+  { key: "heat",          label: "Série", labelEn: "Heat",              group: "lanes" },
+  { key: "lane",          label: "Couloir", labelEn: "Lane",            group: "lanes" },
 
   // Travel logistics (from travel file)
-  { key: "manager",         label: "Manager",          group: "travel" },
-  { key: "arrival",         label: "Arrivée (brut)",   group: "travel" },
-  { key: "arrivalDay",      label: "Arr. jour",        group: "travel" },
-  { key: "arrivalTime",     label: "Arr. heure",       group: "travel" },
-  { key: "arrivalFlight",   label: "Arr. vol",         group: "travel" },
-  { key: "arrivalFrom",     label: "Arr. depuis",      group: "travel" },
-  { key: "departure",       label: "Départ (brut)",    group: "travel" },
-  { key: "departureDay",    label: "Dép. jour",        group: "travel" },
-  { key: "departureTime",   label: "Dép. heure",       group: "travel" },
-  { key: "departureFlight", label: "Dép. vol",         group: "travel" },
-  { key: "departureTo",     label: "Dép. vers",        group: "travel" },
+  { key: "manager",         label: "Manager", labelEn: "Manager",          group: "travel" },
+  { key: "arrival",         label: "Arrivée (brut)", labelEn: "Arrival (raw)",   group: "travel" },
+  { key: "arrivalDay",      label: "Arr. jour", labelEn: "Arr. day",        group: "travel" },
+  { key: "arrivalTime",     label: "Arr. heure", labelEn: "Arr. time",       group: "travel" },
+  { key: "arrivalFlight",   label: "Arr. vol", labelEn: "Arr. flight",         group: "travel" },
+  { key: "arrivalFrom",     label: "Arr. depuis", labelEn: "Arr. from",      group: "travel" },
+  { key: "departure",       label: "Départ (brut)", labelEn: "Departure (raw)",    group: "travel" },
+  { key: "departureDay",    label: "Dép. jour", labelEn: "Dep. day",        group: "travel" },
+  { key: "departureTime",   label: "Dép. heure", labelEn: "Dep. time",       group: "travel" },
+  { key: "departureFlight", label: "Dép. vol", labelEn: "Dep. flight",         group: "travel" },
+  { key: "departureTo",     label: "Dép. vers", labelEn: "Dep. to",        group: "travel" },
 ];
 
 const FIELD_GROUPS = [
@@ -465,12 +465,13 @@ function buildAthleteIdentityKeys(fields = {}) {
 // Resolved against the edition's actual month/year it becomes a real weekday
 // + date instead. `referenceDate` is the meeting edition's date (Firestore
 // Timestamp or JS Date); falls back to the bare "Jour N" when unavailable.
-function formatTravelDay(day, referenceDate) {
-  if (!referenceDate) return `Jour ${day}`;
+function formatTravelDay(day, referenceDate, language = "fr") {
+  const dayWord = language === "fr" ? "Jour" : "Day";
+  if (!referenceDate) return `${dayWord} ${day}`;
   const ref = referenceDate?.toDate ? referenceDate.toDate() : new Date(referenceDate);
-  if (Number.isNaN(ref.getTime())) return `Jour ${day}`;
+  if (Number.isNaN(ref.getTime())) return `${dayWord} ${day}`;
   const resolved = new Date(ref.getFullYear(), ref.getMonth(), day);
-  const label = resolved.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
+  const label = resolved.toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", { weekday: "long", day: "numeric", month: "short" });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
