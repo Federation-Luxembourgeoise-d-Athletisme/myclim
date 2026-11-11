@@ -44,13 +44,7 @@ import {
 import { useRegistryFilters } from "./athlete-registry-filters";
 import { searchWaAthletes } from "../site/emagazine-athlete-data";
 import { useLanguage } from "./language-context";
-
-// Entries pages: French when the app is in French, English otherwise (the
-// meeting director reads English/German, not French).
-function useTr() {
-  const { language } = useLanguage();
-  return (fr, en) => (language === "fr" ? fr : en);
-}
+import { useTr } from "./use-tr";
 
 // Staff roles are stored in French (see _STAFF_ROLE_PATTERNS); shown translated.
 const STAFF_ROLE_EN = {
