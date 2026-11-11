@@ -36,23 +36,45 @@ function disciplineKey(discipline) {
   return String(discipline || "").replace(/(\d)\s+m\b/gi, "$1m").trim().toLowerCase();
 }
 
-export function disciplineLabel(discipline) {
+const DISCIPLINE_EN = {
+  "50m": "50 m",
+  "60m": "60 m",
+  "60m hurdles": "60 m hurdles",
+  "200m": "200 m",
+  "400m": "400 m",
+  "400m hurdles": "400 m hurdles",
+  "800m": "800 m",
+  "1000m": "1000 m",
+  "1500m": "1500 m",
+  "3000m": "3000 m",
+  "5000m": "5000 m",
+  "high jump": "high jump",
+  "pole vault": "pole vault",
+  "long jump": "long jump",
+  "triple jump": "triple jump",
+  "shot put": "shot put",
+};
+
+// language : langue de l'appli ("fr" = français, sinon anglais).
+export function disciplineLabel(discipline, language = "fr") {
+  const labels = language === "fr" ? DISCIPLINE_FR : DISCIPLINE_EN;
   const key = disciplineKey(discipline);
-  if (DISCIPLINE_FR[key]) return DISCIPLINE_FR[key];
+  if (labels[key]) return labels[key];
   // « 200m - Special Olympics », « Shot Put F42 »… : on traduit la base.
-  const base = Object.keys(DISCIPLINE_FR).find((k) => key.startsWith(`${k} `));
-  return base ? `${DISCIPLINE_FR[base]}${String(discipline).slice(base.length)}` : String(discipline || "");
+  const base = Object.keys(labels).find((k) => key.startsWith(`${k} `));
+  return base ? `${labels[base]}${String(discipline).slice(base.length)}` : String(discipline || "");
 }
 
-export function genderLabel(gender, { short = false } = {}) {
-  if (gender === "M") return short ? "H" : "hommes";
-  if (gender === "W") return short ? "F" : "femmes";
-  return short ? "" : "mixte";
+export function genderLabel(gender, { short = false, language = "fr" } = {}) {
+  const fr = language === "fr";
+  if (gender === "M") return short ? (fr ? "H" : "M") : (fr ? "hommes" : "men");
+  if (gender === "W") return short ? (fr ? "F" : "W") : (fr ? "femmes" : "women");
+  return short ? "" : (fr ? "mixte" : "mixed");
 }
 
-export function eventLabel(discipline, gender) {
-  const g = genderLabel(gender);
-  return g === "mixte" ? disciplineLabel(discipline) : `${disciplineLabel(discipline)} ${g}`;
+export function eventLabel(discipline, gender, language = "fr") {
+  if (gender !== "M" && gender !== "W") return disciplineLabel(discipline, language);
+  return `${disciplineLabel(discipline, language)} ${genderLabel(gender, { language })}`;
 }
 
 function athleteKey(row) {
@@ -142,7 +164,7 @@ function groupByYear(results) {
 }
 
 /** Vainqueurs regroupés par athlète, du plus titré au moins titré. */
-function topWinners(winners, limit = 5) {
+function topWinners(winners, limit = 5, language = "fr") {
   const byAthlete = new Map();
   for (const w of winners) {
     const key = athleteKey(w);
@@ -155,7 +177,7 @@ function topWinners(winners, limit = 5) {
     .map((a) => ({
       ...a,
       years: [...new Set(a.wins.map((w) => Number(w.year)))].sort((x, y) => x - y),
-      events: [...new Set(a.wins.map((w) => eventLabel(w.discipline, w.gender)))],
+      events: [...new Set(a.wins.map((w) => eventLabel(w.discipline, w.gender, language)))],
     }))
     .sort((a, b) => b.wins.length - a.wins.length || a.years[0] - b.years[0])
     .slice(0, limit);
@@ -164,9 +186,10 @@ function topWinners(winners, limit = 5) {
 /**
  * Statistiques toutes éditions confondues.
  * editions : meetingEditions (pour exclure les années masquées et
- * annulées) ; currentYear : année de référence pour « tient depuis N ans ».
+ * annulées) ; currentYear : année de référence pour « tient depuis N ans » ;
+ * language : langue des libellés et des faits ("fr", sinon anglais).
  */
-export function computeAllTimeStats({ results, records, winners, editions, currentYear = new Date().getFullYear() }) {
+export function computeAllTimeStats({ results, records, winners, editions, currentYear = new Date().getFullYear(), language = "fr" }) {
   const hiddenYears = new Set(editions.filter((e) => e.cancelled).map((e) => Number(e.year)));
   const usable = results.filter((row) => !hiddenYears.has(Number(row.year)));
   const byYear = groupByYear(usable);
@@ -218,19 +241,19 @@ export function computeAllTimeStats({ results, records, winners, editions, curre
     perYear,
     nations,
     oldestRecords,
-    topWinners: topWinners(winners),
+    topWinners: topWinners(winners, 5, language),
     lux: {
       athletes: nationAthletes.get("LUX") || 0,
       participations: luxParticipations.size,
       wins: luxWins.length,
-      winners: topWinners(luxWins, 3),
+      winners: topWinners(luxWins, 3, language),
       nationalRecords: luxNationalRecords.length,
       lastNationalRecord: [...luxNationalRecords].sort((a, b) => Number(b.year) - Number(a.year))[0] || null,
     },
     biggestEdition,
     mostRecordsEdition,
   };
-  stats.facts = buildFacts(stats, currentYear);
+  stats.facts = buildFacts(stats, currentYear, language);
   return stats;
 }
 
@@ -238,56 +261,91 @@ function plural(n, singular, pluralForm = `${singular}s`) {
   return `${n} ${n > 1 ? pluralForm : singular}`;
 }
 
-function formatNumber(n) {
-  return new Intl.NumberFormat("fr-FR").format(n);
+function formatNumber(n, language = "fr") {
+  return new Intl.NumberFormat(language === "fr" ? "fr-FR" : "en-GB").format(n);
 }
 
-/** Phrases prêtes pour la com, dans l'ordre d'intérêt. */
-function buildFacts(stats, currentYear) {
+/** Phrases prêtes pour la com, dans l'ordre d'intérêt (en français, sinon en anglais). */
+function buildFacts(stats, currentYear, language = "fr") {
+  const fr = language === "fr";
+  const tr = (frText, enText) => (fr ? frText : enText);
   const facts = [];
   if (stats.firstYear) {
     facts.push({
-      category: "Chiffres clés",
-      text: `${stats.editionCount} éditions depuis ${stats.firstYear} : ${formatNumber(stats.athleteCount)} athlètes venus de ${stats.nationCount} nations.`,
+      category: tr("Chiffres clés", "Key figures"),
+      text: tr(
+        `${stats.editionCount} éditions depuis ${stats.firstYear} : ${formatNumber(stats.athleteCount, language)} athlètes venus de ${stats.nationCount} nations.`,
+        `${stats.editionCount} editions since ${stats.firstYear}: ${formatNumber(stats.athleteCount, language)} athletes from ${stats.nationCount} nations.`,
+      ),
     });
   }
   const oldest = stats.oldestRecords[0];
   if (oldest) {
     const years = currentYear - Number(oldest.year);
+    const event = eventLabel(oldest.discipline, oldest.gender, language);
     facts.push({
-      category: "Record le plus ancien",
-      text: `Le record du meeting du ${eventLabel(oldest.discipline, oldest.gender)} (${oldest.mark}, ${formatPersonName(oldest)}, ${oldest.noc}) tient depuis ${oldest.year}${years > 1 ? ` : ${years} ans sans être battu` : ""}.`,
+      category: tr("Record le plus ancien", "Oldest record"),
+      text: tr(
+        `Le record du meeting du ${event} (${oldest.mark}, ${formatPersonName(oldest)}, ${oldest.noc}) tient depuis ${oldest.year}${years > 1 ? ` : ${years} ans sans être battu` : ""}.`,
+        `The ${event} meeting record (${oldest.mark}, ${formatPersonName(oldest)}, ${oldest.noc}) has stood since ${oldest.year}${years > 1 ? `: ${years} years unbeaten` : ""}.`,
+      ),
     });
   }
   const top = stats.topWinners[0];
   if (top) {
     facts.push({
-      category: "Le plus de victoires",
-      text: `${top.name} (${top.noc}) a gagné ${top.wins.length} fois au meeting (${top.events.join(", ")} — ${top.years.join(", ")}).`,
+      category: tr("Le plus de victoires", "Most wins"),
+      text: tr(
+        `${top.name} (${top.noc}) a gagné ${top.wins.length} fois au meeting (${top.events.join(", ")} — ${top.years.join(", ")}).`,
+        `${top.name} (${top.noc}) has won ${top.wins.length} times at the meeting (${top.events.join(", ")} — ${top.years.join(", ")}).`,
+      ),
     });
   }
   if (stats.lux.wins || stats.lux.nationalRecords) {
     const parts = [];
-    if (stats.lux.wins) parts.push(plural(stats.lux.wins, "victoire luxembourgeoise", "victoires luxembourgeoises"));
-    if (stats.lux.nationalRecords) parts.push(plural(stats.lux.nationalRecords, "record national luxembourgeois battu", "records nationaux luxembourgeois battus"));
-    facts.push({ category: "Luxembourg", text: `${parts.join(" et ")} au meeting depuis ${stats.firstYear}.` });
+    if (stats.lux.wins) {
+      parts.push(fr
+        ? plural(stats.lux.wins, "victoire luxembourgeoise", "victoires luxembourgeoises")
+        : plural(stats.lux.wins, "Luxembourg win", "Luxembourg wins"));
+    }
+    if (stats.lux.nationalRecords) {
+      parts.push(fr
+        ? plural(stats.lux.nationalRecords, "record national luxembourgeois battu", "records nationaux luxembourgeois battus")
+        : plural(stats.lux.nationalRecords, "Luxembourg national record broken", "Luxembourg national records broken"));
+    }
+    facts.push({
+      category: "Luxembourg",
+      text: tr(
+        `${parts.join(" et ")} au meeting depuis ${stats.firstYear}.`,
+        `${parts.join(" and ")} at the meeting since ${stats.firstYear}.`,
+      ),
+    });
   }
   if (stats.nationalRecordPerformances) {
     facts.push({
-      category: "Records nationaux",
-      text: `${stats.nationalRecordPerformances} records nationaux battus au meeting, pour ${stats.nationalRecordNations} pays différents.`,
+      category: tr("Records nationaux", "National records"),
+      text: tr(
+        `${stats.nationalRecordPerformances} records nationaux battus au meeting, pour ${stats.nationalRecordNations} pays différents.`,
+        `${plural(stats.nationalRecordPerformances, "national record", "national records")} broken at the meeting, for ${plural(stats.nationalRecordNations, "country", "different countries")}.`,
+      ),
     });
   }
   if (stats.biggestEdition) {
     facts.push({
-      category: "Édition record",
-      text: `${stats.biggestEdition.year} est l'édition la plus fournie : ${stats.biggestEdition.athletes} athlètes de ${stats.biggestEdition.nations} nations.`,
+      category: tr("Édition record", "Record edition"),
+      text: tr(
+        `${stats.biggestEdition.year} est l'édition la plus fournie : ${stats.biggestEdition.athletes} athlètes de ${stats.biggestEdition.nations} nations.`,
+        `${stats.biggestEdition.year} is the biggest edition: ${stats.biggestEdition.athletes} athletes from ${stats.biggestEdition.nations} nations.`,
+      ),
     });
   }
   if (stats.mostRecordsEdition?.meetingRecords > 1) {
     facts.push({
-      category: "Records du meeting",
-      text: `En ${stats.mostRecordsEdition.year}, ${stats.mostRecordsEdition.meetingRecords} records du meeting sont tombés en une seule édition.`,
+      category: tr("Records du meeting", "Meeting records"),
+      text: tr(
+        `En ${stats.mostRecordsEdition.year}, ${stats.mostRecordsEdition.meetingRecords} records du meeting sont tombés en une seule édition.`,
+        `In ${stats.mostRecordsEdition.year}, ${stats.mostRecordsEdition.meetingRecords} meeting records fell in a single edition.`,
+      ),
     });
   }
   return facts;
@@ -314,8 +372,8 @@ export function computeEditionStats({ results, winners, year }) {
   };
 }
 
-/** Index de recherche : athlètes, épreuves et éditions. */
-export function buildSearchIndex({ results, editions }) {
+/** Index de recherche : athlètes, épreuves et éditions (libellés dans language). */
+export function buildSearchIndex({ results, editions, language = "fr" }) {
   const athletes = new Map();
   const events = new Map();
   for (const row of results) {
@@ -325,7 +383,7 @@ export function buildSearchIndex({ results, editions }) {
       athletes.get(key).years.add(Number(row.year));
     }
     const eventKey = `${disciplineKey(row.discipline)}|${row.gender}`;
-    if (!events.has(eventKey)) events.set(eventKey, { discipline: row.discipline, gender: row.gender, label: eventLabel(row.discipline, row.gender), years: new Set() });
+    if (!events.has(eventKey)) events.set(eventKey, { discipline: row.discipline, gender: row.gender, label: eventLabel(row.discipline, row.gender, language), years: new Set() });
     events.get(eventKey).years.add(Number(row.year));
   }
   return {

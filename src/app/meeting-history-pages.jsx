@@ -23,6 +23,8 @@ import {
   useMeetingResultsForYear,
 } from "./meeting-history-hooks";
 import { useAthleteRegistry } from "./athlete-portal-hooks";
+import { useLanguage } from "./language-context";
+import { useTr } from "./use-tr";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -135,10 +137,10 @@ function compareSectionGroups(a, b) {
   return sectionOrderValue(a.finalGroup || a.heat) - sectionOrderValue(b.finalGroup || b.heat);
 }
 
-function formatSectionLabel(group) {
-  if (group.round === "Heat") return group.heat ? `Série ${group.heat}` : "Série";
-  if (group.finalGroup) return `Finale ${group.finalGroup}`;
-  if (isFinalRound(group.round)) return "Finale";
+function formatSectionLabel(group, tr) {
+  if (group.round === "Heat") return group.heat ? tr(`Série ${group.heat}`, `Heat ${group.heat}`) : tr("Série", "Heat");
+  if (group.finalGroup) return tr(`Finale ${group.finalGroup}`, `Final ${group.finalGroup}`);
+  if (isFinalRound(group.round)) return tr("Finale", "Final");
   return group.round || "";
 }
 
@@ -152,17 +154,18 @@ function formatSectionCell(result) {
   return "—";
 }
 
-function formatEditionDate(value) {
+function formatEditionDate(value, language) {
+  const locale = language === "fr" ? "fr-LU" : "en-GB";
   if (!value) return "—";
 
   if (typeof value === "string") return value;
 
   if (typeof value?.toDate === "function") {
-    return value.toDate().toLocaleDateString("fr-LU");
+    return value.toDate().toLocaleDateString(locale);
   }
 
   if (typeof value?.seconds === "number") {
-    return new Date(value.seconds * 1000).toLocaleDateString("fr-LU");
+    return new Date(value.seconds * 1000).toLocaleDateString(locale);
   }
 
   return "—";
@@ -227,7 +230,8 @@ function RankBadge({ rank }) {
 }
 
 function GenderTag({ gender }) {
-  const label = gender === "W" ? "Femmes" : gender === "M" ? "Hommes" : "Mixte";
+  const tr = useTr();
+  const label = gender === "W" ? tr("Femmes", "Women") : gender === "M" ? tr("Hommes", "Men") : tr("Mixte", "Mixed");
   const background = gender === "W" ? "#fce7f3" : gender === "M" ? "#dbeafe" : "#ecfeff";
   const color = gender === "W" ? "#be185d" : gender === "M" ? "#1d4ed8" : "#0f766e";
   return (
@@ -247,6 +251,7 @@ function GenderTag({ gender }) {
 }
 
 function SeedButton({ onSeed, seeding, seedLog }) {
+  const tr = useTr();
   return (
     <div>
       <button
@@ -255,7 +260,7 @@ function SeedButton({ onSeed, seeding, seedLog }) {
         disabled={seeding}
         style={{ marginBottom: "0.5rem" }}
       >
-        {seeding ? "Import…" : "🌱 Importer les données historiques"}
+        {seeding ? tr("Import…", "Importing…") : tr("🌱 Importer les données historiques", "🌱 Import historical data")}
       </button>
       {seedLog.length > 0 && (
         <div style={{
@@ -284,6 +289,7 @@ function SeedButton({ onSeed, seeding, seedLog }) {
 const EMPTY_RESULT = { discipline: "", gender: "M", round: "", heat: "", rank: 1, lastName: "", firstName: "", noc: "", result: "", yob: "", points: "" };
 
 function ResultForm({ year, initial, onSave, onCancel }) {
+  const tr = useTr();
   const [data, setData] = useState({ ...EMPTY_RESULT, year: Number(year), ...initial });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -291,13 +297,13 @@ function ResultForm({ year, initial, onSave, onCancel }) {
   const set = (field, value) => setData((p) => ({ ...p, [field]: value }));
 
   async function handleSave() {
-    if (!data.discipline.trim()) { setError("Discipline requise."); return; }
-    if (!data.lastName.trim()) { setError("Nom requis."); return; }
+    if (!data.discipline.trim()) { setError(tr("Discipline requise.", "Event required.")); return; }
+    if (!data.lastName.trim()) { setError(tr("Nom requis.", "Last name required.")); return; }
     setSaving(true); setError("");
     try {
       await onSave({ ...data, year: Number(year), rank: Number(data.rank) || 1, yob: data.yob ? Number(data.yob) : null, points: data.points !== "" ? Number(data.points) : null });
     } catch (e) {
-      setError(e.message || "Erreur lors de la sauvegarde.");
+      setError(e.message || tr("Erreur lors de la sauvegarde.", "Error while saving."));
     } finally {
       setSaving(false);
     }
@@ -307,49 +313,49 @@ function ResultForm({ year, initial, onSave, onCancel }) {
 
   return (
     <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20, marginTop: 12 }}>
-      <p style={{ fontWeight: 700, marginBottom: 14, fontSize: "0.9rem" }}>{initial?.id ? "Modifier un résultat" : "Ajouter un résultat"} — {year}</p>
+      <p style={{ fontWeight: 700, marginBottom: 14, fontSize: "0.9rem" }}>{initial?.id ? tr("Modifier un résultat", "Edit result") : tr("Ajouter un résultat", "Add result")} — {year}</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Discipline *</label>
-          <input style={inp} value={data.discipline} onChange={(e) => set("discipline", e.target.value)} placeholder="ex: 60m" />
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Discipline *", "Event *")}</label>
+          <input style={inp} value={data.discipline} onChange={(e) => set("discipline", e.target.value)} placeholder={tr("ex: 60m", "e.g. 60m")} />
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Genre</label>
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Genre", "Gender")}</label>
           <select style={inp} value={data.gender} onChange={(e) => set("gender", e.target.value)}>
-            <option value="M">Hommes (M)</option>
-            <option value="W">Femmes (W)</option>
+            <option value="M">{tr("Hommes (M)", "Men (M)")}</option>
+            <option value="W">{tr("Femmes (W)", "Women (W)")}</option>
           </select>
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Tour</label>
-          <input style={inp} value={data.round} onChange={(e) => set("round", e.target.value)} placeholder="Final A / Final B / Heats combines…" />
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Tour", "Round")}</label>
+          <input style={inp} value={data.round} onChange={(e) => set("round", e.target.value)} placeholder={tr("Final A / Final B / Heats combines…", "Final A / Final B / Combined heats…")} />
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Série</label>
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Série", "Heat")}</label>
           <input style={inp} value={data.heat} onChange={(e) => set("heat", e.target.value)} placeholder="S1 / S2 / S3…" />
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Rang *</label>
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Rang *", "Rank *")}</label>
           <input type="number" style={inp} value={data.rank} onChange={(e) => set("rank", e.target.value)} min={1} />
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Nom *</label>
-          <input style={inp} value={data.lastName} onChange={(e) => set("lastName", e.target.value)} placeholder="NOM" />
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Nom *", "Last name *")}</label>
+          <input style={inp} value={data.lastName} onChange={(e) => set("lastName", e.target.value)} placeholder={tr("NOM", "LAST NAME")} />
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Prénom</label>
-          <input style={inp} value={data.firstName} onChange={(e) => set("firstName", e.target.value)} placeholder="Prénom" />
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Prénom", "First name")}</label>
+          <input style={inp} value={data.firstName} onChange={(e) => set("firstName", e.target.value)} placeholder={tr("Prénom", "First name")} />
         </div>
         <div>
           <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>NOC</label>
           <input style={inp} value={data.noc} onChange={(e) => set("noc", e.target.value.toUpperCase())} placeholder="FRA" maxLength={3} />
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Résultat</label>
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Résultat", "Result")}</label>
           <input style={inp} value={data.result} onChange={(e) => set("result", e.target.value)} placeholder="6.58" />
         </div>
         <div>
-          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Année naissance</label>
+          <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 4 }}>{tr("Année naissance", "Year of birth")}</label>
           <input type="number" style={inp} value={data.yob} onChange={(e) => set("yob", e.target.value)} placeholder="1998" />
         </div>
         <div>
@@ -360,9 +366,9 @@ function ResultForm({ year, initial, onSave, onCancel }) {
       {error && <p style={{ color: "#dc2626", fontSize: "0.8rem", marginTop: 8 }}>{error}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
         <button className="btn btn--primary" onClick={handleSave} disabled={saving} style={{ fontSize: "0.85rem" }}>
-          {saving ? "Enregistrement…" : "Enregistrer"}
+          {saving ? tr("Enregistrement…", "Saving…") : tr("Enregistrer", "Save")}
         </button>
-        <button className="btn" onClick={onCancel} style={{ fontSize: "0.85rem" }}>Annuler</button>
+        <button className="btn" onClick={onCancel} style={{ fontSize: "0.85rem" }}>{tr("Annuler", "Cancel")}</button>
       </div>
     </div>
   );
@@ -388,6 +394,7 @@ function useRegistryIndex() {
 }
 
 function AthleteNameCell({ lastName, firstName, yob, registryIdx, style }) {
+  const tr = useTr();
   const key = `${String(lastName || "").toLowerCase()}_${yob ?? ""}`;
   const entry = registryIdx?.get(key);
   const fullName = `${lastName || ""}${firstName ? " " + firstName : ""}`;
@@ -399,7 +406,7 @@ function AthleteNameCell({ lastName, firstName, yob, registryIdx, style }) {
         target="_blank"
         rel="noopener noreferrer"
         style={{ ...style, color: "#1d4ed8", textDecoration: "none", fontWeight: 600 }}
-        title={`Profil World Athletics${entry.waid ? ` · WAID ${entry.waid}` : ""}`}
+        title={`${tr("Profil World Athletics", "World Athletics profile")}${entry.waid ? ` · WAID ${entry.waid}` : ""}`}
       >
         {fullName}
         <span style={{ marginLeft: 4, fontSize: "0.68rem", opacity: 0.55 }}>↗</span>
@@ -409,7 +416,7 @@ function AthleteNameCell({ lastName, firstName, yob, registryIdx, style }) {
   if (entry) {
     // In registry but no WA URL yet
     return (
-      <span style={{ ...style, fontWeight: 600 }} title="Dans la base athlètes">
+      <span style={{ ...style, fontWeight: 600 }} title={tr("Dans la base athlètes", "In the athlete database")}>
         {fullName}
         <span style={{ marginLeft: 4, fontSize: "0.65rem", color: "#6b7280" }}>●</span>
       </span>
@@ -427,6 +434,7 @@ const ALL_DISCIPLINES = [
 
 // ─── Inline-editable result row ───────────────────────────────────────────────
 function EditableResultRow({ r, onSaved, onDeleted }) {
+  const tr = useTr();
   const [editing, setEditing]   = useState(false);
   const [saving,  setSaving]    = useState(false);
   const [draft,   setDraft]     = useState({});
@@ -466,20 +474,20 @@ function EditableResultRow({ r, onSaved, onDeleted }) {
       setEditing(false);
       onSaved?.();
     } catch (e) {
-      alert("Erreur : " + e.message);
+      alert(tr("Erreur : ", "Error: ") + e.message);
     } finally {
       setSaving(false);
     }
   }
 
   async function remove() {
-    if (!window.confirm(`Supprimer ${r.lastName} ${r.firstName} (${r.discipline} ${r.gender}) ?`)) return;
+    if (!window.confirm(tr(`Supprimer ${r.lastName} ${r.firstName} (${r.discipline} ${r.gender}) ?`, `Delete ${r.lastName} ${r.firstName} (${r.discipline} ${r.gender})?`))) return;
     setSaving(true);
     try {
       await deleteResult(r.id);
       onDeleted?.();
     } catch (e) {
-      alert("Erreur : " + e.message);
+      alert(tr("Erreur : ", "Error: ") + e.message);
       setSaving(false);
     }
   }
@@ -507,7 +515,7 @@ function EditableResultRow({ r, onSaved, onDeleted }) {
         <td>
           <button
             onClick={startEdit}
-            title="Modifier"
+            title={tr("Modifier", "Edit")}
             style={{
               background: "none", border: "none", cursor: "pointer",
               padding: "2px 6px", borderRadius: 4, fontSize: "0.85rem",
@@ -517,7 +525,7 @@ function EditableResultRow({ r, onSaved, onDeleted }) {
           <button
             onClick={remove}
             disabled={saving}
-            title="Supprimer"
+            title={tr("Supprimer", "Delete")}
             style={{
               background: "none", border: "none", cursor: "pointer",
               padding: "2px 4px", borderRadius: 4, fontSize: "0.82rem",
@@ -539,7 +547,7 @@ function EditableResultRow({ r, onSaved, onDeleted }) {
             value={draft.rank}
             onChange={(e) => set("rank", e.target.value)}
             style={{ ...inputStyle, width: 44 }}
-            title="Classement"
+            title={tr("Classement", "Rank")}
           />
         </td>
         <td style={cellStyle}>
@@ -561,13 +569,13 @@ function EditableResultRow({ r, onSaved, onDeleted }) {
             <input
               value={draft.lastName}
               onChange={(e) => set("lastName", e.target.value)}
-              placeholder="Nom"
+              placeholder={tr("Nom", "Last name")}
               style={{ ...inputStyle, width: 90 }}
             />
             <input
               value={draft.firstName}
               onChange={(e) => set("firstName", e.target.value)}
-              placeholder="Prénom"
+              placeholder={tr("Prénom", "First name")}
               style={{ ...inputStyle, width: 80 }}
             />
           </div>
@@ -585,7 +593,7 @@ function EditableResultRow({ r, onSaved, onDeleted }) {
           <input
             value={draft.result}
             onChange={(e) => set("result", e.target.value)}
-            placeholder="Résultat"
+            placeholder={tr("Résultat", "Result")}
             style={{ ...inputStyle, width: 80 }}
           />
         </td>
@@ -603,9 +611,9 @@ function EditableResultRow({ r, onSaved, onDeleted }) {
               type="number"
               value={draft.yob}
               onChange={(e) => set("yob", e.target.value)}
-              placeholder="Ann."
+              placeholder={tr("Ann.", "YOB")}
               style={{ ...inputStyle, width: 60 }}
-              title="Année de naissance"
+              title={tr("Année de naissance", "Year of birth")}
             />
           </div>
         </td>
@@ -642,6 +650,7 @@ const _nd = (d) => (d || "").replace(/(\d)\s+(m\b)/gi, "$1$2").replace(/Hurdles/
 const _key = (disc, gender) => `${_nd(disc)}_${gender}`;
 
 function WinnersComparisonPanel({ editions, allWinners, Panel }) {
+  const tr = useTr();
   const [year, setYear] = useState(() => editions[0]?.year ?? null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null);
@@ -683,47 +692,47 @@ function WinnersComparisonPanel({ editions, allWinners, Panel }) {
   const mismatches = rows.filter((r) => r.nameMismatch || r.markMismatch || !r.inWinners || !r.inResults).length;
 
   async function handleSync() {
-    if (!window.confirm(`Remplacer les vainqueurs ${year} par les résultats officiels (rang 1) ?`)) return;
+    if (!window.confirm(tr(`Remplacer les vainqueurs ${year} par les résultats officiels (rang 1) ?`, `Replace the ${year} winners with the official results (rank 1)?`))) return;
     setSyncing(true); setSyncMsg(null);
     try {
       const n = await syncWinnersForYear(year, rank1);
-      setSyncMsg(`✅ ${n} vainqueurs synchronisés pour ${year}.`);
+      setSyncMsg(tr(`✅ ${n} vainqueurs synchronisés pour ${year}.`, `✅ ${n} winners synced for ${year}.`));
     } catch (e) {
       setSyncMsg(`❌ ${e.message}`);
     } finally { setSyncing(false); }
   }
 
   return (
-    <Panel title="Comparaison vainqueurs / résultats" subtitle="Divergences entre le PDF Hall of Winners (meetingWinners) et les résultats officiels (meetingResults rank=1)">
+    <Panel title={tr("Comparaison vainqueurs / résultats", "Winners / results comparison")} subtitle={tr("Divergences entre le PDF Hall of Winners (meetingWinners) et les résultats officiels (meetingResults rank=1)", "Differences between the Hall of Winners PDF (meetingWinners) and the official results (meetingResults rank=1)")}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
         <select className="input" value={year ?? ""} onChange={(e) => { setYear(Number(e.target.value)); setSyncMsg(null); }} style={{ minWidth: 120 }}>
           {editions.map((e) => <option key={e.year} value={e.year}>{e.year}</option>)}
         </select>
         {!loading && (
           <span style={{ fontSize: "0.82rem", color: mismatches > 0 ? "#b45309" : "#059669", fontWeight: 600 }}>
-            {mismatches === 0 ? "✅ Tout correspond" : `⚠️ ${mismatches} divergence(s)`}
+            {mismatches === 0 ? tr("✅ Tout correspond", "✅ Everything matches") : tr(`⚠️ ${mismatches} divergence(s)`, `⚠️ ${mismatches} ${mismatches === 1 ? "difference" : "differences"}`)}
           </span>
         )}
         <button className="btn btn--primary" onClick={handleSync} disabled={syncing || loading || rank1.length === 0} style={{ marginLeft: "auto", fontSize: "0.82rem" }}>
-          {syncing ? "Synchro…" : `↓ Synchroniser ${year} depuis les résultats`}
+          {syncing ? tr("Synchro…", "Syncing…") : tr(`↓ Synchroniser ${year} depuis les résultats`, `↓ Sync ${year} from the results`)}
         </button>
       </div>
       {syncMsg && <p style={{ fontSize: "0.82rem", marginBottom: 12, color: syncMsg.startsWith("✅") ? "#059669" : "#dc2626" }}>{syncMsg}</p>}
-      {loading ? <p style={{ color: "#6b7280", fontSize: "0.85rem" }}>Chargement…</p> : (
+      {loading ? <p style={{ color: "#6b7280", fontSize: "0.85rem" }}>{tr("Chargement…", "Loading…")}</p> : (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
           <thead>
             <tr style={{ background: "#f9fafb" }}>
-              {["Épreuve","G","Résultats (rang 1)","Perfs","Vainqueurs (PDF)","Perfs","Statut"].map((h) => (
-                <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 700, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
+              {[tr("Épreuve", "Event"), "G", tr("Résultats (rang 1)", "Results (rank 1)"), tr("Perfs", "Marks"), tr("Vainqueurs (PDF)", "Winners (PDF)"), tr("Perfs", "Marks"), tr("Statut", "Status")].map((h, hi) => (
+                <th key={hi} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 700, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0
-              ? <tr><td colSpan={7} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>Aucune donnée pour {year}</td></tr>
+              ? <tr><td colSpan={7} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>{tr(`Aucune donnée pour ${year}`, `No data for ${year}`)}</td></tr>
               : rows.map((r, i) => {
                 const bg = !r.inResults ? "#fef3c7" : !r.inWinners ? "#ecfdf5" : (r.nameMismatch || r.markMismatch) ? "#fff7ed" : "#f0fdf4";
-                const status = !r.inResults ? "❌ Absent des résultats" : !r.inWinners ? "➕ Nouveau dans résultats" : (r.nameMismatch || r.markMismatch) ? "⚠️ Divergence" : "✅ OK";
+                const status = !r.inResults ? tr("❌ Absent des résultats", "❌ Missing from results") : !r.inWinners ? tr("➕ Nouveau dans résultats", "➕ New in results") : (r.nameMismatch || r.markMismatch) ? tr("⚠️ Divergence", "⚠️ Difference") : "✅ OK";
                 return (
                   <tr key={i} style={{ background: bg, borderBottom: "1px solid #e5e7eb" }}>
                     <td style={{ padding: "6px 10px", fontWeight: 600 }}>{r.disc}</td>
@@ -748,6 +757,8 @@ function WinnersComparisonPanel({ editions, allWinners, Panel }) {
 
 // maintenance : "hide" (onglet Résultats) ou "only" (Réglages › Maintenance).
 function MeetingHistoryPage({ Panel, maintenance }) {
+  const tr = useTr();
+  const { language } = useLanguage();
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const isAdmin = roles.includes("admin");
@@ -865,7 +876,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
       const result = await seedMeetingDatabase((msg) => setSeedLog((prev) => [...prev, msg]));
       setSeedLog((prev) => [...prev, `✅ ${result}`]);
     } catch (err) {
-      setSeedLog((prev) => [...prev, `❌ Erreur : ${err.message}`]);
+      setSeedLog((prev) => [...prev, tr(`❌ Erreur : ${err.message}`, `❌ Error: ${err.message}`)]);
     } finally {
       setSeeding(false);
     }
@@ -874,7 +885,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
   async function handleCloseEdition() {
     if (!effectiveYear || !results.length) return;
     const confirmed = window.confirm(
-      `Clôturer l'édition ${effectiveYear} ? Les participations seront enregistrées dans la base athlètes.`,
+      tr(`Clôturer l'édition ${effectiveYear} ? Les participations seront enregistrées dans la base athlètes.`, `Close the ${effectiveYear} edition? Participations will be recorded in the athlete database.`),
     );
     if (!confirmed) return;
     setClosingYear(effectiveYear);
@@ -883,7 +894,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
       const msg = await closeEdition(effectiveYear, results, (m) => setCloseStatus(m));
       setCloseStatus(msg);
     } catch (err) {
-      setCloseStatus(`Erreur : ${err.message}`);
+      setCloseStatus(tr(`Erreur : ${err.message}`, `Error: ${err.message}`));
     } finally {
       setClosingYear(null);
     }
@@ -896,7 +907,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
   }
 
   async function handleDeleteResult(id, label) {
-    if (!window.confirm(`Supprimer ce résultat (${label}) ?`)) return;
+    if (!window.confirm(tr(`Supprimer ce résultat (${label}) ?`, `Delete this result (${label})?`))) return;
     await deleteResult(id);
   }
 
@@ -920,9 +931,9 @@ function MeetingHistoryPage({ Panel, maintenance }) {
             {group.discipline}
           </span>
           <GenderTag gender={group.gender} />
-          {formatSectionLabel(group) && (
+          {formatSectionLabel(group, tr) && (
             <span style={{ marginLeft: 8, fontSize: "0.75rem", fontWeight: 600, color: "#6b7280", background: "#f3f4f6", padding: "1px 7px", borderRadius: 10 }}>
-              {formatSectionLabel(group)}
+              {formatSectionLabel(group, tr)}
             </span>
           )}
         </td>
@@ -960,12 +971,12 @@ function MeetingHistoryPage({ Panel, maintenance }) {
               <button
                 onClick={() => { setEditingResult(r); setAddingResult(false); }}
                 style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "#6b7280", padding: "2px 4px" }}
-                title="Modifier"
+                title={tr("Modifier", "Edit")}
               >✏️</button>
               <button
                 onClick={() => handleDeleteResult(r.id, `${r.discipline} ${r.lastName}`)}
                 style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "#dc2626", padding: "2px 4px" }}
-                title="Supprimer"
+                title={tr("Supprimer", "Delete")}
               >🗑</button>
             </td>
           )}
@@ -976,24 +987,26 @@ function MeetingHistoryPage({ Panel, maintenance }) {
 
   const adminToolsPanel = (
     <section className="panel-grid panel-grid--1">
-      <Panel title="Admin — Base de données" subtitle="Importer et gérer les données historiques">
+      <Panel title={tr("Admin — Base de données", "Admin — Database")} subtitle={tr("Importer et gérer les données historiques", "Import and manage historical data")}>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div>
             <p className="panel-note" style={{ marginBottom: "0.5rem" }}>
-              Importez l'année sélectionnée depuis le JSON local, puis synchronisez automatiquement
-              les vainqueurs et les records.
+              {tr(
+                "Importez l'année sélectionnée depuis le JSON local, puis synchronisez automatiquement les vainqueurs et les records.",
+                "Import the selected year from the local JSON, then automatically sync the winners and records.",
+              )}
             </p>
             {effectiveYear && !selectedEdition?.cancelled ? (
               <button
                 className="btn btn--primary"
                 style={{ fontSize: "0.82rem" }}
                 onClick={async () => {
-                  if (!window.confirm(`Importer ${effectiveYear} depuis le JSON local, synchroniser les vainqueurs puis recalculer tous les records ?`)) return;
-                  setSeedLog([`Import ${effectiveYear} depuis le JSON local…`]);
+                  if (!window.confirm(tr(`Importer ${effectiveYear} depuis le JSON local, synchroniser les vainqueurs puis recalculer tous les records ?`, `Import ${effectiveYear} from the local JSON, sync the winners, then recompute all records?`))) return;
+                  setSeedLog([tr(`Import ${effectiveYear} depuis le JSON local…`, `Importing ${effectiveYear} from the local JSON…`)]);
                   setSeeding(true);
                   try {
                     const summary = await reseedMeetingYearFromJson(effectiveYear, (msg) => setSeedLog((p) => [...p, msg]));
-                    setSeedLog((p) => [...p, `✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} vainqueurs, ${summary.records} records.`]);
+                    setSeedLog((p) => [...p, tr(`✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} vainqueurs, ${summary.records} records.`, `✅ ${effectiveYear}: ${summary.results} results, ${summary.winners} winners, ${summary.records} records.`)]);
                   } catch (err) {
                     setSeedLog((p) => [...p, `❌ ${err.message}`]);
                   } finally {
@@ -1002,34 +1015,38 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                 }}
                 disabled={seeding}
               >
-                Importer {effectiveYear} depuis le JSON + vainqueurs + records
+                {tr(`Importer ${effectiveYear} depuis le JSON + vainqueurs + records`, `Import ${effectiveYear} from the JSON + winners + records`)}
               </button>
             ) : (
-              <p className="panel-note">Sélectionnez une édition active pour lancer l'import.</p>
+              <p className="panel-note">{tr("Sélectionnez une édition active pour lancer l'import.", "Select an active edition to start the import.")}</p>
             )}
           </div>
           <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "0.75rem" }}>
             <p className="panel-note" style={{ marginBottom: "0.5rem" }}>
-              <strong>Clôturer une édition</strong> enregistre les participations dans la base athlètes.
-              Choisissez une édition ci-dessus, puis cliquez sur « Clôturer l&apos;édition » dans le panneau Résultats.
+              <strong>{tr("Clôturer une édition", "Closing an edition")}</strong>{" "}
+              {tr(
+                "enregistre les participations dans la base athlètes. Choisissez une édition ci-dessus, puis cliquez sur « Clôturer l'édition » dans le panneau Résultats.",
+                "records the participations in the athlete database. Choose an edition above, then click “Close edition” in the Results panel.",
+              )}
             </p>
             <p className="panel-note" style={{ marginBottom: "0.5rem" }}>
-              <strong>Visibilité dans les stats publiques :</strong> cochez/décochez la case « stats » sous chaque année dans le sélecteur d'édition.
+              <strong>{tr("Visibilité dans les stats publiques :", "Visibility in the public stats:")}</strong>{" "}
+              {tr("cochez/décochez la case « stats » sous chaque année dans le sélecteur d'édition.", "tick/untick the “stats” box under each year in the edition picker.")}
             </p>
             <details style={{ marginTop: "0.75rem" }}>
               <summary style={{ cursor: "pointer", fontSize: "0.82rem", fontWeight: 600, color: "#4b5563" }}>
-                Maintenance avancée
+                {tr("Maintenance avancée", "Advanced maintenance")}
               </summary>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.75rem" }}>
                 <p className="panel-note" style={{ marginBottom: 0 }}>
-                  À utiliser seulement pour corriger ou reconstruire la base historique.
+                  {tr("À utiliser seulement pour corriger ou reconstruire la base historique.", "Use only to fix or rebuild the historical database.")}
                 </p>
                 <SeedButton onSeed={handleSeed} seeding={seeding} seedLog={seedLog} />
                 <button
                   className="btn btn--danger"
                   style={{ fontSize: "0.82rem", width: "fit-content" }}
                   onClick={async () => {
-                    if (!window.confirm("Supprimer TOUS les vainqueurs et les réimporter depuis le JSON ? (les données 2026 seront perdues — relancer « Clôturer l'édition » ensuite)")) return;
+                    if (!window.confirm(tr("Supprimer TOUS les vainqueurs et les réimporter depuis le JSON ? (les données 2026 seront perdues — relancer « Clôturer l'édition » ensuite)", "Delete ALL winners and re-import them from the JSON? (2026 data will be lost — run “Close edition” again afterwards)"))) return;
                     setSeedLog([]);
                     setSeeding(true);
                     try {
@@ -1043,7 +1060,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   }}
                   disabled={seeding}
                 >
-                  🔄 Réinitialiser les vainqueurs (purge + réimport)
+                  {tr("🔄 Réinitialiser les vainqueurs (purge + réimport)", "🔄 Reset winners (purge + re-import)")}
                 </button>
                 <button
                   className="btn"
@@ -1051,22 +1068,22 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   onClick={async () => {
                     const years = editions.filter((e) => e.year >= 2004 && e.year <= 2018).map((e) => e.year);
                     if (!years.length) return;
-                    if (!window.confirm(`Masquer les années ${years.join(", ")} des statistiques ?`)) return;
+                    if (!window.confirm(tr(`Masquer les années ${years.join(", ")} des statistiques ?`, `Hide the years ${years.join(", ")} from the statistics?`))) return;
                     await Promise.all(years.map((y) => setEditionVisibility(y, false)));
                   }}
                 >
-                  Masquer 2004–2018 des stats
+                  {tr("Masquer 2004–2018 des stats", "Hide 2004–2018 from the stats")}
                 </button>
                 <button
                   className="btn"
                   style={{ fontSize: "0.82rem", width: "fit-content" }}
                   onClick={async () => {
-                    if (!window.confirm("Recalculer tous les records à partir des résultats déjà en base ?")) return;
-                    setSeedLog(["Recalcul des records…"]);
+                    if (!window.confirm(tr("Recalculer tous les records à partir des résultats déjà en base ?", "Recompute all records from the results already in the database?"))) return;
+                    setSeedLog([tr("Recalcul des records…", "Recomputing records…")]);
                     setSeeding(true);
                     try {
                       const n = await rebuildMeetingRecords((msg) => setSeedLog((p) => [...p, msg]));
-                      setSeedLog((p) => [...p, `✅ ${n} records recalculés.`]);
+                      setSeedLog((p) => [...p, tr(`✅ ${n} records recalculés.`, `✅ ${n} records recomputed.`)]);
                     } catch (err) {
                       setSeedLog((p) => [...p, `❌ ${err.message}`]);
                     } finally {
@@ -1075,7 +1092,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   }}
                   disabled={seeding}
                 >
-                  Recalculer les records
+                  {tr("Recalculer les records", "Recompute records")}
                 </button>
               </div>
             </details>
@@ -1086,12 +1103,12 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                 className="btn"
                 style={{ fontSize: "0.82rem", color: "#dc2626", borderColor: "#dc2626" }}
                 onClick={async () => {
-                  if (!window.confirm(`Vous avez déjà importé ${effectiveYear}. Voulez-vous vraiment le relancer ?`)) return;
-                  setSeedLog([`Import ${effectiveYear} relancé…`]);
+                  if (!window.confirm(tr(`Vous avez déjà importé ${effectiveYear}. Voulez-vous vraiment le relancer ?`, `You have already imported ${effectiveYear}. Do you really want to run it again?`))) return;
+                  setSeedLog([tr(`Import ${effectiveYear} relancé…`, `Re-running the ${effectiveYear} import…`)]);
                   setSeeding(true);
                   try {
                     const summary = await reseedMeetingYearFromJson(effectiveYear, (msg) => setSeedLog((p) => [...p, msg]));
-                    setSeedLog((p) => [...p, `✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} vainqueurs, ${summary.records} records.`]);
+                    setSeedLog((p) => [...p, tr(`✅ ${effectiveYear}: ${summary.results} résultats, ${summary.winners} vainqueurs, ${summary.records} records.`, `✅ ${effectiveYear}: ${summary.results} results, ${summary.winners} winners, ${summary.records} records.`)]);
                   } catch (err) {
                     setSeedLog((p) => [...p, `❌ ${err.message}`]);
                   } finally {
@@ -1100,7 +1117,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                 }}
                 disabled={seeding}
               >
-                Relancer l'import {effectiveYear}
+                {tr(`Relancer l'import ${effectiveYear}`, `Re-run the ${effectiveYear} import`)}
               </button>
             </div>
           )}
@@ -1114,9 +1131,9 @@ function MeetingHistoryPage({ Panel, maintenance }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Historique du meeting</p>
-          <h1>Résultats par édition</h1>
-          <p>Résultats complets de chaque édition du Luxembourg Indoor Meeting.</p>
+          <p className="eyebrow">{tr("Historique du meeting", "Meeting history")}</p>
+          <h1>{tr("Résultats par édition", "Results by edition")}</h1>
+          <p>{tr("Résultats complets de chaque édition du Luxembourg Indoor Meeting.", "Full results of every edition of the Luxembourg Indoor Meeting.")}</p>
         </div>
       </section>
 
@@ -1124,44 +1141,44 @@ function MeetingHistoryPage({ Panel, maintenance }) {
       {selectedEdition ? (
         selectedEdition.cancelled ? (
           <div className="notice-card notice-card--warn">
-            <strong>{selectedEdition.year} — édition annulée</strong>
+            <strong>{selectedEdition.year} — {tr("édition annulée", "edition cancelled")}</strong>
             {selectedEdition.note ? <p>{selectedEdition.note}</p> : null}
           </div>
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem 1rem", alignItems: "center", fontSize: "0.85rem", color: "#555" }}>
-            <strong style={{ color: "#17324a" }}>Édition {selectedEdition.year}{selectedYear ? "" : " (la plus récente)"}</strong>
-            <span>📅 {formatEditionDate(selectedEdition.date)}</span>
+            <strong style={{ color: "#17324a" }}>{tr("Édition", "Edition")} {selectedEdition.year}{selectedYear ? "" : tr(" (la plus récente)", " (latest)")}</strong>
+            <span>📅 {formatEditionDate(selectedEdition.date, language)}</span>
             {selectedEdition.venue ? <span>🏟 {selectedEdition.venue}</span> : null}
             {formatEditionLabel(selectedEdition, { withHash: true }) && (
               <span>🏆 {formatEditionLabel(selectedEdition, { withHash: true })}</span>
             )}
             {selectedEdition.label && <span>🏅 {selectedEdition.label}</span>}
             {selectedEdition.isClosed && (
-              <span style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 12, fontWeight: 600, fontSize: "0.75rem" }}>Clôturée</span>
+              <span style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 12, fontWeight: 600, fontSize: "0.75rem" }}>{tr("Clôturée", "Closed")}</span>
             )}
             {isAdmin && (
-              <label title="Visible dans les statistiques publiques du site" style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: "0.78rem", color: "#6b7280" }}>
+              <label title={tr("Visible dans les statistiques publiques du site", "Visible in the public statistics on the website")} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: "0.78rem", color: "#6b7280" }}>
                 <input
                   type="checkbox"
                   checked={selectedEdition.visibleInStats !== false}
                   onChange={() => handleToggleVisibility(selectedEdition.year, selectedEdition.visibleInStats !== false)}
                 />
-                visible sur le site public
+                {tr("visible sur le site public", "visible on the public website")}
               </label>
             )}
           </div>
         )
-      ) : editionsLoading ? <p className="panel-note">Chargement des éditions…</p> : null}
+      ) : editionsLoading ? <p className="panel-note">{tr("Chargement des éditions…", "Loading editions…")}</p> : null}
 
       {eventGroups.length > 1 ? (
-        <nav className="stats-event-index" aria-label="Aller à une épreuve">
+        <nav className="stats-event-index" aria-label={tr("Aller à une épreuve", "Go to an event")}>
           {eventGroups.map((eventGroup) => (
             <button
               key={eventGroup.key}
               type="button"
               onClick={() => scrollToEvent(eventAnchorId(eventGroup.discipline, eventGroup.gender))}
             >
-              {eventLabel(eventGroup.discipline, eventGroup.gender)}
+              {eventLabel(eventGroup.discipline, eventGroup.gender, language)}
             </button>
           ))}
         </nav>
@@ -1170,8 +1187,8 @@ function MeetingHistoryPage({ Panel, maintenance }) {
       {/* Results */}
       <section className="panel-grid panel-grid--1">
         <Panel
-          title={`Résultats — ${effectiveYear ?? "—"}`}
-          subtitle={resultsLoading ? "Chargement…" : `${results.length} lignes, ${groups.length} épreuves`}
+          title={`${tr("Résultats", "Results")} — ${effectiveYear ?? "—"}`}
+          subtitle={resultsLoading ? tr("Chargement…", "Loading…") : tr(`${results.length} lignes, ${groups.length} épreuves`, `${results.length} rows, ${groups.length} events`)}
           actions={
             isAdmin && effectiveYear && !selectedEdition?.cancelled ? (
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -1185,7 +1202,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   onClick={() => { setAddingResult(true); setEditingResult(null); }}
                   style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}
                 >
-                  + Ajouter un résultat
+                  {tr("+ Ajouter un résultat", "+ Add result")}
                 </button>
                 {results.length > 0 && (
                   <button
@@ -1200,7 +1217,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                       fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap",
                     }}
                   >
-                    {editMode ? "✏️ Mode édition activé" : "✏️ Modifier les résultats"}
+                    {editMode ? tr("✏️ Mode édition activé", "✏️ Edit mode on") : tr("✏️ Modifier les résultats", "✏️ Edit results")}
                   </button>
                 )}
                 {!selectedEdition?.isClosed && (
@@ -1210,7 +1227,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                     disabled={closingYear === effectiveYear}
                     style={{ whiteSpace: "nowrap" }}
                   >
-                    {closingYear === effectiveYear ? "Clôture…" : "🔒 Clôturer l'édition"}
+                    {closingYear === effectiveYear ? tr("Clôture…", "Closing…") : tr("🔒 Clôturer l'édition", "🔒 Close edition")}
                   </button>
                 )}
               </div>
@@ -1226,14 +1243,14 @@ function MeetingHistoryPage({ Panel, maintenance }) {
             />
           )}
           {resultsLoading ? (
-            <p className="panel-note">Chargement des résultats…</p>
+            <p className="panel-note">{tr("Chargement des résultats…", "Loading results…")}</p>
           ) : results.length === 0 ? (
             <div className="notice-card">
-              <strong>Aucun résultat pour {effectiveYear}</strong>
+              <strong>{tr(`Aucun résultat pour ${effectiveYear}`, `No results for ${effectiveYear}`)}</strong>
               <p>
                 {isAdmin
-                  ? "Utilisez « Importer les données historiques » (Réglages › Maintenance) pour importer les données, ou « + Ajouter un résultat » pour saisir à la main."
-                  : "Les résultats de cette édition ne sont pas encore disponibles."}
+                  ? tr("Utilisez « Importer les données historiques » (Réglages › Maintenance) pour importer les données, ou « + Ajouter un résultat » pour saisir à la main.", "Use “Import historical data” (Settings › Maintenance) to import the data, or “+ Add result” to enter results by hand.")
+                  : tr("Les résultats de cette édition ne sont pas encore disponibles.", "The results of this edition are not available yet.")}
               </p>
             </div>
           ) : (
@@ -1244,20 +1261,23 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                   background: "#fef3c7", border: "1px solid #fde68a",
                   borderRadius: 8, fontSize: "0.82rem", color: "#92400e",
                 }}>
-                  ✏️ <strong>Mode édition activé</strong> — cliquez sur ✏️ pour modifier une ligne, 🗑 pour supprimer.
-                  Les modifications sont enregistrées directement dans la base.
+                  ✏️ <strong>{tr("Mode édition activé", "Edit mode on")}</strong> —{" "}
+                  {tr(
+                    "cliquez sur ✏️ pour modifier une ligne, 🗑 pour supprimer. Les modifications sont enregistrées directement dans la base.",
+                    "click ✏️ to edit a row, 🗑 to delete. Changes are saved directly to the database.",
+                  )}
                 </div>
               )}
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 36 }}>Rg</th>
-                    <th>Épreuve</th>
-                    <th data-sticky-col="1" className="col-sticky col-sticky--last">Athlète</th>
+                    <th style={{ width: 36 }}>{tr("Rg", "Rk")}</th>
+                    <th>{tr("Épreuve", "Event")}</th>
+                    <th data-sticky-col="1" className="col-sticky col-sticky--last">{tr("Athlète", "Athlete")}</th>
                     <th>Nat.</th>
-                    <th>Résultat</th>
-                    <th style={{ width: 44 }}>Série</th>
-                    <th>AN.</th>
+                    <th>{tr("Résultat", "Result")}</th>
+                    <th style={{ width: 44 }}>{tr("Série", "Heat")}</th>
+                    <th>{tr("AN.", "YOB")}</th>
                     <th>Pts</th>
                     {isAdmin && <th style={{ width: 80 }}></th>}
                   </tr>
@@ -1291,7 +1311,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
                               cursor: "pointer",
                             }}
                           >
-                            {showHeats ? "Masquer les séries qualificatives" : `Voir les séries qualificatives (${qualifyingHeats.length})`}
+                            {showHeats ? tr("Masquer les séries qualificatives", "Hide qualifying heats") : tr(`Voir les séries qualificatives (${qualifyingHeats.length})`, `Show qualifying heats (${qualifyingHeats.length})`)}
                           </button>
                         </td>
                       </tr>,
@@ -1328,6 +1348,7 @@ function MeetingHistoryPage({ Panel, maintenance }) {
 // ─── Meeting Records page ─────────────────────────────────────────────────────
 
 function MeetingRecordsPage({ Panel }) {
+  const tr = useTr();
   const { records, loading } = useMeetingRecords();
   const [genderFilter, setGenderFilter] = useState("all");
 
@@ -1340,16 +1361,16 @@ function MeetingRecordsPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Historique du meeting</p>
-          <h1>Records du meeting</h1>
-          <p>Meilleures performances de tous les temps réalisées au Luxembourg Indoor Meeting.</p>
+          <p className="eyebrow">{tr("Historique du meeting", "Meeting history")}</p>
+          <h1>{tr("Records du meeting", "Meeting records")}</h1>
+          <p>{tr("Meilleures performances de tous les temps réalisées au Luxembourg Indoor Meeting.", "All-time best performances at the Luxembourg Indoor Meeting.")}</p>
         </div>
       </section>
 
       <section className="panel-grid panel-grid--1">
         <Panel
           title="Records"
-          subtitle={loading ? "Chargement…" : `${displayed.length} records`}
+          subtitle={loading ? tr("Chargement…", "Loading…") : `${displayed.length} records`}
           actions={
             <div style={{ display: "flex", gap: "0.5rem" }}>
               {["all", "W", "M"].map((g) => (
@@ -1368,31 +1389,31 @@ function MeetingRecordsPage({ Panel }) {
                     fontSize: "0.82rem",
                   }}
                 >
-                  {g === "all" ? "Tous" : g === "W" ? "Femmes" : "Hommes"}
+                  {g === "all" ? tr("Tous", "All") : g === "W" ? tr("Femmes", "Women") : tr("Hommes", "Men")}
                 </button>
               ))}
             </div>
           }
         >
           {loading ? (
-            <p className="panel-note">Chargement des records…</p>
+            <p className="panel-note">{tr("Chargement des records…", "Loading records…")}</p>
           ) : records.length === 0 ? (
             <div className="notice-card">
-              <strong>Aucun record pour le moment</strong>
-              <p>Importez les données historiques pour remplir les records.</p>
+              <strong>{tr("Aucun record pour le moment", "No records yet")}</strong>
+              <p>{tr("Importez les données historiques pour remplir les records.", "Import the historical data to fill in the records.")}</p>
             </div>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Épreuve</th>
+                    <th>{tr("Épreuve", "Event")}</th>
                     <th></th>
                     <th>Record</th>
-                    <th>Athlète</th>
+                    <th>{tr("Athlète", "Athlete")}</th>
                     <th>Nat.</th>
                     <th>Date</th>
-                    <th>Année</th>
+                    <th>{tr("Année", "Year")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1425,6 +1446,7 @@ function MeetingRecordsPage({ Panel }) {
 // ─── Meeting Winners page ─────────────────────────────────────────────────────
 
 function MeetingWinnersPage({ Panel }) {
+  const tr = useTr();
   const { winners, loading } = useAllWinners();
   const registryIdx = useRegistryIndex();
   const [genderFilter, setGenderFilter] = useState("all");
@@ -1484,23 +1506,23 @@ function MeetingWinnersPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Historique du meeting</p>
+          <p className="eyebrow">{tr("Historique du meeting", "Meeting history")}</p>
           <h1>Hall of Winners</h1>
-          <p>Vainqueurs de chaque épreuve du Luxembourg Indoor Meeting (2003–2026).</p>
+          <p>{tr("Vainqueurs de chaque épreuve du Luxembourg Indoor Meeting (2003–2026).", "Winners of every event at the Luxembourg Indoor Meeting (2003–2026).")}</p>
         </div>
       </section>
 
       <section className="panel-grid panel-grid--1">
         <Panel
-          title="Vainqueurs"
-          subtitle={loading ? "Chargement…" : `${filtered.length} victoires`}
+          title={tr("Vainqueurs", "Winners")}
+          subtitle={loading ? tr("Chargement…", "Loading…") : tr(`${filtered.length} victoires`, `${filtered.length} wins`)}
         >
           {/* Filters */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem", alignItems: "flex-end" }}>
             {/* Gender */}
             <div>
               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-                GENRE
+                {tr("GENRE", "GENDER")}
               </label>
               <div style={{ display: "flex", gap: "0.4rem" }}>
                 {["all", "W", "M"].map((g) => (
@@ -1519,7 +1541,7 @@ function MeetingWinnersPage({ Panel }) {
                       fontSize: "0.8rem",
                     }}
                   >
-                    {g === "all" ? "Tous" : g === "W" ? "Femmes" : "Hommes"}
+                    {g === "all" ? tr("Tous", "All") : g === "W" ? tr("Femmes", "Women") : tr("Hommes", "Men")}
                   </button>
                 ))}
               </div>
@@ -1528,7 +1550,7 @@ function MeetingWinnersPage({ Panel }) {
             {/* Discipline */}
             <div>
               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-                ÉPREUVE
+                {tr("ÉPREUVE", "EVENT")}
               </label>
               <select
                 className="input"
@@ -1537,7 +1559,7 @@ function MeetingWinnersPage({ Panel }) {
                 style={{ padding: "0.28rem 0.6rem", minWidth: 160 }}
               >
                 {disciplines.map((d) => (
-                  <option key={d} value={d}>{d === "all" ? "Toutes les épreuves" : d}</option>
+                  <option key={d} value={d}>{d === "all" ? tr("Toutes les épreuves", "All events") : d}</option>
                 ))}
               </select>
             </div>
@@ -1545,11 +1567,11 @@ function MeetingWinnersPage({ Panel }) {
             {/* Search */}
             <div style={{ flex: 1, minWidth: 200 }}>
               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-                RECHERCHER
+                {tr("RECHERCHER", "SEARCH")}
               </label>
               <input
                 className="input"
-                placeholder="Nom, pays, année…"
+                placeholder={tr("Nom, pays, année…", "Name, country, year…")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -1557,11 +1579,11 @@ function MeetingWinnersPage({ Panel }) {
           </div>
 
           {loading ? (
-            <p className="panel-note">Chargement des vainqueurs…</p>
+            <p className="panel-note">{tr("Chargement des vainqueurs…", "Loading winners…")}</p>
           ) : filtered.length === 0 ? (
             <div className="notice-card">
-              <strong>Aucun vainqueur trouvé</strong>
-              <p>Modifiez les filtres, ou importez d&apos;abord les données historiques.</p>
+              <strong>{tr("Aucun vainqueur trouvé", "No winners found")}</strong>
+              <p>{tr("Modifiez les filtres, ou importez d'abord les données historiques.", "Change the filters, or import the historical data first.")}</p>
             </div>
           ) : grouped ? (
             // Grouped by discipline
@@ -1569,12 +1591,12 @@ function MeetingWinnersPage({ Panel }) {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Année</th>
-                    <th>Épreuve</th>
-                    <th data-sticky-col="1" className="col-sticky col-sticky--last">Vainqueur</th>
+                    <th>{tr("Année", "Year")}</th>
+                    <th>{tr("Épreuve", "Event")}</th>
+                    <th data-sticky-col="1" className="col-sticky col-sticky--last">{tr("Vainqueur", "Winner")}</th>
                     <th>Nat.</th>
-                    <th>Résultat</th>
-                    <th>Victoires</th>
+                    <th>{tr("Résultat", "Result")}</th>
+                    <th>{tr("Victoires", "Wins")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1607,7 +1629,7 @@ function MeetingWinnersPage({ Panel }) {
                                 marginLeft: 6, fontSize: "0.68rem", fontWeight: 700,
                                 background: "#fef3c7", color: "#92400e",
                                 padding: "1px 5px", borderRadius: 8,
-                              }} title={`${wins}× vainqueur`}>
+                              }} title={tr(`${wins}× vainqueur`, `${wins}× winner`)}>
                                 ×{wins}
                               </span>
                             )}
@@ -1644,13 +1666,13 @@ function MeetingWinnersPage({ Panel }) {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Année</th>
-                    <th>Épreuve</th>
+                    <th>{tr("Année", "Year")}</th>
+                    <th>{tr("Épreuve", "Event")}</th>
                     <th></th>
-                    <th>Vainqueur</th>
+                    <th>{tr("Vainqueur", "Winner")}</th>
                     <th>Nat.</th>
-                    <th>Résultat</th>
-                    <th>Victoires</th>
+                    <th>{tr("Résultat", "Result")}</th>
+                    <th>{tr("Victoires", "Wins")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1673,7 +1695,7 @@ function MeetingWinnersPage({ Panel }) {
                               marginLeft: 6, fontSize: "0.68rem", fontWeight: 700,
                               background: "#fef3c7", color: "#92400e",
                               padding: "1px 5px", borderRadius: 8,
-                            }} title={`${wins}× vainqueur`}>
+                            }} title={tr(`${wins}× vainqueur`, `${wins}× winner`)}>
                               ×{wins}
                             </span>
                           )}

@@ -10,6 +10,8 @@ import meetingEditionsSeed from "../data/meetingEditions.json";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { normalizeAccreditationConfigurationPayload } from "./accreditation-config";
 import { ACCREDITATION_CONFIGURATION_DOC_PATH } from "./seed-data";
+import { useLanguage } from "./language-context";
+import { useTr } from "./use-tr";
 
 // Ressource QR des badges qui doit mener au roadbook (voir accreditation-config).
 const BADGE_QR_RESOURCE_ID = "athlete-roadbook";
@@ -31,16 +33,51 @@ import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
 import { PlanCanvas } from "./coque-plan/coque-plan-view";
 
 const TABS = [
-  { id: "general", label: "Infos générales" },
-  { id: "bookings", label: "Kiné & places" },
-  { id: "arrival", label: "Arrivée & départ" },
-  { id: "schedule", label: "Programme" },
-  { id: "competition", label: "Compétition" },
-  { id: "venue", label: "La Coque" },
-  { id: "calltimes", label: "Call times" },
-  { id: "extra", label: "Sections libres" },
-  { id: "labels", label: "Titres & sections" },
+  { id: "general", label: "Infos générales", labelEn: "General info" },
+  { id: "bookings", label: "Kiné & places", labelEn: "Physio & seats" },
+  { id: "arrival", label: "Arrivée & départ", labelEn: "Arrival & departure" },
+  { id: "schedule", label: "Programme", labelEn: "Schedule" },
+  { id: "competition", label: "Compétition", labelEn: "Competition" },
+  { id: "venue", label: "La Coque", labelEn: "Coque" },
+  { id: "calltimes", label: "Call times", labelEn: "Call times" },
+  { id: "extra", label: "Sections libres", labelEn: "Custom sections" },
+  { id: "labels", label: "Titres & sections", labelEn: "Titles & sections" },
 ];
+
+// Libellés anglais (back-office) des champs LABEL_FIELDS et des icônes du
+// programme, définis dans athlete-roadbook-shared en français.
+const LABEL_FIELDS_EN = {
+  heroEyebrow: "Page top eyebrow",
+  titleLead: "Title (1st word)",
+  titleAccent: "Title (word in red)",
+  fromAirport: "“From the airport” card",
+  toAirport: "“To the airport” card",
+  tramHours: "“Tram hours” card",
+  fromTrainStation: "“From the train station” card",
+  toTrainStation: "“To the train station” card",
+  accessZones: "Access zones title",
+  timetableEmpty: "Timetable not published yet",
+  callTimesEmpty: "Call times not published yet",
+  livePhotos: "Photos link",
+  emagazine: "E-magazine link",
+  liveResults: "Live results link",
+  emergency: "Emergency contact (default)",
+  bookingsEyebrow: "“Bookings” menu group",
+  physioTitle: "Physio booking title",
+  ticketsTitle: "Guest seats title",
+  quickPhysio: "Physio quick-access button",
+  quickTickets: "Guest seats quick-access button",
+};
+
+const SCHEDULE_ICON_LABELS_EN = {
+  gym: "Gym",
+  coque: "Coque",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  shuttle: "Shuttle",
+  physio: "Physio",
+  info: "Info",
+};
 
 function newId(prefix) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -115,6 +152,7 @@ function T({ label, path, placeholder }) {
 }
 
 function CopyLink({ label, url }) {
+  const tr = useTr();
   const [copied, setCopied] = useState(false);
   async function copy() {
     try {
@@ -130,7 +168,7 @@ function CopyLink({ label, url }) {
       <span>{label}</span>
       <a href={url} target="_blank" rel="noreferrer">{url}</a>
       <button type="button" className="button button--secondary button--small" onClick={copy}>
-        {copied ? "Copié ✓" : "Copier"}
+        {copied ? tr("Copié ✓", "Copied ✓") : tr("Copier", "Copy")}
       </button>
     </div>
   );
@@ -157,7 +195,21 @@ const SECTION_LABELS_FR = {
   links: "Photos & liens",
 };
 
+const SECTION_LABELS_EN = {
+  arrival: "Arrival & departure",
+  schedule: "Schedule",
+  competition: "Competition",
+  venue: "Coque",
+  timetable: "Timetable",
+  calltimes: "Call times",
+  links: "Photos & links",
+};
+
+const LOAD_ERROR = "roadbook-load-error";
+
 function AthleteRoadbookAdminPage({ Panel }) {
+  const tr = useTr();
+  const { language } = useLanguage();
   const { siteEditionYear, loading: siteYearLoading } = useSiteEditionYear();
   const { editions, loading: editionsLoading } = useMeetingEditions();
   const { elements: coquePlanElements } = useCoquePlan();
@@ -187,7 +239,8 @@ function AthleteRoadbookAdminPage({ Panel }) {
       (snapshot) => setStored(snapshot.exists() ? snapshot.data() : null),
       (snapshotError) => {
         console.error("Unable to load the athlete roadbook", snapshotError);
-        setError("Impossible de charger le roadbook.");
+        // Clé traduite à l'affichage (tr n'est pas une dépendance stable).
+        setError(LOAD_ERROR);
       },
     );
     return unsubscribe;
@@ -204,7 +257,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
     setStatusMessage("");
   }
 
-  async function save(nextDraft = draft, message = "Roadbook enregistré.") {
+  async function save(nextDraft = draft, message = tr("Roadbook enregistré.", "Roadbook saved.")) {
     if (!nextDraft || !editionId) return;
     setSaving(true);
     setError("");
@@ -215,7 +268,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
       setStatusMessage(message);
     } catch (saveError) {
       console.error("Athlete roadbook save failed", saveError);
-      setError("Enregistrement impossible. Vérifie ta connexion puis réessaie.");
+      setError(tr("Enregistrement impossible. Vérifie ta connexion puis réessaie.", "Could not save. Check your connection and try again."));
     } finally {
       setSaving(false);
     }
@@ -251,10 +304,10 @@ function AthleteRoadbookAdminPage({ Panel }) {
         resource.id === BADGE_QR_RESOURCE_ID ? { ...resource, targetType: "url", url: roadbookUrl, documentId: "" } : resource,
       );
       await setDoc(reference, { qrResources, updatedAt: serverTimestamp() }, { merge: true });
-      setStatusMessage("Le QR « Roadbook athlete » des badges pointe maintenant vers le roadbook.");
+      setStatusMessage(tr("Le QR « Roadbook athlete » des badges pointe maintenant vers le roadbook.", "The badges' “Roadbook athlete” QR now points to the roadbook."));
     } catch (qrError) {
       console.error("Badge QR update failed", qrError);
-      setError("Impossible de mettre à jour le QR des badges.");
+      setError(tr("Impossible de mettre à jour le QR des badges.", "Unable to update the badge QR."));
     }
   }
 
@@ -272,13 +325,20 @@ function AthleteRoadbookAdminPage({ Panel }) {
   async function createFromTemplate() {
     setSaving(true);
     let initial = null;
-    let message = "Roadbook créé à partir du contenu 2026 corrigé. Vérifie les horaires avant de publier.";
+    let message = tr(
+      "Roadbook créé à partir du contenu 2026 corrigé. Vérifie les horaires avant de publier.",
+      "Roadbook created from the corrected 2026 content. Check the times before publishing.",
+    );
     try {
       if (previousEdition) {
         const previous = await getDoc(doc(db, ROADBOOK_COLLECTION, String(previousEdition.id)));
         if (previous.exists()) {
           initial = roadbookFromPreviousEdition(previous.data());
-          message = `Roadbook créé à partir de celui de ${previousEdition.year || previousEdition.id} (call times et lien photos à refaire). Vérifie les horaires avant de publier.`;
+          const previousLabel = previousEdition.year || previousEdition.id;
+          message = tr(
+            `Roadbook créé à partir de celui de ${previousLabel} (call times et lien photos à refaire). Vérifie les horaires avant de publier.`,
+            `Roadbook created from the ${previousLabel} one (call times and photos link to redo). Check the times before publishing.`,
+          );
         }
       }
     } catch (loadError) {
@@ -294,7 +354,12 @@ function AthleteRoadbookAdminPage({ Panel }) {
     const nextStatus = draft.status === "published" ? "draft" : "published";
     const next = { ...draft, status: nextStatus };
     setDraft(next);
-    save(next, nextStatus === "published" ? "Roadbook publié : les athlètes peuvent le consulter." : "Roadbook repassé en brouillon.");
+    save(
+      next,
+      nextStatus === "published"
+        ? tr("Roadbook publié : les athlètes peuvent le consulter.", "Roadbook published: athletes can now view it.")
+        : tr("Roadbook repassé en brouillon.", "Roadbook moved back to draft."),
+    );
   }
 
   async function handleCallTimesFile(event) {
@@ -309,7 +374,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
       const rows = utils.sheet_to_json(sheet, { header: 1, defval: "", raw: true });
       const result = parseCallTimeRows(rows);
       if (result.error) {
-        setError("Colonne « Event » (ou « Épreuve ») introuvable. Utilise le modèle Excel.");
+        setError(tr("Colonne « Event » (ou « Épreuve ») introuvable. Utilise le modèle Excel.", "“Event” column (or “Épreuve”) not found. Use the Excel template."));
         return;
       }
       setDraft((current) => ({ ...current, callTimes: result.rows, callTimesFileName: file.name }));
@@ -317,18 +382,19 @@ function AthleteRoadbookAdminPage({ Panel }) {
       setCallTimesReport({ count: result.rows.length, missingColumns: result.missingColumns, fileName: file.name });
     } catch (importError) {
       console.error("Call times import failed", importError);
-      setError("Impossible de lire ce fichier Excel.");
+      setError(tr("Impossible de lire ce fichier Excel.", "Unable to read this Excel file."));
     }
   }
 
   if (siteYearLoading || editionsLoading || (editionId && stored === undefined)) {
     return (
       <div className="page">
-        <p>Chargement du roadbook…</p>
+        <p>{tr("Chargement du roadbook…", "Loading the roadbook…")}</p>
       </div>
     );
   }
 
+  const dayLanguage = language === "fr" ? "fr" : "en";
   const editionNumber = inferEditionDisplayNumber(edition, [...editions, ...meetingEditionsSeed]);
   const editionDate = edition?.date?.toDate?.() || (edition?.date ? new Date(edition.date) : null);
   const timetableCount = Array.isArray(edition?.timetable) ? edition.timetable.length : 0;
@@ -349,42 +415,63 @@ function AthleteRoadbookAdminPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Accréditations · Athlètes</p>
-          <h1>Roadbook athlètes</h1>
+          <p className="eyebrow">{tr("Accréditations · Athlètes", "Accreditations · Athletes")}</p>
+          <h1>{tr("Roadbook athlètes", "Athlete roadbook")}</h1>
           <p>
-            Page en anglais, entièrement modifiable ici. Dans les textes, une ligne = un point de liste.
+            {tr(
+              "Page en anglais, entièrement modifiable ici. Dans les textes, une ligne = un point de liste.",
+              "English page, fully editable here. In the texts, one line = one bullet point.",
+            )}
           </p>
         </div>
       </section>
 
-      {error ? <p className="form-error">{error}</p> : null}
+      {error ? <p className="form-error">{error === LOAD_ERROR ? tr("Impossible de charger le roadbook.", "Unable to load the roadbook.") : error}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
 
       <Panel
-        title="Lien à partager"
-        subtitle={draft?.status === "published" ? "Le roadbook est publié : ces liens sont actifs." : "Le roadbook est en brouillon : les athlètes verront « pas encore disponible » tant qu'il n'est pas publié."}
+        title={tr("Lien à partager", "Link to share")}
+        subtitle={
+          draft?.status === "published"
+            ? tr("Le roadbook est publié : ces liens sont actifs.", "The roadbook is published: these links are live.")
+            : tr(
+                "Le roadbook est en brouillon : les athlètes verront « pas encore disponible » tant qu'il n'est pas publié.",
+                "The roadbook is a draft: athletes will see “not available yet” until it is published.",
+              )
+        }
         actions={
           <button type="button" className="button button--secondary button--small" onClick={() => downloadQrCode(publicUrl, "roadbook-qr.png")}>
-            Télécharger le QR
+            {tr("Télécharger le QR", "Download QR code")}
           </button>
         }
       >
         <div className="roadbook-admin-links">
           <CopyLink label="Roadbook" url={publicUrl} />
-          <CopyLink label="Réservation kiné" url={`${publicUrl}#physio`} />
-          <CopyLink label="Places invités" url={`${publicUrl}#tickets`} />
+          <CopyLink label={tr("Réservation kiné", "Physio booking")} url={`${publicUrl}#physio`} />
+          <CopyLink label={tr("Places invités", "Guest seats")} url={`${publicUrl}#tickets`} />
         </div>
-        <p className="panel-note">Le même lien sert chaque année : il affiche toujours l'édition courante du site.</p>
+        <p className="panel-note">
+          {tr(
+            "Le même lien sert chaque année : il affiche toujours l'édition courante du site.",
+            "The same link works every year: it always shows the site's current edition.",
+          )}
+        </p>
         {badgeQr === undefined ? null : badgeQr === null ? (
-          <p className="panel-note">QR « Roadbook athlete » introuvable dans les réglages d'accréditation.</p>
+          <p className="panel-note">
+            {tr("QR « Roadbook athlete » introuvable dans les réglages d'accréditation.", "“Roadbook athlete” QR not found in the accreditation settings.")}
+          </p>
         ) : (
           <div className="roadbook-admin-bar">
             <span className={`status-pill ${badgeQrOk ? "status-pill--ok" : "status-pill--pending"}`}>
-              {badgeQrOk ? "QR des badges : pointe vers ce lien" : badgeQr.url ? "QR des badges : autre lien" : "QR des badges : ancienne image, pas de lien"}
+              {badgeQrOk
+                ? tr("QR des badges : pointe vers ce lien", "Badge QR: points to this link")
+                : badgeQr.url
+                  ? tr("QR des badges : autre lien", "Badge QR: other link")
+                  : tr("QR des badges : ancienne image, pas de lien", "Badge QR: old image, no link")}
             </span>
             {badgeQrOk ? null : (
               <button type="button" className="button button--secondary button--small" onClick={pointBadgeQrToRoadbook}>
-                Mettre ce lien sur le QR des badges
+                {tr("Mettre ce lien sur le QR des badges", "Use this link on the badge QR")}
               </button>
             )}
           </div>
@@ -392,63 +479,88 @@ function AthleteRoadbookAdminPage({ Panel }) {
       </Panel>
 
       <Panel
-        title={`Édition ${edition?.year || editionId || "—"}`}
-        subtitle="Date, lieu, horaire et live results : ceux saisis dans Édition (onglets Infos et Programme), rien à ressaisir ici."
+        title={`${tr("Édition", "Edition")} ${edition?.year || editionId || "—"}`}
+        subtitle={tr(
+          "Date, lieu, horaire et live results : ceux saisis dans Édition (onglets Infos et Programme), rien à ressaisir ici.",
+          "Date, venue, timetable and live results: taken from Edition (Info and Programme tabs), nothing to re-enter here.",
+        )}
         actions={
           <div className="roadbook-admin-bar__actions">
             <Link className="button button--secondary button--small" to="/app/edition">
-              Infos de l'édition
+              {tr("Infos de l'édition", "Edition info")}
             </Link>
             <Link className="button button--secondary button--small" to="/app/edition/programme">
-              Horaire
+              {tr("Horaire", "Timetable")}
             </Link>
           </div>
         }
       >
         <div className="roadbook-admin-facts">
-          <span>Numéro : <strong>{editionNumber ? `Édition ${editionNumber}` : "—"}</strong></span>
-          <span>Date : <strong>{editionDate && !Number.isNaN(editionDate.getTime()) ? editionDate.toLocaleDateString("fr-LU", { day: "numeric", month: "long", year: "numeric" }) : "à renseigner"}</strong></span>
-          <span>Lieu : <strong>{edition?.venue || "à renseigner"}</strong></span>
-          <span>Horaire : <strong>{timetableCount ? `${timetableCount} ligne(s)` : "pas encore saisi"}</strong></span>
-          <span>Live results : <strong>{edition?.resultsUrl ? "lien défini" : "pas encore de lien"}</strong></span>
+          <span>{tr("Numéro :", "Number:")} <strong>{editionNumber ? `${tr("Édition", "Edition")} ${editionNumber}` : "—"}</strong></span>
+          <span>
+            {tr("Date :", "Date:")}{" "}
+            <strong>
+              {editionDate && !Number.isNaN(editionDate.getTime())
+                ? editionDate.toLocaleDateString(language === "fr" ? "fr-LU" : "en-GB", { day: "numeric", month: "long", year: "numeric" })
+                : tr("à renseigner", "to be set")}
+            </strong>
+          </span>
+          <span>{tr("Lieu :", "Venue:")} <strong>{edition?.venue || tr("à renseigner", "to be set")}</strong></span>
+          <span>
+            {tr("Horaire :", "Timetable:")}{" "}
+            <strong>
+              {timetableCount
+                ? tr(`${timetableCount} ligne(s)`, timetableCount === 1 ? "1 row" : `${timetableCount} rows`)
+                : tr("pas encore saisi", "not entered yet")}
+            </strong>
+          </span>
+          <span>Live results : <strong>{edition?.resultsUrl ? tr("lien défini", "link set") : tr("pas encore de lien", "no link yet")}</strong></span>
         </div>
       </Panel>
 
       {!draft ? (
-        <Panel title="Pas encore de roadbook pour cette édition">
+        <Panel title={tr("Pas encore de roadbook pour cette édition", "No roadbook for this edition yet")}>
           <p className="panel-note">
-            Le roadbook repart de celui de {previousEdition ? previousEdition.year || previousEdition.id : "l'an dernier"} s'il
-            a été enregistré, sinon du contenu 2026 corrigé (trajets, programme, règles, zones). Il reste en brouillon tant
-            que tu ne le publies pas.
+            {previousEdition
+              ? tr(
+                  `Le roadbook repart de celui de ${previousEdition.year || previousEdition.id} s'il a été enregistré, sinon du contenu 2026 corrigé (trajets, programme, règles, zones). Il reste en brouillon tant que tu ne le publies pas.`,
+                  `The roadbook starts from the ${previousEdition.year || previousEdition.id} one if it was saved, otherwise from the corrected 2026 content (travel, schedule, rules, zones). It stays a draft until you publish it.`,
+                )
+              : tr(
+                  "Le roadbook repart de celui de l'an dernier s'il a été enregistré, sinon du contenu 2026 corrigé (trajets, programme, règles, zones). Il reste en brouillon tant que tu ne le publies pas.",
+                  "The roadbook starts from last year's one if it was saved, otherwise from the corrected 2026 content (travel, schedule, rules, zones). It stays a draft until you publish it.",
+                )}
           </p>
           <button className="button button--primary" type="button" disabled={saving} onClick={createFromTemplate}>
-            Créer le roadbook
+            {tr("Créer le roadbook", "Create the roadbook")}
           </button>
         </Panel>
       ) : (
         <>
           <div className="roadbook-admin-bar">
             <span className={`status-pill ${draft.status === "published" ? "status-pill--ok" : "status-pill--pending"}`}>
-              {draft.status === "published" ? "Publié" : "Brouillon"}
+              {draft.status === "published" ? tr("Publié", "Published") : tr("Brouillon", "Draft")}
             </span>
-            {dirty ? <span className="roadbook-admin-bar__dirty">Modifications non enregistrées</span> : null}
+            {dirty ? <span className="roadbook-admin-bar__dirty">{tr("Modifications non enregistrées", "Unsaved changes")}</span> : null}
             {!dirty && zonesOutdated ? (
-              <span className="roadbook-admin-bar__dirty">Zones modifiées dans les accréditations : enregistre pour les mettre à jour</span>
+              <span className="roadbook-admin-bar__dirty">
+                {tr("Zones modifiées dans les accréditations : enregistre pour les mettre à jour", "Zones changed in the accreditations: save to update them")}
+              </span>
             ) : null}
             <div className="roadbook-admin-bar__actions">
               <a className="button button--secondary button--small" href={previewUrl} target="_blank" rel="noreferrer">
-                Aperçu
+                {tr("Aperçu", "Preview")}
               </a>
               <button className="button button--secondary button--small" type="button" disabled={saving} onClick={togglePublished}>
-                {draft.status === "published" ? "Repasser en brouillon" : "Publier"}
+                {draft.status === "published" ? tr("Repasser en brouillon", "Back to draft") : tr("Publier", "Publish")}
               </button>
               <button className="button button--primary button--small" type="button" disabled={saving || (!dirty && !zonesOutdated)} onClick={() => save()}>
-                {saving ? "Enregistrement…" : "Enregistrer"}
+                {saving ? tr("Enregistrement…", "Saving…") : tr("Enregistrer", "Save")}
               </button>
             </div>
           </div>
 
-          <div className="admin-subtabs" role="tablist" aria-label="Parties du roadbook">
+          <div className="admin-subtabs" role="tablist" aria-label={tr("Parties du roadbook", "Roadbook parts")}>
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -456,41 +568,41 @@ function AthleteRoadbookAdminPage({ Panel }) {
                 className={`admin-subtab ${activeTab === tab.id ? "admin-subtab--active" : ""}`}
                 onClick={() => setActiveTab(tab.id)}
               >
-                {tab.label}
+                {tr(tab.label, tab.labelEn)}
               </button>
             ))}
           </div>
 
           {activeTab === "general" ? (
-            <Panel title="Infos générales">
-              <L label="Introduction (sous le titre)" path={["intro"]} multiline />
+            <Panel title={tr("Infos générales", "General info")}>
+              <L label={tr("Introduction (sous le titre)", "Introduction (below the title)")} path={["intro"]} multiline />
               <label className="roadbook-admin-single">
-                <span>Hôtel des athlètes</span>
+                <span>{tr("Hôtel des athlètes", "Athletes' hotel")}</span>
                 <input value={draft.hotel} onChange={(event) => update(["hotel"], event.target.value)} />
               </label>
-              <L label="Libellé du contact d'urgence" path={["emergency", "label"]} />
+              <L label={tr("Libellé du contact d'urgence", "Emergency contact label")} path={["emergency", "label"]} />
               <div className="roadbook-admin-row">
                 <label className="roadbook-admin-single">
-                  <span>Nom du contact d'urgence</span>
+                  <span>{tr("Nom du contact d'urgence", "Emergency contact name")}</span>
                   <input value={draft.emergency.name} onChange={(event) => update(["emergency", "name"], event.target.value)} />
                 </label>
                 <label className="roadbook-admin-single">
-                  <span>Téléphone d'urgence</span>
+                  <span>{tr("Téléphone d'urgence", "Emergency phone")}</span>
                   <input type="tel" value={draft.emergency.phone} placeholder="+352 …" onChange={(event) => update(["emergency", "phone"], event.target.value)} />
                 </label>
               </div>
-              <L label="Texte photos" path={["photos", "text"]} multiline />
+              <L label={tr("Texte photos", "Photos text")} path={["photos", "text"]} multiline />
               <label className="roadbook-admin-single">
-                <span>Lien de la galerie photos</span>
+                <span>{tr("Lien de la galerie photos", "Photo gallery link")}</span>
                 <input type="url" value={draft.photos.url} placeholder="https://…" onChange={(event) => update(["photos", "url"], event.target.value)} />
               </label>
               <div className="roadbook-admin-row">
                 <label className="roadbook-admin-single">
-                  <span>Lien e-magazine (vide = e-magazine du site)</span>
+                  <span>{tr("Lien e-magazine (vide = e-magazine du site)", "E-magazine link (empty = the site's e-magazine)")}</span>
                   <input type="url" value={draft.links.emagazineUrl} onChange={(event) => update(["links", "emagazineUrl"], event.target.value)} />
                 </label>
                 <label className="roadbook-admin-single">
-                  <span>Lien live results (vide = lien de l'édition)</span>
+                  <span>{tr("Lien live results (vide = lien de l'édition)", "Live results link (empty = the edition's link)")}</span>
                   <input type="url" value={draft.links.liveResultsUrl} onChange={(event) => update(["links", "liveResultsUrl"], event.target.value)} />
                 </label>
               </div>
@@ -499,21 +611,24 @@ function AthleteRoadbookAdminPage({ Panel }) {
 
           {activeTab === "bookings" ? (
             <Panel
-              title="Kiné & places"
-              subtitle="Boutons d'accès rapide en haut du roadbook et sections « My bookings » (réservation kiné, 2 places gratuites pour les invités)."
+              title={tr("Kiné & places", "Physio & seats")}
+              subtitle={tr(
+                "Boutons d'accès rapide en haut du roadbook et sections « My bookings » (réservation kiné, 2 places gratuites pour les invités).",
+                "Quick-access buttons at the top of the roadbook and “My bookings” sections (physio booking, 2 free seats for guests).",
+              )}
             >
               <div className="roadbook-admin-row">
-                <T label="Bouton d'accès kiné" path={["labels", "quickPhysio"]} />
-                <T label="Bouton d'accès places invités" path={["labels", "quickTickets"]} />
+                <T label={tr("Bouton d'accès kiné", "Physio access button")} path={["labels", "quickPhysio"]} />
+                <T label={tr("Bouton d'accès places invités", "Guest seats access button")} path={["labels", "quickTickets"]} />
               </div>
               <div className="roadbook-admin-row">
-                <T label="Titre de la section kiné" path={["labels", "physioTitle"]} />
-                <T label="Titre de la section places" path={["labels", "ticketsTitle"]} />
-                <T label="Groupe du menu" path={["labels", "bookingsEyebrow"]} />
+                <T label={tr("Titre de la section kiné", "Physio section title")} path={["labels", "physioTitle"]} />
+                <T label={tr("Titre de la section places", "Seats section title")} path={["labels", "ticketsTitle"]} />
+                <T label={tr("Groupe du menu", "Menu group")} path={["labels", "bookingsEyebrow"]} />
               </div>
               <div className="roadbook-admin-row">
                 <label className="roadbook-admin-single">
-                  <span>Places en plus : lien de billetterie (facultatif)</span>
+                  <span>{tr("Places en plus : lien de billetterie (facultatif)", "Extra seats: ticketing link (optional)")}</span>
                   <input
                     type="url"
                     value={draft.bookings.extraTicketsUrl}
@@ -521,18 +636,27 @@ function AthleteRoadbookAdminPage({ Panel }) {
                     onChange={(event) => update(["bookings", "extraTicketsUrl"], event.target.value)}
                   />
                 </label>
-                <T label="Texte du bouton places en plus" path={["bookings", "extraTicketsLabel"]} />
+                <T label={tr("Texte du bouton places en plus", "Extra seats button text")} path={["bookings", "extraTicketsLabel"]} />
               </div>
               <p className="panel-note">
-                Les créneaux kiné se gèrent dans <Link to="/app/kine">Kiné</Link> ; les invités des athlètes arrivent dans la liste
-                « Invités des athlètes » de la caisse. Sans lien de billetterie, le bouton « places en plus » n'apparaît pas.
+                {tr("Les créneaux kiné se gèrent dans", "Physio slots are managed in")} <Link to="/app/kine">{tr("Kiné", "Physio")}</Link>
+                {tr(
+                  " ; les invités des athlètes arrivent dans la liste « Invités des athlètes » de la caisse. Sans lien de billetterie, le bouton « places en plus » n'apparaît pas.",
+                  "; athletes' guests appear in the “Athletes' guests” list at the box office. Without a ticketing link, the “extra seats” button is hidden.",
+                )}
               </p>
             </Panel>
           ) : null}
 
           {activeTab === "labels" ? (
             <>
-              <Panel title="Sections" subtitle="Afficher ou masquer chaque section, et changer ses titres (menu de gauche et page).">
+              <Panel
+                title="Sections"
+                subtitle={tr(
+                  "Afficher ou masquer chaque section, et changer ses titres (menu de gauche et page).",
+                  "Show or hide each section and change its titles (left menu and page).",
+                )}
+              >
                 {ROADBOOK_SECTION_IDS.map((id) => (
                   <div key={id} className="roadbook-admin-item">
                     <div className="roadbook-admin-item__head">
@@ -542,22 +666,22 @@ function AthleteRoadbookAdminPage({ Panel }) {
                           checked={draft.sections[id].visible !== false}
                           onChange={(event) => update(["sections", id, "visible"], event.target.checked)}
                         />
-                        <strong>{SECTION_LABELS_FR[id]}</strong>
-                        {id === "timetable" ? <small> (contenu repris de l'édition du site)</small> : null}
+                        <strong>{tr(SECTION_LABELS_FR[id], SECTION_LABELS_EN[id] || SECTION_LABELS_FR[id])}</strong>
+                        {id === "timetable" ? <small> {tr("(contenu repris de l'édition du site)", "(content taken from the site's edition)")}</small> : null}
                       </label>
                     </div>
                     <div className="roadbook-admin-row">
-                      <T label="Sur-titre" path={["sections", id, "eyebrow"]} />
-                      <T label="Titre" path={["sections", id, "title"]} />
+                      <T label={tr("Sur-titre", "Eyebrow")} path={["sections", id, "eyebrow"]} />
+                      <T label={tr("Titre", "Title")} path={["sections", id, "title"]} />
                       <T label="Menu" path={["sections", id, "nav"]} />
                     </div>
                   </div>
                 ))}
               </Panel>
-              <Panel title="Libellés de la page" subtitle="Tous les petits textes fixes du roadbook.">
+              <Panel title={tr("Libellés de la page", "Page labels")} subtitle={tr("Tous les petits textes fixes du roadbook.", "All the small fixed texts of the roadbook.")}>
                 <div className="roadbook-admin-grid">
                   {LABEL_FIELDS.map(([key, label]) => (
-                    <T key={key} label={label} path={["labels", key]} />
+                    <T key={key} label={tr(label, LABEL_FIELDS_EN[key] || label)} path={["labels", key]} />
                   ))}
                 </div>
               </Panel>
@@ -566,8 +690,11 @@ function AthleteRoadbookAdminPage({ Panel }) {
 
           {activeTab === "extra" ? (
             <Panel
-              title="Sections libres"
-              subtitle="Pour ajouter une information qui n'entre dans aucune section (accréditation, repas, dopage…). Elles s'affichent avant « Photos & links »."
+              title={tr("Sections libres", "Custom sections")}
+              subtitle={tr(
+                "Pour ajouter une information qui n'entre dans aucune section (accréditation, repas, dopage…). Elles s'affichent avant « Photos & links ».",
+                "To add information that fits no other section (accreditation, meals, anti-doping…). They appear before “Photos & links”.",
+              )}
               actions={
                 <button
                   className="button button--secondary button--small"
@@ -579,11 +706,11 @@ function AthleteRoadbookAdminPage({ Panel }) {
                     ])
                   }
                 >
-                  Ajouter une section
+                  {tr("Ajouter une section", "Add a section")}
                 </button>
               }
             >
-              {draft.extraSections.length === 0 ? <p className="panel-note">Aucune section libre pour l'instant.</p> : null}
+              {draft.extraSections.length === 0 ? <p className="panel-note">{tr("Aucune section libre pour l'instant.", "No custom sections yet.")}</p> : null}
               {draft.extraSections.map((section, index) => (
                 <div key={section.id} className="roadbook-admin-item">
                   <div className="roadbook-admin-item__head">
@@ -593,39 +720,39 @@ function AthleteRoadbookAdminPage({ Panel }) {
                         checked={section.visible !== false}
                         onChange={(event) => update(["extraSections", index, "visible"], event.target.checked)}
                       />
-                      Afficher
+                      {tr("Afficher", "Show")}
                     </label>
                     <button type="button" className="button button--secondary button--small" onClick={() => update(["extraSections"], moveItem(draft.extraSections, index, -1))}>↑</button>
                     <button type="button" className="button button--secondary button--small" onClick={() => update(["extraSections"], moveItem(draft.extraSections, index, 1))}>↓</button>
                     <button
                       type="button"
                       className="button button--danger-soft button--small"
-                      onClick={() => window.confirm("Supprimer cette section ?") && update(["extraSections"], draft.extraSections.filter((_, itemIndex) => itemIndex !== index))}
+                      onClick={() => window.confirm(tr("Supprimer cette section ?", "Delete this section?")) && update(["extraSections"], draft.extraSections.filter((_, itemIndex) => itemIndex !== index))}
                     >
-                      Supprimer
+                      {tr("Supprimer", "Delete")}
                     </button>
                   </div>
                   <div className="roadbook-admin-row">
-                    <T label="Sur-titre" path={["extraSections", index, "eyebrow"]} />
-                    <T label="Titre" path={["extraSections", index, "title"]} />
+                    <T label={tr("Sur-titre", "Eyebrow")} path={["extraSections", index, "eyebrow"]} />
+                    <T label={tr("Titre", "Title")} path={["extraSections", index, "title"]} />
                   </div>
                   <label className="roadbook-admin-single">
-                    <span>Texte (une ligne = un point de liste)</span>
+                    <span>{tr("Texte (une ligne = un point de liste)", "Text (one line = one bullet point)")}</span>
                     <textarea rows={4} value={section.text} onChange={(event) => update(["extraSections", index, "text"], event.target.value)} />
                   </label>
                   <div className="roadbook-admin-row">
                     <label className="roadbook-admin-single">
-                      <span>Lien (facultatif)</span>
+                      <span>{tr("Lien (facultatif)", "Link (optional)")}</span>
                       <input type="url" value={section.linkUrl} placeholder="https://…" onChange={(event) => update(["extraSections", index, "linkUrl"], event.target.value)} />
                     </label>
-                    <T label="Texte du lien" path={["extraSections", index, "linkLabel"]} />
+                    <T label={tr("Texte du lien", "Link text")} path={["extraSections", index, "linkLabel"]} />
                   </div>
                   <FileUpload
                     value={section.imageUrl}
                     onChange={(url) => update(["extraSections", index, "imageUrl"], url)}
                     accept="image/*"
                     storagePath="athlete-roadbook"
-                    label="Image (facultatif)"
+                    label={tr("Image (facultatif)", "Image (optional)")}
                     helperText="Image · Max 20 MB"
                   />
                 </div>
@@ -634,20 +761,20 @@ function AthleteRoadbookAdminPage({ Panel }) {
           ) : null}
 
           {activeTab === "arrival" ? (
-            <Panel title="Arrivée & départ">
-              <L label="Point de rendez-vous" path={["arrival", "meetingPoint"]} multiline />
-              <L label="Depuis l'aéroport" path={["arrival", "fromAirport"]} multiline />
-              <L label="Vers l'aéroport" path={["arrival", "toAirport"]} multiline />
-              <L label="Horaires du tram" path={["arrival", "tramHours"]} multiline />
-              <L label="Depuis la gare" path={["arrival", "fromTrainStation"]} multiline />
-              <L label="Vers la gare" path={["arrival", "toTrainStation"]} multiline />
+            <Panel title={tr("Arrivée & départ", "Arrival & departure")}>
+              <L label={tr("Point de rendez-vous", "Meeting point")} path={["arrival", "meetingPoint"]} multiline />
+              <L label={tr("Depuis l'aéroport", "From the airport")} path={["arrival", "fromAirport"]} multiline />
+              <L label={tr("Vers l'aéroport", "To the airport")} path={["arrival", "toAirport"]} multiline />
+              <L label={tr("Horaires du tram", "Tram hours")} path={["arrival", "tramHours"]} multiline />
+              <L label={tr("Depuis la gare", "From the train station")} path={["arrival", "fromTrainStation"]} multiline />
+              <L label={tr("Vers la gare", "To the train station")} path={["arrival", "toTrainStation"]} multiline />
               <div className="roadbook-admin-row">
                 <FileUpload
                   value={draft.arrival.airportMapUrl}
                   onChange={(url) => update(["arrival", "airportMapUrl"], url)}
                   accept="image/*"
                   storagePath="athlete-roadbook"
-                  label="Plan de l'aéroport"
+                  label={tr("Plan de l'aéroport", "Airport map")}
                   helperText="Image · Max 20 MB"
                 />
                 <FileUpload
@@ -655,7 +782,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
                   onChange={(url) => update(["arrival", "trainStationMapUrl"], url)}
                   accept="image/*"
                   storagePath="athlete-roadbook"
-                  label="Plan de la gare"
+                  label={tr("Plan de la gare", "Train station map")}
                   helperText="Image · Max 20 MB"
                 />
               </div>
@@ -664,8 +791,11 @@ function AthleteRoadbookAdminPage({ Panel }) {
 
           {activeTab === "schedule" ? (
             <Panel
-              title="Programme des athlètes"
-              subtitle="Les intitulés des jours sont calculés depuis la date de l'édition (J−2, J−1, jour de compétition)."
+              title={tr("Programme des athlètes", "Athlete schedule")}
+              subtitle={tr(
+                "Les intitulés des jours sont calculés depuis la date de l'édition (J−2, J−1, jour de compétition).",
+                "Day names are worked out from the edition date (D−2, D−1, competition day).",
+              )}
               actions={
                 <button
                   className="button button--secondary button--small"
@@ -677,44 +807,46 @@ function AthleteRoadbookAdminPage({ Panel }) {
                     ])
                   }
                 >
-                  Ajouter un jour
+                  {tr("Ajouter un jour", "Add a day")}
                 </button>
               }
             >
               {draft.schedule.map((day, dayIndex) => (
                 <fieldset key={day.id} className="roadbook-admin-day">
-                  <legend>{formatScheduleDay(edition?.date, day.offsetDays, "fr")}</legend>
+                  <legend>{formatScheduleDay(edition?.date, day.offsetDays, dayLanguage)}</legend>
                   <div className="roadbook-admin-row">
                     <label className="roadbook-admin-single">
-                      <span>Jour (par rapport à la compétition)</span>
+                      <span>{tr("Jour (par rapport à la compétition)", "Day (relative to the competition)")}</span>
                       <select value={day.offsetDays} onChange={(event) => update(["schedule", dayIndex, "offsetDays"], Number(event.target.value))}>
                         {[-4, -3, -2, -1, 0, 1].map((offset) => (
                           <option key={offset} value={offset}>
-                            {offset === 0 ? "Jour de compétition" : `J${offset > 0 ? "+" : "−"}${Math.abs(offset)}`} · {formatScheduleDay(edition?.date, offset, "fr")}
+                            {offset === 0
+                              ? tr("Jour de compétition", "Competition day")
+                              : `${tr("J", "D")}${offset > 0 ? "+" : "−"}${Math.abs(offset)}`} · {formatScheduleDay(edition?.date, offset, dayLanguage)}
                           </option>
                         ))}
                       </select>
                     </label>
                     <label className="roadbook-admin-check">
                       <input type="checkbox" checked={day.highlight} onChange={(event) => update(["schedule", dayIndex, "highlight"], event.target.checked)} />
-                      Mettre en avant (rouge)
+                      {tr("Mettre en avant (rouge)", "Highlight (red)")}
                     </label>
                   </div>
-                  <L label="Accès à la Coque" path={["schedule", dayIndex, "access"]} />
+                  <L label={tr("Accès à la Coque", "Access to the Coque")} path={["schedule", dayIndex, "access"]} />
                   {day.items.map((item, itemIndex) => (
                     <div key={item.id} className="roadbook-admin-item">
                       <div className="roadbook-admin-item__head">
                         <select value={item.icon} onChange={(event) => update(["schedule", dayIndex, "items", itemIndex, "icon"], event.target.value)}>
                           {SCHEDULE_ITEM_ICONS.map((icon) => (
-                            <option key={icon.value} value={icon.value}>{icon.emoji} {icon.label}</option>
+                            <option key={icon.value} value={icon.value}>{icon.emoji} {tr(icon.label, SCHEDULE_ICON_LABELS_EN[icon.value] || icon.label)}</option>
                           ))}
                         </select>
                         <button type="button" className="button button--secondary button--small" onClick={() => update(["schedule", dayIndex, "items"], moveItem(day.items, itemIndex, -1))}>↑</button>
                         <button type="button" className="button button--secondary button--small" onClick={() => update(["schedule", dayIndex, "items"], moveItem(day.items, itemIndex, 1))}>↓</button>
-                        <button type="button" className="button button--danger-soft button--small" onClick={() => update(["schedule", dayIndex, "items"], day.items.filter((_, index) => index !== itemIndex))}>Retirer</button>
+                        <button type="button" className="button button--danger-soft button--small" onClick={() => update(["schedule", dayIndex, "items"], day.items.filter((_, index) => index !== itemIndex))}>{tr("Retirer", "Remove")}</button>
                       </div>
-                      <L label="Titre" path={["schedule", dayIndex, "items", itemIndex, "title"]} />
-                      <L label="Détails (une ligne par horaire)" path={["schedule", dayIndex, "items", itemIndex, "lines"]} multiline />
+                      <L label={tr("Titre", "Title")} path={["schedule", dayIndex, "items", itemIndex, "title"]} />
+                      <L label={tr("Détails (une ligne par horaire)", "Details (one line per time)")} path={["schedule", dayIndex, "items", itemIndex, "lines"]} multiline />
                     </div>
                   ))}
                   <div className="roadbook-admin-day__actions">
@@ -728,15 +860,15 @@ function AthleteRoadbookAdminPage({ Panel }) {
                         ])
                       }
                     >
-                      Ajouter une ligne
+                      {tr("Ajouter une ligne", "Add a line")}
                     </button>
-                    <button type="button" className="button button--secondary button--small" onClick={() => update(["schedule"], moveItem(draft.schedule, dayIndex, -1))}>Monter le jour</button>
+                    <button type="button" className="button button--secondary button--small" onClick={() => update(["schedule"], moveItem(draft.schedule, dayIndex, -1))}>{tr("Monter le jour", "Move day up")}</button>
                     <button
                       type="button"
                       className="button button--danger-soft button--small"
-                      onClick={() => window.confirm("Supprimer ce jour et ses lignes ?") && update(["schedule"], draft.schedule.filter((_, index) => index !== dayIndex))}
+                      onClick={() => window.confirm(tr("Supprimer ce jour et ses lignes ?", "Delete this day and its lines?")) && update(["schedule"], draft.schedule.filter((_, index) => index !== dayIndex))}
                     >
-                      Supprimer le jour
+                      {tr("Supprimer le jour", "Delete the day")}
                     </button>
                   </div>
                 </fieldset>
@@ -746,14 +878,14 @@ function AthleteRoadbookAdminPage({ Panel }) {
 
           {activeTab === "competition" ? (
             <Panel
-              title="Informations compétition"
+              title={tr("Informations compétition", "Competition information")}
               actions={
                 <button
                   className="button button--secondary button--small"
                   type="button"
                   onClick={() => update(["competitionInfo"], [...draft.competitionInfo, { id: newId("ci"), event: { en: "", fr: "" }, rule: { en: "", fr: "" } }])}
                 >
-                  Ajouter une épreuve
+                  {tr("Ajouter une épreuve", "Add an event")}
                 </button>
               }
             >
@@ -762,18 +894,24 @@ function AthleteRoadbookAdminPage({ Panel }) {
                   <div className="roadbook-admin-item__head">
                     <button type="button" className="button button--secondary button--small" onClick={() => update(["competitionInfo"], moveItem(draft.competitionInfo, index, -1))}>↑</button>
                     <button type="button" className="button button--secondary button--small" onClick={() => update(["competitionInfo"], moveItem(draft.competitionInfo, index, 1))}>↓</button>
-                    <button type="button" className="button button--danger-soft button--small" onClick={() => update(["competitionInfo"], draft.competitionInfo.filter((_, itemIndex) => itemIndex !== index))}>Retirer</button>
+                    <button type="button" className="button button--danger-soft button--small" onClick={() => update(["competitionInfo"], draft.competitionInfo.filter((_, itemIndex) => itemIndex !== index))}>{tr("Retirer", "Remove")}</button>
                   </div>
-                  <L label="Épreuve" path={["competitionInfo", index, "event"]} />
-                  <L label="Règle" path={["competitionInfo", index, "rule"]} />
+                  <L label={tr("Épreuve", "Event")} path={["competitionInfo", index, "event"]} />
+                  <L label={tr("Règle", "Rule")} path={["competitionInfo", index, "rule"]} />
                 </div>
               ))}
             </Panel>
           ) : null}
 
           {activeTab === "venue" ? (
-            <Panel title="La Coque" subtitle="Zones d'accès et plan : repris des accréditations par défaut, pour rester identiques aux badges.">
-              <L label="Comment s'y rendre" path={["venue", "intro"]} multiline />
+            <Panel
+              title={tr("La Coque", "Coque")}
+              subtitle={tr(
+                "Zones d'accès et plan : repris des accréditations par défaut, pour rester identiques aux badges.",
+                "Access zones and map: taken from the accreditations by default, so they match the badges.",
+              )}
+            >
+              <L label={tr("Comment s'y rendre", "How to get there")} path={["venue", "intro"]} multiline />
               <div className="roadbook-admin-row">
                 <label className="roadbook-admin-check">
                   <input
@@ -782,7 +920,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
                     checked={draft.venue.source !== "custom"}
                     onChange={() => update(["venue", "source"], "accreditation")}
                   />
-                  Reprendre les zones et le plan des accréditations
+                  {tr("Reprendre les zones et le plan des accréditations", "Use the accreditation zones and map")}
                 </label>
                 <label className="roadbook-admin-check">
                   <input
@@ -791,23 +929,23 @@ function AthleteRoadbookAdminPage({ Panel }) {
                     checked={draft.venue.source === "custom"}
                     onChange={() => update(["venue", "source"], "custom")}
                   />
-                  Saisir des zones et un plan propres au roadbook
+                  {tr("Saisir des zones et un plan propres au roadbook", "Enter zones and a map just for the roadbook")}
                 </label>
               </div>
               {draft.venue.source !== "custom" ? (
                 <div className="roadbook-admin-venue">
                   <div>
-                    <p className="roadbook-admin-single"><span>Zones d'accès (accréditations)</span></p>
+                    <p className="roadbook-admin-single"><span>{tr("Zones d'accès (accréditations)", "Access zones (accreditations)")}</span></p>
                     {accreditationZoneNames.length ? (
                       <ol className="roadbook-admin-zones">
                         {accreditationZoneNames.map((zone) => <li key={zone}>{zone}</li>)}
                       </ol>
                     ) : (
-                      <p className="panel-note">Zones des accréditations pas encore chargées.</p>
+                      <p className="panel-note">{tr("Zones des accréditations pas encore chargées.", "Accreditation zones not loaded yet.")}</p>
                     )}
                     <p className="panel-note">
-                      Pour les changer : <Link to="/app/accreditations">Accréditations</Link>. Elles sont recopiées dans le
-                      roadbook à chaque enregistrement.
+                      {tr("Pour les changer :", "To change them:")} <Link to="/app/accreditations">{tr("Accréditations", "Accreditations")}</Link>.{" "}
+                      {tr("Elles sont recopiées dans le roadbook à chaque enregistrement.", "They are copied into the roadbook on every save.")}
                     </p>
                   </div>
                   <div className="roadbook-admin-plan">
@@ -816,13 +954,17 @@ function AthleteRoadbookAdminPage({ Panel }) {
                 </div>
               ) : (
                 <>
-                  <L label="Zones d'accès (une par ligne, dans l'ordre des numéros du plan)" path={["venue", "zones"]} multiline />
+                  <L
+                    label={tr("Zones d'accès (une par ligne, dans l'ordre des numéros du plan)", "Access zones (one per line, in the order of the map numbers)")}
+                    path={["venue", "zones"]}
+                    multiline
+                  />
                   <FileUpload
                     value={draft.venue.planImageUrl}
                     onChange={(url) => update(["venue", "planImageUrl"], url)}
                     accept="image/*"
                     storagePath="athlete-roadbook"
-                    label="Plan de la Coque"
+                    label={tr("Plan de la Coque", "Coque map")}
                     helperText="Image · Max 20 MB"
                   />
                 </>
@@ -833,14 +975,17 @@ function AthleteRoadbookAdminPage({ Panel }) {
           {activeTab === "calltimes" ? (
             <Panel
               title="Call times"
-              subtitle="Import depuis Excel : première ligne d'en-têtes avec les colonnes du tableau 2026 (anglais ou français). Les heures au format Excel sont converties."
+              subtitle={tr(
+                "Import depuis Excel : première ligne d'en-têtes avec les colonnes du tableau 2026 (anglais ou français). Les heures au format Excel sont converties.",
+                "Excel import: first row of headers with the 2026 table columns (English or French). Excel-format times are converted.",
+              )}
               actions={
                 <div className="roadbook-admin-day__actions">
                   <button className="button button--secondary button--small" type="button" onClick={downloadCallTimesTemplate}>
-                    Télécharger le modèle
+                    {tr("Télécharger le modèle", "Download the template")}
                   </button>
                   <label className="button button--primary button--small roadbook-admin-file">
-                    Importer un Excel
+                    {tr("Importer un Excel", "Import an Excel file")}
                     <input type="file" accept=".xlsx,.xls,.csv" onChange={handleCallTimesFile} />
                   </label>
                 </div>
@@ -848,12 +993,18 @@ function AthleteRoadbookAdminPage({ Panel }) {
             >
               {callTimesReport ? (
                 <p className="panel-note">
-                  {callTimesReport.fileName} : {callTimesReport.count} épreuve(s) lue(s).
-                  {callTimesReport.missingColumns.length ? ` Colonnes absentes : ${callTimesReport.missingColumns.join(", ")}.` : ""} Pense à
-                  enregistrer.
+                  {callTimesReport.fileName} :{" "}
+                  {tr(
+                    `${callTimesReport.count} épreuve(s) lue(s).`,
+                    callTimesReport.count === 1 ? "1 event read." : `${callTimesReport.count} events read.`,
+                  )}
+                  {callTimesReport.missingColumns.length
+                    ? ` ${tr("Colonnes absentes :", "Missing columns:")} ${callTimesReport.missingColumns.join(", ")}.`
+                    : ""}{" "}
+                  {tr("Pense à enregistrer.", "Remember to save.")}
                 </p>
               ) : draft.callTimesFileName ? (
-                <p className="panel-note">Dernier import : {draft.callTimesFileName}</p>
+                <p className="panel-note">{tr("Dernier import :", "Last import:")} {draft.callTimesFileName}</p>
               ) : null}
               {draft.callTimes.length ? (
                 <div className="table-wrap">
@@ -893,7 +1044,12 @@ function AthleteRoadbookAdminPage({ Panel }) {
                   </table>
                 </div>
               ) : (
-                <p className="panel-note">Aucun call time pour l'instant : importe l'Excel ou ajoute les lignes à la main.</p>
+                <p className="panel-note">
+                  {tr(
+                    "Aucun call time pour l'instant : importe l'Excel ou ajoute les lignes à la main.",
+                    "No call times yet: import the Excel file or add the rows by hand.",
+                  )}
+                </p>
               )}
               <div>
                 <button
@@ -906,7 +1062,7 @@ function AthleteRoadbookAdminPage({ Panel }) {
                     ])
                   }
                 >
-                  Ajouter une ligne
+                  {tr("Ajouter une ligne", "Add a row")}
                 </button>
               </div>
             </Panel>

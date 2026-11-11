@@ -91,15 +91,33 @@ function getRegistrySuspectReasons(entry, { linkedCount = 0 } = {}) {
   return [...new Set(reasons)];
 }
 
+// Les raisons restent en français (clés) ; libellé anglais à l'affichage.
+const REGISTRY_SUSPECT_REASONS_EN = {
+  "Sans nom": "No name",
+  "Nom vide": "Empty last name",
+  "Prénom vide": "Empty first name",
+  "Ressemble à une épreuve": "Looks like an event",
+  "Chiffres dans le nom": "Digits in the name",
+  "Mot d'épreuve dans le nom": "Event word in the name",
+  "Nom = prénom": "Last name = first name",
+  "Nom trop court": "Name too short",
+  "Nationalité non standard": "Non-standard nationality",
+  "Ni résultat ni WAID": "No result and no WAID",
+};
+
+function registrySuspectReasonLabel(reason, tr) {
+  return tr(reason, REGISTRY_SUSPECT_REASONS_EN[reason] || reason);
+}
+
 const REGISTRY_SORTS = [
-  { value: "name", label: "Nom (A → Z)" },
-  { value: "editions", label: "Nombre d'éditions" },
-  { value: "lastYear", label: "Dernière participation" },
-  { value: "firstYear", label: "Première participation" },
-  { value: "podiums", label: "Podiums en finale" },
-  { value: "bestRank", label: "Meilleure place en finale" },
-  { value: "birthYear", label: "Année de naissance" },
-  { value: "nationality", label: "Nationalité" },
+  { value: "name", label: "Nom (A → Z)", labelEn: "Last name (A → Z)" },
+  { value: "editions", label: "Nombre d'éditions", labelEn: "Number of editions" },
+  { value: "lastYear", label: "Dernière participation", labelEn: "Last participation" },
+  { value: "firstYear", label: "Première participation", labelEn: "First participation" },
+  { value: "podiums", label: "Podiums en finale", labelEn: "Podiums in finals" },
+  { value: "bestRank", label: "Meilleure place en finale", labelEn: "Best place in a final" },
+  { value: "birthYear", label: "Année de naissance", labelEn: "Year of birth" },
+  { value: "nationality", label: "Nationalité", labelEn: "Nationality" },
 ];
 
 function compareNullableNumbers(left, right, direction) {
@@ -262,5 +280,6 @@ export {
   getDefaultSortDirection,
   getRegistryEntryStats,
   getRegistrySuspectReasons,
+  registrySuspectReasonLabel,
   sortRegistryRows,
 };

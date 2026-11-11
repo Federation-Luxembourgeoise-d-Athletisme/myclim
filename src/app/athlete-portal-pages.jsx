@@ -2340,15 +2340,37 @@ function pickMostFrequentValue(values) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || null;
 }
 
+// Duplicate reasons stay in French (used as keys); English label at render.
+const DUPLICATE_REASONS_EN = {
+  "Même WAID": "Same WAID",
+  "Même profil WA": "Same WA profile",
+  "Même nom, nationalités différentes": "Same name, different nationalities",
+  "Même nom": "Same name",
+  "Même nom, prénom variante, même année": "Same last name, first name variant, same year",
+  "Même nom, prénom variante": "Same last name, first name variant",
+  "Même prénom, nom variante, même année": "Same first name, last name variant, same year",
+  "Même prénom, nom variante": "Same first name, last name variant",
+  "Nom complet proche, même année": "Similar full name, same year",
+  "Nom complet proche": "Similar full name",
+  "Même année de naissance, prénom proche": "Same birth year, similar first name",
+  "Même année de naissance, nom proche": "Same birth year, similar last name",
+  "Même année de naissance, nom complet proche": "Same birth year, similar full name",
+  "Fusion manuelle": "Manual merge",
+};
+
+function duplicateReasonLabel(reason, tr) {
+  return tr(reason, DUPLICATE_REASONS_EN[reason] || reason);
+}
+
 const DUPLICATE_MERGE_FIELDS = [
-  { key: "lastName", label: "Nom" },
-  { key: "firstName", label: "Prénom" },
-  { key: "nationality", label: "Nationalité" },
-  { key: "birthDate", label: "Date de naissance" },
-  { key: "birthYear", label: "Année de naissance" },
-  { key: "gender", label: "Genre" },
-  { key: "waid", label: "WAID" },
-  { key: "waUrl", label: "Lien WA" },
+  { key: "lastName", label: "Nom", labelEn: "Last name" },
+  { key: "firstName", label: "Prénom", labelEn: "First name" },
+  { key: "nationality", label: "Nationalité", labelEn: "Nationality" },
+  { key: "birthDate", label: "Date de naissance", labelEn: "Date of birth" },
+  { key: "birthYear", label: "Année de naissance", labelEn: "Year of birth" },
+  { key: "gender", label: "Genre", labelEn: "Gender" },
+  { key: "waid", label: "WAID", labelEn: "WAID" },
+  { key: "waUrl", label: "Lien WA", labelEn: "WA link" },
 ];
 
 function getDuplicateEntryFieldValue(entry, field) {
@@ -2357,8 +2379,8 @@ function getDuplicateEntryFieldValue(entry, field) {
   return entry[field] ?? "";
 }
 
-function getDuplicateEntryLabel(entry) {
-  const name = [entry?.firstName, entry?.lastName].filter(Boolean).join(" ").trim() || entry?._docId || "Fiche";
+function getDuplicateEntryLabel(entry, tr) {
+  const name = [entry?.firstName, entry?.lastName].filter(Boolean).join(" ").trim() || entry?._docId || tr("Fiche", "Profile");
   const nat = entry?.nationality ? ` · ${entry.nationality}` : "";
   const yob = resolveAthleteBirthYear(entry) ? ` · ${resolveAthleteBirthYear(entry)}` : "";
   return `${name}${nat}${yob}`;
@@ -4014,6 +4036,7 @@ function AthletePortalSettingsPage({ Panel }) {
 
 // maintenance : "hide" (onglet Base athlètes) ou "only" (Réglages › Maintenance).
 function AthleteRegistryPage({ Panel, maintenance }) {
+  const tr = useTr();
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const canAccess = canAccessStatistics(roles);
@@ -4129,7 +4152,10 @@ function AthleteRegistryPage({ Panel, maintenance }) {
 
   async function handleDismissDuplicateGroup(group) {
     if (!group?.id) return;
-    if (!window.confirm("Masquer ce groupe de doublons probables ?\n\nTu pourras toujours corriger les fiches manuellement ensuite.")) return;
+    if (!window.confirm(tr(
+      "Masquer ce groupe de doublons probables ?\n\nTu pourras toujours corriger les fiches manuellement ensuite.",
+      "Hide this group of likely duplicates?\n\nYou can still fix the profiles manually afterwards.",
+    ))) return;
     setDismissingGroupId(group.id);
     setMergeStatus("");
     try {
@@ -4139,7 +4165,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
         { ignoredDuplicateGroupIds: nextDismissed, updatedAt: serverTimestamp() },
         { merge: true },
       );
-      setMergeStatus("✅ Groupe masqué des doublons probables.");
+      setMergeStatus(tr("✅ Groupe masqué des doublons probables.", "✅ Group hidden from likely duplicates."));
     } catch (error) {
       setMergeStatus(`❌ ${error.message}`);
     } finally {
@@ -4156,7 +4182,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
         { ignoredDuplicateGroupIds: [], updatedAt: serverTimestamp() },
         { merge: true },
       );
-      setMergeStatus("✅ Tous les doublons masqués ont été réaffichés.");
+      setMergeStatus(tr("✅ Tous les doublons masqués ont été réaffichés.", "✅ All hidden duplicates are shown again."));
     } catch (error) {
       setMergeStatus(`❌ ${error.message}`);
     } finally {
@@ -4170,7 +4196,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
       .map((entry) => [entry.firstName, entry.lastName].filter(Boolean).join(" ").trim() || entry._docId)
       .join(" / ");
 
-    if (!window.confirm(`Fusionner ces fiches athlètes ?\n\n${names}`)) return;
+    if (!window.confirm(tr(`Fusionner ces fiches athlètes ?\n\n${names}`, `Merge these athlete profiles?\n\n${names}`))) return;
 
     setMergingGroupId(group.id);
     setMergeStatus("");
@@ -4313,7 +4339,10 @@ function AthleteRegistryPage({ Panel, maintenance }) {
       await batch.commit();
       setSelectedRegistryDocId(primary._docId);
       setSelectedRegistryIds((current) => current.filter((docId) => !sortedEntries.some((entry) => entry._docId === docId)));
-      setMergeStatus(`✅ ${sortedEntries.length} fiches fusionnées pour ${canonicalFirstName || ""} ${canonicalLastName || ""}`.trim());
+      setMergeStatus(tr(
+        `✅ ${sortedEntries.length} fiches fusionnées pour ${canonicalFirstName || ""} ${canonicalLastName || ""}`,
+        `✅ ${sortedEntries.length} profiles merged for ${canonicalFirstName || ""} ${canonicalLastName || ""}`,
+      ).trim());
       setMergeOverrides((current) => {
         const next = { ...current };
         delete next[group.id];
@@ -4335,20 +4364,34 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     const deletable = entries.filter((entry) => !linked.includes(entry));
     const linkedAthletes = withLinkedEntries ? deletable.flatMap(linkedOf) : [];
     if (!deletable.length) {
-      setCleanupStatus("Ces fiches sont liées à des engagés de l'édition en cours : utilise « Supprimer avec l'engagé » si l'engagé est lui aussi faux, sinon corrige le nom ou fusionne.");
+      setCleanupStatus(tr(
+        "Ces fiches sont liées à des engagés de l'édition en cours : utilise « Supprimer avec l'engagé » si l'engagé est lui aussi faux, sinon corrige le nom ou fusionne.",
+        "These profiles are linked to entries of the current edition: use “Delete with the entry” if the entry is also wrong, otherwise fix the name or merge.",
+      ));
       return false;
     }
     const names = deletable.slice(0, 8).map((entry) => [entry.firstName, entry.lastName].filter(Boolean).join(" ") || entry._docId).join("\n");
-    const more = deletable.length > 8 ? `\n… et ${deletable.length - 8} autre(s)` : "";
-    const skipped = linked.length ? `\n\n${linked.length} fiche(s) liée(s) à des engagés seront gardées.` : "";
+    const more = deletable.length > 8 ? tr(`\n… et ${deletable.length - 8} autre(s)`, `\n… and ${deletable.length - 8} more`) : "";
+    const skipped = linked.length
+      ? tr(
+        `\n\n${linked.length} fiche(s) liée(s) à des engagés seront gardées.`,
+        `\n\n${linked.length} profile(s) linked to entries will be kept.`,
+      )
+      : "";
     const athleteLines = linkedAthletes
       .slice(0, 8)
-      .map((athlete) => `• ${[athlete.firstName, athlete.lastName].filter(Boolean).join(" ")} — ${athlete.event || "épreuve ?"}${athlete.status ? ` (${athlete.status})` : ""}`)
+      .map((athlete) => `• ${[athlete.firstName, athlete.lastName].filter(Boolean).join(" ")} — ${athlete.event || tr("épreuve ?", "event?")}${athlete.status ? ` (${athlete.status})` : ""}`)
       .join("\n");
     const athletesNote = linkedAthletes.length
-      ? `\n\nAinsi que ${linkedAthletes.length} engagé(s) de l'édition en cours :\n${athleteLines}`
+      ? tr(
+        `\n\nAinsi que ${linkedAthletes.length} engagé(s) de l'édition en cours :\n${athleteLines}`,
+        `\n\nAs well as ${linkedAthletes.length} entr${linkedAthletes.length > 1 ? "ies" : "y"} of the current edition:\n${athleteLines}`,
+      )
       : "";
-    if (!window.confirm(`Supprimer définitivement ${deletable.length} fiche(s) de la base athlètes ?\n\n${names}${more}${athletesNote}${skipped}`)) return false;
+    if (!window.confirm(tr(
+      `Supprimer définitivement ${deletable.length} fiche(s) de la base athlètes ?\n\n${names}${more}${athletesNote}${skipped}`,
+      `Permanently delete ${deletable.length} profile(s) from the athlete database?\n\n${names}${more}${athletesNote}${skipped}`,
+    ))) return false;
 
     setCleanupDeleting(true);
     setCleanupStatus("");
@@ -4364,9 +4407,10 @@ function AthleteRegistryPage({ Panel, maintenance }) {
       }
       if (deletable.some((entry) => entry._docId === selectedRegistryDocId)) setSelectedRegistryDocId("");
       setSelectedRegistryIds((current) => current.filter((docId) => !deletable.some((entry) => entry._docId === docId)));
-      setCleanupStatus(
+      setCleanupStatus(tr(
         `✅ ${deletable.length} fiche(s) supprimée(s)${linkedAthletes.length ? ` et ${linkedAthletes.length} engagé(s)` : ""}.${linked.length ? ` ${linked.length} gardée(s) car liée(s) à des engagés.` : ""}`,
-      );
+        `✅ ${deletable.length} profile(s) deleted${linkedAthletes.length ? ` and ${linkedAthletes.length} entr${linkedAthletes.length > 1 ? "ies" : "y"}` : ""}.${linked.length ? ` ${linked.length} kept because linked to entries.` : ""}`,
+      ));
       return true;
     } catch (error) {
       setCleanupStatus(`❌ ${error.message}`);
@@ -4384,29 +4428,42 @@ function AthleteRegistryPage({ Panel, maintenance }) {
   if (!canAccess) {
     return (
       <div className="page">
-        <section className="page-header"><div><h1>Base athlètes</h1></div></section>
+        <section className="page-header"><div><h1>{tr("Base athlètes", "Athlete database")}</h1></div></section>
         <div className="notice-card notice-card--warn">
-          <strong>Accès restreint</strong>
-          <p>Réservé aux admins, au meeting director et aux gestionnaires.</p>
+          <strong>{tr("Accès restreint", "Restricted access")}</strong>
+          <p>{tr("Réservé aux admins, au meeting director et aux gestionnaires.", "Reserved for admins, the meeting director and managers.")}</p>
         </div>
       </div>
     );
   }
 
   const maintenancePanel = (
-    <Panel title="Maintenance" subtitle="Reconstruire la base athlètes historique à partir des résultats corrigés du meeting">
+    <Panel
+      title="Maintenance"
+      subtitle={tr(
+        "Reconstruire la base athlètes historique à partir des résultats corrigés du meeting",
+        "Rebuild the historical athlete database from the corrected meeting results",
+      )}
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <p className="panel-note" style={{ margin: 0 }}>
-          Cette action vide complètement <code>athleteRegistry</code>, puis le reconstruit à partir de
-          <code> meetingResults.json</code>. « Séparer les homonymes » ne touche qu'aux fiches qui mélangent
-          deux athlètes du même nom et garde toutes les fusions déjà faites.
+          {tr("Cette action vide complètement ", "This action completely empties ")}<code>athleteRegistry</code>
+          {tr(", puis le reconstruit à partir de", ", then rebuilds it from")}
+          <code> meetingResults.json</code>
+          {tr(
+            ". « Séparer les homonymes » ne touche qu'aux fiches qui mélangent deux athlètes du même nom et garde toutes les fusions déjà faites.",
+            ". “Split homonyms” only touches profiles that mix two athletes with the same name and keeps all merges already done.",
+          )}
         </p>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
           <button
             className="button button--danger"
             disabled={rebuilding}
             onClick={async () => {
-              if (!window.confirm(`Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?\n\nATTENTION : ${withWaidCount} fiche(s) ont un WAID et toutes les fusions seront perdues.`)) return;
+              if (!window.confirm(tr(
+                `Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?\n\nATTENTION : ${withWaidCount} fiche(s) ont un WAID et toutes les fusions seront perdues.`,
+                `Completely empty the athlete database and rebuild it from the corrected historical results?\n\nWARNING: ${withWaidCount} profile(s) have a WAID and all merges will be lost.`,
+              ))) return;
               setRebuildLog([]);
               setRebuilding(true);
               try {
@@ -4415,7 +4472,10 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                 });
                 setRebuildLog((prev) => [
                   ...prev,
-                  `✅ Base athlètes reconstruite : ${summary.deleted} supprimés, ${summary.written} recréés, source ${summary.sourceRows} lignes.`,
+                  tr(
+                    `✅ Base athlètes reconstruite : ${summary.deleted} supprimés, ${summary.written} recréés, source ${summary.sourceRows} lignes.`,
+                    `✅ Athlete database rebuilt: ${summary.deleted} deleted, ${summary.written} recreated, source ${summary.sourceRows} rows.`,
+                  ),
                 ]);
               } catch (error) {
                 setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
@@ -4424,20 +4484,23 @@ function AthleteRegistryPage({ Panel, maintenance }) {
               }
             }}
           >
-            {rebuilding ? "Reconstruction…" : "Vider et reconstruire la base athlètes"}
+            {rebuilding ? tr("Reconstruction…", "Rebuilding…") : tr("Vider et reconstruire la base athlètes", "Empty and rebuild the athlete database")}
           </button>
           <button
             className="button button--secondary"
             disabled={rebuilding}
             onClick={async () => {
-              if (!window.confirm("Séparer les homonymes (même nom, années de naissance différentes dans meetingResults.json) ?\n\nLes autres fiches et les fusions déjà faites ne sont pas touchées.")) return;
+              if (!window.confirm(tr(
+                "Séparer les homonymes (même nom, années de naissance différentes dans meetingResults.json) ?\n\nLes autres fiches et les fusions déjà faites ne sont pas touchées.",
+                "Split homonyms (same name, different birth years in meetingResults.json)?\n\nOther profiles and merges already done are not touched.",
+              ))) return;
               setRebuildLog([]);
               setRebuilding(true);
               try {
                 await splitHistoricalHomonyms((msg) => {
                   setRebuildLog((prev) => [...prev, msg]);
                 });
-                setRebuildLog((prev) => [...prev, "✅ Séparation terminée."]);
+                setRebuildLog((prev) => [...prev, tr("✅ Séparation terminée.", "✅ Split done.")]);
               } catch (error) {
                 setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
               } finally {
@@ -4445,7 +4508,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
               }
             }}
           >
-            Séparer les homonymes
+            {tr("Séparer les homonymes", "Split homonyms")}
           </button>
         </div>
         {rebuildLog.length > 0 ? (
@@ -4472,11 +4535,13 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Portail athlètes</p>
-          <h1>Base athlètes</h1>
+          <p className="eyebrow">{tr("Portail athlètes", "Athlete portal")}</p>
+          <h1>{tr("Base athlètes", "Athlete database")}</h1>
           <p>
-            {loading ? "Chargement…" : `${registry.length} athlètes, toutes éditions confondues`}
-            {" · "}Se complète automatiquement à chaque import ou synchro WA.
+            {loading
+              ? tr("Chargement…", "Loading…")
+              : tr(`${registry.length} athlètes, toutes éditions confondues`, `${registry.length} athletes, all editions combined`)}
+            {" · "}{tr("Se complète automatiquement à chaque import ou synchro WA.", "Fills in automatically with each import or WA sync.")}
           </p>
         </div>
       </section>
@@ -4507,14 +4572,20 @@ function AthleteRegistryPage({ Panel, maintenance }) {
         />
 
         <Panel
-          title="Doublons probables"
-          subtitle={`${duplicateGroups.length} groupe${duplicateGroups.length > 1 ? "s" : ""} détecté${duplicateGroups.length > 1 ? "s" : ""}`}
+          title={tr("Doublons probables", "Likely duplicates")}
+          subtitle={tr(
+            `${duplicateGroups.length} groupe${duplicateGroups.length > 1 ? "s" : ""} détecté${duplicateGroups.length > 1 ? "s" : ""}`,
+            `${duplicateGroups.length} group${duplicateGroups.length > 1 ? "s" : ""} detected`,
+          )}
         >
           {mergeStatus ? <p className="panel-note" style={{ marginTop: 0 }}>{mergeStatus}</p> : null}
           {dismissedDuplicateGroupIds.length > 0 ? (
             <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", marginBottom: "0.85rem" }}>
               <p className="panel-note" style={{ margin: 0 }}>
-                {dismissedDuplicateGroupIds.length} groupe{dismissedDuplicateGroupIds.length > 1 ? "s" : ""} masqué{dismissedDuplicateGroupIds.length > 1 ? "s" : ""}.
+                {tr(
+                  `${dismissedDuplicateGroupIds.length} groupe${dismissedDuplicateGroupIds.length > 1 ? "s" : ""} masqué${dismissedDuplicateGroupIds.length > 1 ? "s" : ""}.`,
+                  `${dismissedDuplicateGroupIds.length} group${dismissedDuplicateGroupIds.length > 1 ? "s" : ""} hidden.`,
+                )}
               </p>
               <button
                 type="button"
@@ -4522,13 +4593,13 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                 disabled={dismissingGroupId === "restore-all"}
                 onClick={handleRestoreDismissedDuplicates}
               >
-                {dismissingGroupId === "restore-all" ? "Réaffichage…" : "Réafficher tous"}
+                {dismissingGroupId === "restore-all" ? tr("Réaffichage…", "Restoring…") : tr("Réafficher tous", "Show all again")}
               </button>
             </div>
           ) : null}
           {duplicateGroups.length === 0 ? (
             <p className="panel-note" style={{ margin: 0 }}>
-              Aucun doublon probable détecté pour le moment.
+              {tr("Aucun doublon probable détecté pour le moment.", "No likely duplicate detected for now.")}
             </p>
           ) : (
             <div style={{ display: "grid", gap: "0.85rem" }}>
@@ -4545,14 +4616,14 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
                     <div>
                       <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                        {group.entries.length} fiches à fusionner
+                        {tr(`${group.entries.length} fiches à fusionner`, `${group.entries.length} profiles to merge`)}
                       </div>
                       <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                         {group.reasons.map((reason) => (
-                          <span key={reason} className="status-pill status-pill--accent">{reason}</span>
+                          <span key={reason} className="status-pill status-pill--accent">{duplicateReasonLabel(reason, tr)}</span>
                         ))}
                         {group.hasNationalityConflict ? (
-                          <span className="status-pill status-pill--warn">Nationalités différentes</span>
+                          <span className="status-pill status-pill--warn">{tr("Nationalités différentes", "Different nationalities")}</span>
                         ) : null}
                         {getRegistryEntryDisciplines(group.primary).slice(0, 4).map((discipline) => (
                           <span key={discipline} className="status-pill">{discipline}</span>
@@ -4566,7 +4637,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                         disabled={dismissingGroupId === group.id}
                         onClick={() => handleDismissDuplicateGroup(group)}
                       >
-                        {dismissingGroupId === group.id ? "Masquage…" : "Pas un doublon"}
+                        {dismissingGroupId === group.id ? tr("Masquage…", "Hiding…") : tr("Pas un doublon", "Not a duplicate")}
                       </button>
                       <button
                         type="button"
@@ -4574,7 +4645,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                         disabled={mergingGroupId === group.id}
                         onClick={() => handleMergeDuplicateGroup(group)}
                       >
-                        {mergingGroupId === group.id ? "Fusion…" : "Fusionner"}
+                        {mergingGroupId === group.id ? tr("Fusion…", "Merging…") : tr("Fusionner", "Merge")}
                       </button>
                     </div>
                   </div>
@@ -4605,7 +4676,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                             background: "#f8fafc",
                           }}
                         >
-                          <span>{field.label}</span>
+                          <span>{tr(field.label, field.labelEn)}</span>
                           <select
                             value={selectedSource}
                             onChange={(event) => setMergeOverride(group.id, field.key, event.target.value)}
@@ -4613,14 +4684,14 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                             <option value="auto">Auto</option>
                             {group.entries.map((entry) => (
                               <option key={entry._docId} value={entry._docId}>
-                                {getDuplicateEntryLabel(entry)}
+                                {getDuplicateEntryLabel(entry, tr)}
                               </option>
                             ))}
                           </select>
                           <span className="panel-note" style={{ marginTop: 4 }}>
                             {selectedSource === "auto"
-                              ? "Auto = WA si disponible, sinon meilleure fiche détectée."
-                              : `Garder : ${formatDuplicateFieldValue(selectedValue, field.key)}`}
+                              ? tr("Auto = WA si disponible, sinon meilleure fiche détectée.", "Auto = WA if available, otherwise best profile detected.")
+                              : tr(`Garder : ${formatDuplicateFieldValue(selectedValue, field.key)}`, `Keep: ${formatDuplicateFieldValue(selectedValue, field.key)}`)}
                           </span>
                         </label>
                       );
@@ -4631,13 +4702,13 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>Priorité</th>
-                          <th>Athlète</th>
+                          <th>{tr("Priorité", "Priority")}</th>
+                          <th>{tr("Athlète", "Athlete")}</th>
                           <th>Nat.</th>
-                          <th>Naissance</th>
+                          <th>{tr("Naissance", "Birth")}</th>
                           <th>Disciplines</th>
                           <th>WAID</th>
-                          <th>Éditions</th>
+                          <th>{tr("Éditions", "Editions")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -4645,7 +4716,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                           const years = [...new Set((entry.editions || []).map((edition) => edition.year).filter(Boolean))].sort((a, b) => a - b);
                           return (
                             <tr key={entry._docId}>
-                              <td>{index === 0 ? <span className="status-pill status-pill--ok">Base</span> : index + 1}</td>
+                              <td>{index === 0 ? <span className="status-pill status-pill--ok">{tr("Base", "Primary")}</span> : index + 1}</td>
                               <td>
                                 <button
                                   type="button"
@@ -4687,8 +4758,11 @@ function AthleteRegistryPage({ Panel, maintenance }) {
 
         {selectedRegistryIds.length > 0 ? (
           <Panel
-            title="Fusion manuelle"
-            subtitle={`${selectedRegistryIds.length} fiche${selectedRegistryIds.length > 1 ? "s" : ""} sélectionnée${selectedRegistryIds.length > 1 ? "s" : ""}`}
+            title={tr("Fusion manuelle", "Manual merge")}
+            subtitle={tr(
+              `${selectedRegistryIds.length} fiche${selectedRegistryIds.length > 1 ? "s" : ""} sélectionnée${selectedRegistryIds.length > 1 ? "s" : ""}`,
+              `${selectedRegistryIds.length} profile${selectedRegistryIds.length > 1 ? "s" : ""} selected`,
+            )}
           >
             {manualMergeGroup ? (
               <div style={{ display: "grid", gap: "0.85rem" }}>
@@ -4703,14 +4777,14 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
                     <div>
                       <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                        Fusionner la sélection
+                        {tr("Fusionner la sélection", "Merge the selection")}
                       </div>
                       <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                         {manualMergeGroup.reasons.map((reason) => (
-                          <span key={reason} className="status-pill status-pill--accent">{reason}</span>
+                          <span key={reason} className="status-pill status-pill--accent">{duplicateReasonLabel(reason, tr)}</span>
                         ))}
                         {manualMergeGroup.hasNationalityConflict ? (
-                          <span className="status-pill status-pill--warn">Nationalités différentes</span>
+                          <span className="status-pill status-pill--warn">{tr("Nationalités différentes", "Different nationalities")}</span>
                         ) : null}
                       </div>
                     </div>
@@ -4720,7 +4794,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                         className="button button--neutral"
                         onClick={() => setSelectedRegistryIds([])}
                       >
-                        Tout vider
+                        {tr("Tout vider", "Clear all")}
                       </button>
                       <button
                         type="button"
@@ -4728,7 +4802,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                         disabled={mergingGroupId === manualMergeGroup.id}
                         onClick={() => handleMergeDuplicateGroup(manualMergeGroup)}
                       >
-                        {mergingGroupId === manualMergeGroup.id ? "Fusion…" : "Fusionner la sélection"}
+                        {mergingGroupId === manualMergeGroup.id ? tr("Fusion…", "Merging…") : tr("Fusionner la sélection", "Merge the selection")}
                       </button>
                     </div>
                   </div>
@@ -4759,7 +4833,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                             background: "#f8fafc",
                           }}
                         >
-                          <span>{field.label}</span>
+                          <span>{tr(field.label, field.labelEn)}</span>
                           <select
                             value={selectedSource}
                             onChange={(event) => setMergeOverride(manualMergeGroup.id, field.key, event.target.value)}
@@ -4767,14 +4841,14 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                             <option value="auto">Auto</option>
                             {manualMergeGroup.entries.map((entry) => (
                               <option key={entry._docId} value={entry._docId}>
-                                {getDuplicateEntryLabel(entry)}
+                                {getDuplicateEntryLabel(entry, tr)}
                               </option>
                             ))}
                           </select>
                           <span className="panel-note" style={{ marginTop: 4 }}>
                             {selectedSource === "auto"
-                              ? "Auto = WA si disponible, sinon meilleure fiche détectée."
-                              : `Garder : ${formatDuplicateFieldValue(selectedValue, field.key)}`}
+                              ? tr("Auto = WA si disponible, sinon meilleure fiche détectée.", "Auto = WA if available, otherwise best profile detected.")
+                              : tr(`Garder : ${formatDuplicateFieldValue(selectedValue, field.key)}`, `Keep: ${formatDuplicateFieldValue(selectedValue, field.key)}`)}
                           </span>
                         </label>
                       );
@@ -4785,13 +4859,13 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>Base</th>
-                          <th>Athlète</th>
+                          <th>{tr("Base", "Primary")}</th>
+                          <th>{tr("Athlète", "Athlete")}</th>
                           <th>Nat.</th>
-                          <th>Naissance</th>
+                          <th>{tr("Naissance", "Birth")}</th>
                           <th>Disciplines</th>
                           <th>WAID</th>
-                          <th>Éditions</th>
+                          <th>{tr("Éditions", "Editions")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -4799,7 +4873,7 @@ function AthleteRegistryPage({ Panel, maintenance }) {
                           const years = [...new Set((entry.editions || []).map((edition) => edition.year).filter(Boolean))].sort((a, b) => a - b);
                           return (
                             <tr key={entry._docId}>
-                              <td>{index === 0 ? <span className="status-pill status-pill--ok">Base</span> : index + 1}</td>
+                              <td>{index === 0 ? <span className="status-pill status-pill--ok">{tr("Base", "Primary")}</span> : index + 1}</td>
                               <td>
                                 <button
                                   type="button"
@@ -4837,14 +4911,14 @@ function AthleteRegistryPage({ Panel, maintenance }) {
             ) : (
               <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
                 <p className="panel-note" style={{ margin: 0 }}>
-                  Sélectionne au moins 2 fiches dans le tableau pour lancer une fusion manuelle.
+                  {tr("Sélectionne au moins 2 fiches dans le tableau pour lancer une fusion manuelle.", "Select at least 2 profiles in the table to start a manual merge.")}
                 </p>
                 <button
                   type="button"
                   className="button button--neutral"
                   onClick={() => setSelectedRegistryIds([])}
                 >
-                  Tout vider
+                  {tr("Tout vider", "Clear all")}
                 </button>
               </div>
             )}
@@ -4857,20 +4931,26 @@ function AthleteRegistryPage({ Panel, maintenance }) {
             registryEntry={selectedRegistryEntry}
             currentAthletes={selectedCurrentAthletes}
             onClear={() => setSelectedRegistryDocId("")}
-            title={athletesLoading ? "Fiche athlète (liaison en cours…)" : "Fiche athlète"}
+            title={athletesLoading ? tr("Fiche athlète (liaison en cours…)", "Athlete profile (linking…)") : tr("Fiche athlète", "Athlete profile")}
             editable
             registry={registry}
             onMergeWith={handleMergeSameWaid}
           />
         ) : null}
 
-        <Panel title="Rechercher" subtitle={`${withWaidCount} / ${registry.length} fiches avec WAID · clique sur un titre de colonne pour trier`}>
+        <Panel
+          title={tr("Rechercher", "Search")}
+          subtitle={tr(
+            `${withWaidCount} / ${registry.length} fiches avec WAID · clique sur un titre de colonne pour trier`,
+            `${withWaidCount} / ${registry.length} profiles with a WAID · click a column header to sort`,
+          )}
+        >
           {loading ? (
-            <p className="panel-note">Chargement de la base…</p>
+            <p className="panel-note">{tr("Chargement de la base…", "Loading the database…")}</p>
           ) : registry.length === 0 ? (
             <div className="notice-card">
-              <strong>La base athlètes est vide</strong>
-              <p>Importe des athlètes ou lance une synchro WA pour la remplir.</p>
+              <strong>{tr("La base athlètes est vide", "The athlete database is empty")}</strong>
+              <p>{tr("Importe des athlètes ou lance une synchro WA pour la remplir.", "Import athletes or run a WA sync to fill it.")}</p>
             </div>
           ) : (
             <>
@@ -4890,9 +4970,10 @@ function AthleteRegistryPage({ Panel, maintenance }) {
             </>
           )}
           <p className="panel-note" style={{ marginTop: "0.5rem" }}>
-            Les fiches sont permanentes : un athlète n&apos;est jamais retiré de cette base,
-            même s&apos;il n&apos;apparaît plus dans la liste de départ de l&apos;édition en cours.
-            L&apos;identité (nom, naissance, WAID, lien WA) est conservée pour toujours.
+            {tr(
+              "Les fiches sont permanentes : un athlète n'est jamais retiré de cette base, même s'il n'apparaît plus dans la liste de départ de l'édition en cours. L'identité (nom, naissance, WAID, lien WA) est conservée pour toujours.",
+              "Profiles are permanent: an athlete is never removed from this database, even if they no longer appear in the start list of the current edition. The identity (name, birth, WAID, WA link) is kept forever.",
+            )}
           </p>
         </Panel>
       </section>

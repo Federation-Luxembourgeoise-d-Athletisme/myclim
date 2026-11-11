@@ -14,6 +14,8 @@ import {
 import { db } from "../services/firebase";
 import { useAuth } from "../context/auth-context";
 import { useActiveEdition } from "./edition";
+import { useLanguage } from "./language-context";
+import { useTr } from "./use-tr";
 import { AuthFormField } from "./form-components";
 import { getActiveRoles } from "./navigation";
 import {
@@ -38,6 +40,8 @@ function personName(firstName, lastName) {
 
 function PhysioPage({ Panel }) {
   const { currentUser, userProfile } = useAuth();
+  const { language } = useLanguage();
+  const tr = useTr();
   const roles = getActiveRoles(userProfile);
   const isManager = roles.includes("admin") || roles.includes("gestionnaire");
   const { activeEditionId, activeEditionLabel, loading: editionLoading } = useActiveEdition(true);
@@ -54,16 +58,17 @@ function PhysioPage({ Panel }) {
   useEffect(() => {
     if (editionLoading) return undefined;
     const byEdition = (name) => query(collection(db, name), where("editionId", "==", activeEditionId));
-    const fail = (label) => (snapshotError) => {
-      console.error(`Unable to load ${label}`, snapshotError);
-      setError(`Impossible de charger ${label}.`);
+    const isFrench = language === "fr";
+    const fail = (label, labelEn) => (snapshotError) => {
+      console.error(`Unable to load ${labelEn}`, snapshotError);
+      setError(isFrench ? `Impossible de charger ${label}.` : `Unable to load the ${labelEn}.`);
     };
     const unsubscribers = [
-      onSnapshot(byEdition("physioSessions"), (snapshot) => setSessions(mapSnapshot(snapshot)), fail("les horaires")),
-      onSnapshot(byEdition("physioBookings"), (snapshot) => setBookings(mapSnapshot(snapshot)), fail("les réservations")),
+      onSnapshot(byEdition("physioSessions"), (snapshot) => setSessions(mapSnapshot(snapshot)), fail("les horaires", "schedules")),
+      onSnapshot(byEdition("physioBookings"), (snapshot) => setBookings(mapSnapshot(snapshot)), fail("les réservations", "bookings")),
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [activeEditionId, editionLoading]);
+  }, [activeEditionId, editionLoading, language]);
 
   const dates = useMemo(() => listSessionDates(sessions), [sessions]);
   const dayKey = dates.includes(selectedDate) ? selectedDate : dates[0] || "";
@@ -115,7 +120,7 @@ function PhysioPage({ Panel }) {
       if (successMessage) setStatusMessage(successMessage);
     } catch (actionError) {
       console.error(`Physio action ${key} failed`, actionError);
-      setError(actionError?.userMessage || "Action impossible. Vérifie ta connexion puis réessaie.");
+      setError(actionError?.userMessage || tr("Action impossible. Vérifie ta connexion puis réessaie.", "Action failed. Check your connection and try again."));
     } finally {
       setBusyKey("");
     }
@@ -124,7 +129,7 @@ function PhysioPage({ Panel }) {
   function handleCreateSession(event) {
     event.preventDefault();
     const payload = { ...sessionForm, slotMinutes: Number(sessionForm.slotMinutes), location: sessionForm.location.trim() };
-    const validationError = validatePhysioSession(payload);
+    const validationError = validatePhysioSession(payload, tr);
     if (validationError) {
       setError(validationError);
       return undefined;
@@ -141,18 +146,26 @@ function PhysioPage({ Panel }) {
         });
         setSessionForm((current) => ({ ...EMPTY_SESSION_FORM, date: current.date, location: current.location }));
       },
-      "Plage ajoutée : les athlètes peuvent réserver ces créneaux.",
+      tr("Plage ajoutée : les athlètes peuvent réserver ces créneaux.", "Window added: athletes can now book these slots."),
     );
   }
 
   function handleDeleteSession(session) {
     const booked = countSessionBookings(session);
     if (booked) {
-      setError(`Cette plage a ${booked} réservation(s). Annule-les d'abord dans le planning.`);
+      setError(
+        tr(
+          `Cette plage a ${booked} réservation(s). Annule-les d'abord dans le planning.`,
+          booked === 1
+            ? "This window has 1 booking. Cancel it in the planning first."
+            : `This window has ${booked} bookings. Cancel them in the planning first.`,
+        ),
+      );
       return undefined;
     }
-    if (!window.confirm(`Supprimer la plage du ${formatPhysioDate(session.date)} (${session.start}–${session.end}) ?`)) return undefined;
-    return runAction(`session-${session.id}`, () => deleteDoc(doc(db, "physioSessions", session.id)), "Plage supprimée.");
+    const dateLabel = formatPhysioDate(session.date, language);
+    if (!window.confirm(tr(`Supprimer la plage du ${dateLabel} (${session.start}–${session.end}) ?`, `Delete the window on ${dateLabel} (${session.start}–${session.end})?`))) return undefined;
+    return runAction(`session-${session.id}`, () => deleteDoc(doc(db, "physioSessions", session.id)), tr("Plage supprimée.", "Window deleted."));
   }
 
   function handleMarkDone(booking) {
@@ -166,8 +179,8 @@ function PhysioPage({ Panel }) {
 
   function handleCancelBooking(booking) {
     const name = personName(booking.athleteFirstName, booking.athleteLastName);
-    if (!window.confirm(`Annuler le créneau de ${name} (${booking.start}) ? Le créneau redevient libre.`)) return undefined;
-    return runAction(`booking-${booking.id}`, () => deleteDoc(doc(db, "physioBookings", booking.id)), "Créneau libéré.");
+    if (!window.confirm(tr(`Annuler le créneau de ${name} (${booking.start}) ? Le créneau redevient libre.`, `Cancel ${name}'s slot (${booking.start})? The slot becomes free again.`))) return undefined;
+    return runAction(`booking-${booking.id}`, () => deleteDoc(doc(db, "physioBookings", booking.id)), tr("Créneau libéré.", "Slot freed."));
   }
 
   function handleWalkInSubmit(event) {
@@ -175,7 +188,7 @@ function PhysioPage({ Panel }) {
     const firstName = walkIn.firstName.trim();
     const lastName = walkIn.lastName.trim();
     if (!firstName || !lastName) {
-      setError("Indique le prénom et le nom de l'athlète.");
+      setError(tr("Indique le prénom et le nom de l'athlète.", "Enter the athlete's first and last name."));
       return undefined;
     }
     const { session, slot } = walkIn;
@@ -187,7 +200,7 @@ function PhysioPage({ Panel }) {
           const snapshot = await transaction.get(ref);
           if (snapshot.exists() && snapshot.data().status !== "cancelled") {
             const taken = new Error("slot-taken");
-            taken.userMessage = "Ce créneau vient d'être réservé par un athlète.";
+            taken.userMessage = tr("Ce créneau vient d'être réservé par un athlète.", "An athlete has just booked this slot.");
             throw taken;
           }
           transaction.set(ref, {
@@ -211,7 +224,7 @@ function PhysioPage({ Panel }) {
         });
         setWalkIn(null);
       },
-      `${firstName} ${lastName} ajouté(e) à ${slot.start}.`,
+      tr(`${firstName} ${lastName} ajouté(e) à ${slot.start}.`, `${firstName} ${lastName} added at ${slot.start}.`),
     );
   }
 
@@ -219,11 +232,13 @@ function PhysioPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Kiné · {activeEditionLabel}</p>
-          <h1>Réservations kiné</h1>
+          <p className="eyebrow">{tr("Kiné", "Physio")} · {activeEditionLabel}</p>
+          <h1>{tr("Réservations kiné", "Physio bookings")}</h1>
           <p>
-            Les athlètes réservent depuis « Mes réservations » du roadbook. Quand plusieurs kinés sont ouverts au même
-            horaire, l'athlète est attribué automatiquement à un kiné libre, et voit le lieu de ce kiné.
+            {tr(
+              "Les athlètes réservent depuis « Mes réservations » du roadbook. Quand plusieurs kinés sont ouverts au même horaire, l'athlète est attribué automatiquement à un kiné libre, et voit le lieu de ce kiné.",
+              "Athletes book from “My bookings” in the roadbook. When several physios are open at the same time, the athlete is assigned automatically to a free physio and sees that physio's location.",
+            )}
           </p>
         </div>
       </section>
@@ -231,25 +246,29 @@ function PhysioPage({ Panel }) {
       {error ? <p className="form-error">{error}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
 
-      <div className="admin-subtabs" role="tablist" aria-label="Sections kiné">
+      <div className="admin-subtabs" role="tablist" aria-label={tr("Sections kiné", "Physio sections")}>
         <button type="button" className={`admin-subtab ${activeTab === "planning" ? "admin-subtab--active" : ""}`} onClick={() => setActiveTab("planning")}>
           Planning
         </button>
         <button type="button" className={`admin-subtab ${activeTab === "horaires" ? "admin-subtab--active" : ""}`} onClick={() => setActiveTab("horaires")}>
-          {isManager ? "Horaires des kinés" : "Mes horaires"}
+          {isManager ? tr("Horaires des kinés", "Physio schedules") : tr("Mes horaires", "My schedule")}
         </button>
       </div>
 
       {activeTab === "planning" ? (
         <Panel
-          title={dayKey ? formatPhysioDate(dayKey) : "Planning"}
-          subtitle={dayKey ? `${dayBookingCount} réservation(s) ce jour-là.` : "Aucune plage d'ouverture pour l'instant : ajoute tes horaires."}
+          title={dayKey ? formatPhysioDate(dayKey, language) : "Planning"}
+          subtitle={
+            dayKey
+              ? tr(`${dayBookingCount} réservation(s) ce jour-là.`, dayBookingCount === 1 ? "1 booking that day." : `${dayBookingCount} bookings that day.`)
+              : tr("Aucune plage d'ouverture pour l'instant : ajoute tes horaires.", "No opening windows yet: add your schedule.")
+          }
         >
           {dates.length > 1 ? (
             <div className="physio-days">
               {dates.map((date) => (
                 <button key={date} type="button" className={`physio-day ${date === dayKey ? "physio-day--active" : ""}`} onClick={() => setSelectedDate(date)}>
-                  {formatPhysioDate(date, "fr", { weekday: "short", day: "numeric", month: "short" })}
+                  {formatPhysioDate(date, language, { weekday: "short", day: "numeric", month: "short" })}
                 </button>
               ))}
             </div>
@@ -258,23 +277,23 @@ function PhysioPage({ Panel }) {
           {walkIn ? (
             <form className="auth-form auth-form--compact physio-walkin" onSubmit={handleWalkInSubmit}>
               <p>
-                Athlète sans réservation · <strong>{walkIn.slot.start}</strong> avec {walkIn.session.physioName}
+                {tr("Athlète sans réservation", "Walk-in athlete")} · <strong>{walkIn.slot.start}</strong> {tr("avec", "with")} {walkIn.session.physioName}
               </p>
-              <AuthFormField label="Prénom" required>
+              <AuthFormField label={tr("Prénom", "First name")} required>
                 <input autoFocus value={walkIn.firstName} onChange={(event) => setWalkIn((current) => ({ ...current, firstName: event.target.value }))} />
               </AuthFormField>
-              <AuthFormField label="Nom" required>
+              <AuthFormField label={tr("Nom", "Last name")} required>
                 <input value={walkIn.lastName} onChange={(event) => setWalkIn((current) => ({ ...current, lastName: event.target.value }))} />
               </AuthFormField>
-              <AuthFormField label="Épreuve">
+              <AuthFormField label={tr("Épreuve", "Event")}>
                 <input value={walkIn.event} onChange={(event) => setWalkIn((current) => ({ ...current, event: event.target.value }))} />
               </AuthFormField>
               <div className="physio-actions">
                 <button className="button button--primary button--small" type="submit" disabled={busyKey === "walk-in"}>
-                  Réserver
+                  {tr("Réserver", "Book")}
                 </button>
                 <button className="button button--secondary button--small" type="button" onClick={() => setWalkIn(null)}>
-                  Annuler
+                  {tr("Annuler", "Cancel")}
                 </button>
               </div>
             </form>
@@ -285,7 +304,7 @@ function PhysioPage({ Panel }) {
               <table className="data-table physio-planning">
                 <thead>
                   <tr>
-                    <th>Heure</th>
+                    <th>{tr("Heure", "Time")}</th>
                     {planning.columns.map((column) => (
                       <th key={column.physioUid}>
                         {column.physioName}
@@ -310,7 +329,7 @@ function PhysioPage({ Panel }) {
                                 className="physio-cell__add"
                                 onClick={() => setWalkIn({ session: cell.session, slot: cell.slot, firstName: "", lastName: "", event: "" })}
                               >
-                                Libre · + athlète
+                                {tr("Libre · + athlète", "Free · + athlete")}
                               </button>
                             </td>
                           );
@@ -321,14 +340,14 @@ function PhysioPage({ Panel }) {
                             <strong>{personName(booking.athleteFirstName, booking.athleteLastName)}</strong>
                             <small>
                               {booking.athleteEvent || ""}
-                              {booking.source === "physio" ? " · ajouté par un kiné" : ""}
+                              {booking.source === "physio" ? tr(" · ajouté par un kiné", " · added by a physio") : ""}
                             </small>
                             <div className="physio-actions">
                               <button type="button" className="button button--secondary button--small" disabled={isBusy} onClick={() => handleMarkDone(booking)}>
-                                {booking.status === "done" ? "↺ À faire" : "✓ Fait"}
+                                {booking.status === "done" ? tr("↺ À faire", "↺ To do") : tr("✓ Fait", "✓ Done")}
                               </button>
                               <button type="button" className="button button--danger-soft button--small" disabled={isBusy} onClick={() => handleCancelBooking(booking)}>
-                                Annuler
+                                {tr("Annuler", "Cancel")}
                               </button>
                             </div>
                           </td>
@@ -344,60 +363,70 @@ function PhysioPage({ Panel }) {
       ) : (
         <>
           {roles.includes("kine") || isManager ? (
-            <Panel title="Ajouter une plage d'ouverture" subtitle="Les créneaux sont découpés automatiquement selon la durée choisie.">
+            <Panel
+              title={tr("Ajouter une plage d'ouverture", "Add an opening window")}
+              subtitle={tr("Les créneaux sont découpés automatiquement selon la durée choisie.", "Slots are split automatically by the chosen length.")}
+            >
               <form className="auth-form auth-form--compact physio-form" onSubmit={handleCreateSession}>
-                <AuthFormField label="Jour" required>
+                <AuthFormField label={tr("Jour", "Day")} required>
                   <input type="date" value={sessionForm.date} onChange={(event) => setSessionForm((current) => ({ ...current, date: event.target.value }))} />
                 </AuthFormField>
-                <AuthFormField label="Ouverture" required>
+                <AuthFormField label={tr("Ouverture", "Opens")} required>
                   <input type="time" step="300" value={sessionForm.start} onChange={(event) => setSessionForm((current) => ({ ...current, start: event.target.value }))} />
                 </AuthFormField>
-                <AuthFormField label="Fermeture" required>
+                <AuthFormField label={tr("Fermeture", "Closes")} required>
                   <input type="time" step="300" value={sessionForm.end} onChange={(event) => setSessionForm((current) => ({ ...current, end: event.target.value }))} />
                 </AuthFormField>
-                <AuthFormField label="Durée d'un créneau" required>
+                <AuthFormField label={tr("Durée d'un créneau", "Slot length")} required>
                   <select value={sessionForm.slotMinutes} onChange={(event) => setSessionForm((current) => ({ ...current, slotMinutes: Number(event.target.value) }))}>
                     {PHYSIO_SLOT_LENGTH_OPTIONS.map((minutes) => (
                       <option key={minutes} value={minutes}>{minutes} min</option>
                     ))}
                   </select>
                 </AuthFormField>
-                <AuthFormField label="Lieu" required>
+                <AuthFormField label={tr("Lieu", "Location")} required>
                   <input
                     value={sessionForm.location}
-                    placeholder="Salle kiné, Coque niveau 0"
+                    placeholder={tr("Salle kiné, Coque niveau 0", "Physio room, Coque level 0")}
                     onChange={(event) => setSessionForm((current) => ({ ...current, location: event.target.value }))}
                   />
                 </AuthFormField>
                 <button className="button button--primary" type="submit" disabled={busyKey === "session"}>
-                  Ajouter
+                  {tr("Ajouter", "Add")}
                 </button>
               </form>
               {sessionForm.date && validatePhysioSession({ ...sessionForm, location: sessionForm.location || "x" }) === "" ? (
-                <p className="panel-note">{buildSessionSlots(sessionForm).length} créneau(x) de {sessionForm.slotMinutes} min.</p>
+                <p className="panel-note">
+                  {tr(
+                    `${buildSessionSlots(sessionForm).length} créneau(x) de ${sessionForm.slotMinutes} min.`,
+                    buildSessionSlots(sessionForm).length === 1
+                      ? `1 slot of ${sessionForm.slotMinutes} min.`
+                      : `${buildSessionSlots(sessionForm).length} slots of ${sessionForm.slotMinutes} min.`,
+                  )}
+                </p>
               ) : null}
             </Panel>
           ) : null}
 
-          <Panel title={isManager ? "Toutes les plages" : "Mes plages"}>
+          <Panel title={isManager ? tr("Toutes les plages", "All windows") : tr("Mes plages", "My windows")}>
             {mySessions.length ? (
               <div className="table-wrap">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Jour</th>
-                      {isManager ? <th>Kiné</th> : null}
-                      <th>Horaires</th>
-                      <th>Créneaux</th>
-                      <th>Lieu</th>
-                      <th>Réservés</th>
+                      <th>{tr("Jour", "Day")}</th>
+                      {isManager ? <th>{tr("Kiné", "Physio")}</th> : null}
+                      <th>{tr("Horaires", "Hours")}</th>
+                      <th>{tr("Créneaux", "Slots")}</th>
+                      <th>{tr("Lieu", "Location")}</th>
+                      <th>{tr("Réservés", "Booked")}</th>
                       <th />
                     </tr>
                   </thead>
                   <tbody>
                     {mySessions.map((session) => (
                       <tr key={session.id}>
-                        <td>{formatPhysioDate(session.date, "fr", { weekday: "short", day: "numeric", month: "short" })}</td>
+                        <td>{formatPhysioDate(session.date, language, { weekday: "short", day: "numeric", month: "short" })}</td>
                         {isManager ? <td>{session.physioName}</td> : null}
                         <td>{session.start} – {session.end}</td>
                         <td>{buildSessionSlots(session).length} × {session.slotMinutes} min</td>
@@ -405,7 +434,7 @@ function PhysioPage({ Panel }) {
                         <td>{countSessionBookings(session)}</td>
                         <td>
                           <button type="button" className="button button--danger-soft button--small" disabled={busyKey === `session-${session.id}`} onClick={() => handleDeleteSession(session)}>
-                            Supprimer
+                            {tr("Supprimer", "Delete")}
                           </button>
                         </td>
                       </tr>
@@ -414,7 +443,7 @@ function PhysioPage({ Panel }) {
                 </table>
               </div>
             ) : (
-              <p className="panel-note">Aucune plage pour l'instant.</p>
+              <p className="panel-note">{tr("Aucune plage pour l'instant.", "No windows yet.")}</p>
             )}
           </Panel>
         </>
