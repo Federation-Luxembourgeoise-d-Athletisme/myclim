@@ -357,3 +357,55 @@
 /* Éditeur : lignes et aires de la piste dans la liste */
 .cpe-chip.is-line { height: 4px; border-radius: 1px; }
 .cpe-facility-name { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #0b1b2b; }
+
+/* ─── Plan de l'entrée (Accréditations › Plan entrée) ─────────────────────── */
+
+.ep-title { display: grid; gap: 1px; margin-right: auto; }
+.ep-title b { font-size: 13.5px; color: #0b1b2b; }
+.ep-title span { font-size: 11.5px; color: #8a9aa7; }
+.entrance-plan-editor .cpe-publish { margin-left: 0; }
+.ep-print { display: inline-flex; }
+.ep-group { grid-template-columns: 1fr auto; }
+.ep-group b { font-weight: 700; color: #b0bcc6; }
+.ep-row { grid-template-columns: 18px 1fr; }
+.ep-chip-line { width: 16px; height: 0; border-top: 3px solid var(--line); }
+.ep-chip-line[data-style="separation"] { border-top-style: dashed; border-top-width: 2px; }
+.ep-chip-line[data-style="rope"] { border-top-width: 1.5px; }
+.ep-chip-line[data-style="flow"] { position: relative; border-top-width: 2px; }
+.ep-chip-line[data-style="flow"]::after { content: ""; position: absolute; right: -2px; top: -5.5px; border: 4px solid transparent; border-left: 6px solid var(--line); }
+.ep-chip-zone { width: 16px; height: 11px; border: 1.5px dashed; border-radius: 2px; box-sizing: border-box; }
+.ep-chip-furn { width: 16px; height: 8px; border: 1px solid #4a5d6c; background: #fff; box-sizing: border-box; }
+.ep-chip-furn--chair { width: 9px; height: 9px; margin-left: 3px; background: #dfe5ea; border-top-width: 3px; }
+.ep-chip-furn--bench { height: 5px; background: #d9b27c; border-color: #8a6a3a; }
+.ep-chip-furn--high { width: 10px; height: 10px; margin-left: 3px; border-radius: 50%; }
+.ep-chip-furn--rollup { height: 4px; background: #0a2540; border-color: #0a2540; }
+.ep-adds { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px; align-items: center; }
+.ep-adds > span { width: 100%; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a9aa7; }
+.ep-adds .cpe-btn { padding: 4px 8px; font-size: 12px; }
+.ep-adds .cpe-btn::before { content: "+ "; color: #8a9aa7; }
+.ep-reset { margin-top: 10px; width: 100%; }
+.ep-keys { color: #8a9aa7; font-size: 11.5px; }
+.ep-canvas { touch-action: none; cursor: default; user-select: none; }
+.ep-canvas svg { display: block; width: 100%; height: auto; max-height: calc(100vh - 230px); }
+.ep-canvas [data-id] { cursor: grab; }
+.ep-canvas [data-id]:active { cursor: grabbing; }
+.ep-canvas .is-selected { filter: drop-shadow(0 0 1.2px #0d8fd3) drop-shadow(0 0 1.2px #0d8fd3); }
+.ep-canvas .ep-handle { fill: #0d8fd3; stroke: #fff; stroke-width: 0.8; cursor: crosshair; }
+.ep-canvas .ep-handle--resize { cursor: nwse-resize; }
+.ep-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  border-top: 1px solid #e3e9ee;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #4a5d6c;
+}
+.ep-totals b { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a9aa7; }
+.ep-totals em { color: #8a9aa7; }
+.ep-stepper { display: inline-flex; gap: 4px; align-items: center; }
+.ep-stepper input { width: 56px; text-align: center; }
+.ep-stepper .cpe-btn { width: 30px; height: 30px; padding: 0; }
+.ep-measure { margin: -2px 0 8px; font-size: 12.5px; color: #4a5d6c; }
+.ep-actions { display: flex; gap: 6px; margin-top: 4px; }
+.ep-print button { flex: none; padding: 5px 10px; font-size: 12.5px; font-weight: 600; }
