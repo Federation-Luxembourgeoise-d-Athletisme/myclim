@@ -16,6 +16,7 @@ const MAT = "#34558b";
 const INK = "#34558b";
 
 export const JUDGES_FACILITIES = {
+  details: { label: "Sièges, escaliers, pièces (plan d'architecte)", en: "Seats, stairs, rooms (architect plan)" },
   sprint: { label: "Ligne droite du 60 m", en: "60 m straight" },
   pole: { label: "Perche", en: "Pole vault" },
   long: { label: "Longueur / triple", en: "Long / triple jump" },
@@ -28,6 +29,8 @@ const txt = (x, y, text, { size = 8, fill = INK, rot = 0, weight = 800, anchor =
 
 // Aires dessinées en détail (mêmes positions que les versions simplifiées de coque-plan-data.js).
 const FACILITY_SVG = {
+  // Sièges des gradins, escaliers, équipements des pièces : chargés à part (coque-plan-details.js)
+  details: (en, details) => (details ? `<path d="${details}" fill="none" stroke="#7d8d99" stroke-width=".45" stroke-linejoin="round" />` : ""),
   // 8 couloirs de 9 unités, départ en bas (y 1105), arrivée 60 m plus haut (y 601), dégagement au-delà
   sprint: (en) => {
     const x0 = 384;
@@ -85,20 +88,33 @@ const SHOT = { cx: 334, cy: 1095 };
 
 // Fond : le niveau 0 des plans de la Coque (murs, gradins, piste de 6 couloirs, warm-up en bleu comme sur les autres plans),
 // cadré ; par-dessus, les aires de concours et les lignes.
-export function judgesPlanSvg(elements, lang = "fr") {
+// Zone dessinée (forme réelle d'une pièce) : points relatifs au centre, tournés de rot degrés
+const shapePoints = (el) => {
+  const X = B.x + (el.x / 100) * B.w;
+  const Y = B.y + (el.y / 100) * B.h;
+  const a = ((el.rot || 0) * Math.PI) / 180;
+  return el.shape.map((pt) => `${(X + pt.x * Math.cos(a) - pt.y * Math.sin(a)).toFixed(1)},${(Y + pt.x * Math.sin(a) + pt.y * Math.cos(a)).toFixed(1)}`).join(" ");
+};
+
+export function judgesPlanSvg(elements, lang = "fr", details = "") {
   const en = lang === "en";
   const viewBox = `${B.x} ${B.y} ${B.w} ${B.h}`;
   const base = planBaseSvg({ lang, infield: "#e9eff5" }).replace(/viewBox="[^"]*"/, `viewBox="${viewBox}"`);
   const facilities = elements
     .filter((el) => el.kind === "facility" && !el.hidden)
-    .map((el) => FACILITY_SVG[el.facility]?.(en) || "")
+    .sort((a, b) => (a.facility === "details" ? -1 : 0) - (b.facility === "details" ? -1 : 0))
+    .map((el) => FACILITY_SVG[el.facility]?.(en, details) || "")
+    .join("");
+  const rooms = elements
+    .filter((el) => el.kind === "area" && el.shape)
+    .map((el) => `<polygon points="${shapePoints(el)}" fill="${el.color}59" stroke="${el.color}" stroke-width="2" stroke-linejoin="round" />`)
     .join("");
   const lines = elements
     .filter((el) => el.kind === "line")
     .map((el) => lineSvg(el, B.x + (el.x / 100) * B.w, B.y + (el.y / 100) * B.h))
     .join("");
   return `${base}<svg viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
-    ${facilities}${lines}
+    ${facilities}${rooms}${lines}
     ${txt(150, 1250, "WARM-UP", { size: 22, fill: "#7d93ad", rot: -52 })}
   </svg>`;
 }
@@ -155,7 +171,14 @@ export const JUDGES_DEFAULT_ELEMENTS = [
   { id: "stage", kind: "area", label: "Scène", labelEn: "Stage", desc: "Scène (présentations, cérémonies), au bout de la piste côté départ", descEn: "Stage (presentations, ceremonies), at the start end of the track", color: "#e0601a", w: 70, h: 26, ...at(420, 1252) },
   { id: "hurdles", kind: "area", label: "Haies", labelEn: "Hurdles", desc: "Stockage des haies", descEn: "Hurdles storage", color: "#f07c00", w: 44, h: 40, ...at(330, 1180) },
   { id: "entry", kind: "door", label: "Entrée infield", labelEn: "Infield entry", desc: "Entrée de l'infield, à côté de la salle des juges", descEn: "Infield entry, next to the judges' room", color: "#e30613", angle: 180, ...at(640, 848) },
-  { id: "room", kind: "mark", label: "Salle des juges", labelEn: "Judges' room", desc: "Salle des juges : salon VIP (niveau 0)", descEn: "Judges' room: VIP lounge (level 0)", color: "#e30613", icon: "", ...at(735, 822) },
+  {
+    id: "room", kind: "area", label: "Salle des juges", labelEn: "Judges' room", desc: "Salle des juges : salon VIP N0.2134 (niveau 0)", descEn: "Judges' room: VIP lounge N0.2134 (level 0)", color: "#e30613", ...at(720, 827),
+    shape: [[-4, -47], [1, -34], [18, -29], [29, -17], [33, 0], [33, 8], [27, 23], [14, 33], [-4, 36], [-4, 48], [-35, 48], [-35, -47]].map(([x, y]) => ({ x, y })),
+  },
+  { id: "wc-f1", kind: "mark", label: "WC ♀", labelEn: "WC ♀", desc: "Toilettes femmes, de chaque côté de la salle des juges", descEn: "Women's toilets, on each side of the judges' room", color: "#3a7ca5", icon: "", ...at(699, 718) },
+  { id: "wc-h1", kind: "mark", label: "WC ♂", labelEn: "WC ♂", desc: "Toilettes hommes, de chaque côté de la salle des juges", descEn: "Men's toilets, on each side of the judges' room", color: "#3a7ca5", icon: "", ...at(699, 758) },
+  { id: "wc-f2", kind: "mark", label: "WC ♀", labelEn: "WC ♀", desc: "Toilettes femmes, de chaque côté de la salle des juges", descEn: "Women's toilets, on each side of the judges' room", color: "#3a7ca5", icon: "", ...at(699, 897) },
+  { id: "wc-h2", kind: "mark", label: "WC ♂", labelEn: "WC ♂", desc: "Toilettes hommes, de chaque côté de la salle des juges", descEn: "Men's toilets, on each side of the judges' room", color: "#3a7ca5", icon: "", ...at(699, 940) },
   { id: "stand", kind: "mark", label: "Tribune juges", labelEn: "Judges' stand", desc: "Tribune des juges, dans les gradins", descEn: "Judges' stand, in the stands", color: "#c8102e", icon: "", rot: -90, ...at(668, 925) },
   { id: "team-h", kind: "mark", label: "Team haies", labelEn: "Hurdles team", desc: "Équipe haies : local au pied des gradins", descEn: "Hurdles team: room at the foot of the stands", color: "#0f8a5f", icon: "", rot: -90, ...at(690, 1010) },
   { id: "cr1", kind: "mark", label: "CR1", labelEn: "CR1", desc: "Call room 1 et contrôle du poids : dans le warm-up", descEn: "Call room 1 and shot put implement control: in the warm-up", color: "#8e2a8e", icon: "", ...at(120, 905) },
@@ -211,9 +234,17 @@ export function normalizeJudgesElements(list, teams) {
       const { maps, level, ...el } = normalizePlanElement(raw, index); // eslint-disable-line no-unused-vars
       if (!["mark", "area", "door", "line"].includes(el.kind)) return null;
       if (el.kind === "area") {
-        delete el.shape;
-        el.w = Math.max(20, num(raw.w, 76));
-        el.h = Math.max(20, num(raw.h, 56));
+        delete el.bg;
+        delete el.pictos;
+        if (!el.shape) {
+          el.w = Math.max(20, num(raw.w, 76));
+          el.h = Math.max(20, num(raw.h, 56));
+        }
+      }
+      // Rotation (degrés) : repères et zones ; les flèches gardent leur direction
+      if (el.kind === "mark" || el.kind === "area") {
+        const rot = Math.round(num(raw.rot, 0));
+        el.rot = ((((rot + 180) % 360) + 360) % 360) - 180;
       }
       return el;
     })
@@ -232,5 +263,8 @@ export const teamColor = (teams, id) => teams.find((t) => t.id === id)?.color ||
 
 // Position en unités du plan (lignes, poignées) et taille d'une zone en % du cadre
 export const jPoint = (el) => ({ X: B.x + (el.x / 100) * B.w, Y: B.y + (el.y / 100) * B.h });
+// Rotation d'un repère ou d'une zone rectangulaire (une zone dessinée tourne dans le SVG)
+export const jTransform = (el) =>
+  (el.kind === "mark" || (el.kind === "area" && !el.shape)) && el.rot ? `translate(-50%, -50%) rotate(${el.rot}deg)` : undefined;
 export const jAreaSize = (el) => ({ width: `${(el.w / B.w) * 100}%`, height: `${(el.h / B.h) * 100}%` });
 

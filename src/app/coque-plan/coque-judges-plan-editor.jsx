@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTr } from "../use-tr";
 import { useLanguage } from "../language-context";
-import { PLAN_ICONS, PLAN_LINE_STYLES, PLAN_PALETTE, planElTransform, planIconSvg, planShowsText } from "./coque-plan-data";
-import { JUDGES_BOX, JUDGES_FACILITIES, jAreaSize, jPoint, jText, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
+import { PLAN_ICONS, PLAN_LINE_STYLES, PLAN_PALETTE, planIconSvg } from "./coque-plan-data";
+import { JUDGES_BOX, JUDGES_FACILITIES, jAreaSize, jPoint, jText, jTransform, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
 import { judgesPlanDefaults, saveJudgesPlan, useJudgesPlan } from "./coque-judges-plan-hooks";
 import { judgesPlanPrintHtml } from "./coque-judges-plan-print";
 import { RotationField } from "./coque-plan-editor";
@@ -37,6 +37,13 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState(null); // { type: "el" | "team", id }
+  // Sièges, escaliers et pièces du plan d'architecte : un gros tracé, chargé à part
+  const [details, setDetails] = useState("");
+  useEffect(() => {
+    let alive = true;
+    import("./coque-plan-details").then((mod) => alive && setDetails(mod.PLAN_DETAILS)).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
   const handleRef = useRef(null);
@@ -158,7 +165,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   function print() {
     const win = window.open("", "_blank", "width=900,height=1100");
     if (win) {
-      win.document.write(judgesPlanPrintHtml(elements, teams, { lang }));
+      win.document.write(judgesPlanPrintHtml(elements, teams, { lang, details }));
       win.document.close();
       return;
     }
@@ -169,7 +176,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     frame.title = "print";
     frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
     frame.onload = () => setTimeout(() => frame.contentWindow?.print(), 250);
-    frame.srcdoc = judgesPlanPrintHtml(elements, teams, { lang, autoPrint: false });
+    frame.srcdoc = judgesPlanPrintHtml(elements, teams, { lang, details, autoPrint: false });
     document.body.appendChild(frame);
   }
 
@@ -223,7 +230,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     if (drag.moved) patch(drag.id, { x: drag.x, y: drag.y });
   }
 
-  const baseHtml = useMemo(() => judgesPlanSvg(elements, lang), [elements, lang]);
+  const baseHtml = useMemo(() => judgesPlanSvg(elements, lang, details), [elements, lang, details]);
   const judges = elements.filter((el) => el.kind === "judge");
   const others = elements.filter((el) => ["area", "mark", "door", "line"].includes(el.kind));
   const drawn = [...others.filter((el) => el.kind === "area"), ...others.filter((el) => el.kind !== "area"), ...judges];
@@ -236,7 +243,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
       <div
         key={el.id}
         className={classes}
-        style={{ left: `${el.x}%`, top: `${el.y}%`, ...size, transform: el.kind === "judge" ? undefined : planElTransform(el) }}
+        style={{ left: `${el.x}%`, top: `${el.y}%`, ...size, transform: jTransform(el) }}
         title={el.kind === "judge" ? `${jText(teams.find((t) => t.id === el.team), "label", lang)} · ${jText(el, "desc", lang)}` : undefined}
         onPointerDown={(event) => onElementPointerDown(event, el)}
       >
@@ -541,8 +548,8 @@ function ElementDetail({ el, teams, onPatch, onDuplicate, onDelete }) {
               ) : null}
             </div>
           ) : null}
-          {planShowsText(el) ? <RotationField value={el.rot || 0} onChange={(rot) => onPatch({ rot })} /> : null}
-          {el.kind === "area" ? (
+          {el.kind === "mark" || el.kind === "area" ? <RotationField value={el.rot || 0} onChange={(rot) => onPatch({ rot })} /> : null}
+          {el.kind === "area" && !el.shape ? (
             <div className="cpe-field">
               <span>{tr("Taille", "Size")} <small>{tr("unités du plan (≈ 8 par mètre)", "plan units (≈ 8 per metre)")}</small></span>
               <div className="cpe-inline">
