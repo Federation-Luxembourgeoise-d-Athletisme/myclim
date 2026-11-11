@@ -246,3 +246,61 @@ export function planShapesSvg(list, crop = false) {
       ${(el.pictos || []).map((p) => `<g transform="translate(${X + p.dx} ${Y + p.dy}) scale(${p.sc || 1})">${PICTOS[p.t] || ""}</g>`).join("")}`;
   }).join("")}</svg>`;
 }
+
+// ─── Impression (fenêtre d'impression des badges : pas de React, du HTML) ─────
+
+const escapePlanText = (value) =>
+  String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// Un repère en HTML, mêmes classes que PlanMarker (coque-plan-view.jsx).
+export function planMarkerHtml(el, color = planColorOf(el)) {
+  const label = escapePlanText(el.label);
+  if (el.kind === "zone") return `<span class="cp-zone" style="background:${color}">${el.num}</span>`;
+  if (el.kind === "ctrl") return `<span class="cp-ctrl" style="background:${color}">${label}</span>`;
+  if (el.kind === "door") return `<span class="cp-door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></span>`;
+  if (el.kind === "area" && el.shape) return `<span class="cp-area-label" style="color:${color}">${label}</span>`;
+  if (el.kind === "area") return `<span class="cp-area" style="background:${color}1f;border-color:${color};color:${color}">${label}</span>`;
+  if (PLAN_ICONS[el.icon]) return `<span class="cp-picto" style="background:${color}">${planIconSvg(el.icon)}</span>`;
+  return `<span class="cp-pill" style="background:${color}">${label}</span>`;
+}
+
+// Le plan complet en HTML : fond (Infield / Warm-up teintés si autorisés), formes, repères du plan
+// choisi. allowedZones : numéros de zones autorisées, allumés dans la couleur accent ; les autres en gris.
+export function planBoxHtml(elements, { mapKey = "acc", crop = true, allowedZones = null, accent = PLAN_ZONE_RED } = {}) {
+  const shown = elements.filter((el) => el.maps?.[mapKey]);
+  const isAllowed = (n) => !allowedZones || allowedZones.has(n);
+  const base = planBaseSvg({
+    crop,
+    infield: allowedZones ? (isAllowed(1) ? `${accent}40` : "#eef1f4") : undefined,
+    warmup: allowedZones ? (isAllowed(2) ? `${accent}40` : "#e6ebef") : undefined,
+  });
+  const markers = [...shown.filter((el) => el.kind === "area"), ...shown.filter((el) => el.kind !== "area")]
+    .map((el) => {
+      const { x, y } = planPos(el, crop);
+      if (y < 0 || y > 100) return "";
+      const size = el.kind === "area" && !el.shape
+        ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;`
+        : "";
+      const color = el.kind === "zone" && allowedZones ? (isAllowed(el.num) ? accent : "#c3ccd3") : planColorOf(el);
+      return `<div class="coque-plan__el" style="left:${x}%;top:${y}%;${size}">${planMarkerHtml(el, color)}</div>`;
+    })
+    .join("");
+  return `<div class="coque-plan${crop ? " coque-plan--crop" : ""}"><div class="coque-plan__layer">${base}</div><div class="coque-plan__layer">${planShapesSvg(shown, crop)}</div>${markers}</div>`;
+}
+
+// CSS du plan pour une page imprimée (tailles en mm, pour un badge de ~90 mm de large).
+export const PLAN_PRINT_CSS = `
+  .coque-plan { position: relative; height: 100%; max-width: 100%; aspect-ratio: ${PLAN_W} / ${PLAN_H}; margin: 0 auto; }
+  .coque-plan--crop { aspect-ratio: ${PLAN_W} / ${PLAN_CROP.h}; }
+  .coque-plan__layer, .coque-plan__layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .coque-plan__el { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
+  .cp-zone, .cp-ctrl, .cp-door, .cp-picto { display: grid; place-items: center; color: #fff; border: .35mm solid #fff; }
+  .cp-zone { width: 4.2mm; height: 4.2mm; border-radius: 50%; font: 800 7.5pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .cp-ctrl { width: 3.6mm; height: 3.6mm; border-radius: .8mm; font: 800 6.5pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .cp-door { width: 3.8mm; height: 3.8mm; border-radius: 50%; font: 900 6pt/1 Arial, sans-serif; }
+  .cp-picto { width: 3.6mm; height: 3.6mm; border-radius: 50%; border-width: .25mm; }
+  .cp-picto svg { width: 62%; height: 62%; display: block; }
+  .cp-pill { display: inline-block; padding: .5mm 1.3mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Arial, sans-serif; border: .25mm solid #fff; }
+  .cp-area { display: grid; place-items: center; width: 100%; height: 100%; box-sizing: border-box; border: .3mm dashed; border-radius: 1.5mm; font: 800 4.6pt/1 Arial, sans-serif; text-align: center; }
+  .cp-area-label { display: inline-block; font: 800 4.6pt/1 Arial, sans-serif; background: #fff; border-radius: 99px; padding: .5mm 1.2mm; }
+`;

@@ -9,6 +9,7 @@ import meetingLogoRougeUrl from "../assets/accreditation-meeting-rouge.png";
 import sponsorsStripUrl from "../assets/accreditation-sponsors-strip.png";
 import { extractRolesFromProfile } from "./utils.js";
 import { normalizeSubRoles } from "./team-config.js";
+import { PLAN_PRINT_CSS, planBoxHtml } from "./coque-plan/coque-plan-data.js";
 
 function sortAccreditationZones(zones) {
   return [...zones].sort((left, right) => {
@@ -295,6 +296,16 @@ function normalizePrintableLabel(value) {
 function buildBadgePrintMarkup(items, options = {}) {
   const pages = chunkItems(items, 4);
   const legendZoneLabels = Array.isArray(options.legendZoneLabels) ? options.legendZoneLabels : [];
+  // Plan de la Coque (Accréditations › Plans) : repères cochés « Accréditations ». Les zones de la
+  // personne s'allument (numéro = ordre de la zone, « 1. Infield ») ; sans plan, l'ancienne image.
+  const planElements = Array.isArray(options.planElements) ? options.planElements : [];
+  const renderPlan = (item) => {
+    if (!planElements.length) return `<img src="${accreditationPlanUrl}" alt="Plan accreditation" />`;
+    const allowedZones = new Set(
+      (item.zoneLabels || []).map((label) => Number.parseInt(String(label), 10)).filter(Number.isFinite),
+    );
+    return planBoxHtml(planElements, { mapKey: "acc", crop: true, allowedZones, accent: "#1590cf" });
+  };
 
   const renderLegendPills = (authorizedLabels = []) =>
     legendZoneLabels.length
@@ -364,7 +375,7 @@ function buildBadgePrintMarkup(items, options = {}) {
         </div>
       </div>
       <div class="print-badge__back-plan">
-        <img src="${accreditationPlanUrl}" alt="Plan accreditation" />
+        ${renderPlan(item)}
       </div>
       ${
         getBadgeResourceCards(item).length
@@ -635,6 +646,7 @@ function buildBadgePrintMarkup(items, options = {}) {
           height: 100%;
           object-fit: contain;
         }
+        ${PLAN_PRINT_CSS}
         .print-badge__resource-strip {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));

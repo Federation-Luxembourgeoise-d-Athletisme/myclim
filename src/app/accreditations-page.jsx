@@ -34,6 +34,7 @@ import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print"
 import { getVipRegistrationDocRef, useVipRegistrations } from "./vip-registrations-hooks";
 import { db } from "../services/firebase";
 import { CoquePlanEditor } from "./coque-plan/coque-plan-editor";
+import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 const PRESS_REQUEST_TYPE_LABELS = { press: "Presse", photographer: "Photographe" };
@@ -95,6 +96,8 @@ function AccreditationsPage(props) {
   const canManageJudges = activeRoles.includes("admin");
   const { roles, teamAssignments, loading: teamsLoading, error: teamsError } = useTeamConfiguration();
   const { judges, loading: judgesLoading, error: judgesError } = useJudgeRoster();
+  // Plan de la Coque (onglet Plans) imprimé au verso des badges
+  const { elements: coquePlanElements } = useCoquePlan();
   const { activeEditionId, loading: editionLoading } = useActiveEdition(canOperatePrinting);
   const { registrations: vipRegistrations, error: vipRegistrationsError } = useVipRegistrations(
     activeEditionId,
@@ -987,7 +990,7 @@ function AccreditationsPage(props) {
       ),
     ]);
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels, planElements: coquePlanElements }));
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
@@ -1277,7 +1280,7 @@ function AccreditationsPage(props) {
           zoneLabels: noZoneLabels,
           resourceCards: volunteerResourceCards,
         },
-      ], { legendZoneLabels }),
+      ], { legendZoneLabels, planElements: coquePlanElements }),
     );
   }
 
@@ -1349,7 +1352,7 @@ function AccreditationsPage(props) {
       "Lot d'impression généré.",
     );
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels, planElements: coquePlanElements }));
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
@@ -1401,7 +1404,7 @@ function AccreditationsPage(props) {
       `${quantity} badge(s) ${selectedNonNominativeTemplate.label.toLowerCase()} non nominatif(s) généré(s).`,
     );
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels, planElements: coquePlanElements }));
   }
 
   // Badges VIP : la mise en file se fait aussi depuis VIP › Inscrits (statut du badge).
@@ -1494,7 +1497,7 @@ function AccreditationsPage(props) {
       ),
     ]);
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels, planElements: coquePlanElements }));
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
