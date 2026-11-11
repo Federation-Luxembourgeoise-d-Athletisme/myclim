@@ -2,14 +2,16 @@ import { forwardRef, useMemo } from "react";
 import {
   PLAN_CROP,
   PLAN_H,
-  PLAN_ICONS,
   PLAN_W,
   planBaseSvg,
   planColorOf,
   planDesc,
-  planIconSvg,
+  planElTransform,
+  planHasIcon,
+  planIconHtml,
   planLabel,
   planLegendItems,
+  planPictoBg,
   planPos,
   planShapesSvg,
 } from "./coque-plan-data";
@@ -31,8 +33,15 @@ export function PlanMarker({ el, color = planColorOf(el), lang = "fr" }) {
   if (el.kind === "area") {
     return <span className="cp-area" style={{ background: `${color}1f`, borderColor: color, color }}>{label}</span>;
   }
-  if (PLAN_ICONS[el.icon]) {
-    return <span className="cp-picto" style={{ background: color }} title={label} dangerouslySetInnerHTML={{ __html: planIconSvg(el.icon) }} />;
+  if (planHasIcon(el)) {
+    return (
+      <span
+        className={`cp-picto ${el.iconImg ? "cp-picto--img" : ""}`}
+        style={{ background: planPictoBg(el, color) }}
+        title={label}
+        dangerouslySetInnerHTML={{ __html: planIconHtml(el) }}
+      />
+    );
   }
   return <span className="cp-pill" style={{ background: color }}>{label}</span>;
 }
@@ -65,7 +74,7 @@ export const PlanCanvas = forwardRef(function PlanCanvas(
           <div
             key={el.id}
             className={classes}
-            style={{ left: `${x}%`, top: `${y}%`, ...size }}
+            style={{ left: `${x}%`, top: `${y}%`, ...size, transform: planElTransform(el) }}
             data-id={el.id}
             onPointerDown={onElementPointerDown ? (event) => onElementPointerDown(event, el) : undefined}
           >
@@ -92,10 +101,10 @@ export function PlanLegend({ elements, mapKey, compact = false, lang = "fr" }) {
             )}
           </span>
           <span className="cp-legend__text">
-            {el.kind === "zone" || PLAN_ICONS[el.icon] || el.kind === "area" ? <b>{planLabel(el, lang)}</b> : null}
+            {el.kind === "zone" || planHasIcon(el) || el.kind === "area" ? <b>{planLabel(el, lang)}</b> : null}
             {el.kind === "ctrl" && !planDesc(el, lang) ? <em className="cp-legend__todo">{lang === "en" ? "to complete" : "à compléter : ce qu'on contrôle ici"}</em> : null}
-            {planDesc(el, lang) ? <>{el.kind === "zone" || PLAN_ICONS[el.icon] || el.kind === "area" ? " — " : ""}{planDesc(el, lang)}</> : null}
-            {!planDesc(el, lang) && el.kind === "mark" && !PLAN_ICONS[el.icon] ? planLabel(el, lang) : null}
+            {planDesc(el, lang) ? <>{el.kind === "zone" || planHasIcon(el) || el.kind === "area" ? " — " : ""}{planDesc(el, lang)}</> : null}
+            {!planDesc(el, lang) && el.kind === "mark" && !planHasIcon(el) ? planLabel(el, lang) : null}
             {where ? <small>{where}</small> : null}
           </span>
         </div>

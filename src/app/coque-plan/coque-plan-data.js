@@ -22,23 +22,82 @@ export const PLAN_LEVELS = { piste: "Piste (R-1)", rdc: "Arcades (entrée)", eta
 export const PLAN_PALETTE = ["#e30613", "#0a2540", "#27a9e1", "#0f8a5f", "#f07c00", "#5b2bb5", "#9157e6", "#b8912a", "#e5719a", "#6b7a86", "#4a5d6c"];
 
 // Petites icônes (rond de 20 px) à la place des étiquettes : prennent moins de place, la légende
-// dit ce que c'est. Tracés blancs sur une grille de 24.
+// dit ce que c'est. Tracés blancs sur une grille de 24. en : nom dans l'éditeur en anglais.
+const FILL = `fill="#fff" stroke="none"`;
 export const PLAN_ICONS = {
-  bar: { label: "Bar", svg: `<path d="M5 4h14l-7 8z" /><path d="M12 12v7" /><path d="M8 20h8" />` },
-  ticket: { label: "Vente (cartes)", svg: `<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" /><path d="M15 7v10" stroke-dasharray="2 2" />` },
-  signature: { label: "Signing zone", svg: `<path d="M3 16c2.5-1 3.5-8 5.5-8s-1 8 1 8 2-3.5 3-3.5 1 2.5 2 2.5 2-1 3-2" /><path d="M3 20h18" />` },
-  camera: { label: "Photobooth", svg: `<path d="M4 8h3l1.5-2h7L17 8h3v11H4z" /><circle cx="12" cy="13.5" r="3.2" />` },
-  wc: { label: "WC", svg: `<text x="12" y="16.3" text-anchor="middle" font-family="Arial, sans-serif" font-size="11.5" font-weight="800" fill="#fff" stroke="none">WC</text>` },
-  firstAid: { label: "Secours", svg: `<path d="M12 5.5v13M5.5 12h13" stroke-width="4" stroke-linecap="butt" />` },
-  info: { label: "Info", svg: `<circle cx="12" cy="6.5" r="1.3" fill="#fff" stroke="none" /><path d="M12 10.5v8" stroke-width="2.8" />` },
-  food: { label: "Restauration", svg: `<path d="M7 4v6a2 2 0 0 0 4 0V4" /><path d="M9 12v8" /><path d="M16.5 4c-2 2-2 6.5 0 8.5V20" />` },
-  shop: { label: "Boutique", svg: `<path d="M5 8.5h14l-1.2 11.5H6.2z" /><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5" />` },
-  stairs: { label: "Escalier", svg: `<path d="M4 19h4.5v-4h4v-4h4V7H20" />` },
+  vip: { label: "VIP", en: "VIP", svg: `<path d="M3.5 8.5l4.3 3.6L12 5.5l4.2 6.6 4.3-3.6-1.6 9H5.1z" ${FILL} /><path d="M5.5 20h13" />` },
+  bar: { label: "Bar", en: "Bar", svg: `<path d="M5 4h14l-7 8z" /><path d="M12 12v7" /><path d="M8 20h8" />` },
+  food: { label: "Restauration", en: "Food", svg: `<path d="M7 4v6a2 2 0 0 0 4 0V4" /><path d="M9 12v8" /><path d="M16.5 4c-2 2-2 6.5 0 8.5V20" />` },
+  coffee: { label: "Café", en: "Coffee", svg: `<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z" /><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16" /><path d="M8.5 3.5v2.5M12 3.5v2.5" />` },
+  water: { label: "Eau", en: "Water", svg: `<path d="M12 3.5c3.2 4 5.5 7.2 5.5 10a5.5 5.5 0 0 1-11 0c0-2.8 2.3-6 5.5-10z" />` },
+  ticket: { label: "Vente (cartes)", en: "Sales (cards)", svg: `<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" /><path d="M15 7v10" stroke-dasharray="2 2" />` },
+  shop: { label: "Boutique", en: "Shop", svg: `<path d="M5 8.5h14l-1.2 11.5H6.2z" /><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5" />` },
+  signature: { label: "Signing zone", en: "Signing zone", svg: `<path d="M3 16c2.5-1 3.5-8 5.5-8s-1 8 1 8 2-3.5 3-3.5 1 2.5 2 2.5 2-1 3-2" /><path d="M3 20h18" />` },
+  camera: { label: "Photobooth", en: "Photobooth", svg: `<path d="M4 8h3l1.5-2h7L17 8h3v11H4z" /><circle cx="12" cy="13.5" r="3.2" />` },
+  press: { label: "Presse", en: "Press", svg: `<rect x="9" y="3.5" width="6" height="10" rx="3" /><path d="M6 11a6 6 0 0 0 12 0" /><path d="M12 17v3.5M8.5 20.5h7" />` },
+  medal: { label: "Podium", en: "Medals", svg: `<path d="M8 3.5l2.5 6M16 3.5l-2.5 6" /><circle cx="12" cy="15" r="5" /><path d="M12 13v4" />` },
+  info: { label: "Info", en: "Info", svg: `<circle cx="12" cy="6.5" r="1.3" ${FILL} /><path d="M12 10.5v8" stroke-width="2.8" />` },
+  firstAid: { label: "Secours", en: "First aid", svg: `<path d="M12 5.5v13M5.5 12h13" stroke-width="4" stroke-linecap="butt" />` },
+  wc: { label: "WC", en: "WC", svg: `<text x="12" y="16.3" text-anchor="middle" font-family="Arial, sans-serif" font-size="11.5" font-weight="800" ${FILL}>WC</text>` },
+  baby: { label: "Change bébé", en: "Baby change", svg: `<circle cx="12" cy="6" r="2.6" /><path d="M7 12.5l5-2.5 5 2.5M12 10v5l-3 5M12 15l3 5" />` },
+  accessible: { label: "Accès PMR", en: "Accessible", svg: `<circle cx="11" cy="4.5" r="1.6" ${FILL} /><path d="M11 8v6h5l2.5 5" /><path d="M8 11.5a5 5 0 1 0 6.5 6.5" />` },
+  elevator: { label: "Ascenseur", en: "Lift", svg: `<rect x="5" y="3.5" width="14" height="17" rx="1.5" /><path d="M9 10l3-3 3 3M9 14l3 3 3-3" />` },
+  stairs: { label: "Escalier", en: "Stairs", svg: `<path d="M4 19h4.5v-4h4v-4h4V7H20" />` },
+  exit: { label: "Sortie", en: "Exit", svg: `<path d="M10 4H5v16h5" /><path d="M13 8l4 4-4 4M17 12H9" />` },
+  cloakroom: { label: "Vestiaire", en: "Cloakroom", svg: `<path d="M12 8.5a2 2 0 1 1 2-2" /><path d="M12 8.5v1.5L3.5 16.5h17L12 10" />` },
+  parking: { label: "Parking", en: "Parking", svg: `<text x="12" y="17" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="800" ${FILL}>P</text>` },
+  star: { label: "Étoile", en: "Star", svg: `<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" ${FILL} />` },
 };
 export const planIconSvg = (name) =>
   PLAN_ICONS[name]
     ? `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PLAN_ICONS[name].svg}</svg>`
     : "";
+
+// Icônes ajoutées depuis l'éditeur (fichier SVG/PNG, ramené en PNG de 96 px) : enregistrées dans le
+// document du plan, référencées par les repères en « custom:<id> ». mono = silhouette blanche sur
+// la couleur du repère (comme les icônes de base) ; sinon l'image garde ses couleurs sur un rond blanc.
+export const CUSTOM_ICON_PREFIX = "custom:";
+export const isCustomIcon = (icon) => typeof icon === "string" && icon.startsWith(CUSTOM_ICON_PREFIX);
+const DATA_IMAGE = /^data:image\/(png|webp);base64,[A-Za-z0-9+/=]+$/;
+
+export function normalizePlanIcons(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((raw) => ({
+      id: String(raw?.id || "").replace(/[^a-z0-9-]/gi, "").slice(0, 40),
+      label: String(raw?.label ?? "").slice(0, 40),
+      labelEn: String(raw?.labelEn ?? "").slice(0, 40),
+      src: DATA_IMAGE.test(String(raw?.src || "")) ? raw.src : "",
+      srcMono: DATA_IMAGE.test(String(raw?.srcMono || "")) ? raw.srcMono : "",
+      mono: raw?.mono !== false,
+    }))
+    .filter((icon) => icon.id && icon.src);
+}
+
+// Repères prêts à dessiner : l'image de l'icône perso est jointe (iconImg), retirée à l'enregistrement.
+export function attachPlanIcons(elements, icons) {
+  const byKey = new Map(icons.map((icon) => [`${CUSTOM_ICON_PREFIX}${icon.id}`, icon]));
+  return elements.map((el) => {
+    if (!isCustomIcon(el.icon)) return el;
+    const icon = byKey.get(el.icon);
+    if (!icon) return el;
+    const mono = icon.mono && Boolean(icon.srcMono);
+    return { ...el, iconImg: { src: mono ? icon.srcMono : icon.src, mono } };
+  });
+}
+
+// L'élément a-t-il une icône dessinable (de base ou perso) ?
+export const planHasIcon = (el) => Boolean(PLAN_ICONS[el.icon] || el.iconImg?.src);
+export const planIconHtml = (el) =>
+  PLAN_ICONS[el.icon] ? planIconSvg(el.icon) : el.iconImg?.src ? `<img src="${el.iconImg.src}" alt="" />` : "";
+// Rond de l'icône : couleur du repère, ou blanc pour une image gardée en couleurs.
+export const planPictoBg = (el, color) => (el.iconImg && !el.iconImg.mono ? "#fff" : color);
+
+// Rotation d'une étiquette de texte (degrés, -180 à 180) ; les icônes et le reste restent droits.
+export const planRotation = (el) => (el.kind === "mark" && !planHasIcon(el) ? el.rot || 0 : 0);
+export const planElTransform = (el) => {
+  const rot = planRotation(el);
+  return rot ? `translate(-50%, -50%) rotate(${rot}deg)` : undefined;
+};
 
 const on = (...keys) => Object.fromEntries(PLAN_MAPS.map((m) => [m.key, keys.includes(m.key)]));
 const at = (X, Y) => ({ x: Math.round((X / PLAN_W) * 10000) / 100, y: Math.round((Y / PLAN_H) * 10000) / 100 });
@@ -83,7 +142,7 @@ export const PLAN_DEFAULT_ELEMENTS = [
   { id: "wf3", kind: "mark", labelEn: "WC ♀", descEn: "Warm-up toilets (women)", label: "WC ♀", desc: "Toilettes femmes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(320, 1420), maps: on("vol", "acc") },
   { id: "wh2", kind: "mark", labelEn: "WC ♂", descEn: "Warm-up toilets (men)", label: "WC ♂", desc: "Toilettes hommes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("vol", "acc") },
 
-  { id: "m11", kind: "mark", labelEn: "VIP", descEn: "VIP access to the gallery", label: "VIP", desc: "Accès VIP à la galerie : l'entrée à gauche de l'escalier", color: "#b8912a", level: "rdc", ...at(700, 605), maps: on("vol", "acc") },
+  { id: "m11", kind: "mark", labelEn: "VIP", descEn: "VIP access to the gallery", icon: "vip", label: "VIP", desc: "Accès VIP à la galerie : l'entrée à gauche de l'escalier", color: "#b8912a", level: "rdc", ...at(700, 605), maps: on("vol", "acc") },
   { id: "m13", kind: "mark", labelEn: "↑ Volunteers", descEn: "Spiral staircase to the volunteers area", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(436, 138), maps: on("vol", "acc") },
   { id: "d1", kind: "door", label: "Amphi", desc: "Entrée de l'amphithéâtre (salle aussi utilisée par les bénévoles)", color: "#4a5d6c", angle: 0, level: "rdc", ...at(550, 166), maps: on("vol") },
   { id: "m14", kind: "mark", labelEn: "Call room", descEn: "Call room: in the warm-up, behind the stands, before going down to the track", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
@@ -121,7 +180,12 @@ export function normalizePlanElement(raw = {}, index = 0) {
     maps,
   };
   if (kind === "zone") element.num = Math.max(1, Math.round(num(raw.num, 1)));
-  if (kind === "mark") element.icon = PLAN_ICONS[raw.icon] ? raw.icon : "";
+  if (kind === "mark") {
+    element.icon = PLAN_ICONS[raw.icon] || (isCustomIcon(raw.icon) && raw.icon.length < 60) ? raw.icon : "";
+    // Rotation de l'étiquette en degrés (repères existants : 0)
+    const rot = Math.round(num(raw.rot, 0));
+    element.rot = ((((rot + 180) % 360) + 360) % 360) - 180;
+  }
   if (kind === "door") element.angle = num(raw.angle, 0);
   if (kind === "area") {
     if (Array.isArray(raw.shape) && raw.shape.length >= 3) {
@@ -269,7 +333,7 @@ export function planMarkerHtml(el, color = planColorOf(el), lang = "fr") {
   if (el.kind === "door") return `<span class="cp-door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></span>`;
   if (el.kind === "area" && el.shape) return `<span class="cp-area-label" style="color:${color}">${label}</span>`;
   if (el.kind === "area") return `<span class="cp-area" style="background:${color}1f;border-color:${color};color:${color}">${label}</span>`;
-  if (PLAN_ICONS[el.icon]) return `<span class="cp-picto" style="background:${color}">${planIconSvg(el.icon)}</span>`;
+  if (planHasIcon(el)) return `<span class="cp-picto${el.iconImg ? " cp-picto--img" : ""}" style="background:${planPictoBg(el, color)}">${planIconHtml(el)}</span>`;
   return `<span class="cp-pill" style="background:${color}">${label}</span>`;
 }
 
@@ -292,7 +356,8 @@ export function planBoxHtml(elements, { mapKey = "acc", crop = true, allowedZone
         ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;`
         : "";
       const color = el.kind === "zone" && allowedZones ? (isAllowed(el.num) ? accent : "#c3ccd3") : planColorOf(el);
-      return `<div class="coque-plan__el" style="left:${x}%;top:${y}%;${size}">${planMarkerHtml(el, color, lang)}</div>`;
+      const turn = planElTransform(el);
+      return `<div class="coque-plan__el" style="left:${x}%;top:${y}%;${size}${turn ? `transform:${turn};` : ""}">${planMarkerHtml(el, color, lang)}</div>`;
     })
     .join("");
   return `<div class="coque-plan${crop ? " coque-plan--crop" : ""}"><div class="coque-plan__layer">${base}</div><div class="coque-plan__layer">${planShapesSvg(shown, crop)}</div>${markers}</div>`;
@@ -310,7 +375,9 @@ export const PLAN_PRINT_CSS = `
   .cp-door { width: 3.8mm; height: 3.8mm; border-radius: 50%; font: 900 6pt/1 Arial, sans-serif; }
   .cp-picto { width: 3.6mm; height: 3.6mm; border-radius: 50%; border-width: .25mm; }
   .cp-picto svg { width: 62%; height: 62%; display: block; }
-  .cp-pill { display: inline-block; padding: .5mm 1.3mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Arial, sans-serif; border: .25mm solid #fff; }
+  .cp-picto img { width: 72%; height: 72%; display: block; object-fit: contain; }
+  .cp-pill { display: inline-block; padding: .5mm 1.3mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Arial, "Segoe UI Symbol", sans-serif; font-variant-emoji: text; border: .25mm solid #fff; }
+  .cp-picto--img { box-shadow: 0 0 0 .2mm #c9d3db; }
   .cp-area { display: grid; place-items: center; width: 100%; height: 100%; box-sizing: border-box; border: .3mm dashed; border-radius: 1.5mm; font: 800 4.6pt/1 Arial, sans-serif; text-align: center; }
   .cp-area-label { display: inline-block; font: 800 4.6pt/1 Arial, sans-serif; background: #fff; border-radius: 99px; padding: .5mm 1.2mm; }
 `;
