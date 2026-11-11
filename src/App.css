@@ -11565,3 +11565,230 @@ button.xc-card:hover { border-color: #9fb3c8; }
   margin: 2px 0 0;
   font-size: 0.8rem;
 }
+
+/* Accréditations : sélecteur de type, formulaires repliés, chips de zones */
+.acc-type-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--acc-line, #e3e9ef);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.acc-type-switch__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--acc-muted, #627788);
+  cursor: pointer;
+}
+
+.acc-type-switch__item:hover {
+  color: var(--acc-ink, #17324a);
+}
+
+.acc-type-switch__item.is-active {
+  background: var(--acc-ink, #17324a);
+  color: #fff;
+}
+
+.acc-type-switch__item.is-active .acc-people-filter__count {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.acc-type-switch__hint {
+  padding: 0 10px;
+  font-size: 0.74rem;
+  color: #95a5b3;
+}
+
+.acc-inline-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 0.8rem;
+  color: var(--acc-muted, #627788);
+}
+
+.acc-inline-stats strong {
+  color: var(--acc-ink, #17324a);
+  font-variant-numeric: tabular-nums;
+}
+
+.acc-toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.acc-add-form {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--acc-line, #e3e9ef);
+  border-radius: 9px;
+  background: var(--acc-soft, #f6f9fc);
+}
+
+.acc-add-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.acc-add-form__row--end {
+  align-items: flex-end;
+}
+
+.acc-add-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.acc-mini-field {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+  flex: 1 1 150px;
+  max-width: 240px;
+}
+
+.acc-mini-field--narrow {
+  min-width: 80px;
+  flex: 0 0 90px;
+}
+
+.acc-mini-field span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--acc-muted, #627788);
+}
+
+.acc-mini-field input,
+.acc-mini-field select {
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid #cfd9e3;
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.acc-zone-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.acc-zone-chips__label {
+  margin-right: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--acc-muted, #627788);
+}
+
+.acc-zone-chip {
+  padding: 2px 9px;
+  border: 1px dashed #c4d0db;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--acc-muted, #627788);
+  cursor: pointer;
+}
+
+.acc-zone-chip.is-on {
+  border-style: solid;
+  border-color: var(--acc-ink, #17324a);
+  background: var(--acc-ink, #17324a);
+  color: #fff;
+}
+
+.acc-link-button {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.74rem;
+  color: #1a4aa1;
+  cursor: pointer;
+}
+
+.acc-link-button:hover {
+  text-decoration: underline;
+}
+
+.acc-cell-input,
+.acc-cell-select {
+  min-height: 28px;
+  width: 100%;
+  max-width: 150px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.acc-cell-input:hover,
+.acc-cell-input:focus,
+.acc-cell-select {
+  border-color: #cfd9e3;
+  background: #fff;
+}
+
+.acc-icon-button {
+  margin-left: 4px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 1rem;
+  line-height: 1;
+  color: #95a5b3;
+  cursor: pointer;
+}
+
+.acc-icon-button:hover {
+  background: #fdecec;
+  color: #b3261e;
+}
+
+.acc-people-table tr.acc-expand-row > td {
+  padding: 8px 10px 10px;
+  background: #eef4fb;
+}
+
+/* Onglet Impression : panneaux plus serrés */
+.accreditation-page .panel-grid--2 {
+  gap: 12px;
+}
+
+/* Files d'impression : pas de largeur minimale forcée dans les demi-colonnes */
+.accreditation-page .panel-grid--2 .data-table {
+  min-width: 0;
+}

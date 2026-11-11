@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
@@ -143,6 +143,9 @@ function AccreditationsPage(props) {
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [volunteerSearch, setVolunteerSearch] = useState("");
   const [peopleFilter, setPeopleFilter] = useState("all");
+  const [peopleType, setPeopleType] = useState("volunteers");
+  const [isJudgeFormOpen, setIsJudgeFormOpen] = useState(false);
+  const [editingJudgeZonesId, setEditingJudgeZonesId] = useState("");
   const [trackingSearch, setTrackingSearch] = useState("");
   const [trackingStatusFilter, setTrackingStatusFilter] = useState("Tous");
   const [trackingLocationFilter, setTrackingLocationFilter] = useState("Tous");
@@ -2475,6 +2478,29 @@ function AccreditationsPage(props) {
         </>
       ) : canOperatePrinting && activeAccreditationTab === "people" ? (
         <section className="admin-stack">
+          <div className="acc-type-switch" role="tablist" aria-label="Type d’accréditation">
+            {[
+              { id: "volunteers", label: "Bénévoles & staff", count: printableVolunteers.length },
+              { id: "judges", label: "Juges", count: activeJudges.length },
+              { id: "press", label: "Presse", count: acceptedPressRegistrations.length },
+            ].map((type) => (
+              <button
+                key={type.id}
+                type="button"
+                role="tab"
+                aria-selected={peopleType === type.id}
+                className={`acc-type-switch__item${peopleType === type.id ? " is-active" : ""}`}
+                onClick={() => setPeopleType(type.id)}
+              >
+                {type.label}
+                <span className="acc-people-filter__count">{type.count}</span>
+              </button>
+            ))}
+            <span className="acc-type-switch__hint">VIP : module VIP · badges non nominatifs : onglet Impression</span>
+          </div>
+
+          {peopleType === "volunteers" ? (
+          <>
           <Panel
             title="Personnes"
             subtitle="Cliquez sur une ligne pour modifier ses zones. « À traiter » : badge modifié (Vu) ou badge imprimé à détruire (Détruit)."
@@ -2538,7 +2564,6 @@ function AccreditationsPage(props) {
                           <span className="acc-people-name">
                             {`${volunteer.firstName} ${volunteer.lastName}`.trim() || volunteer.email}
                           </span>
-                          {volunteer.email ? <span className="acc-people-sub">{volunteer.email}</span> : null}
                         </td>
                         <td>
                           {getBadgeRoleLabel(volunteer, override, normalizeComparableValue) || "—"}
@@ -2782,295 +2807,262 @@ function AccreditationsPage(props) {
               </Panel>
             </Panel>
           ) : null}
+          </>
+          ) : null}
 
+          {peopleType === "judges" ? (
           <Panel
             title="Juges"
-            subtitle="Roster nominatif sans compte utilisateur, géré séparément avec suivi d'impression."
+            subtitle="Roster nominatif sans compte utilisateur. Zones et libellé modifiables ligne par ligne."
           >
             {judgesLoading ? <p className="panel-note">Chargement des juges...</p> : null}
             {judgesError ? <p className="panel-note">{judgesError}</p> : null}
 
-            <div className="accreditation-person-summary">
-              <div className="team-summary-pill">
-                <strong>{judges.length}</strong>
-                <span>Juge(s) dans le roster</span>
+            <div className="acc-people-toolbar">
+              <div className="acc-inline-stats">
+                <span><strong>{activeJudges.length}</strong> juge(s)</span>
+                <span><strong>{judges.filter((judge) => judge.printStatus === "Non-imprimé" && !judge.destroyedAt).length}</strong> à imprimer</span>
+                <span><strong>{queuedJudges.length}</strong> en file</span>
+                <span><strong>{judges.filter((judge) => judge.printStatus === "Imprimé" && !judge.destroyedAt).length}</strong> imprimé(s)</span>
               </div>
-              <div className="team-summary-pill">
-                <strong>{judges.filter((judge) => judge.printStatus === "Imprimé" && !judge.destroyedAt).length}</strong>
-                <span>Badge(s) imprimé(s)</span>
-              </div>
-              <div className="team-summary-pill">
-                <strong>{judges.filter((judge) => judge.printStatus === "Non-imprimé" && !judge.destroyedAt).length}</strong>
-                <span>Badge(s) à produire</span>
-              </div>
-              <div className="team-summary-pill">
-                <strong>{queuedJudges.length}</strong>
-                <span>Dans la file</span>
-              </div>
-            </div>
-
-            <div className="admin-toolbar">
-              <label className="field">
-                <span>Rechercher un juge</span>
+              <div className="acc-toolbar-right">
                 <input
-                  placeholder="Nom, prénom, libellé badge..."
+                  className="acc-people-search"
+                  type="search"
+                  placeholder="Rechercher un juge…"
                   value={judgeSearch}
                   onChange={(event) => setJudgeSearch(event.target.value)}
                 />
-              </label>
+                {canManageJudges ? (
+                  <button
+                    className="button button--primary button--small"
+                    type="button"
+                    onClick={() => setIsJudgeFormOpen((open) => !open)}
+                  >
+                    {isJudgeFormOpen ? "Fermer" : "+ Ajouter un juge"}
+                  </button>
+                ) : null}
+              </div>
             </div>
 
-            {canManageJudges ? (
-              <>
-                <div className="field-grid">
-                  <AuthFormField label="Prénom">
-                    <input
-                      value={newJudgeFirstName}
-                      onChange={(event) => setNewJudgeFirstName(event.target.value)}
-                      placeholder="Ex: Marie"
-                    />
-                  </AuthFormField>
-                  <AuthFormField label="Nom">
-                    <input
-                      value={newJudgeLastName}
-                      onChange={(event) => setNewJudgeLastName(event.target.value)}
-                      placeholder="Ex: Muller"
-                    />
-                  </AuthFormField>
-                  <AuthFormField label="Libellé badge">
+            {canManageJudges && isJudgeFormOpen ? (
+              <div className="acc-add-form">
+                <div className="acc-add-form__row">
+                  <label className="acc-mini-field">
+                    <span>Prénom</span>
+                    <input value={newJudgeFirstName} onChange={(event) => setNewJudgeFirstName(event.target.value)} />
+                  </label>
+                  <label className="acc-mini-field">
+                    <span>Nom</span>
+                    <input value={newJudgeLastName} onChange={(event) => setNewJudgeLastName(event.target.value)} />
+                  </label>
+                  <label className="acc-mini-field">
+                    <span>Libellé badge</span>
                     <input
                       value={newJudgeBadgeLabel}
-                      onChange={(event) => setNewJudgeBadgeLabel(event.target.value)}
                       placeholder="Judge"
+                      onChange={(event) => setNewJudgeBadgeLabel(event.target.value)}
                     />
-                  </AuthFormField>
+                  </label>
                 </div>
-
-                <div className="accreditation-inline-panel">
-                  <strong>Zones du juge</strong>
-                  <div className="choice-grid choice-grid--2">
-                    {sortedZones.map((zone) => (
-                      <label key={`new-judge-zone-${zone.id}`} className="selection-card selection-card--compact">
-                        <input
-                          type="checkbox"
-                          checked={newJudgeZoneIds.includes(zone.id)}
-                          onChange={() => setNewJudgeZoneIds((current) => toggleIdInList(current, zone.id))}
-                        />
-                        <div>
-                          <strong>{formatZoneLabel(zone)}</strong>
-                          <p>Accès du badge juge</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
+                <div className="acc-zone-chips">
+                  <span className="acc-zone-chips__label">Zones</span>
+                  {sortedZones.map((zone) => (
+                    <button
+                      key={`new-judge-zone-${zone.id}`}
+                      type="button"
+                      className={`acc-zone-chip${newJudgeZoneIds.includes(zone.id) ? " is-on" : ""}`}
+                      onClick={() => setNewJudgeZoneIds((current) => toggleIdInList(current, zone.id))}
+                    >
+                      {formatZoneLabel(zone)}
+                    </button>
+                  ))}
                 </div>
-
-                <div className="table-actions table-actions--inline">
+                <div className="acc-add-form__actions">
                   <button
-                    className="button button--secondary"
+                    className="button button--primary button--small"
                     type="button"
-                    onClick={addJudge}
+                    onClick={() => {
+                      addJudge();
+                      setIsJudgeFormOpen(false);
+                    }}
                     disabled={!newJudgeFirstName.trim() || !newJudgeLastName.trim()}
                   >
-                    Ajouter le juge
+                    Ajouter
                   </button>
                 </div>
-              </>
-            ) : (
-              <div className="accreditation-print-note">
-                Les gestionnaires ont ici une vue de suivi d'impression. L'ajout et la modification des juges restent réservés aux administrateurs.
               </div>
-            )}
+            ) : null}
 
             <div className="table-wrap">
-              <table className="data-table data-table--admin">
+              <table className="data-table data-table--admin acc-people-table">
                 <thead>
                   <tr>
                     <th>Juge</th>
                     <th>Libellé badge</th>
                     <th>Zones</th>
-                    <th>Statut impression</th>
-                    <th>Point de retrait</th>
-                    <th>Action</th>
+                    <th>Statut</th>
+                    <th>Retrait</th>
+                    <th aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
                   {visibleActiveJudges.map((judge) => {
                     const judgeTrackingStatus = getJudgeTrackingStatus(judge);
                     const judgeLocation = getJudgeStorageLocation(judge.id);
-                    const pickerOpen = Boolean(storagePickerOpenById[judge.id]);
                     const canQueueJudge =
-                      judge.printStatus !== "Dans la file" &&
-                      judgeTrackingStatus !== "Imprimé à détruire";
+                      judge.printStatus !== "Dans la file" && judgeTrackingStatus !== "Imprimé à détruire";
+                    const canPickLocation =
+                      judgeTrackingStatus === "Imprimé non rangé" || judgeTrackingStatus === "Rangé";
+                    const zoneLabels = sortedZones
+                      .filter((zone) => judge.assignedZones.includes(zone.id))
+                      .map((zone) => formatZoneLabel(zone));
+                    const zonesOpen = editingJudgeZonesId === judge.id;
 
                     return (
-                    <tr key={judge.id}>
-                      <td>{`${judge.firstName} ${judge.lastName}`.trim() || "Juge sans nom"}</td>
-                      <td>
-                        {canManageJudges ? (
-                          <input
-                            value={judge.badgeLabel || "Judge"}
-                            onChange={(event) =>
-                              updateJudge(judge.id, { badgeLabel: event.target.value }, "Libellé badge juge mis à jour.")
-                            }
-                          />
-                        ) : (
-                          judge.badgeLabel || "Judge"
-                        )}
-                      </td>
-                      <td>
-                        <div className="accreditation-tag-list">
-                          {judge.assignedZones.length ? (
-                            sortedZones
-                              .filter((zone) => judge.assignedZones.includes(zone.id))
-                              .map((zone) =>
-                                canManageJudges ? (
-                                  <button
-                                    key={`${judge.id}-${zone.id}`}
-                                    className="accreditation-tag accreditation-tag--active"
-                                    type="button"
-                                    onClick={() =>
-                                      updateJudge(
-                                        judge.id,
-                                        { assignedZones: judge.assignedZones.filter((zoneId) => zoneId !== zone.id) },
-                                        "Zones juge mises à jour.",
-                                      )
-                                    }
-                                  >
-                                    {formatZoneLabel(zone)}
-                                  </button>
-                                ) : (
-                                  <span key={`${judge.id}-${zone.id}`} className="accreditation-tag accreditation-tag--active">
-                                    {formatZoneLabel(zone)}
-                                  </span>
-                                ),
-                              )
-                          ) : (
-                            <span className="panel-note">À définir</span>
-                          )}
-                        </div>
-                        {canManageJudges ? (
-                          <div className="accreditation-tag-list">
-                            {sortedZones
-                              .filter((zone) => !judge.assignedZones.includes(zone.id))
-                              .map((zone) => (
-                                <button
-                                  key={`${judge.id}-add-${zone.id}`}
-                                  className="accreditation-tag"
-                                  type="button"
-                                  onClick={() =>
-                                    updateJudge(
-                                      judge.id,
-                                      { assignedZones: [...judge.assignedZones, zone.id] },
-                                      "Zones juge mises à jour.",
-                                    )
-                                  }
-                                >
-                                  + {formatZoneLabel(zone)}
-                                </button>
-                              ))}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            judgeTrackingStatus === "Rangé" || judgeTrackingStatus === "Imprimé non rangé"
-                              ? getAccreditationStatusClass("Imprimé")
-                              : getAccreditationStatusClass(judgeTrackingStatus)
-                          }
-                        >
-                          {judgeTrackingStatus}
-                        </span>
-                      </td>
-                      <td>
-                        {judgeTrackingStatus === "Non imprimé" ? (
-                          <span className="panel-note">—</span>
-                        ) : judgeTrackingStatus === "Imprimé à détruire" ? (
-                          <span className="panel-note">Pas de retrait</span>
-                        ) : pickerOpen ? (
-                          <div className="tracking-location-picker">
-                            <select
-                              defaultValue={judgeLocation}
-                              autoFocus
-                              onChange={(event) => updateJudgeBadgeStorageLocation(judge.id, event.target.value)}
-                              onBlur={() => setStoragePickerOpenById((current) => ({ ...current, [judge.id]: false }))}
-                            >
-                              <option value="">Choisir un point de retrait...</option>
-                              {allStorageLocations.map((loc) => (
-                                <option key={`${judge.id}-${loc}`} value={loc}>{loc}</option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : judgeTrackingStatus === "Imprimé non rangé" ? (
-                          <button
-                            className="button button--primary button--small"
-                            type="button"
-                            onClick={() => setStoragePickerOpenById((current) => ({ ...current, [judge.id]: true }))}
-                          >
-                            Définir le point de retrait
-                          </button>
-                        ) : (
-                          <div className="tracking-location-display">
-                            <span>{judgeLocation}</span>
-                            <button
-                              className="button button--ghost button--small"
-                              type="button"
-                              onClick={() => setStoragePickerOpenById((current) => ({ ...current, [judge.id]: true }))}
-                            >
-                              Modifier
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        {judgeTrackingStatus === "Imprimé à détruire" ? (
-                          <button
-                            className="button button--ghost-danger button--small"
-                            type="button"
-                            onClick={() => markJudgeBadgeDestroyed(judge)}
-                          >
-                            Destruction effectuée
-                          </button>
-                        ) : judge.printStatus === "Dans la file" ? (
-                          <span className="panel-note">Déjà dans la file</span>
-                        ) : canQueueJudge ? (
-                          <div className="table-actions table-actions--inline">
-                            <button
-                              className="button button--secondary button--small"
-                              type="button"
-                              onClick={() => addJudgeToPrintQueue(judge)}
-                            >
-                              Ajouter à la file
-                            </button>
+                      <Fragment key={judge.id}>
+                        <tr className={zonesOpen ? "row--selected" : ""}>
+                          <td>
+                            <span className="acc-people-name">
+                              {`${judge.firstName} ${judge.lastName}`.trim() || "Juge sans nom"}
+                            </span>
+                          </td>
+                          <td>
                             {canManageJudges ? (
+                              <input
+                                className="acc-cell-input"
+                                value={judge.badgeLabel || "Judge"}
+                                onChange={(event) =>
+                                  updateJudge(judge.id, { badgeLabel: event.target.value }, "Libellé badge juge mis à jour.")
+                                }
+                              />
+                            ) : (
+                              judge.badgeLabel || "Judge"
+                            )}
+                          </td>
+                          <td>
+                            {zoneLabels.length ? (
+                              <span className="acc-people-zones" title={zoneLabels.join(", ")}>
+                                {zoneLabels.join(", ")}
+                              </span>
+                            ) : (
+                              <span className="acc-people-muted">aucune zone</span>
+                            )}
+                            {canManageJudges ? (
+                              <button
+                                className="acc-link-button"
+                                type="button"
+                                onClick={() => setEditingJudgeZonesId(zonesOpen ? "" : judge.id)}
+                              >
+                                {zonesOpen ? "fermer" : "modifier"}
+                              </button>
+                            ) : null}
+                          </td>
+                          <td>
+                            <span
+                              className={
+                                judgeTrackingStatus === "Rangé" || judgeTrackingStatus === "Imprimé non rangé"
+                                  ? getAccreditationStatusClass("Imprimé")
+                                  : getAccreditationStatusClass(judgeTrackingStatus)
+                              }
+                            >
+                              {judgeTrackingStatus}
+                            </span>
+                          </td>
+                          <td>
+                            {canPickLocation ? (
+                              <select
+                                className="acc-cell-select"
+                                value={judgeLocation}
+                                onChange={(event) => updateJudgeBadgeStorageLocation(judge.id, event.target.value)}
+                              >
+                                <option value="">À ranger…</option>
+                                {allStorageLocations.map((loc) => (
+                                  <option key={`${judge.id}-${loc}`} value={loc}>{loc}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="acc-people-muted">—</span>
+                            )}
+                          </td>
+                          <td className="acc-people-actions">
+                            {judgeTrackingStatus === "Imprimé à détruire" ? (
                               <button
                                 className="button button--ghost-danger button--small"
                                 type="button"
-                                onClick={() => removeJudge(judge.id)}
+                                onClick={() => markJudgeBadgeDestroyed(judge)}
                               >
-                                Supprimer
+                                Détruit
                               </button>
                             ) : null}
-                          </div>
-                        ) : canManageJudges ? (
-                          <button
-                            className="button button--ghost-danger button--small"
-                            type="button"
-                            onClick={() => removeJudge(judge.id)}
-                          >
-                            Supprimer
-                          </button>
-                        ) : (
-                          <span className="panel-note">Suivi uniquement</span>
-                        )}
-                      </td>
-                    </tr>
-                  )})}
+                            {judge.printStatus === "Dans la file" ? <span className="acc-people-muted">en file</span> : null}
+                            {canQueueJudge ? (
+                              <button
+                                className="button button--secondary button--small"
+                                type="button"
+                                onClick={() => addJudgeToPrintQueue(judge)}
+                              >
+                                + File
+                              </button>
+                            ) : null}
+                            {canManageJudges ? (
+                              <button
+                                className="acc-icon-button"
+                                type="button"
+                                title="Supprimer ce juge"
+                                aria-label="Supprimer ce juge"
+                                onClick={() => {
+                                  if (window.confirm(`Supprimer ${`${judge.firstName} ${judge.lastName}`.trim() || "ce juge"} du roster ?`)) {
+                                    removeJudge(judge.id);
+                                  }
+                                }}
+                              >
+                                ×
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                        {zonesOpen ? (
+                          <tr className="acc-expand-row">
+                            <td colSpan="6">
+                              <div className="acc-zone-chips">
+                                <span className="acc-zone-chips__label">Zones de {judge.firstName || "ce juge"}</span>
+                                {sortedZones.map((zone) => {
+                                  const isOn = judge.assignedZones.includes(zone.id);
+                                  return (
+                                    <button
+                                      key={`${judge.id}-zone-${zone.id}`}
+                                      type="button"
+                                      className={`acc-zone-chip${isOn ? " is-on" : ""}`}
+                                      onClick={() =>
+                                        updateJudge(
+                                          judge.id,
+                                          {
+                                            assignedZones: isOn
+                                              ? judge.assignedZones.filter((zoneId) => zoneId !== zone.id)
+                                              : [...judge.assignedZones, zone.id],
+                                          },
+                                          "Zones juge mises à jour.",
+                                        )
+                                      }
+                                    >
+                                      {formatZoneLabel(zone)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
                   {!activeJudges.length ? (
                     <tr>
-                      <td colSpan="6">
-                        Aucun juge enregistré pour le moment.
+                      <td colSpan="6" className="acc-people-empty">
+                        {canManageJudges
+                          ? "Aucun juge pour le moment. Cliquez sur « + Ajouter un juge »."
+                          : "Aucun juge pour le moment (ajout réservé aux administrateurs)."}
                       </td>
                     </tr>
                   ) : null}
@@ -3088,79 +3080,82 @@ function AccreditationsPage(props) {
                 </button>
               </div>
             ) : null}
-
-            <div className="accreditation-print-note">
-              Les juges utilisent maintenant la meme logique operationnelle que les benevoles : ajout a la file, impression du lot, puis rangement du badge.
-            </div>
-
           </Panel>
+          ) : null}
 
+          {peopleType === "press" ? (
           <Panel
             title="Presse"
-            subtitle="Demandes presse acceptées uniquement. Le statut de la demande (en attente/acceptée/refusée) se gère depuis le module Presse."
+            subtitle="Demandes acceptées uniquement. Accepter ou refuser une demande se fait dans le module Presse."
           >
             {pressLoading ? <p className="panel-note">Chargement des accréditations presse...</p> : null}
             {pressError ? <p className="panel-note">{pressError}</p> : null}
 
-            <div className="accreditation-person-summary">
-              <div className="team-summary-pill">
-                <strong>{acceptedPressRegistrations.length}</strong>
-                <span>Accrédité(s) presse</span>
+            <div className="acc-people-toolbar">
+              <div className="acc-inline-stats">
+                <span><strong>{acceptedPressRegistrations.length}</strong> accrédité(s)</span>
+                <span><strong>{queuedPress.length}</strong> en file</span>
+                <span>
+                  <strong>
+                    {acceptedPressRegistrations.filter((r) => r.printStatus === "Imprimé" && !r.destroyedAt).length}
+                  </strong>{" "}
+                  imprimé(s)
+                </span>
               </div>
-              <div className="team-summary-pill">
-                <strong>
-                  {acceptedPressRegistrations.filter((r) => r.printStatus === "Imprimé" && !r.destroyedAt).length}
-                </strong>
-                <span>Badge(s) imprimé(s)</span>
-              </div>
-              <div className="team-summary-pill">
-                <strong>{queuedPress.length}</strong>
-                <span>Dans la file</span>
-              </div>
-            </div>
-
-            <div className="admin-toolbar">
-              <label className="field">
-                <span>Rechercher un accrédité presse</span>
-                <input
-                  placeholder="Nom, prénom, média..."
-                  value={pressSearch}
-                  onChange={(event) => setPressSearch(event.target.value)}
-                />
-              </label>
+              <input
+                className="acc-people-search"
+                type="search"
+                placeholder="Rechercher nom, média…"
+                value={pressSearch}
+                onChange={(event) => setPressSearch(event.target.value)}
+              />
             </div>
 
             <div className="table-wrap">
-              <table className="data-table data-table--admin">
+              <table className="data-table data-table--admin acc-people-table">
                 <thead>
                   <tr>
                     <th>Personne</th>
                     <th>Média</th>
-                    <th>Type</th>
                     <th>Zones</th>
-                    <th>Statut impression</th>
-                    <th>Point de retrait</th>
-                    <th>Action</th>
+                    <th>Statut</th>
+                    <th>Retrait</th>
+                    <th aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
                   {visibleAcceptedPress.map((registration) => {
                     const pressTrackingStatus = getPressTrackingStatus(registration);
                     const pressLocation = getPressStorageLocation(registration.id);
-                    const pickerOpen = Boolean(storagePickerOpenById[registration.id]);
                     const canQueuePress =
                       registration.printStatus !== "Dans la file" && pressTrackingStatus !== "Imprimé à détruire";
+                    const canPickLocation =
+                      pressTrackingStatus === "Imprimé non rangé" || pressTrackingStatus === "Rangé";
+                    const zoneLabels = sortedZones
+                      .filter((zone) => (registration.zoneIds || []).includes(zone.id))
+                      .map((zone) => formatZoneLabel(zone));
 
                     return (
                       <tr key={registration.id}>
-                        <td>{`${registration.firstName || ""} ${registration.lastName || ""}`.trim() || "—"}</td>
-                        <td>{registration.media || "—"}</td>
-                        <td>{PRESS_REQUEST_TYPE_LABELS[registration.requestType] || registration.requestType}</td>
                         <td>
-                          {sortedZones
-                            .filter((zone) => (registration.zoneIds || []).includes(zone.id))
-                            .map((zone) => formatZoneLabel(zone))
-                            .join(", ") || "Aucune zone"}
+                          <span className="acc-people-name">
+                            {`${registration.firstName || ""} ${registration.lastName || ""}`.trim() || "—"}
+                          </span>
+                        </td>
+                        <td>
+                          {registration.media || "—"}
+                          <span className="acc-people-tag">
+                            {PRESS_REQUEST_TYPE_LABELS[registration.requestType] || registration.requestType}
+                          </span>
+                        </td>
+                        <td>
+                          {zoneLabels.length ? (
+                            <span className="acc-people-zones" title={zoneLabels.join(", ")}>
+                              {zoneLabels.join(", ")}
+                            </span>
+                          ) : (
+                            <span className="acc-people-muted">aucune zone</span>
+                          )}
                         </td>
                         <td>
                           <span
@@ -3174,74 +3169,50 @@ function AccreditationsPage(props) {
                           </span>
                         </td>
                         <td>
-                          {pressTrackingStatus === "Non imprimé" ? (
-                            <span className="panel-note">—</span>
-                          ) : pressTrackingStatus === "Imprimé à détruire" ? (
-                            <span className="panel-note">Pas de retrait</span>
-                          ) : pickerOpen ? (
-                            <div className="tracking-location-picker">
-                              <select
-                                defaultValue={pressLocation}
-                                autoFocus
-                                onChange={(event) => updatePressBadgeStorageLocation(registration.id, event.target.value)}
-                                onBlur={() => setStoragePickerOpenById((current) => ({ ...current, [registration.id]: false }))}
-                              >
-                                <option value="">Choisir un point de retrait...</option>
-                                {allStorageLocations.map((loc) => (
-                                  <option key={`${registration.id}-${loc}`} value={loc}>{loc}</option>
-                                ))}
-                              </select>
-                            </div>
-                          ) : pressTrackingStatus === "Imprimé non rangé" ? (
-                            <button
-                              className="button button--primary button--small"
-                              type="button"
-                              onClick={() => setStoragePickerOpenById((current) => ({ ...current, [registration.id]: true }))}
+                          {canPickLocation ? (
+                            <select
+                              className="acc-cell-select"
+                              value={pressLocation}
+                              onChange={(event) => updatePressBadgeStorageLocation(registration.id, event.target.value)}
                             >
-                              Définir le point de retrait
-                            </button>
+                              <option value="">À ranger…</option>
+                              {allStorageLocations.map((loc) => (
+                                <option key={`${registration.id}-${loc}`} value={loc}>{loc}</option>
+                              ))}
+                            </select>
                           ) : (
-                            <div className="tracking-location-display">
-                              <span>{pressLocation}</span>
-                              <button
-                                className="button button--ghost button--small"
-                                type="button"
-                                onClick={() => setStoragePickerOpenById((current) => ({ ...current, [registration.id]: true }))}
-                              >
-                                Modifier
-                              </button>
-                            </div>
+                            <span className="acc-people-muted">—</span>
                           )}
                         </td>
-                        <td>
+                        <td className="acc-people-actions">
                           {pressTrackingStatus === "Imprimé à détruire" ? (
                             <button
                               className="button button--ghost-danger button--small"
                               type="button"
                               onClick={() => markPressBadgeDestroyed(registration)}
                             >
-                              Destruction effectuée
+                              Détruit
                             </button>
-                          ) : registration.printStatus === "Dans la file" ? (
-                            <span className="panel-note">Déjà dans la file</span>
-                          ) : canQueuePress ? (
+                          ) : null}
+                          {registration.printStatus === "Dans la file" ? (
+                            <span className="acc-people-muted">en file</span>
+                          ) : null}
+                          {canQueuePress ? (
                             <button
                               className="button button--secondary button--small"
                               type="button"
                               onClick={() => addPressToPrintQueue(registration)}
                             >
-                              Ajouter à la file
+                              + File
                             </button>
-                          ) : (
-                            <span className="panel-note">Aucune impression à gérer</span>
-                          )}
+                          ) : null}
                         </td>
                       </tr>
                     );
                   })}
                   {!acceptedPressRegistrations.length ? (
                     <tr>
-                      <td colSpan="7">Aucune demande presse acceptée pour le moment.</td>
+                      <td colSpan="6" className="acc-people-empty">Aucune demande presse acceptée pour le moment.</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -3258,14 +3229,14 @@ function AccreditationsPage(props) {
                 </button>
               </div>
             ) : null}
-
           </Panel>
+          ) : null}
         </section>
       ) : canOperatePrinting && activeAccreditationTab === "print" ? (
         <section className="panel-grid panel-grid--2">
           <Panel
-            title="File d'impression bénévoles"
-            subtitle="Le lot génère deux sorties imprimables : badges et liste des impressions effectuées."
+            title="Bénévoles & staff"
+            subtitle="2 PDF par lot : les badges et la liste des badges imprimés."
           >
             <div className="table-wrap">
               <table className="data-table data-table--admin">
@@ -3320,7 +3291,7 @@ function AccreditationsPage(props) {
                 type="button"
                 onClick={openSampleAccreditation}
               >
-                Ouvrir une accreditation temoin
+                Badge témoin
               </button>
               <button
                 className="button button--primary"
@@ -3332,14 +3303,11 @@ function AccreditationsPage(props) {
               </button>
             </div>
 
-            <div className="accreditation-print-note">
-              Le premier document contient les badges à imprimer, le second la liste des badges imprimés pour le lot.
-            </div>
           </Panel>
 
           <Panel
-            title="File d'impression juges"
-            subtitle="Même logique que pour les bénévoles : mise en file, impression, puis historique du lot."
+            title="Juges"
+            subtitle="Mise en file depuis Personnes › Juges."
           >
             <div className="table-wrap">
               <table className="data-table data-table--admin">
@@ -3406,8 +3374,8 @@ function AccreditationsPage(props) {
           </Panel>
 
           <Panel
-            title="File d'impression presse"
-            subtitle="Même logique que pour les bénévoles et les juges : mise en file, impression, puis historique du lot."
+            title="Presse"
+            subtitle="Mise en file depuis Personnes › Presse."
           >
             <div className="table-wrap">
               <table className="data-table data-table--admin">
@@ -3474,8 +3442,8 @@ function AccreditationsPage(props) {
           </Panel>
 
           <Panel
-            title="File d'impression VIP"
-            subtitle="Badge VIP réduit (8 par A4, recto-verso identique) : entreprise, nom, QR codes e-magazine, résultats live et contact. Un badge de plus pour l'accompagnant quand il est nommé. La mise en file se fait ici ou dans VIP › Inscrits."
+            title="VIP"
+            subtitle="8 badges par A4, +1 pour l’accompagnant nommé. Mise en file ici ou dans VIP › Inscrits."
           >
             {vipRegistrationsError || vipPrintError ? (
               <p className="form-error">{vipPrintError || vipRegistrationsError}</p>
@@ -3525,7 +3493,7 @@ function AccreditationsPage(props) {
                 onClick={() => updateVipBadgeStatus(unprintedVip, "en_file")}
                 disabled={!unprintedVip.length}
               >
-                Mettre en file les inscrits sans badge ({unprintedVip.length})
+                + File : inscrits sans badge ({unprintedVip.length})
               </button>
               <button
                 className="button button--primary"
@@ -3540,10 +3508,11 @@ function AccreditationsPage(props) {
 
           <Panel
             title="Badges non nominatifs"
-            subtitle="Générez directement un lot d'accréditations coachs ou athletes avec leurs zones par défaut."
+            subtitle="Coachs ou athlètes, zones par défaut, sans nom. Gardés dans l’historique."
           >
-            <div className="field-grid">
-              <AuthFormField label="Type de badge">
+            <div className="acc-add-form__row acc-add-form__row--end">
+              <label className="acc-mini-field">
+                <span>Type</span>
                 <select
                   value={effectiveSelectedNonNominativeTemplateId}
                   onChange={(event) => setSelectedNonNominativeTemplateId(event.target.value)}
@@ -3554,8 +3523,9 @@ function AccreditationsPage(props) {
                     </option>
                   ))}
                 </select>
-              </AuthFormField>
-              <AuthFormField label="Quantité à imprimer">
+              </label>
+              <label className="acc-mini-field acc-mini-field--narrow">
+                <span>Quantité</span>
                 <input
                   type="number"
                   min="1"
@@ -3563,27 +3533,9 @@ function AccreditationsPage(props) {
                   value={nonNominativeQuantity}
                   onChange={(event) => setNonNominativeQuantity(event.target.value)}
                 />
-              </AuthFormField>
-            </div>
-
-            <div className="accreditation-inline-panel">
-              <strong>Zones appliquées automatiquement</strong>
-              <div className="accreditation-tag-list">
-                {selectedNonNominativeZoneLabels.length ? (
-                  selectedNonNominativeZoneLabels.map((zoneLabel) => (
-                    <span key={zoneLabel} className="accreditation-tag accreditation-tag--active">
-                      {zoneLabel}
-                    </span>
-                  ))
-                ) : (
-                  <p className="panel-note">Aucune zone disponible pour ce modèle.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="table-actions table-actions--inline">
+              </label>
               <button
-                className="button button--primary"
+                className="button button--primary button--small"
                 type="button"
                 onClick={generateNonNominativeBadgePdf}
                 disabled={!selectedNonNominativeTemplate}
@@ -3591,10 +3543,9 @@ function AccreditationsPage(props) {
                 Générer le PDF ({Math.max(1, Number.parseInt(nonNominativeQuantity, 10) || 1)})
               </button>
             </div>
-
-            <div className="accreditation-print-note">
-              Ces badges sont enregistrés dans l'historique d'impression mais ne sont reliés à aucun compte bénévole.
-            </div>
+            <p className="acc-people-muted">
+              Zones : {selectedNonNominativeZoneLabels.join(", ") || "aucune zone pour ce modèle"}
+            </p>
           </Panel>
 
         </section>
