@@ -11166,3 +11166,10 @@ button.xc-card:hover { border-color: #9fb3c8; }
     grid-template-columns: 1fr;
   }
 }
+
+/* Accréditations › Réglages : catégorie du badge d'un rôle (couleur de la bande) */
+.accreditation-role-category { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 14px; font-size: 13px; }
+.accreditation-role-category span { font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #6c7f8d; }
+.accreditation-role-category select { height: 30px; padding: 2px 8px; border: 1px solid #cfd8df; border-radius: 5px; font: inherit; }
+.accreditation-role-category i { width: 18px; height: 18px; border-radius: 4px; display: inline-block; }
+.accreditation-role-category small { color: #8a9aa7; }
