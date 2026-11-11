@@ -4,6 +4,7 @@ import { saveClaimDraft, submitClaim } from "./expense-claims-hooks";
 import {
   DECOMPTE_RECIPIENT,
   MAX_CLAIM_LINES,
+  claimProblemLabel,
   computeClaimTotals,
   formatAmount,
   formatIban,
@@ -11,6 +12,8 @@ import {
   isValidIban,
   normalizeClaim,
 } from "./expense-claims";
+import { useLanguage } from "./language-context";
+import { useTr } from "./use-tr";
 
 // Formulaire de décompte (modèle « Décompte vierge 2026 ») : identité,
 // domicile, IBAN, banque, motif, dépenses, justificatifs, certification.
@@ -18,6 +21,9 @@ import {
 // la personne complète ses coordonnées et ajoute ses justificatifs.
 
 const EMPTY_LINE = { date: "", place: "", detail: "", amount: "" };
+
+// Seul message d'erreur renvoyé par submitClaim (expense-claims-hooks.js).
+const MAIL_ERROR_EN = "The claim is saved, but the e-mail didn't go out. Margot will see it in the tracking list.";
 
 function buildInitialClaim({ claim, currentUser, userProfile, privateProfile, editionYear, receipts = [] }) {
   const base = normalizeClaim(claim || {});
@@ -40,6 +46,8 @@ function buildInitialClaim({ claim, currentUser, userProfile, privateProfile, ed
 }
 
 export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfile, editionYear, initialReceipts, onDone, onCancel }) {
+  const tr = useTr();
+  const { language } = useLanguage();
   const [form, setForm] = useState(() =>
     buildInitialClaim({ claim, currentUser, userProfile, privateProfile, editionYear, receipts: initialReceipts }),
   );
@@ -50,6 +58,7 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
   const totals = computeClaimTotals(normalized);
   const problems = getClaimSubmitProblems(normalized);
   const ibanTyped = form.iban.replace(/\s/g, "").length >= 15;
+  const money = (value) => formatAmount(value, language);
 
   function set(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -65,10 +74,13 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
     try {
       const id = await saveClaimDraft({ ...form, status: form.status === "preset" ? "preset" : "draft" });
       setForm((current) => ({ ...current, id }));
-      setMessage("Brouillon enregistré. Vous pouvez le reprendre plus tard dans Mes décomptes.");
+      setMessage(tr(
+        "Brouillon enregistré. Vous pouvez le reprendre plus tard dans Mes décomptes.",
+        "Draft saved. You can pick it up later in My expense claims.",
+      ));
     } catch (error) {
       console.error(error);
-      setMessage("L'enregistrement a échoué. Réessayez dans un instant.");
+      setMessage(tr("L'enregistrement a échoué. Réessayez dans un instant.", "Saving failed. Please try again in a moment."));
     } finally {
       setBusy(false);
     }
@@ -77,14 +89,24 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
   async function send() {
     if (problems.length) return;
     setBusy(true);
-    setMessage("Envoi…");
+    setMessage(tr("Envoi…", "Sending…"));
     try {
       const { id, mailError } = await submitClaim(form, { appUrl: window.location.origin });
-      setMessage(mailError || `Décompte envoyé à ${DECOMPTE_RECIPIENT}. Vous suivez son avancement dans Mes décomptes.`);
+      setMessage(
+        mailError
+          ? tr(mailError, MAIL_ERROR_EN)
+          : tr(
+              `Décompte envoyé à ${DECOMPTE_RECIPIENT}. Vous suivez son avancement dans Mes décomptes.`,
+              `Expense claim sent to ${DECOMPTE_RECIPIENT}. You can follow it in My expense claims.`,
+            ),
+      );
       onDone?.(id);
     } catch (error) {
       console.error(error);
-      setMessage("L'envoi a échoué. Votre saisie est conservée : réessayez dans un instant.");
+      setMessage(tr(
+        "L'envoi a échoué. Votre saisie est conservée : réessayez dans un instant.",
+        "Sending failed. What you typed is kept: please try again in a moment.",
+      ));
     } finally {
       setBusy(false);
     }
@@ -94,25 +116,28 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
     <div className="xc-form">
       {isPreset ? (
         <div className="xc-preset">
-          <strong>Décompte préparé par {form.preset.byName || "l'organisation"}</strong>
+          <strong>{tr("Décompte préparé par", "Expense claim prepared by")} {form.preset.byName || tr("l'organisation", "the organisers")}</strong>
           {form.preset.note ? <p>{form.preset.note}</p> : null}
-          <p>Le motif et les montants sont fixés. Complétez vos coordonnées, ajoutez vos justificatifs, puis envoyez.</p>
+          <p>{tr(
+            "Le motif et les montants sont fixés. Complétez vos coordonnées, ajoutez vos justificatifs, puis envoyez.",
+            "The reason and amounts are set. Fill in your details, add your receipts, then send it.",
+          )}</p>
         </div>
       ) : null}
 
       <fieldset className="xc-block">
-        <legend>Vos coordonnées</legend>
+        <legend>{tr("Vos coordonnées", "Your details")}</legend>
         <div className="xc-grid">
           <label className="xc-field">
-            <span>Prénom</span>
+            <span>{tr("Prénom", "First name")}</span>
             <input value={form.ownerFirstName} onChange={(event) => set("ownerFirstName", event.target.value)} />
           </label>
           <label className="xc-field">
-            <span>Nom</span>
+            <span>{tr("Nom", "Last name")}</span>
             <input value={form.ownerLastName} onChange={(event) => set("ownerLastName", event.target.value)} />
           </label>
           <label className="xc-field xc-field--wide">
-            <span>Domicile (adresse complète)</span>
+            <span>{tr("Domicile (adresse complète)", "Home address (full)")}</span>
             <input value={form.address} onChange={(event) => set("address", event.target.value)} />
           </label>
           <label className="xc-field">
@@ -124,23 +149,28 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
               onBlur={() => set("iban", formatIban(form.iban))}
               onChange={(event) => set("iban", event.target.value)}
             />
-            {ibanTyped && !isValidIban(form.iban) ? <small className="xc-error">Cet IBAN ne semble pas valide.</small> : null}
+            {ibanTyped && !isValidIban(form.iban) ? (
+              <small className="xc-error">{tr("Cet IBAN ne semble pas valide.", "This IBAN doesn't look valid.")}</small>
+            ) : null}
           </label>
           <label className="xc-field">
-            <span>Banque + BIC</span>
-            <input placeholder="ex. BCEE · BCEELULL" value={form.bank} onChange={(event) => set("bank", event.target.value)} />
+            <span>{tr("Banque + BIC", "Bank + BIC")}</span>
+            <input placeholder={tr("ex. BCEE · BCEELULL", "e.g. BCEE · BCEELULL")} value={form.bank} onChange={(event) => set("bank", event.target.value)} />
           </label>
         </div>
-        <p className="xc-hint">Votre adresse et votre IBAN sont gardés dans votre profil privé pour le prochain décompte (visibles par vous et par la trésorerie seulement).</p>
+        <p className="xc-hint">{tr(
+          "Votre adresse et votre IBAN sont gardés dans votre profil privé pour le prochain décompte (visibles par vous et par la trésorerie seulement).",
+          "Your address and IBAN are kept in your private profile for the next claim (visible only to you and the treasury).",
+        )}</p>
       </fieldset>
 
       <fieldset className="xc-block">
-        <legend>Dépenses</legend>
+        <legend>{tr("Dépenses", "Expenses")}</legend>
         <label className="xc-field xc-field--wide">
-          <span>Motif des dépenses</span>
+          <span>{tr("Motif des dépenses", "Reason for the expenses")}</span>
           <input
             disabled={isPreset}
-            placeholder="ex. Courses pour la buvette, transport des athlètes…"
+            placeholder={tr("ex. Courses pour la buvette, transport des athlètes…", "e.g. Shopping for the bar, athlete transport…")}
             value={form.reason}
             onChange={(event) => set("reason", event.target.value)}
           />
@@ -149,10 +179,10 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
           <thead>
             <tr>
               <th>Date</th>
-              <th>Lieu</th>
-              <th>Détail</th>
-              <th className="xc-num">Montant (€)</th>
-              <th aria-label="Retirer" />
+              <th>{tr("Lieu", "Place")}</th>
+              <th>{tr("Détail", "Detail")}</th>
+              <th className="xc-num">{tr("Montant (€)", "Amount (€)")}</th>
+              <th aria-label={tr("Retirer", "Remove")} />
             </tr>
           </thead>
           <tbody>
@@ -178,7 +208,7 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
                 <td>
                   {!isPreset && form.lines.length > 1 ? (
                     <button
-                      aria-label="Retirer la ligne"
+                      aria-label={tr("Retirer la ligne", "Remove the line")}
                       className="ath-icon-btn ath-icon-btn--danger"
                       type="button"
                       onClick={() => set("lines", form.lines.filter((_, i) => i !== index))}
@@ -193,33 +223,33 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
         </table>
         {!isPreset && form.lines.length < MAX_CLAIM_LINES ? (
           <button className="ath-btn" type="button" onClick={() => set("lines", [...form.lines, { ...EMPTY_LINE }])}>
-            + Ligne
+            {tr("+ Ligne", "+ Line")}
           </button>
         ) : null}
         <dl className="xc-totals">
           <div>
-            <dt>Total des dépenses</dt>
-            <dd>{formatAmount(totals.total)}</dd>
+            <dt>{tr("Total des dépenses", "Total expenses")}</dt>
+            <dd>{money(totals.total)}</dd>
           </div>
           <div>
-            <dt>Acompte déjà reçu</dt>
+            <dt>{tr("Acompte déjà reçu", "Advance already received")}</dt>
             <dd>
               {isPreset ? (
-                formatAmount(totals.advance)
+                money(totals.advance)
               ) : (
                 <input inputMode="decimal" value={form.advance || ""} placeholder="0" onChange={(event) => set("advance", event.target.value)} />
               )}
             </dd>
           </div>
           <div className="xc-totals__pay">
-            <dt>Montant à payer</dt>
-            <dd>{formatAmount(totals.toPay)}</dd>
+            <dt>{tr("Montant à payer", "Amount to pay")}</dt>
+            <dd>{money(totals.toPay)}</dd>
           </div>
         </dl>
       </fieldset>
 
       <fieldset className="xc-block">
-        <legend>Factures et justificatifs ({form.receipts.length})</legend>
+        <legend>{tr("Factures et justificatifs", "Invoices and receipts")} ({form.receipts.length})</legend>
         {form.receipts.length ? (
           <ul className="xc-receipts">
             {form.receipts.map((receipt) => (
@@ -228,7 +258,7 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
                   {receipt.fileName}
                 </a>
                 <button
-                  aria-label={`Retirer ${receipt.fileName}`}
+                  aria-label={`${tr("Retirer", "Remove")} ${receipt.fileName}`}
                   className="ath-icon-btn ath-icon-btn--danger"
                   type="button"
                   onClick={() => set("receipts", form.receipts.filter((item) => item.fileUrl !== receipt.fileUrl))}
@@ -240,8 +270,8 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
           </ul>
         ) : null}
         <MultiFileDrop
-          hint="PDF ou photos · plusieurs fichiers à la fois · 20 Mo max chacun"
-          label="Glissez vos factures ici, ou cliquez pour les choisir"
+          hint={tr("PDF ou photos · plusieurs fichiers à la fois · 20 Mo max chacun", "PDF or photos · several files at once · 20 MB max each")}
+          label={tr("Glissez vos factures ici, ou cliquez pour les choisir", "Drop your invoices here, or click to choose them")}
           storagePath={`expense-claims/${form.ownerUid || "inconnu"}`}
           onUploaded={(files) => set("receipts", [...form.receipts, ...files])}
         />
@@ -250,27 +280,40 @@ export function ExpenseClaimForm({ claim, currentUser, userProfile, privateProfi
       <label className="xc-certify">
         <input checked={form.certified} type="checkbox" onChange={(event) => set("certified", event.target.checked)} />
         <span>
-          Je certifie que ces dépenses sont exactes et ont été faites pour la FLA / le CMCM Luxembourg Indoor Meeting.
-          <small>Vaut signature : votre nom et la date d'envoi sont ajoutés au décompte.</small>
+          {tr(
+            "Je certifie que ces dépenses sont exactes et ont été faites pour la FLA / le CMCM Luxembourg Indoor Meeting.",
+            "I certify that these expenses are correct and were made for the FLA / the CMCM Luxembourg Indoor Meeting.",
+          )}
+          <small>{tr(
+            "Vaut signature : votre nom et la date d'envoi sont ajoutés au décompte.",
+            "Counts as your signature: your name and the sending date are added to the claim.",
+          )}</small>
         </span>
       </label>
 
-      {problems.length ? <p className="xc-missing">À compléter avant l'envoi : {problems.join(" · ")}</p> : null}
+      {problems.length ? (
+        <p className="xc-missing">
+          {tr("À compléter avant l'envoi :", "Still needed before sending:")} {problems.map((problem) => claimProblemLabel(problem, tr)).join(" · ")}
+        </p>
+      ) : null}
       {message ? <p className="xc-message">{message}</p> : null}
 
       <div className="xc-actions">
         <button className="ath-btn ath-btn--primary" disabled={busy || problems.length > 0} type="button" onClick={send}>
-          Envoyer le décompte
+          {tr("Envoyer le décompte", "Send the expense claim")}
         </button>
         <button className="ath-btn" disabled={busy} type="button" onClick={saveDraft}>
-          Enregistrer le brouillon
+          {tr("Enregistrer le brouillon", "Save the draft")}
         </button>
         {onCancel ? (
           <button className="ath-link" type="button" onClick={onCancel}>
-            Fermer
+            {tr("Fermer", "Close")}
           </button>
         ) : null}
-        <span className="xc-actions__to">Envoyé à {DECOMPTE_RECIPIENT}, qui le vérifie puis le transmet au secrétariat pour paiement.</span>
+        <span className="xc-actions__to">{tr(
+          `Envoyé à ${DECOMPTE_RECIPIENT}, qui le vérifie puis le transmet au secrétariat pour paiement.`,
+          `Sent to ${DECOMPTE_RECIPIENT}, who checks it and passes it to the secretariat for payment.`,
+        )}</span>
       </div>
     </div>
   );

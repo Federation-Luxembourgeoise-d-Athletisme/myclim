@@ -17,27 +17,41 @@ import {
   summarizeClaims,
   toAmount,
 } from "./expense-claims";
+import { useLanguage } from "./language-context";
+import { useTr } from "./use-tr";
 
 // Pilotage › Décomptes (admin et rôle budget) : la liste de suivi des
 // remboursements — vérifier, transmettre au secrétariat, marquer payé,
 // télécharger l'Excel ou le PDF — et la préparation de décomptes pour des
 // personnes choisies (ex. « Forfait 1 jour – Transport 300 € »).
 
-function formatWhen(claim) {
-  const seconds = claim.submittedAt?.seconds || claim.updatedAt?.seconds;
-  return seconds ? new Date(seconds * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "—";
+function dateLocale(language) {
+  return language === "fr" ? "fr-FR" : "en-GB";
 }
 
-const NEXT_LABEL = { submitted: "Marquer vérifié", checked: "Transmis au secrétariat" };
+function formatWhen(claim, language) {
+  const seconds = claim.submittedAt?.seconds || claim.updatedAt?.seconds;
+  return seconds ? new Date(seconds * 1000).toLocaleDateString(dateLocale(language), { day: "numeric", month: "short" }) : "—";
+}
+
+const NEXT_LABEL = {
+  submitted: ["Marquer vérifié", "Mark as checked"],
+  checked: ["Transmis au secrétariat", "Passed to the secretariat"],
+};
 const EMPTY_PRESET_LINE = { date: "", place: "", detail: "", amount: "" };
+// Erreur de chargement renvoyée par useAllExpenseClaims (expense-claims-hooks.js).
+const LOAD_ERROR_EN = { "Impossible de charger les décomptes.": "Unable to load the expense claims." };
 
 function PresetForm({ editionYear, byName, onClose }) {
+  const tr = useTr();
+  const { language } = useLanguage();
   const [people, setPeople] = useState([]);
-  const [peopleError, setPeopleError] = useState("");
+  const [peopleError, setPeopleError] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState([]);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+  // Valeur pré-remplie, envoyée telle quelle sur le décompte (document FLA en français).
   const [lines, setLines] = useState([{ ...EMPTY_PRESET_LINE, detail: "Forfait 1 jour" }]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -53,7 +67,7 @@ function PresetForm({ editionYear, byName, onClose }) {
             .sort((left, right) => `${left.lastName} ${left.firstName}`.localeCompare(`${right.lastName} ${right.firstName}`, "fr")),
         ),
       )
-      .catch(() => setPeopleError("Impossible de charger la liste des comptes."));
+      .catch(() => setPeopleError(true));
   }, []);
 
   const filtered = useMemo(() => {
@@ -66,6 +80,7 @@ function PresetForm({ editionYear, byName, onClose }) {
   async function send() {
     setBusy(true);
     setMessage("");
+    const count = selected.length;
     try {
       const { mailFailures } = await createPresetClaims({
         people: people.filter((person) => selected.includes(person.uid)),
@@ -76,13 +91,14 @@ function PresetForm({ editionYear, byName, onClose }) {
         editionYear,
         appUrl: window.location.origin,
       });
-      setMessage(
-        `${selected.length} décompte(s) envoyé(s) dans l'espace des personnes choisies.${mailFailures ? ` ${mailFailures} e-mail(s) de prévenance non parti(s).` : ""}`,
-      );
+      setMessage(tr(
+        `${count} décompte(s) envoyé(s) dans l'espace des personnes choisies.${mailFailures ? ` ${mailFailures} e-mail(s) de prévenance non parti(s).` : ""}`,
+        `${count} expense claim${count === 1 ? "" : "s"} sent to the chosen people's space.${mailFailures ? ` ${mailFailures} notification e-mail${mailFailures === 1 ? "" : "s"} didn't go out.` : ""}`,
+      ));
       setSelected([]);
     } catch (error) {
       console.error(error);
-      setMessage("La préparation a échoué. Réessayez dans un instant.");
+      setMessage(tr("La préparation a échoué. Réessayez dans un instant.", "Preparing failed. Please try again in a moment."));
     } finally {
       setBusy(false);
     }
@@ -90,18 +106,25 @@ function PresetForm({ editionYear, byName, onClose }) {
 
   return (
     <div className="mdp-panel xc-preset-form">
-      <h3>Préparer un décompte</h3>
-      <p className="mdp-muted">Chaque personne choisie reçoit sa copie dans « Mes décomptes » (et un e-mail) : elle complète ses coordonnées, ajoute ses justificatifs et vous le renvoie.</p>
+      <h3>{tr("Préparer un décompte", "Prepare an expense claim")}</h3>
+      <p className="mdp-muted">{tr(
+        "Chaque personne choisie reçoit sa copie dans « Mes décomptes » (et un e-mail) : elle complète ses coordonnées, ajoute ses justificatifs et vous le renvoie.",
+        "Each chosen person gets their copy in “My expense claims” (and an e-mail): they fill in their details, add their receipts and send it back to you.",
+      )}</p>
       <label className="mdp-field">
-        <span>Motif</span>
-        <input placeholder="ex. Chef d'équipe — meeting du 17 janvier" value={reason} onChange={(event) => setReason(event.target.value)} />
+        <span>{tr("Motif", "Reason")}</span>
+        <input
+          placeholder={tr("ex. Chef d'équipe — meeting du 17 janvier", "e.g. Team leader — meeting on 17 January")}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
       </label>
       <div className="mdp-field">
-        <span>Lignes (fixées)</span>
+        <span>{tr("Lignes (fixées)", "Lines (fixed)")}</span>
         {lines.map((line, index) => (
           <div key={index} className="xc-preset-line">
             <input
-              placeholder="Détail (ex. Transport)"
+              placeholder={tr("Détail (ex. Transport)", "Detail (e.g. Transport)")}
               value={line.detail}
               onChange={(event) => setLines(lines.map((item, i) => (i === index ? { ...item, detail: event.target.value } : item)))}
             />
@@ -112,25 +135,32 @@ function PresetForm({ editionYear, byName, onClose }) {
               onChange={(event) => setLines(lines.map((item, i) => (i === index ? { ...item, amount: event.target.value } : item)))}
             />
             {lines.length > 1 ? (
-              <button className="ath-icon-btn ath-icon-btn--danger" type="button" onClick={() => setLines(lines.filter((_, i) => i !== index))}>
+              <button
+                aria-label={tr("Retirer la ligne", "Remove the line")}
+                className="ath-icon-btn ath-icon-btn--danger"
+                type="button"
+                onClick={() => setLines(lines.filter((_, i) => i !== index))}
+              >
                 ✕
               </button>
             ) : null}
           </div>
         ))}
         <button className="mdp-linkbtn" type="button" onClick={() => setLines([...lines, { ...EMPTY_PRESET_LINE }])}>
-          + ligne
+          {tr("+ ligne", "+ line")}
         </button>
-        <small className="mdp-muted">Total par personne : {formatAmount(total)}</small>
+        <small className="mdp-muted">{tr("Total par personne :", "Total per person:")} {formatAmount(total, language)}</small>
       </div>
       <label className="mdp-field">
-        <span>Message pour la personne (facultatif)</span>
+        <span>{tr("Message pour la personne (facultatif)", "Message for the person (optional)")}</span>
         <textarea rows="2" value={note} onChange={(event) => setNote(event.target.value)} />
       </label>
       <div className="mdp-field">
-        <span>Personnes ({selected.length} choisie(s))</span>
-        <input placeholder="Rechercher un nom, un e-mail…" value={search} onChange={(event) => setSearch(event.target.value)} />
-        {peopleError ? <p className="mdp-status--error">{peopleError}</p> : null}
+        <span>{tr(`Personnes (${selected.length} choisie(s))`, `People (${selected.length} chosen)`)}</span>
+        <input placeholder={tr("Rechercher un nom, un e-mail…", "Search a name, an e-mail…")} value={search} onChange={(event) => setSearch(event.target.value)} />
+        {peopleError ? (
+          <p className="mdp-status--error">{tr("Impossible de charger la liste des comptes.", "Unable to load the list of accounts.")}</p>
+        ) : null}
         <div className="mdp-collist xc-people">
           {filtered.map((person) => (
             <label key={person.uid}>
@@ -150,10 +180,13 @@ function PresetForm({ editionYear, byName, onClose }) {
       {message ? <p className="mdp-muted">{message}</p> : null}
       <div className="mdp-panel__actions">
         <button className="mdp-btn mdp-btn--primary" disabled={!ready || busy} type="button" onClick={send}>
-          Envoyer à {selected.length || "…"} personne(s)
+          {tr(
+            `Envoyer à ${selected.length || "…"} personne(s)`,
+            `Send to ${selected.length || "…"} ${selected.length === 1 ? "person" : "people"}`,
+          )}
         </button>
         <button className="mdp-btn mdp-panel__close" type="button" onClick={onClose}>
-          Fermer
+          {tr("Fermer", "Close")}
         </button>
       </div>
     </div>
@@ -161,7 +194,10 @@ function PresetForm({ editionYear, byName, onClose }) {
 }
 
 export function ExpenseClaimsAdminPage() {
+  const tr = useTr();
+  const { language } = useLanguage();
   const { userProfile, currentUser } = useAuth();
+  // Nom écrit sur les décomptes préparés et dans l'historique (donnée enregistrée).
   const byName = [userProfile?.firstName, userProfile?.lastName].filter(Boolean).join(" ") || currentUser?.email || "Organisation";
   const { siteEditionYear } = useSiteEditionYear();
   const { claims, loading, error } = useAllExpenseClaims(true);
@@ -169,6 +205,11 @@ export function ExpenseClaimsAdminPage() {
   const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get("d") || "");
   const [panel, setPanel] = useState(() => (new URLSearchParams(window.location.search).get("d") ? "claim" : ""));
   const [busy, setBusy] = useState(false);
+  const money = (value) => formatAmount(value, language);
+  const statusLabel = (value) => {
+    const status = getClaimStatus(value);
+    return tr(status.label, status.labelEn);
+  };
 
   const summary = useMemo(() => summarizeClaims(claims), [claims]);
   const filtered = claims.filter((claim) =>
@@ -186,7 +227,7 @@ export function ExpenseClaimsAdminPage() {
       await setClaimStatus(claim, status, byName, currentUser?.uid || "");
     } catch (statusError) {
       console.error(statusError);
-      window.alert("Le changement de statut a échoué.");
+      window.alert(tr("Le changement de statut a échoué.", "Changing the status failed."));
     } finally {
       setBusy(false);
     }
@@ -198,38 +239,47 @@ export function ExpenseClaimsAdminPage() {
       await sendClaimInvoicesToBudget(claim, { uid: currentUser?.uid || "" });
     } catch (sendError) {
       console.error(sendError);
-      window.alert("L'envoi des factures au budget a échoué.");
+      window.alert(tr("L'envoi des factures au budget a échoué.", "Sending the invoices to the budget failed."));
     } finally {
       setBusy(false);
     }
   }
 
-  if (loading) return <p className="mdp-status">Chargement des décomptes…</p>;
-  if (error) return <p className="mdp-status mdp-status--error">{error}</p>;
+  if (loading) return <p className="mdp-status">{tr("Chargement des décomptes…", "Loading the expense claims…")}</p>;
+  if (error) return <p className="mdp-status mdp-status--error">{tr(error, LOAD_ERROR_EN[error] || error)}</p>;
+
+  const notInBudget = selected ? getReceiptsNotInBudget(selected).length : 0;
 
   return (
     <section className="rp">
       <div className="rp-summary">
         <span>
-          <strong>{summary.toCheck}</strong> à vérifier
+          <strong>{summary.toCheck}</strong> {tr("à vérifier", "to check")}
         </span>
-        <span>{formatAmount(summary.openAmount)} à traiter</span>
-        <span className="rp-summary__done">{formatAmount(summary.sentAmount)} transmis au secrétariat</span>
-        {summary.waiting ? <span>{summary.waiting} préparé(s), en attente de la personne</span> : null}
+        <span>{money(summary.openAmount)} {tr("à traiter", "to process")}</span>
+        <span className="rp-summary__done">{money(summary.sentAmount)} {tr("transmis au secrétariat", "passed to the secretariat")}</span>
+        {summary.waiting ? (
+          <span>{tr(
+            `${summary.waiting} préparé(s), en attente de la personne`,
+            `${summary.waiting} prepared, waiting for the person`,
+          )}</span>
+        ) : null}
       </div>
       <div className="ath-sheet">
         <div className="ath-toolbar">
           <select className="ath-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-            <option value="open">À traiter (envoyés, vérifiés)</option>
-            <option value="">Tous</option>
+            <option value="open">{tr("À traiter (envoyés, vérifiés)", "To process (sent, checked)")}</option>
+            <option value="">{tr("Tous", "All")}</option>
             {CLAIM_STATUSES.map((status) => (
               <option key={status.value} value={status.value}>
-                {status.label}
+                {tr(status.label, status.labelEn)}
               </option>
             ))}
           </select>
           <span className="ath-toolbar__spacer" />
-          <span className="ath-toolbar__count">{filtered.length} décompte(s)</span>
+          <span className="ath-toolbar__count">
+            {tr(`${filtered.length} décompte(s)`, `${filtered.length} claim${filtered.length === 1 ? "" : "s"}`)}
+          </span>
           <button
             className="ath-btn ath-btn--primary"
             type="button"
@@ -238,7 +288,7 @@ export function ExpenseClaimsAdminPage() {
               setSelectedId("");
             }}
           >
-            Préparer un décompte
+            {tr("Préparer un décompte", "Prepare an expense claim")}
           </button>
         </div>
         <div className="rp-body">
@@ -247,19 +297,19 @@ export function ExpenseClaimsAdminPage() {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Personne</th>
-                  <th>Motif</th>
-                  <th className="rp-num">À payer</th>
-                  <th className="rp-num">Justif.</th>
-                  <th>Statut</th>
-                  <th aria-label="Téléchargements" />
+                  <th>{tr("Personne", "Person")}</th>
+                  <th>{tr("Motif", "Reason")}</th>
+                  <th className="rp-num">{tr("À payer", "To pay")}</th>
+                  <th className="rp-num">{tr("Justif.", "Receipts")}</th>
+                  <th>{tr("Statut", "Status")}</th>
+                  <th aria-label={tr("Téléchargements", "Downloads")} />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
                     <td className="orgt-muted" colSpan={7}>
-                      Aucun décompte avec ce filtre.
+                      {tr("Aucun décompte avec ce filtre.", "No expense claim with this filter.")}
                     </td>
                   </tr>
                 ) : null}
@@ -272,13 +322,13 @@ export function ExpenseClaimsAdminPage() {
                       setPanel("claim");
                     }}
                   >
-                    <td className="rp-date">{formatWhen(claim)}</td>
+                    <td className="rp-date">{formatWhen(claim, language)}</td>
                     <td className="ath-name">{claimOwnerName(claim)}</td>
                     <td className="rp-action">{claim.reason || "—"}</td>
-                    <td className="rp-num">{formatAmount(computeClaimTotals(claim).toPay)}</td>
+                    <td className="rp-num">{money(computeClaimTotals(claim).toPay)}</td>
                     <td className="rp-num">{claim.receipts.length}</td>
                     <td>
-                      <span className={`xc-status xc-status--${getClaimStatus(claim.status).tone}`}>{getClaimStatus(claim.status).label}</span>
+                      <span className={`xc-status xc-status--${getClaimStatus(claim.status).tone}`}>{statusLabel(claim.status)}</span>
                     </td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <button className="ath-link" type="button" onClick={() => downloadClaimExcel(claim)}>
@@ -301,13 +351,13 @@ export function ExpenseClaimsAdminPage() {
               <h3>{claimOwnerName(selected)}</h3>
               <p className="mdp-muted">{selected.ownerEmail}</p>
               <dl className="xc-detail__meta">
-                <dt>Motif</dt>
+                <dt>{tr("Motif", "Reason")}</dt>
                 <dd>{selected.reason || "—"}</dd>
-                <dt>Domicile</dt>
+                <dt>{tr("Domicile", "Home address")}</dt>
                 <dd>{selected.address || "—"}</dd>
                 <dt>IBAN</dt>
                 <dd>{formatIban(selected.iban) || "—"}</dd>
-                <dt>Banque + BIC</dt>
+                <dt>{tr("Banque + BIC", "Bank + BIC")}</dt>
                 <dd>{selected.bank || "—"}</dd>
               </dl>
               <table className="xc-detail__lines">
@@ -315,56 +365,62 @@ export function ExpenseClaimsAdminPage() {
                   {selected.lines.map((line, index) => (
                     <tr key={index}>
                       <td>{line.detail}</td>
-                      <td className="rp-num">{formatAmount(line.amount)}</td>
+                      <td className="rp-num">{money(line.amount)}</td>
                     </tr>
                   ))}
                   {selected.advance ? (
                     <tr>
-                      <td>Acompte reçu</td>
-                      <td className="rp-num">− {formatAmount(selected.advance)}</td>
+                      <td>{tr("Acompte reçu", "Advance received")}</td>
+                      <td className="rp-num">− {money(selected.advance)}</td>
                     </tr>
                   ) : null}
                   <tr className="xc-detail__total">
-                    <td>À payer</td>
-                    <td className="rp-num">{formatAmount(computeClaimTotals(selected).toPay)}</td>
+                    <td>{tr("À payer", "To pay")}</td>
+                    <td className="rp-num">{money(computeClaimTotals(selected).toPay)}</td>
                   </tr>
                 </tbody>
               </table>
-              <p className="mdp-collist__group">Justificatifs ({selected.receipts.length})</p>
+              <p className="mdp-collist__group">{tr("Justificatifs", "Receipts")} ({selected.receipts.length})</p>
               <ul className="xc-receipts">
                 {selected.receipts.map((receipt) => (
                   <li key={receipt.fileUrl}>
                     <a href={receipt.fileUrl} rel="noreferrer" target="_blank">
                       {receipt.fileName}
                     </a>
-                    {selected.budgetInvoiceIds[receipt.fileUrl] ? <span className="xc-inbudget">dans le budget ✓</span> : null}
+                    {selected.budgetInvoiceIds[receipt.fileUrl] ? <span className="xc-inbudget">{tr("dans le budget ✓", "in the budget ✓")}</span> : null}
                   </li>
                 ))}
               </ul>
-              {getReceiptsNotInBudget(selected).length && !["preset", "draft", "submitted"].includes(selected.status) ? (
+              {notInBudget && !["preset", "draft", "submitted"].includes(selected.status) ? (
                 <button className="mdp-btn xc-tobudget" disabled={busy} type="button" onClick={() => sendToBudget(selected)}>
-                  Envoyer {getReceiptsNotInBudget(selected).length} facture(s) au budget pour les classer
+                  {tr(
+                    `Envoyer ${notInBudget} facture(s) au budget pour les classer`,
+                    `Send ${notInBudget} invoice${notInBudget === 1 ? "" : "s"} to the budget to file ${notInBudget === 1 ? "it" : "them"}`,
+                  )}
                 </button>
               ) : selected.status === "submitted" ? (
-                <p className="mdp-muted">En le marquant vérifié, chaque justificatif devient une facture « à classer » dans Budget.</p>
+                <p className="mdp-muted">{tr(
+                  "En le marquant vérifié, chaque justificatif devient une facture « à classer » dans Budget.",
+                  "Once you mark it checked, each receipt becomes an invoice “to file” in Budget.",
+                )}</p>
               ) : null}
-              <p className="mdp-collist__group">Historique</p>
+              <p className="mdp-collist__group">{tr("Historique", "History")}</p>
               <ul className="xc-history">
                 {selected.history.map((entry, index) => (
                   <li key={index}>
-                    {new Date(entry.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · {getClaimStatus(entry.status).label} · {entry.byName}
+                    {new Date(entry.at).toLocaleDateString(dateLocale(language), { day: "numeric", month: "short" })} · {statusLabel(entry.status)} · {entry.byName}
                   </li>
                 ))}
               </ul>
               <div className="mdp-panel__actions xc-detail__actions">
                 {NEXT_STATUS[selected.status] ? (
                   <button className="mdp-btn mdp-btn--primary" disabled={busy} type="button" onClick={() => changeStatus(selected, NEXT_STATUS[selected.status])}>
-                    {NEXT_LABEL[selected.status]}
+                    {tr(...NEXT_LABEL[selected.status])}
                   </button>
                 ) : null}
                 {["submitted", "checked"].includes(selected.status) ? (
                   <button className="mdp-btn mdp-btn--danger" disabled={busy} type="button" onClick={() => changeStatus(selected, "rejected")}>
-                    À corriger
+                    {tr("À corriger", "To correct")}
                   </button>
                 ) : null}
                 <button className="mdp-btn" type="button" onClick={() => downloadClaimExcel(selected)}>

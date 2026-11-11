@@ -254,6 +254,7 @@ function InvoiceUploadForm({
   onSaved,
 }) {
   const { t } = useLanguage();
+  const { tr } = useComLang();
   const [formState, setFormState] = useState({
     title: "",
     note: "",
@@ -338,7 +339,7 @@ function InvoiceUploadForm({
   return (
     <div className="section-stack invoice-upload-form">
       <fieldset className="invoice-payment">
-        <legend>Comment cette facture a-t-elle été payée ?</legend>
+        <legend>{tr("Comment cette facture a-t-elle été payée ?", "How was this invoice paid?")}</legend>
         {PAYMENT_METHODS.map((method) => (
           <label key={method.value} className={`invoice-payment__option${formState.paymentMethod === method.value ? " is-on" : ""}`}>
             <input
@@ -348,7 +349,7 @@ function InvoiceUploadForm({
               value={method.value}
               onChange={handleChange}
             />
-            {method.label}
+            {tr(method.label, method.labelEn)}
           </label>
         ))}
       </fieldset>
@@ -356,12 +357,13 @@ function InvoiceUploadForm({
       {isReimbursement ? (
         <div className="invoice-reimbursement">
           <p className="panel-note">
-            Vous avez avancé l'argent : faites un <strong>décompte</strong>. Ajoutez toutes vos factures (plusieurs à la fois si
-            besoin), vos coordonnées bancaires, puis envoyez-le. Il part à Margot, qui le vérifie puis le transmet au secrétariat
-            de la FLA pour le remboursement. Vous le retrouvez ensuite dans Mon espace › Mes décomptes.
+            {tr(
+              "Vous avez avancé l'argent : faites un décompte. Ajoutez toutes vos factures (plusieurs à la fois si besoin), vos coordonnées bancaires, puis envoyez-le. Il part à Margot, qui le vérifie puis le transmet au secrétariat de la FLA pour le remboursement. Vous le retrouvez ensuite dans Mon espace › Mes décomptes.",
+              "You paid the money yourself: make an expense claim. Add all your invoices (several at once if needed) and your bank details, then send it. It goes to Margot, who checks it and passes it to the FLA secretariat for reimbursement. You'll find it afterwards in My space › My expense claims.",
+            )}
           </p>
           {privateProfileLoading ? (
-            <p className="panel-note">Chargement…</p>
+            <p className="panel-note">{tr("Chargement…", "Loading…")}</p>
           ) : (
             <ExpenseClaimForm
               currentUser={currentUser}
