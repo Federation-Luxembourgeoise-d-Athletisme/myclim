@@ -187,6 +187,10 @@ export function normalizePlanElement(raw = {}, index = 0) {
     element.rot = ((((rot + 180) % 360) + 360) % 360) - 180;
   }
   if (kind === "door") element.angle = num(raw.angle, 0);
+  // Point de contrôle : numéros des zones du badge qu'il garde (Accréditations › Contrôles)
+  if (kind === "ctrl") {
+    element.zoneNums = [...new Set((Array.isArray(raw.zoneNums) ? raw.zoneNums : []).map((n) => Math.round(num(n))).filter((n) => n >= 1 && n <= 20))].sort((a, b) => a - b);
+  }
   if (kind === "area") {
     if (Array.isArray(raw.shape) && raw.shape.length >= 3) {
       element.shape = raw.shape.map((p) => ({ x: num(p?.x), y: num(p?.y) }));
@@ -208,6 +212,17 @@ export const normalizePlanElements = (list) =>
 // Texte affiché selon la langue du document (le site, les badges et le roadbook sont en anglais).
 export const planLabel = (el, lang = "fr") => (lang === "en" && el.labelEn ? el.labelEn : el.label);
 export const planDesc = (el, lang = "fr") => (lang === "en" && el.descEn ? el.descEn : el.desc);
+
+// Texte automatique d'un point de contrôle : les zones qu'il garde, avec leur nom sur le plan.
+export function planCtrlText(el, elements = [], lang = "fr") {
+  const nums = el.zoneNums || [];
+  if (!nums.length) return "";
+  const names = nums.map((n) => {
+    const zone = elements.find((item) => item.kind === "zone" && item.num === n);
+    return zone ? `${n} ${planLabel(zone, lang)}` : String(n);
+  });
+  return lang === "en" ? `Badge check: zone ${names.join(", ")}` : `Contrôle des badges : zone ${names.join(", ")}`;
+}
 
 export const planColorOf = (el) => (el.kind === "zone" ? PLAN_ZONE_RED : el.color);
 

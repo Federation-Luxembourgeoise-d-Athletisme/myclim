@@ -5,6 +5,7 @@ import {
   PLAN_W,
   planBaseSvg,
   planColorOf,
+  planCtrlText,
   planDesc,
   planElTransform,
   planHasIcon,
@@ -102,7 +103,9 @@ export function PlanLegend({ elements, mapKey, compact = false, lang = "fr" }) {
           </span>
           <span className="cp-legend__text">
             {el.kind === "zone" || planHasIcon(el) || el.kind === "area" ? <b>{planLabel(el, lang)}</b> : null}
-            {el.kind === "ctrl" && !planDesc(el, lang) ? <em className="cp-legend__todo">{lang === "en" ? "to complete" : "à compléter : ce qu'on contrôle ici"}</em> : null}
+            {el.kind === "ctrl" && !planDesc(el, lang) ? (
+              planCtrlText(el, elements, lang) || <em className="cp-legend__todo">{lang === "en" ? "to complete: link it to zones in Checkpoints" : "à compléter : zones à lier dans Contrôles"}</em>
+            ) : null}
             {planDesc(el, lang) ? <>{el.kind === "zone" || planHasIcon(el) || el.kind === "area" ? " — " : ""}{planDesc(el, lang)}</> : null}
             {!planDesc(el, lang) && el.kind === "mark" && !planHasIcon(el) ? planLabel(el, lang) : null}
             {where ? <small>{where}</small> : null}

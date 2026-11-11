@@ -36,6 +36,7 @@ import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print"
 import { getVipRegistrationDocRef, useVipRegistrations } from "./vip-registrations-hooks";
 import { db } from "../services/firebase";
 import { CoquePlanEditor } from "./coque-plan/coque-plan-editor";
+import { AccreditationCheckpoints } from "./accreditation-checkpoints";
 import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
@@ -46,6 +47,7 @@ const ACCREDITATION_TAB_PATHS = {
   tracking: "/app/accreditations/suivi",
   history: "/app/accreditations/historique",
   plans: "/app/accreditations/plans",
+  controls: "/app/accreditations/controles",
   settings: "/app/accreditations/reglages",
 };
 
@@ -59,6 +61,7 @@ function getAccreditationTabFromPath(pathname, availableTabs) {
   if (normalizedPath.endsWith("/suivi") && availableTabs.includes("tracking")) return "tracking";
   if (normalizedPath.endsWith("/historique") && availableTabs.includes("history")) return "history";
   if (normalizedPath.endsWith("/plans") && availableTabs.includes("plans")) return "plans";
+  if (normalizedPath.endsWith("/controles") && availableTabs.includes("controls")) return "controls";
   if (normalizedPath.endsWith("/roles") && availableTabs.includes("settings")) return "settings";
   // Legacy bookmarks/links from before the redesign (juges/presse/bénévoles
   // were merged into "people", the new default landing tab).
@@ -1617,6 +1620,47 @@ function AccreditationsPage(props) {
         .map((zone) => formatZoneLabel(zone))
     : [];
   const printableVolunteers = volunteers.filter((volunteer) => shouldDisplayVolunteerAccreditation(volunteer));
+  // Onglet Contrôles : tous les badges et leurs zones (bénévoles, juges, presse, VIP, lots non nominatifs)
+  const vipZoneIds = sortedZones.filter((zone) => zone.id === "zone-vip").map((zone) => zone.id);
+  const checkpointHolders = [
+    ...printableVolunteers.map((volunteer) => ({
+      id: volunteer.id,
+      family: "vol",
+      name: `${volunteer.firstName || ""} ${volunteer.lastName || ""}`.trim() || volunteer.email || "—",
+      group: getBadgeRoleLabel(volunteer, getVolunteerOverride(volunteer.id), normalizeComparableValue) || "Bénévole",
+      zoneIds: getFinalZoneIds(volunteer),
+    })),
+    ...judges.filter((judge) => !judge.destroyedAt).map((judge) => ({
+      id: judge.id,
+      family: "judge",
+      name: `${judge.firstName || ""} ${judge.lastName || ""}`.trim() || "Judge",
+      group: judge.badgeLabel || "Judge",
+      zoneIds: judge.assignedZones || [],
+    })),
+    ...pressRegistrations.filter((registration) => registration.status === "accepted" && !registration.destroyedAt).map((registration) => ({
+      id: registration.id,
+      family: "press",
+      name: `${registration.firstName || ""} ${registration.lastName || ""}`.trim() || registration.media || "Presse",
+      group: PRESS_REQUEST_TYPE_LABELS[registration.requestType] || "Presse",
+      zoneIds: registration.zoneIds || [],
+    })),
+    // Badges VIP : visuel dédié, accès à la VIP Zone
+    ...vipRegistrations.map((registration) => ({
+      id: registration.id,
+      family: "vip",
+      name: `${registration.firstName || ""} ${registration.lastName || ""}`.trim() || "VIP",
+      group: "VIP",
+      zoneIds: vipZoneIds,
+    })),
+    ...NON_NOMINATIVE_BADGE_TEMPLATES.map((template) => ({
+      id: `lot-${template.id}`,
+      family: "lot",
+      lot: true,
+      name: template.badgeLabel,
+      group: template.label,
+      zoneIds: template.defaultZoneIds,
+    })),
+  ];
   const filteredPrintableVolunteers = printableVolunteers.filter((volunteer) => {
     const haystack = [
       volunteer.firstName,
@@ -1658,7 +1702,7 @@ function AccreditationsPage(props) {
   const visibleAcceptedPress = getVisibleListItems("accepted-press", acceptedPressRegistrations);
 
   const availableAccreditationTabs = [
-    ...(canOperatePrinting ? ["people", "print", "tracking", "history", "plans"] : []),
+    ...(canOperatePrinting ? ["people", "print", "tracking", "history", "plans", "controls"] : []),
     ...(canManageAccreditationConfiguration ? ["settings"] : []),
   ];
   const [activeAccreditationTab, setActiveAccreditationTab] = useState(() =>
@@ -1844,6 +1888,13 @@ function AccreditationsPage(props) {
               onClick={() => openAccreditationTab("plans")}
             >
               Plans
+            </button>
+            <button
+              className={`admin-subtab ${activeAccreditationTab === "controls" ? "admin-subtab--active" : ""}`}
+              type="button"
+              onClick={() => openAccreditationTab("controls")}
+            >
+              Contrôles
             </button>
           </>
         ) : null}
@@ -3457,6 +3508,8 @@ function AccreditationsPage(props) {
         </section>
       ) : canOperatePrinting && activeAccreditationTab === "plans" ? (
         <CoquePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
+      ) : canOperatePrinting && activeAccreditationTab === "controls" ? (
+        <AccreditationCheckpoints zones={sortedZones} holders={checkpointHolders} currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "history" ? (
         <section className="admin-split">
           <div className="admin-split__nav">

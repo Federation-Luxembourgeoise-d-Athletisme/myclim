@@ -1,0 +1,98 @@
+/* Accréditations › Contrôles : points de contrôle ↔ zones du badge (compact) */
+
+.ctl { display: grid; gap: 10px; }
+.ctl-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.ctl-intro { margin: 0; font-size: 12.5px; color: #4a5d6c; max-width: 720px; line-height: 1.45; }
+.ctl-status { display: inline-flex; gap: 8px; align-items: center; font-size: 12.5px; color: #4a5d6c; }
+.ctl-status.is-dirty { color: #b45309; }
+
+.ctl-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .ctl-layout { grid-template-columns: 1fr; } }
+.ctl-card { background: #fff; border: 1px solid #e3e9ee; border-radius: 8px; padding: 10px; overflow-x: auto; }
+
+.ctl-matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ctl-matrix th { font-weight: 600; color: #6c7f8d; padding: 4px 4px 6px; border-bottom: 1px solid #e3e9ee; vertical-align: bottom; text-align: center; }
+.ctl-matrix th small { display: block; font-size: 10.5px; font-weight: 500; max-width: 74px; margin: 3px auto 0; line-height: 1.15; }
+.ctl-matrix td { padding: 3px 4px; border-bottom: 1px solid #f0f3f6; }
+.ctl-matrix tbody tr { cursor: pointer; }
+.ctl-matrix tbody tr:hover { background: #f6f8fa; }
+.ctl-matrix tbody tr.is-selected { background: #e6f3fb; }
+.ctl-matrix__name { text-align: left !important; min-width: 200px; }
+.ctl-matrix td.ctl-matrix__name { display: flex; gap: 8px; align-items: center; }
+.ctl-matrix__count { text-align: right !important; white-space: nowrap; color: #6c7f8d; width: 80px; }
+.ctl-matrix__count b { color: #0b1b2b; }
+.ctl-zone {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #c8102e;
+  color: #fff;
+  font: 800 12px/1 "Barlow Condensed", Arial, sans-serif;
+}
+.ctl-letter {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #0a2540;
+  color: #fff;
+  font: 800 12px/1 "Barlow Condensed", Arial, sans-serif;
+}
+.ctl-letter--lg { width: 34px; height: 34px; border-radius: 6px; font-size: 20px; }
+.ctl-where { color: #4a5d6c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.ctl-where em { color: #b45309; font-style: normal; }
+.ctl-cell { text-align: center; }
+.ctl-tick {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #cfd8df;
+  border-radius: 4px;
+  background: #fff;
+  color: #fff;
+  font: 800 13px/1 Arial, sans-serif;
+  cursor: pointer;
+}
+.ctl-tick:hover:not(:disabled) { border-color: #0b1b2b; }
+.ctl-tick.is-on { background: #0b1b2b; border-color: #0b1b2b; }
+.ctl-tick:disabled { cursor: default; }
+.ctl-foot { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 10px; }
+.ctl-warn { font-size: 12px; color: #b45309; }
+.ctl-hint { margin: 8px 0 0; font-size: 11.5px; color: #8a9aa7; line-height: 1.4; }
+.ctl-empty { margin: 8px 0 0; font-size: 12.5px; color: #8a9aa7; }
+
+.ctl-detail__head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #e3e9ee; }
+.ctl-detail__head h3 { margin: 0; font-size: 13.5px; color: #0b1b2b; }
+.ctl-detail__head p { margin: 2px 0 0; font-size: 12px; color: #4a5d6c; }
+.ctl-detail__head p b { color: #c8102e; font-size: 13px; }
+.ctl-family h4 { margin: 10px 0 3px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a9aa7; }
+.ctl-group {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font: 500 12.5px/1.3 inherit;
+  font-family: inherit;
+  color: #0b1b2b;
+  text-align: left;
+  cursor: pointer;
+}
+.ctl-group:hover:not(:disabled) { background: #f2f5f8; }
+.ctl-group:disabled { cursor: default; }
+.ctl-group i { font-style: normal; font-weight: 800; font-size: 11px; text-align: center; }
+.ctl-group small { color: #6c7f8d; font-size: 11.5px; }
+.ctl-group.is-yes i { color: #0f8a5f; }
+.ctl-group.is-part i { color: #b45309; }
+.ctl-group.is-no { color: #8a9aa7; }
+.ctl-group.is-no i { color: #b0101c; }
+.ctl-names { margin: 0 0 4px 26px; font-size: 11.5px; color: #4a5d6c; line-height: 1.4; }
+.ctl-names p { margin: 2px 0; }

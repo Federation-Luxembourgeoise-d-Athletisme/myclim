@@ -453,7 +453,7 @@ function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon
         <input type="text" value={el.label} maxLength={short ? 16 : 30} onChange={(event) => onPatch({ label: event.target.value })} />
       </label>
       <label className="cpe-field">
-        <span>{el.kind === "ctrl" ? tr("Ce qu'on contrôle ici", "What is checked here") : tr("Légende", "Legend")} <small>{el.kind === "ctrl" ? tr("ex. accès Infield et Warm-up", "e.g. Infield and Warm-up access") : tr("le détail, à côté du plan", "the detail, next to the map")}</small></span>
+        <span>{el.kind === "ctrl" ? tr("Ce qu'on contrôle ici", "What is checked here") : tr("Légende", "Legend")} <small>{el.kind === "ctrl" ? tr("vide = zones liées dans l'onglet Contrôles", "empty = zones linked in the Checkpoints tab") : tr("le détail, à côté du plan", "the detail, next to the map")}</small></span>
         <textarea value={el.desc} onChange={(event) => onPatch({ desc: event.target.value })} />
       </label>
       {el.kind !== "door" ? (
