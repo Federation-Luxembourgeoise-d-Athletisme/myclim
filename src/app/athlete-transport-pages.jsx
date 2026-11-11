@@ -13,10 +13,20 @@ import {
   useTransportVolunteers,
   formatTravelDay,
 } from "./athlete-portal-hooks";
+import { useLanguage } from "./language-context";
+import { useTr } from "./use-tr";
+
+// fallbackRole is a French display value set by useTransportVolunteers.
+const FALLBACK_ROLE_EN = { Gestionnaire: "Manager" };
+
+function volunteerRoleLabel(role, tr) {
+  return tr(role, FALLBACK_ROLE_EN[role] || role);
+}
 
 // ─── Chief page ───────────────────────────────────────────────────────────────
 
 function AthleteTransportChiefPage({ Panel }) {
+  const tr = useTr();
   const { userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const isAdmin = roles.includes("admin");
@@ -68,21 +78,21 @@ function AthleteTransportChiefPage({ Panel }) {
         <div>
           <p className="eyebrow">Athlete Portal</p>
           <h1>Transport</h1>
-          <p>Gérez les lots de transport et les affectations des bénévoles.</p>
+          <p>{tr("Gérez les lots de transport et les affectations des bénévoles.", "Manage transport groups and volunteer assignments.")}</p>
           {isAdmin && (
             <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ fontSize: "0.8rem", color: "#607086" }}>Édition :</label>
+              <label style={{ fontSize: "0.8rem", color: "#607086" }}>{tr("Édition :", "Edition:")}</label>
               <select
                 value={viewEditionId}
                 onChange={(e) => setViewEditionId(e.target.value)}
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
-                <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
+                <option value={activeEditionId}>{tr("Courante", "Current")} ({activeEditionId})</option>
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">{tr("Exemple 2026", "Sample 2026")}</option>}
               </select>
               {viewEditionId === "test" && (
                 <span className="status-pill status-pill--warn" style={{ fontSize: "0.72rem" }}>
-                  Rien ici n&apos;apparaît ailleurs dans l&apos;app
+                  {tr("Rien ici n'apparaît ailleurs dans l'app", "Nothing here shows anywhere else in the app")}
                 </span>
               )}
             </div>
@@ -96,21 +106,21 @@ function AthleteTransportChiefPage({ Panel }) {
           className={`admin-subtab${tab === "arrivals" ? " admin-subtab--active" : ""}`}
           onClick={() => setTab("arrivals")}
         >
-          Arrivées ({peopleWithArrival.length})
+          {tr("Arrivées", "Arrivals")} ({peopleWithArrival.length})
         </button>
         <button
           type="button"
           className={`admin-subtab${tab === "lots" ? " admin-subtab--active" : ""}`}
           onClick={() => setTab("lots")}
         >
-          Lots ({lots.length})
+          {tr("Lots", "Groups")} ({lots.length})
         </button>
         <button
           type="button"
           className={`admin-subtab${tab === "volunteers" ? " admin-subtab--active" : ""}`}
           onClick={() => setTab("volunteers")}
         >
-          Bénévoles ({volunteers.length})
+          {tr("Bénévoles", "Volunteers")} ({volunteers.length})
         </button>
       </div>
 
@@ -160,6 +170,8 @@ function addMinutesToTime(time, minutesToAdd) {
 // ─── Arrivées tab ─────────────────────────────────────────────────────────────
 
 function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers, editionId, meetingReferenceDate }) {
+  const tr = useTr();
+  const { language } = useLanguage();
   const [dayFilter, setDayFilter] = useState("");
   const [flightFilter, setFlightFilter] = useState("");
   const [selected, setSelected] = useState(new Set());
@@ -220,15 +232,15 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
     // include a time (range) and the headcount so lots stay distinguishable
     // at a glance; the chief can still rename it via "Renommer" afterwards.
     let label = "";
-    if (flights.length === 1) label = `Vol ${flights[0]}`;
+    if (flights.length === 1) label = `${tr("Vol", "Flight")} ${flights[0]}`;
     if (sortedTimes.length === 1) {
       label += label ? ` ${sortedTimes[0]}` : `Arr. ${sortedTimes[0]}`;
     } else if (sortedTimes.length > 1) {
       label += label ? ` ${sortedTimes[0]}–${sortedTimes[sortedTimes.length - 1]}` : `Arr. ${sortedTimes[0]}–${sortedTimes[sortedTimes.length - 1]}`;
     }
-    if (days.length === 1) label += `${label ? " — " : ""}${formatTravelDay(days[0], meetingReferenceDate)}`;
-    if (!label) label = `Lot du ${new Date().toLocaleDateString("fr-FR")}`;
-    setNewLotLabel(`${label} (${selectedAthletes.length} pers.)`);
+    if (days.length === 1) label += `${label ? " — " : ""}${formatTravelDay(days[0], meetingReferenceDate, language)}`;
+    if (!label) label = `${tr("Lot du", "Group of")} ${new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB")}`;
+    setNewLotLabel(`${label} (${selectedAthletes.length} ${tr("pers.", selectedAthletes.length === 1 ? "person" : "people")})`);
     setNewLotVolunteerId("");
     // The volunteer should be there 30min before the EARLIEST arrival, and
     // the auto-filled leave time is 30min after the LAST arrival in the lot
@@ -240,7 +252,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
   }
 
   async function createLot() {
-    if (!newLotLabel.trim()) { setError("Un libellé est requis."); return; }
+    if (!newLotLabel.trim()) { setError(tr("Un libellé est requis.", "A name is required.")); return; }
     setSaving(true);
     setError("");
     try {
@@ -260,7 +272,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
       setSelected(new Set());
       setShowCreateForm(false);
     } catch {
-      setError("Erreur lors de la création du lot.");
+      setError(tr("Erreur lors de la création du lot.", "Could not create the group."));
     } finally {
       setSaving(false);
     }
@@ -278,7 +290,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
       setSelected(new Set());
       setAddToLotId("");
     } catch {
-      setError("Erreur lors de l'ajout au lot.");
+      setError(tr("Erreur lors de l'ajout au lot.", "Could not add to the group."));
     } finally {
       setSaving(false);
     }
@@ -286,8 +298,11 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
 
   return (
     <Panel
-      title="Personnes avec info d'arrivée"
-      subtitle={`${athletes.length} personnes (athlètes + staff) · ${lotAthleteIds.size} dans un lot`}
+      title={tr("Personnes avec info d'arrivée", "People with arrival info")}
+      subtitle={tr(
+        `${athletes.length} personnes (athlètes + staff) · ${lotAthleteIds.size} dans un lot`,
+        `${athletes.length} ${athletes.length === 1 ? "person" : "people"} (athletes + staff) · ${lotAthleteIds.size} in a group`,
+      )}
       actions={
         selected.size > 0 && !showCreateForm
           ? (
@@ -300,15 +315,15 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
                     onChange={(e) => setAddToLotId(e.target.value)}
                     style={{ width: "auto" }}
                   >
-                    <option value="">Ajouter au lot existant…</option>
+                    <option value="">{tr("Ajouter au lot existant…", "Add to existing group…")}</option>
                     {lots.map((lot) => <option key={lot.id} value={lot.id}>{lot.label}</option>)}
                   </select>
                   <button type="button" className="btn" onClick={addToLot} disabled={!addToLotId || saving}>
-                    {saving ? "…" : "Ajouter"}
+                    {saving ? "…" : tr("Ajouter", "Add")}
                   </button>
                 </>
               )}
-              <button type="button" className="btn btn--primary" onClick={openCreateForm}>Créer un lot ({selected.size})</button>
+              <button type="button" className="btn btn--primary" onClick={openCreateForm}>{tr("Créer un lot", "Create group")} ({selected.size})</button>
             </div>
           )
           : null
@@ -321,13 +336,13 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
           onChange={(e) => setDayFilter(e.target.value)}
           style={{ width: "auto" }}
         >
-          <option value="">Tous les jours</option>
-          {days.map((d) => <option key={d} value={d}>{formatTravelDay(d, meetingReferenceDate)}</option>)}
+          <option value="">{tr("Tous les jours", "All days")}</option>
+          {days.map((d) => <option key={d} value={d}>{formatTravelDay(d, meetingReferenceDate, language)}</option>)}
         </select>
         <input
           type="text"
           className="text-field"
-          placeholder="Filtrer par vol…"
+          placeholder={tr("Filtrer par vol…", "Filter by flight…")}
           value={flightFilter}
           onChange={(e) => setFlightFilter(e.target.value)}
           style={{ width: "160px" }}
@@ -338,12 +353,12 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
 
       {showCreateForm && (
         <div className="panel" style={{ marginBottom: "1rem", background: "var(--color-bg-offset, #f5f5f5)", padding: "1rem" }}>
-          <h4 style={{ marginTop: 0 }}>Nouveau lot — {selected.size} athlète(s)</h4>
+          <h4 style={{ marginTop: 0 }}>{tr(`Nouveau lot — ${selected.size} athlète(s)`, `New group — ${selected.size} ${selected.size === 1 ? "person" : "people"}`)}</h4>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
             <input
               type="text"
               className="text-field"
-              placeholder="Libellé du lot"
+              placeholder={tr("Libellé du lot", "Group name")}
               value={newLotLabel}
               onChange={(e) => setNewLotLabel(e.target.value)}
               style={{ flex: "1 1 200px" }}
@@ -354,17 +369,17 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
               onChange={(e) => setNewLotVolunteerId(e.target.value)}
               style={{ flex: "1 1 200px" }}
             >
-              <option value="">Bénévole — à assigner</option>
+              <option value="">{tr("Bénévole — à assigner", "Volunteer — to assign")}</option>
               {volunteers.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.firstName} {v.lastName}{v.fallbackRole ? ` (${v.fallbackRole})` : ""}
+                  {v.firstName} {v.lastName}{v.fallbackRole ? ` (${volunteerRoleLabel(v.fallbackRole, tr)})` : ""}
                 </option>
               ))}
             </select>
           </div>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem", alignItems: "center" }}>
             <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              Bénévole présent à
+              {tr("Bénévole présent à", "Volunteer on site at")}
               <input
                 type="time"
                 className="text-field"
@@ -374,7 +389,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
               />
             </label>
             <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              Départ de l'aéroport à
+              {tr("Départ de l'aéroport à", "Leaves the airport at")}
               <input
                 type="time"
                 className="text-field"
@@ -383,22 +398,22 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
                 style={{ width: "auto" }}
               />
             </label>
-            <span style={{ fontSize: "0.75rem", color: "#888" }}>Départ pré-rempli 30min après la dernière arrivée du lot</span>
+            <span style={{ fontSize: "0.75rem", color: "#888" }}>{tr("Départ pré-rempli 30min après la dernière arrivée du lot", "Departure pre-filled 30 min after the group's last arrival")}</span>
           </div>
           {error && <p style={{ color: "red", marginBottom: "0.5rem" }}>{error}</p>}
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button type="button" className="btn btn--primary" onClick={createLot} disabled={saving}>
-              {saving ? "Création…" : "Créer le lot"}
+              {saving ? tr("Création…", "Creating…") : tr("Créer le lot", "Create group")}
             </button>
-            <button type="button" className="btn" onClick={() => setShowCreateForm(false)}>Annuler</button>
+            <button type="button" className="btn" onClick={() => setShowCreateForm(false)}>{tr("Annuler", "Cancel")}</button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <p className="panel-note">Chargement…</p>
+        <p className="panel-note">{tr("Chargement…", "Loading…")}</p>
       ) : filtered.length === 0 ? (
-        <p className="panel-note">Aucun athlète avec info d'arrivée.</p>
+        <p className="panel-note">{tr("Aucun athlète avec info d'arrivée.", "No one with arrival info yet.")}</p>
       ) : (
         <div className="table-wrap">
           <table className="data-table">
@@ -407,14 +422,14 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
                 <th>
                   <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll} />
                 </th>
-                <th>Nom</th>
-                <th>Nat.</th>
-                <th>Rôle / épreuve</th>
-                <th>Jour</th>
-                <th>Heure arr.</th>
-                <th>Vol</th>
-                <th>Depuis</th>
-                <th>Lot</th>
+                <th>{tr("Nom", "Name")}</th>
+                <th>{tr("Nat.", "Nat.")}</th>
+                <th>{tr("Rôle / épreuve", "Role / event")}</th>
+                <th>{tr("Jour", "Day")}</th>
+                <th>{tr("Heure arr.", "Arr. time")}</th>
+                <th>{tr("Vol", "Flight")}</th>
+                <th>{tr("Depuis", "From")}</th>
+                <th>{tr("Lot", "Group")}</th>
               </tr>
             </thead>
             <tbody>
@@ -432,7 +447,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
                     <td>{a.lastName} {a.firstName}</td>
                     <td>{a.nationality}</td>
                     <td>{a.isStaff ? <span className="status-pill">{a.staffRole || "Staff"}</span> : a.event}</td>
-                    <td>{a.arrivalDay ? formatTravelDay(a.arrivalDay, meetingReferenceDate) : "—"}</td>
+                    <td>{a.arrivalDay ? formatTravelDay(a.arrivalDay, meetingReferenceDate, language) : "—"}</td>
                     <td>{a.arrivalTime ?? "—"}</td>
                     <td>{a.arrivalFlight ?? "—"}</td>
                     <td>{a.arrivalFrom ?? "—"}</td>
@@ -451,6 +466,7 @@ function ArrivalsTab({ Panel, athletes, loading, lots, lotAthleteIds, volunteers
 // ─── Lots tab ─────────────────────────────────────────────────────────────────
 
 function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
+  const tr = useTr();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newLotLabel, setNewLotLabel] = useState("");
   const [newLotVolunteerId, setNewLotVolunteerId] = useState("");
@@ -466,7 +482,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
   const [renameValue, setRenameValue] = useState("");
 
   async function createEmptyLot() {
-    if (!newLotLabel.trim()) { setError("Un libellé est requis."); return; }
+    if (!newLotLabel.trim()) { setError(tr("Un libellé est requis.", "A name is required.")); return; }
     setSaving(true);
     setError("");
     try {
@@ -485,7 +501,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
       setNewLotVolunteerId("");
       setShowCreateForm(false);
     } catch {
-      setError("Erreur lors de la création du lot.");
+      setError(tr("Erreur lors de la création du lot.", "Could not create the group."));
     } finally {
       setSaving(false);
     }
@@ -502,7 +518,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
   }
 
   async function deleteLot(lotId) {
-    if (!window.confirm("Supprimer ce lot ? Les athlètes ne seront pas supprimés.")) return;
+    if (!window.confirm(tr("Supprimer ce lot ? Les athlètes ne seront pas supprimés.", "Delete this group? The athletes will not be deleted."))) return;
     await deleteDoc(doc(db, ATHLETE_TRANSPORT_LOTS_COLLECTION, lotId));
   }
 
@@ -526,21 +542,21 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
 
   return (
     <Panel
-      title="Lots de transport"
+      title={tr("Lots de transport", "Transport groups")}
       actions={
         !showCreateForm
-          ? <button type="button" className="btn btn--primary" onClick={() => setShowCreateForm(true)}>+ Nouveau lot</button>
+          ? <button type="button" className="btn btn--primary" onClick={() => setShowCreateForm(true)}>{tr("+ Nouveau lot", "+ New group")}</button>
           : null
       }
     >
       {showCreateForm && (
         <div className="panel" style={{ marginBottom: "1rem", background: "var(--color-bg-offset, #f5f5f5)", padding: "1rem" }}>
-          <h4 style={{ marginTop: 0 }}>Nouveau lot vide</h4>
+          <h4 style={{ marginTop: 0 }}>{tr("Nouveau lot vide", "New empty group")}</h4>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
             <input
               type="text"
               className="text-field"
-              placeholder="Libellé du lot"
+              placeholder={tr("Libellé du lot", "Group name")}
               value={newLotLabel}
               onChange={(e) => setNewLotLabel(e.target.value)}
               style={{ flex: "1 1 200px" }}
@@ -551,26 +567,26 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
               onChange={(e) => setNewLotVolunteerId(e.target.value)}
               style={{ flex: "1 1 200px" }}
             >
-              <option value="">Bénévole — à assigner</option>
+              <option value="">{tr("Bénévole — à assigner", "Volunteer — to assign")}</option>
               {volunteers.map((v) => (
-                <option key={v.id} value={v.id}>{v.firstName} {v.lastName}{v.fallbackRole ? ` (${v.fallbackRole})` : ""}</option>
+                <option key={v.id} value={v.id}>{v.firstName} {v.lastName}{v.fallbackRole ? ` (${volunteerRoleLabel(v.fallbackRole, tr)})` : ""}</option>
               ))}
             </select>
           </div>
           {error && <p style={{ color: "red", marginBottom: "0.5rem" }}>{error}</p>}
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button type="button" className="btn btn--primary" onClick={createEmptyLot} disabled={saving}>
-              {saving ? "Création…" : "Créer le lot"}
+              {saving ? tr("Création…", "Creating…") : tr("Créer le lot", "Create group")}
             </button>
-            <button type="button" className="btn" onClick={() => setShowCreateForm(false)}>Annuler</button>
+            <button type="button" className="btn" onClick={() => setShowCreateForm(false)}>{tr("Annuler", "Cancel")}</button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <p className="panel-note">Chargement…</p>
+        <p className="panel-note">{tr("Chargement…", "Loading…")}</p>
       ) : lots.length === 0 ? (
-        <p className="panel-note">Aucun lot créé. Sélectionnez des athlètes dans l'onglet Arrivées pour créer un lot.</p>
+        <p className="panel-note">{tr("Aucun lot créé. Sélectionnez des athlètes dans l'onglet Arrivées pour créer un lot.", "No groups yet. Select people in the Arrivals tab to create one.")}</p>
       ) : (
         <ul className="compact-list" style={{ listStyle: "none", padding: 0 }}>
           {lots.map((lot) => {
@@ -597,29 +613,32 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                           autoFocus
                         />
                         <button type="button" className="btn btn--primary" style={{ fontSize: "0.8em" }} onClick={() => saveRename(lot)}>
-                          Confirmer
+                          {tr("Confirmer", "Confirm")}
                         </button>
                         <button type="button" className="btn" style={{ fontSize: "0.8em" }} onClick={() => setRenamingLotId(null)}>
-                          Annuler
+                          {tr("Annuler", "Cancel")}
                         </button>
                       </span>
                     ) : (
                       <strong>{lot.label}</strong>
                     )}
                     <span style={{ marginLeft: "0.5rem", color: "#888", fontSize: "0.85em" }}>
-                      {total} athlète{total !== 1 ? "s" : ""} · {pickedCount}/{total} récupéré{pickedCount !== 1 ? "s" : ""}
+                      {tr(
+                        `${total} athlète${total !== 1 ? "s" : ""} · ${pickedCount}/${total} récupéré${pickedCount !== 1 ? "s" : ""}`,
+                        `${total} athlete${total !== 1 ? "s" : ""} · ${pickedCount}/${total} picked up`,
+                      )}
                     </span>
                     <br />
                     <span style={{ fontSize: "0.85em", color: lot.assignedVolunteerName ? "#333" : "#aaa" }}>
-                      {lot.assignedVolunteerName ? `Bénévole : ${lot.assignedVolunteerName}` : "Bénévole non assigné"}
+                      {lot.assignedVolunteerName ? `${tr("Bénévole :", "Volunteer:")} ${lot.assignedVolunteerName}` : tr("Bénévole non assigné", "No volunteer assigned")}
                     </span>
                     {(lot.pickupTime || lot.leaveTime) && (
                       <>
                         <br />
                         <span style={{ fontSize: "0.85em", color: "#555" }}>
-                          {lot.pickupTime && <>Présent à {lot.pickupTime}</>}
+                          {lot.pickupTime && <>{tr("Présent à", "On site at")} {lot.pickupTime}</>}
                           {lot.pickupTime && lot.leaveTime && " · "}
-                          {lot.leaveTime && <>Départ à {lot.leaveTime}</>}
+                          {lot.leaveTime && <>{tr("Départ à", "Leaves at")} {lot.leaveTime}</>}
                         </span>
                       </>
                     )}
@@ -634,7 +653,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                         setRenameValue(lot.label ?? "");
                       }}
                     >
-                      {isRenaming ? "Annuler" : "Renommer"}
+                      {isRenaming ? tr("Annuler", "Cancel") : tr("Renommer", "Rename")}
                     </button>
                     <button
                       type="button"
@@ -642,7 +661,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                       style={{ fontSize: "0.8em" }}
                       onClick={() => setExpandedLotId(isExpanded ? null : lot.id)}
                     >
-                      {isExpanded ? "Réduire" : `Athlètes (${total})`}
+                      {isExpanded ? tr("Réduire", "Collapse") : `${tr("Athlètes", "Athletes")} (${total})`}
                     </button>
                     <button
                       type="button"
@@ -653,7 +672,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                         setAssignVolunteerId(lot.assignedVolunteerId ?? "");
                       }}
                     >
-                      {isAssigning ? "Annuler" : "Assigner"}
+                      {isAssigning ? tr("Annuler", "Cancel") : tr("Assigner", "Assign")}
                     </button>
                     <button
                       type="button"
@@ -665,7 +684,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                         setEditLeaveTime(lot.leaveTime ?? "");
                       }}
                     >
-                      {isEditingTimes ? "Annuler" : "Horaires"}
+                      {isEditingTimes ? tr("Annuler", "Cancel") : tr("Horaires", "Times")}
                     </button>
                     <button
                       type="button"
@@ -673,7 +692,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                       style={{ fontSize: "0.8em" }}
                       onClick={() => deleteLot(lot.id)}
                     >
-                      Supprimer
+                      {tr("Supprimer", "Delete")}
                     </button>
                   </div>
                 </div>
@@ -681,7 +700,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                 {isEditingTimes && (
                   <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                     <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                      Bénévole présent à
+                      {tr("Bénévole présent à", "Volunteer on site at")}
                       <input
                         type="time"
                         className="text-field"
@@ -691,7 +710,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                       />
                     </label>
                     <label style={{ fontSize: "0.85rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                      Départ de l'aéroport à
+                      {tr("Départ de l'aéroport à", "Leaves the airport at")}
                       <input
                         type="time"
                         className="text-field"
@@ -701,7 +720,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                       />
                     </label>
                     <button type="button" className="btn btn--primary" style={{ fontSize: "0.85em" }} onClick={() => saveTimes(lot)}>
-                      Confirmer
+                      {tr("Confirmer", "Confirm")}
                     </button>
                   </div>
                 )}
@@ -714,9 +733,9 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                       onChange={(e) => setAssignVolunteerId(e.target.value)}
                       style={{ flex: 1, maxWidth: "300px" }}
                     >
-                      <option value="">— Aucun bénévole —</option>
+                      <option value="">{tr("— Aucun bénévole —", "— No volunteer —")}</option>
                       {volunteers.map((v) => (
-                        <option key={v.id} value={v.id}>{v.firstName} {v.lastName}{v.fallbackRole ? ` (${v.fallbackRole})` : ""}</option>
+                        <option key={v.id} value={v.id}>{v.firstName} {v.lastName}{v.fallbackRole ? ` (${volunteerRoleLabel(v.fallbackRole, tr)})` : ""}</option>
                       ))}
                     </select>
                     <button
@@ -725,7 +744,7 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
                       style={{ fontSize: "0.85em" }}
                       onClick={() => assignVolunteer(lot)}
                     >
-                      Confirmer
+                      {tr("Confirmer", "Confirm")}
                     </button>
                   </div>
                 )}
@@ -749,29 +768,30 @@ function LotsTab({ Panel, lots, loading, athleteMap, volunteers, editionId }) {
 // ─── Volunteer assignment tab ─────────────────────────────────────────────────
 
 function VolunteersTab({ Panel, volunteers, loading, lots }) {
+  const tr = useTr();
   function getLotsForVolunteer(uid) {
     return lots.filter((lot) => lot.assignedVolunteerId === uid);
   }
 
   return (
-    <Panel title="Bénévoles transport athlètes">
+    <Panel title={tr("Bénévoles transport athlètes", "Athlete transport volunteers")}>
       {loading ? (
-        <p className="panel-note">Chargement…</p>
+        <p className="panel-note">{tr("Chargement…", "Loading…")}</p>
       ) : volunteers.length === 0 ? (
         <p className="panel-note">
-          Aucun bénévole trouvé — ni avec le rôle <em>benevole_transport_athletes</em>, ni parmi les admins/gestionnaires.
-          Assignez ce rôle via la gestion des rôles plateforme.
+          {tr("Aucun bénévole trouvé — ni avec le rôle ", "No volunteer found — none with the role ")}<em>benevole_transport_athletes</em>{tr(", ni parmi les admins/gestionnaires.", ", nor among admins/managers.")}
+          {" "}{tr("Assignez ce rôle via la gestion des rôles plateforme.", "Assign this role in the platform role management.")}
         </p>
       ) : (
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Nom</th>
-                <th>Type</th>
-                <th>Email</th>
-                <th>Téléphone</th>
-                <th>Lots assignés</th>
+                <th>{tr("Nom", "Name")}</th>
+                <th>{tr("Type", "Type")}</th>
+                <th>{tr("Email", "Email")}</th>
+                <th>{tr("Téléphone", "Phone")}</th>
+                <th>{tr("Lots assignés", "Assigned groups")}</th>
               </tr>
             </thead>
             <tbody>
@@ -782,15 +802,15 @@ function VolunteersTab({ Panel, volunteers, loading, lots }) {
                     <td>{v.firstName} {v.lastName}</td>
                     <td>
                       {v.fallbackRole
-                        ? <span className="status-pill" title="Bénévole par défaut (admin/gestionnaire), pas un bénévole transport dédié">{v.fallbackRole}</span>
-                        : <span className="status-pill status-pill--ok">Bénévole transport</span>
+                        ? <span className="status-pill" title={tr("Bénévole par défaut (admin/gestionnaire), pas un bénévole transport dédié", "Fallback volunteer (admin/manager), not a dedicated transport volunteer")}>{volunteerRoleLabel(v.fallbackRole, tr)}</span>
+                        : <span className="status-pill status-pill--ok">{tr("Bénévole transport", "Transport volunteer")}</span>
                       }
                     </td>
                     <td>{v.email ?? "—"}</td>
                     <td>{v.phone ?? "—"}</td>
                     <td>
                       {myLots.length === 0
-                        ? <span style={{ color: "#aaa" }}>Aucun</span>
+                        ? <span style={{ color: "#aaa" }}>{tr("Aucun", "None")}</span>
                         : myLots.map((l) => <span key={l.id} style={{ display: "block" }}>{l.label}</span>)
                       }
                     </td>
@@ -808,10 +828,11 @@ function VolunteersTab({ Panel, volunteers, loading, lots }) {
 // ─── Shared: lot athlete list with pick-up toggle ─────────────────────────────
 
 function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePickedUp, onToggleNoShow, onToggleDelayed }) {
+  const tr = useTr();
   const athleteIds = lot.athleteIds ?? [];
 
   if (athleteIds.length === 0) {
-    return <p className="panel-note" style={{ marginTop: "0.5rem" }}>Aucun athlète dans ce lot.</p>;
+    return <p className="panel-note" style={{ marginTop: "0.5rem" }}>{tr("Aucun athlète dans ce lot.", "No one in this group.")}</p>;
   }
 
   const showDeclareCols = Boolean(onToggleNoShow || onToggleDelayed);
@@ -821,14 +842,14 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
       <table className="data-table">
         <thead>
           <tr>
-            {showPickedUp && <th>Récupéré</th>}
-            <th>Nom</th>
-            <th>Nat.</th>
-            <th>Rôle / épreuve</th>
-            <th>Vol arr.</th>
-            <th>Heure arr.</th>
-            <th>Depuis</th>
-            {showDeclareCols && <th>Signaler</th>}
+            {showPickedUp && <th>{tr("Récupéré", "Picked up")}</th>}
+            <th>{tr("Nom", "Name")}</th>
+            <th>{tr("Nat.", "Nat.")}</th>
+            <th>{tr("Rôle / épreuve", "Role / event")}</th>
+            <th>{tr("Vol arr.", "Arr. flight")}</th>
+            <th>{tr("Heure arr.", "Arr. time")}</th>
+            <th>{tr("Depuis", "From")}</th>
+            {showDeclareCols && <th>{tr("Signaler", "Report")}</th>}
           </tr>
         </thead>
         <tbody>
@@ -850,7 +871,7 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
                           style={{ fontSize: "0.8em", padding: "0.2em 0.6em" }}
                           onClick={() => onTogglePickedUp(id, !picked)}
                         >
-                          {picked ? "✓ Récupéré" : "En attente"}
+                          {picked ? tr("✓ Récupéré", "✓ Picked up") : tr("En attente", "Waiting")}
                         </button>
                       )
                       : <span>{picked ? "✓" : "—"}</span>
@@ -872,7 +893,7 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
                         style={{ fontSize: "0.75em", padding: "0.2em 0.5em" }}
                         onClick={() => onToggleNoShow(id, !noShow)}
                       >
-                        {noShow ? "Absent ✓" : "Absent"}
+                        {noShow ? tr("Absent ✓", "No-show ✓") : tr("Absent", "No-show")}
                       </button>
                     )}
                     {onToggleDelayed && (
@@ -881,9 +902,9 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
                         className={`btn ${delayed ? "btn--primary" : ""}`}
                         style={{ fontSize: "0.75em", padding: "0.2em 0.5em" }}
                         onClick={() => onToggleDelayed(id, !delayed)}
-                        title="Signale un retard pour tous les passagers du même vol"
+                        title={tr("Signale un retard pour tous les passagers du même vol", "Flags a delay for every passenger on the same flight")}
                       >
-                        {delayed ? "Retard ✓" : "Retard"}
+                        {delayed ? tr("Retard ✓", "Delayed ✓") : tr("Retard", "Delayed")}
                       </button>
                     )}
                   </td>
@@ -900,6 +921,7 @@ function LotAthletesList({ lot, athleteMap, showPickedUp = false, onTogglePicked
 // ─── Volunteer page ───────────────────────────────────────────────────────────
 
 function AthleteTransportVolunteerPage({ Panel }) {
+  const tr = useTr();
   const { currentUser, userProfile } = useAuth();
   const roles = getActiveRoles(userProfile);
   const isAdmin = roles.includes("admin") || roles.includes("gestionnaire");
@@ -984,19 +1006,19 @@ function AthleteTransportVolunteerPage({ Panel }) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Transport athlètes</p>
-          <h1>Mes transports</h1>
-          <p>Athlètes qui vous sont affectés à récupérer.</p>
+          <p className="eyebrow">{tr("Transport athlètes", "Athlete transport")}</p>
+          <h1>{tr("Mes transports", "My pick-ups")}</h1>
+          <p>{tr("Athlètes qui vous sont affectés à récupérer.", "Athletes assigned to you for pick-up.")}</p>
           {isAdmin && (
             <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ fontSize: "0.8rem", color: "#607086" }}>Édition :</label>
+              <label style={{ fontSize: "0.8rem", color: "#607086" }}>{tr("Édition :", "Edition:")}</label>
               <select
                 value={viewEditionId}
                 onChange={(e) => setViewEditionId(e.target.value)}
                 style={{ width: "auto", fontSize: "0.85rem", padding: "3px 6px" }}
               >
-                <option value={activeEditionId}>Courante ({activeEditionId})</option>
-                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">Exemple 2026</option>}
+                <option value={activeEditionId}>{tr("Courante", "Current")} ({activeEditionId})</option>
+                {normalizeEditionId(activeEditionId) !== "test" && <option value="test">{tr("Exemple 2026", "Sample 2026")}</option>}
               </select>
             </div>
           )}
@@ -1004,12 +1026,12 @@ function AthleteTransportVolunteerPage({ Panel }) {
       </section>
 
       {loading ? (
-        <p className="panel-note">Chargement…</p>
+        <p className="panel-note">{tr("Chargement…", "Loading…")}</p>
       ) : myLots.length === 0 ? (
         <section className="panel">
-          <div className="panel-head"><div><h3>Aucun lot assigné</h3></div></div>
+          <div className="panel-head"><div><h3>{tr("Aucun lot assigné", "No group assigned")}</h3></div></div>
           <p className="panel-note">
-            Aucun lot de transport ne vous est encore assigné. Le chef du transport vous contactera une fois votre lot prêt.
+            {tr("Aucun lot de transport ne vous est encore assigné. Le chef du transport vous contactera une fois votre lot prêt.", "No transport group assigned to you yet. The transport chief will contact you once your group is ready.")}
           </p>
         </section>
       ) : (
@@ -1020,7 +1042,10 @@ function AthleteTransportVolunteerPage({ Panel }) {
             <Panel
               key={lot.id}
               title={lot.label}
-              subtitle={`${pickedCount}/${total} athlète${total !== 1 ? "s" : ""} récupéré${pickedCount !== 1 ? "s" : ""}`}
+              subtitle={tr(
+                `${pickedCount}/${total} athlète${total !== 1 ? "s" : ""} récupéré${pickedCount !== 1 ? "s" : ""}`,
+                `${pickedCount}/${total} athlete${total !== 1 ? "s" : ""} picked up`,
+              )}
             >
               {total > 0 && (
                 <div style={{ marginBottom: "0.75rem" }}>

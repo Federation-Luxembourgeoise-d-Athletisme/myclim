@@ -38,14 +38,15 @@ function buildPhysioBookingId(sessionId, start) {
   return `${sessionId}__${String(start || "").replace(":", "")}`;
 }
 
-function validatePhysioSession(session = {}) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(session.date || ""))) return "Choisis un jour.";
+// `tr(fr, en)` choisit la langue du message (français par défaut).
+function validatePhysioSession(session = {}, tr = (fr) => fr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(session.date || ""))) return tr("Choisis un jour.", "Pick a day.");
   const start = timeToMinutes(session.start);
   const end = timeToMinutes(session.end);
-  if (start === null || end === null) return "Indique une heure d'ouverture et de fermeture (HH:MM).";
-  if (end <= start) return "L'heure de fermeture doit être après l'ouverture.";
-  if (!buildSessionSlots(session).length) return "La plage est plus courte qu'un créneau.";
-  if (!String(session.location || "").trim()) return "Indique le lieu.";
+  if (start === null || end === null) return tr("Indique une heure d'ouverture et de fermeture (HH:MM).", "Enter an opening and closing time (HH:MM).");
+  if (end <= start) return tr("L'heure de fermeture doit être après l'ouverture.", "The closing time must be after the opening time.");
+  if (!buildSessionSlots(session).length) return tr("La plage est plus courte qu'un créneau.", "The opening window is shorter than one slot.");
+  if (!String(session.location || "").trim()) return tr("Indique le lieu.", "Enter the location.");
   return "";
 }
 

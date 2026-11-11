@@ -3,6 +3,8 @@ import { NavLink, Outlet, useNavigate, useOutletContext } from "react-router-dom
 import { useAllMeetingResults, useMeetingEditions } from "./meeting-history-hooks";
 import { buildSearchIndex, eventAnchorId, searchStatistics } from "./statistics-compute";
 import { useStatisticsEdition } from "./statistics-edition";
+import { useLanguage } from "./language-context";
+import { useTr } from "./use-tr";
 
 /**
  * Module Statistiques (/app/resultats) : une seule barre en haut avec
@@ -16,20 +18,22 @@ import { useStatisticsEdition } from "./statistics-edition";
 const BASE = "/app/resultats";
 
 const STATISTICS_TABS = [
-  { to: BASE, end: true, label: "Vue d'ensemble" },
-  { to: `${BASE}/editions`, label: "Résultats" },
-  { to: `${BASE}/records`, label: "Records", scope: "tous temps" },
-  { to: `${BASE}/hall-of-winners`, label: "Palmarès", scope: "tous temps" },
-  { to: `${BASE}/base-athletes`, label: "Athlètes" },
+  { to: BASE, end: true, label: "Vue d'ensemble", labelEn: "Overview" },
+  { to: `${BASE}/editions`, label: "Résultats", labelEn: "Results" },
+  { to: `${BASE}/records`, label: "Records", labelEn: "Records", scope: "tous temps", scopeEn: "all time" },
+  { to: `${BASE}/hall-of-winners`, label: "Palmarès", labelEn: "Hall of Winners", scope: "tous temps", scopeEn: "all time" },
+  { to: `${BASE}/base-athletes`, label: "Athlètes", labelEn: "Athletes" },
 ];
 
 function StatisticsSearch({ editions, onPickYear }) {
+  const tr = useTr();
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const { results, loading } = useAllMeetingResults();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
-  const index = useMemo(() => buildSearchIndex({ results, editions }), [results, editions]);
+  const index = useMemo(() => buildSearchIndex({ results, editions, language }), [results, editions, language]);
   const found = useMemo(() => searchStatistics(index, query), [index, query]);
   const hasResults = found.athletes.length + found.events.length + found.years.length > 0;
 
@@ -76,35 +80,35 @@ function StatisticsSearch({ editions, onPickYear }) {
       <input
         type="search"
         value={query}
-        placeholder="Athlète, épreuve, pays ou année…"
-        aria-label="Rechercher dans les statistiques"
+        placeholder={tr("Athlète, épreuve, pays ou année…", "Athlete, event, country or year…")}
+        aria-label={tr("Rechercher dans les statistiques", "Search the statistics")}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
       />
       {open && query.trim() ? (
         <div className="stats-search__menu" role="listbox">
-          {loading ? <p className="stats-search__empty">Chargement de l&apos;historique…</p> : null}
-          {!loading && !hasResults ? <p className="stats-search__empty">Aucun résultat</p> : null}
-          {found.athletes.length ? <p className="stats-search__group">Athlètes</p> : null}
+          {loading ? <p className="stats-search__empty">{tr("Chargement de l'historique…", "Loading the history…")}</p> : null}
+          {!loading && !hasResults ? <p className="stats-search__empty">{tr("Aucun résultat", "No results")}</p> : null}
+          {found.athletes.length ? <p className="stats-search__group">{tr("Athlètes", "Athletes")}</p> : null}
           {found.athletes.map((a) => (
             <button key={`a-${a.name}-${a.noc}`} type="button" onClick={() => pickAthlete(a)}>
               <span>{a.name} <small className="stats-search__noc">{a.noc}</small></span>
-              <small>{a.years.length > 1 ? `${a.years.length} éditions` : a.years[0]}</small>
+              <small>{a.years.length > 1 ? tr(`${a.years.length} éditions`, `${a.years.length} editions`) : a.years[0]}</small>
             </button>
           ))}
-          {found.events.length ? <p className="stats-search__group">Épreuves</p> : null}
+          {found.events.length ? <p className="stats-search__group">{tr("Épreuves", "Events")}</p> : null}
           {found.events.map((e) => (
             <button key={`e-${e.discipline}-${e.gender}`} type="button" onClick={() => pickEvent(e)}>
               <span>{e.label}</span>
-              <small>résultats {e.years[0]}</small>
+              <small>{tr(`résultats ${e.years[0]}`, `results ${e.years[0]}`)}</small>
             </button>
           ))}
-          {found.years.length ? <p className="stats-search__group">Éditions</p> : null}
+          {found.years.length ? <p className="stats-search__group">{tr("Éditions", "Editions")}</p> : null}
           {found.years.map((y) => (
             <button key={`y-${y}`} type="button" onClick={() => pickYear(y)}>
-              <span>Édition {y}</span>
-              <small>vue d&apos;ensemble</small>
+              <span>{tr(`Édition ${y}`, `${y} edition`)}</span>
+              <small>{tr("vue d'ensemble", "overview")}</small>
             </button>
           ))}
         </div>
@@ -114,6 +118,7 @@ function StatisticsSearch({ editions, onPickYear }) {
 }
 
 function StatisticsLayout() {
+  const tr = useTr();
   const outletContext = useOutletContext();
   const navigate = useNavigate();
   const { edition, setEdition } = useStatisticsEdition();
@@ -135,30 +140,30 @@ function StatisticsLayout() {
     <div className="page tabbed-page stats-layout">
       <section className="page-header tabbed-page__header">
         <div>
-          <p className="eyebrow">Athlètes</p>
-          <h1>Statistiques</h1>
+          <p className="eyebrow">{tr("Athlètes", "Athletes")}</p>
+          <h1>{tr("Statistiques", "Statistics")}</h1>
         </div>
       </section>
 
       <div className="stats-bar">
-        <div className="stats-edition" title="Édition affichée — gardée en changeant d'onglet">
+        <div className="stats-edition" title={tr("Édition affichée — gardée en changeant d'onglet", "Edition shown — kept when switching tabs")}>
           <button
             type="button"
-            aria-label="Édition précédente"
+            aria-label={tr("Édition précédente", "Previous edition")}
             disabled={!edition || position >= years.length - 1}
             onClick={() => setEdition(years[position + 1])}
           >‹</button>
           <select
             value={edition ?? ""}
             onChange={(e) => setEdition(e.target.value ? Number(e.target.value) : null)}
-            aria-label="Édition"
+            aria-label={tr("Édition", "Edition")}
           >
-            <option value="">Toutes les éditions</option>
+            <option value="">{tr("Toutes les éditions", "All editions")}</option>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           <button
             type="button"
-            aria-label="Édition suivante"
+            aria-label={tr("Édition suivante", "Next edition")}
             disabled={!edition || position <= 0}
             onClick={() => setEdition(years[position - 1])}
           >›</button>
@@ -166,7 +171,7 @@ function StatisticsLayout() {
         <StatisticsSearch editions={editions} onPickYear={pickYearFromSearch} />
       </div>
 
-      <nav className="stats-tabs" aria-label="Statistiques">
+      <nav className="stats-tabs" aria-label={tr("Statistiques", "Statistics")}>
         {STATISTICS_TABS.map((tab) => (
           <NavLink
             key={tab.to}
@@ -174,8 +179,8 @@ function StatisticsLayout() {
             end={tab.end}
             className={({ isActive }) => `stats-tabs__tab${isActive ? " stats-tabs__tab--active" : ""}`}
           >
-            {tab.label}
-            {tab.scope ? <span className="stats-tabs__scope">{tab.scope}</span> : null}
+            {tr(tab.label, tab.labelEn)}
+            {tab.scope ? <span className="stats-tabs__scope">{tr(tab.scope, tab.scopeEn)}</span> : null}
           </NavLink>
         ))}
       </nav>

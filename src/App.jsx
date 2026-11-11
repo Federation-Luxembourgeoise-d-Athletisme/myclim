@@ -235,8 +235,8 @@ const USERS_TABS = [
 ];
 
 const ENTRIES_TABS = [
-  { to: "/app/athletes", end: true, label: "Athlètes & staff" },
-  { to: "/app/athletes/import", label: "Importer un Excel", allowedRoles: ["admin", "meeting_director"] },
+  { to: "/app/athletes", end: true, labelKey: "entriesTabAthletes", label: "Athlètes & staff" },
+  { to: "/app/athletes/import", labelKey: "entriesTabImport", label: "Importer un Excel", allowedRoles: ["admin", "meeting_director"] },
 ];
 
 const SETTINGS_TABS = [
