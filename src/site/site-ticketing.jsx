@@ -8,8 +8,13 @@ import { getCountdownParts, showPlanVisitOnHome } from "./ticketing-utils";
 const DEFAULT_PARKING = "Coque car park, or the underground car park Coque 2.";
 const DEFAULT_TRANSPORT = "Public transport is free everywhere in Luxembourg. Bus lines 2, 18 and 30 stop at the Coque.";
 
-export function BuyTicketsLink({ ticketing, className, children, infoLabel = "Ticket info" }) {
+// saleSiteBeforeOpening : avant l'ouverture de la vente, le bouton mène quand même au site de
+// vente (bandeau du haut) au lieu des infos billets de la page Event.
+export function BuyTicketsLink({ ticketing, className, children, infoLabel = "Ticket info", saleSiteBeforeOpening = false }) {
   if (!ticketing.canBuy) {
+    if (saleSiteBeforeOpening && ticketing.phase === "presale" && ticketing.ticketUrl) {
+      return <a href={ticketing.ticketUrl} target="_blank" rel="noopener noreferrer" className={className}>{infoLabel}</a>;
+    }
     return <NavLink to="/event#tickets" className={className}>{infoLabel}</NavLink>;
   }
   return (
@@ -61,7 +66,7 @@ export function TicketBar({ ticketing }) {
         <strong className="site-ticket-bar__strong">{copy.strong}</strong>
         <span className="site-ticket-bar__short">{copy.short}</span>
         <span className="site-ticket-bar__detail">{copy.detail}</span>
-        <BuyTicketsLink ticketing={ticketing} className="site-ticket-bar__button">
+        <BuyTicketsLink ticketing={ticketing} className="site-ticket-bar__button" saleSiteBeforeOpening>
           Buy tickets →
         </BuyTicketsLink>
       </div>
