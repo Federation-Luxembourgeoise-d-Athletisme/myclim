@@ -476,7 +476,7 @@ function IconPicker({ el, icons, onPatch, onAddIcon, onPatchIcon, onDeleteIcon }
 }
 
 // Rotation d'une étiquette de texte : curseur, valeur exacte, raccourcis.
-function RotationField({ value, onChange }) {
+export function RotationField({ value, onChange }) {
   const tr = useTr();
   const set = (next) => onChange(Math.max(-180, Math.min(180, Math.round(Number(next) || 0))));
   return (

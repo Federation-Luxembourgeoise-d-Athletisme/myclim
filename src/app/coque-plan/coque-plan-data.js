@@ -216,7 +216,7 @@ export const PLAN_LINE_STYLES = {
   separation: { label: "Séparation (pointillés)", en: "Separation (dashed)" },
   rope: { label: "Corde / ruban", en: "Rope / tape" },
 };
-const lineSvg = (el, X, Y) => {
+export const lineSvg = (el, X, Y) => {
   const x1 = X - el.dx;
   const y1 = Y - el.dy;
   const x2 = X + el.dx;
