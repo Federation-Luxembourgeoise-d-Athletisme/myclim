@@ -354,6 +354,13 @@ export function planLegendItems(elements, mapKey, lang = "fr") {
 export const planPos = (el, crop = false) =>
   crop ? { x: el.x, y: (((el.y / 100) * PLAN_H - PLAN_CROP.y) / PLAN_CROP.h) * 100 } : { x: el.x, y: el.y };
 
+// Contours partagés avec le plan zoomé de l'entrée (entrance-plan-data.js)
+export const PLAN_ARCADES_PATH = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L716 930 L716 640 L773 630 L892 602 C860 585 830 555 798 520 C770 490 735 440 713 403 C700 380 676 330 658 283 L625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
+export const PLAN_GYM_PATH = "M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602 L1020 602 L1020 30 L690 30 L662 60 L662 120 L640 205 Z";
+export const PLAN_GYM_EDGE = "M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602";
+export const PLAN_HALL_PATH = "M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z";
+export const PLAN_HALL_FACADE = "M893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930";
+
 let planSvgCount = 0;
 
 // Fond de carte (niveau des arcades). crop = true cadre sur la salle (verso des badges).
@@ -365,7 +372,7 @@ export function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = fa
   const hatch = `coque-hatch-${n}`;
   const clip = `coque-clip-${n}`;
   const oval = (r) => `M${420 - r} 634 A${r} ${r} 0 0 1 ${420 + r} 634 L${420 + r} 1018 A${r} ${r} 0 0 1 ${420 - r} 1018 Z`;
-  const arcades = "M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 L716 930 L716 640 L773 630 L892 602 C860 585 830 555 798 520 C770 490 735 440 713 403 C700 380 676 330 658 283 L625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 Z";
+  const arcades = PLAN_ARCADES_PATH;
   const label = (x, y, text, size = 22, fill = "#7d8d99") =>
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-weight="800" font-size="${size}" letter-spacing="2" fill="${fill}">${text}</text>`;
   const gaps = [[420, 634, -137, "#f4f6f8"], [420, 634, -44, "#f4f6f8"], [420, 1018, 137, warmup], [420, 1018, 38, warmup]]
@@ -376,16 +383,16 @@ export function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = fa
       <clipPath id="${clip}"><path d="${arcades}" /></clipPath>
       <pattern id="${hatch}" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="16" stroke="#d3dae0" stroke-width="3" /></pattern>
     </defs>
-    <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602 L1020 602 L1020 30 L690 30 L662 60 L662 120 L640 205 Z" fill="url(#${hatch})" />
+    <path d="${PLAN_GYM_PATH}" fill="url(#${hatch})" />
     ${label(885, 330, en ? "GYM" : "GYMNASE", 26, "#a9b5be")}
-    <path d="M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z" fill="#f4f6f8" />
-    <path d="M893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930" fill="none" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
+    <path d="${PLAN_HALL_PATH}" fill="#f4f6f8" />
+    <path d="${PLAN_HALL_FACADE}" fill="none" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
     ${label(880, 650, en ? "ENTRANCE HALL" : "HALL D'ENTRÉE", 18, "#7d8d99")}
     <path d="M1018 810 L1004 830 L1018 850 Z" fill="#0f8a5f" />
     <path d="${arcades}" fill="#f4f6f8" />
     <path d="M0 1085 L${PLAN_W} 1085 L${PLAN_W} 1700 L0 1700 Z M0 700 L300 700 L300 1085 L0 1085 Z" fill="${warmup}" clip-path="url(#${clip})" />
     <path d="M418 108 C300 230 120 470 62 740 L62 930 C120 1190 290 1400 418 1530 C560 1400 720 1180 772 930 M625 222 C600 228 575 215 560 195 C538 160 548 80 590 60 L586 44 L418 108" fill="none" stroke="#5f6f7c" stroke-width="6" stroke-linejoin="round" />
-    <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="${PLAN_GYM_EDGE}" fill="none" stroke="#5f6f7c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
     <path d="M590 60 C548 80 538 160 560 195 C575 215 600 228 625 222 C645 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" stroke="#4a5d6c" stroke-width="4" stroke-linejoin="round" />
     <rect x="562" y="100" width="9" height="62" rx="2" fill="#9aa8b3" />
     <path d="M592 86 Q616 131 592 186 M608 76 Q640 131 606 200 M624 68 Q660 131 620 212" fill="none" stroke="#b9c5ce" stroke-width="3" />

@@ -36,6 +36,7 @@ import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print"
 import { getVipRegistrationDocRef, useVipRegistrations } from "./vip-registrations-hooks";
 import { db } from "../services/firebase";
 import { CoquePlanEditor } from "./coque-plan/coque-plan-editor";
+import { EntrancePlanEditor } from "./coque-plan/entrance-plan-editor";
 import { AccreditationCheckpoints } from "./accreditation-checkpoints";
 import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
 
@@ -47,6 +48,7 @@ const ACCREDITATION_TAB_PATHS = {
   tracking: "/app/accreditations/suivi",
   history: "/app/accreditations/historique",
   plans: "/app/accreditations/plans",
+  entrance: "/app/accreditations/plan-entree",
   controls: "/app/accreditations/controles",
   settings: "/app/accreditations/reglages",
 };
@@ -61,6 +63,7 @@ function getAccreditationTabFromPath(pathname, availableTabs) {
   if (normalizedPath.endsWith("/suivi") && availableTabs.includes("tracking")) return "tracking";
   if (normalizedPath.endsWith("/historique") && availableTabs.includes("history")) return "history";
   if (normalizedPath.endsWith("/plans") && availableTabs.includes("plans")) return "plans";
+  if (normalizedPath.endsWith("/plan-entree") && availableTabs.includes("entrance")) return "entrance";
   if (normalizedPath.endsWith("/controles") && availableTabs.includes("controls")) return "controls";
   if (normalizedPath.endsWith("/roles") && availableTabs.includes("settings")) return "settings";
   // Legacy bookmarks/links from before the redesign (juges/presse/bénévoles
@@ -1661,7 +1664,7 @@ function AccreditationsPage(props) {
   const visibleAcceptedPress = getVisibleListItems("accepted-press", acceptedPressRegistrations);
 
   const availableAccreditationTabs = [
-    ...(canOperatePrinting ? ["people", "print", "tracking", "history", "plans", "controls"] : []),
+    ...(canOperatePrinting ? ["people", "print", "tracking", "history", "plans", "entrance", "controls"] : []),
     ...(canManageAccreditationConfiguration ? ["settings"] : []),
   ];
   const [activeAccreditationTab, setActiveAccreditationTab] = useState(() =>
@@ -1847,6 +1850,13 @@ function AccreditationsPage(props) {
               onClick={() => openAccreditationTab("plans")}
             >
               Plans
+            </button>
+            <button
+              className={`admin-subtab ${activeAccreditationTab === "entrance" ? "admin-subtab--active" : ""}`}
+              type="button"
+              onClick={() => openAccreditationTab("entrance")}
+            >
+              Plan entrée
             </button>
             <button
               className={`admin-subtab ${activeAccreditationTab === "controls" ? "admin-subtab--active" : ""}`}
@@ -3467,6 +3477,8 @@ function AccreditationsPage(props) {
         </section>
       ) : canOperatePrinting && activeAccreditationTab === "plans" ? (
         <CoquePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
+      ) : canOperatePrinting && activeAccreditationTab === "entrance" ? (
+        <EntrancePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "controls" ? (
         <AccreditationCheckpoints zones={sortedZones} currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "history" ? (
