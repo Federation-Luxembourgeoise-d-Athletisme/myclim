@@ -1,7 +1,7 @@
 // Impression A4 du plan des juges : une page, le plan à gauche, la légende (juges par équipe,
 // repères) à droite. HTML autonome pour une fenêtre d'impression, comme les badges.
-import { PLAN_ICONS, planElTransform, planMarkerHtml } from "./coque-plan-data";
-import { JUDGES_BOX, JUDGES_FACILITIES, JUDGES_INSET, jAreaSize, jOnTrack, jText, judgesInsetSvg, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
+import { PLAN_ICONS, planMarkerHtml } from "./coque-plan-data";
+import { JUDGES_BOX, JUDGES_FACILITIES, jAreaSize, jText, jTransform, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
 
 const esc = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -15,8 +15,8 @@ function itemsHtml(elements, teams, lang) {
     ...elements.filter((el) => el.kind === "judge"),
   ]
     .map((el) => {
-      const size = el.kind === "area" ? jAreaSize(el) : null;
-      const turn = planElTransform(el);
+      const size = el.kind === "area" && !el.shape ? jAreaSize(el) : null;
+      const turn = jTransform(el);
       const style = `left:${el.x}%;top:${el.y}%;${size ? `width:${size.width};height:${size.height};` : ""}${turn ? `transform:${turn};` : ""}`;
       const inner = el.kind === "judge" ? judgeDotHtml(el, teamColor(teams, el.team), lang) : planMarkerHtml(el, el.color, lang);
       return `<div class="coque-plan__el" style="${style}">${inner}</div>`;
@@ -24,19 +24,12 @@ function itemsHtml(elements, teams, lang) {
     .join("");
 }
 
-// Le plan de la piste seul (fond + éléments de la piste), en HTML : sert à l'impression.
-export function judgesPlanBoxHtml(elements, teams, lang = "fr") {
-  return `<div class="judges-plan"><div class="coque-plan__layer">${judgesPlanSvg(elements, lang)}</div>${itemsHtml(elements.filter(jOnTrack), teams, lang)}</div>`;
+// Le plan seul (fond + éléments), en HTML : sert à l'impression.
+export function judgesPlanBoxHtml(elements, teams, lang = "fr", details = "") {
+  return `<div class="judges-plan"><div class="coque-plan__layer">${judgesPlanSvg(elements, lang, details)}</div>${itemsHtml(elements, teams, lang)}</div>`;
 }
 
-// Encart du niveau 0 (arcades) : salle des juges, chambres d'appel
-export function judgesInsetHtml(elements, teams, lang = "fr") {
-  const shown = elements.filter((el) => !jOnTrack(el));
-  if (!shown.length) return "";
-  return `<div class="judges-inset"><div class="coque-plan__layer">${judgesInsetSvg(lang)}</div>${itemsHtml(shown, teams, lang)}</div>`;
-}
-
-export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", autoPrint = true } = {}) {
+export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", autoPrint = true, details = "" } = {}) {
   const en = lang === "en";
   const t = (fr, enText) => (en ? enText : fr);
   const teamBlocks = teams
@@ -44,7 +37,7 @@ export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", 
       const judges = elements.filter((el) => el.kind === "judge" && el.team === team.id);
       if (!judges.length) return "";
       return `<section class="jp-team"><h3><span class="jp-swatch" style="background:${team.color}"></span>${esc(jText(team, "label", lang))}<small>${judges.length}</small></h3>
-        ${judges.map((el) => `<div class="jp-row">${judgeDotHtml(el, team.color, lang)}<span>${esc(jText(el, "desc", lang))}${jOnTrack(el) ? "" : ` <i class="jp-n0">${t("niv. 0", "level 0")}</i>`}</span></div>`).join("")}</section>`;
+        ${judges.map((el) => `<div class="jp-row">${judgeDotHtml(el, team.color, lang)}<span>${esc(jText(el, "desc", lang))}</span></div>`).join("")}</section>`;
     })
     .join("");
   const seen = new Set();
@@ -64,10 +57,9 @@ export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", 
             : planMarkerHtml({ ...el, showText: false }, el.color, lang);
       const label = jText(el, "label", lang);
       const desc = jText(el, "desc", lang);
-      return `<div class="jp-row"><span class="jp-key">${key}</span><span><b>${esc(label)}</b>${desc && desc !== label ? ` — ${esc(desc)}` : ""}${jOnTrack(el) ? "" : ` <i class="jp-n0">${t("niv. 0", "level 0")}</i>`}</span></div>`;
+      return `<div class="jp-row"><span class="jp-key">${key}</span><span><b>${esc(label)}</b>${desc && desc !== label ? ` — ${esc(desc)}` : ""}</span></div>`;
     })
     .join("");
-  const inset = judgesInsetHtml(elements, teams, lang);
   const facilities = elements
     .filter((el) => el.kind === "facility" && !el.hidden)
     .map((el) => t(JUDGES_FACILITIES[el.facility].label, JUDGES_FACILITIES[el.facility].en))
@@ -86,7 +78,7 @@ export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", 
   .jp-head h1 { margin: 0; font: 800 15pt/1 "Barlow Condensed", Arial, sans-serif; letter-spacing: .02em; text-transform: uppercase; }
   .jp-head p { margin: .8mm 0 0; color: #4a5d6c; }
   .jp-head small { color: #6c7f8d; text-align: right; }
-  .jp-main { display: grid; grid-template-columns: 134mm 1fr; gap: 4mm; align-items: start; min-height: 0; }
+  .jp-main { display: grid; grid-template-columns: 143mm 1fr; gap: 4mm; align-items: start; min-height: 0; }
   .judges-plan { position: relative; width: 100%; aspect-ratio: ${JUDGES_BOX.w} / ${JUDGES_BOX.h}; border: .25mm solid #c9d3db; overflow: hidden; }
   .coque-plan__layer, .coque-plan__layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .coque-plan__el { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
@@ -99,6 +91,7 @@ export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", 
   .cp-pill--icon { display: inline-flex; align-items: center; gap: .7mm; padding-left: .7mm; }
   .cp-pill__ico { width: 2.8mm; height: 2.8mm; display: grid; place-items: center; }
   .cp-pill__ico svg { width: 100%; height: 100%; display: block; }
+  .cp-area-label { display: inline-block; font: 800 6pt/1 Arial, sans-serif; background: #fff; border-radius: 99px; padding: .6mm 1.4mm; }
   .cp-area { display: grid; place-items: center; width: 100%; height: 100%; border: .35mm dashed; border-radius: 1.2mm; font: 800 6.2pt/1.05 Arial, sans-serif; text-align: center; white-space: normal; }
   .jp-legend { display: grid; align-content: start; gap: 2.2mm; min-width: 0; }
   .jp-legend h2 { margin: 0; font: 800 8pt/1 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #6c7f8d; }
@@ -112,26 +105,21 @@ export function judgesPlanPrintHtml(elements, teams, { lang = "fr", title = "", 
   .jp-area { width: 4.2mm; height: 3mm; border: .3mm dashed; border-radius: .6mm; }
   .jp-line { width: 4.4mm; border-top: .8mm solid; }
   .jp-foot { color: #6c7f8d; font-size: 6.6pt; margin: 0; }
-  .judges-inset { position: relative; width: 100%; aspect-ratio: ${JUDGES_INSET.w} / ${JUDGES_INSET.h}; border: .25mm solid #c9d3db; overflow: hidden; }
-  .judges-inset .cp-pill { font-size: 5.6pt; padding: .5mm 1.2mm; }
-  .judges-inset .cp-judge { min-width: 3mm; height: 3mm; font-size: 5.4pt; }
-  .jp-n0 { font-style: normal; font-weight: 700; color: #7a4fd0; font-size: 6pt; }
   .jp-left { display: grid; gap: 2.5mm; align-content: start; }
-  .jp-others { display: grid; grid-template-columns: 1fr 1fr; gap: 0 4mm; }
+  .jp-others { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 3mm; font-size: 6.8pt; }
   .jp-dot { width: 3mm; height: 3mm; border-radius: 50%; }
 </style></head><body>
 <div class="jp-sheet">
-  <header class="jp-head"><div><h1>${esc(heading)}</h1><p>CMCM Luxembourg Indoor Meeting · Coque · ${t("niveau piste", "track level")}</p></div><small>${t("Imprimé le", "Printed on")} ${esc(printedOn)}</small></header>
+  <header class="jp-head"><div><h1>${esc(heading)}</h1><p>CMCM Luxembourg Indoor Meeting · Coque · ${t("niveau 0 et infield", "level 0 and infield")}</p></div><small>${t("Imprimé le", "Printed on")} ${esc(printedOn)}</small></header>
   <main class="jp-main">
     <div class="jp-left">
-      ${judgesPlanBoxHtml(elements, teams, lang)}
+      ${judgesPlanBoxHtml(elements, teams, lang, details)}
       ${others ? `<div class="jp-legend"><h2>${t("Repères", "Key")}</h2><div class="jp-others">${others}</div></div>` : ""}
       ${facilities ? `<p class="jp-foot">${t("Aires", "Areas")} : ${esc(facilities)}</p>` : ""}
     </div>
     <aside class="jp-legend">
       <h2>${t("Juges", "Judges")}</h2>
       ${teamBlocks || `<p class="jp-foot">${t("Aucun juge placé.", "No judge placed.")}</p>`}
-      ${inset ? `<h2>${t("Niveau 0 (arcades)", "Level 0 (arcades)")}</h2><p class="jp-foot">${t("Salle des juges et chambres d'appel : à l'étage de l'entrée, pas au niveau de la piste.", "Judges' room and call rooms: on the entrance floor, not at track level.")}</p>${inset}` : ""}
     </aside>
   </main>
 </div>

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTr } from "../use-tr";
 import { useLanguage } from "../language-context";
-import { PLAN_ICONS, PLAN_LINE_STYLES, PLAN_PALETTE, planElTransform, planIconSvg, planShowsText } from "./coque-plan-data";
-import { JUDGES_BOX, JUDGES_FACILITIES, JUDGES_LEVELS, jAreaSize, jOnTrack, jPoint, jText, judgesInsetSvg, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
+import { PLAN_ICONS, PLAN_LINE_STYLES, PLAN_PALETTE, planIconSvg } from "./coque-plan-data";
+import { JUDGES_BOX, JUDGES_FACILITIES, jAreaSize, jPoint, jText, jTransform, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
 import { judgesPlanDefaults, saveJudgesPlan, useJudgesPlan } from "./coque-judges-plan-hooks";
 import { judgesPlanPrintHtml } from "./coque-judges-plan-print";
 import { RotationField } from "./coque-plan-editor";
@@ -37,6 +37,13 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState(null); // { type: "el" | "team", id }
+  // Bâtiment de la salle des juges (plan d'architecte) : tracé chargé à part
+  const [details, setDetails] = useState("");
+  useEffect(() => {
+    let alive = true;
+    import("./coque-plan-details").then((mod) => alive && setDetails(mod.PLAN_DETAILS)).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
   const handleRef = useRef(null);
@@ -77,7 +84,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     while (used.has(String(n))) n += 1;
     const id = newId("j");
     change((list) => [...list, {
-      id, kind: "judge", team: teamId, label: String(n), labelEn: "", desc: "", descEn: "", level: last?.level || "piste",
+      id, kind: "judge", team: teamId, label: String(n), labelEn: "", desc: "", descEn: "",
       x: last ? Math.min(97, last.x + 3) : 50, y: last ? last.y : 50,
     }]);
     setSelected({ type: "el", id });
@@ -89,7 +96,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   }
   function addElement(kind) {
     const id = newId(kind);
-    const base = { id, kind, x: 50, y: 50, desc: "", descEn: "", labelEn: "", level: "piste" };
+    const base = { id, kind, x: 50, y: 50, desc: "", descEn: "", labelEn: "" };
     const extra = kind === "line"
       ? { label: tr("Barrière", "Barrier"), color: "#4a5d6c", style: "barrier", dx: 50, dy: 0 }
       : kind === "area"
@@ -158,7 +165,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   function print() {
     const win = window.open("", "_blank", "width=900,height=1100");
     if (win) {
-      win.document.write(judgesPlanPrintHtml(elements, teams, { lang }));
+      win.document.write(judgesPlanPrintHtml(elements, teams, { lang, details }));
       win.document.close();
       return;
     }
@@ -169,7 +176,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     frame.title = "print";
     frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
     frame.onload = () => setTimeout(() => frame.contentWindow?.print(), 250);
-    frame.srcdoc = judgesPlanPrintHtml(elements, teams, { lang, autoPrint: false });
+    frame.srcdoc = judgesPlanPrintHtml(elements, teams, { lang, details, autoPrint: false });
     document.body.appendChild(frame);
   }
 
@@ -178,7 +185,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     event.preventDefault();
     event.stopPropagation();
     setSelected({ type: "el", id: el.id });
-    const canvas = event.currentTarget.closest(".judges-plan, .judges-inset");
+    const canvas = event.currentTarget.closest(".judges-plan");
     dragRef.current = { id: el.id, node: event.currentTarget, canvas, moved: false };
     event.currentTarget.classList.add("is-dragging");
     canvas?.setPointerCapture?.(event.pointerId);
@@ -223,12 +230,10 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     if (drag.moved) patch(drag.id, { x: drag.x, y: drag.y });
   }
 
-  const baseHtml = useMemo(() => judgesPlanSvg(elements, lang), [elements, lang]);
+  const baseHtml = useMemo(() => judgesPlanSvg(elements, lang, details), [elements, lang, details]);
   const judges = elements.filter((el) => el.kind === "judge");
   const others = elements.filter((el) => ["area", "mark", "door", "line"].includes(el.kind));
   const drawn = [...others.filter((el) => el.kind === "area"), ...others.filter((el) => el.kind !== "area"), ...judges];
-  const insetHtml = useMemo(() => judgesInsetSvg(lang), [lang]);
-  const levelBadge = (el) => (jOnTrack(el) ? null : <span className="jpe-level" title={tr(...JUDGES_LEVELS.rdc)}>N0</span>);
   const deselect = (event) => { if (event.target === event.currentTarget || event.target.closest(".coque-plan__layer")) setSelected(null); };
   const renderItems = (list) => list.map((el) => {
     const ghost = focusTeam && el.kind === "judge" && el.team !== focusTeam;
@@ -238,7 +243,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
       <div
         key={el.id}
         className={classes}
-        style={{ left: `${el.x}%`, top: `${el.y}%`, ...size, transform: el.kind === "judge" ? undefined : planElTransform(el) }}
+        style={{ left: `${el.x}%`, top: `${el.y}%`, ...size, transform: jTransform(el) }}
         title={el.kind === "judge" ? `${jText(teams.find((t) => t.id === el.team), "label", lang)} · ${jText(el, "desc", lang)}` : undefined}
         onPointerDown={(event) => onElementPointerDown(event, el)}
       >
@@ -261,7 +266,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
       <div className="cpe-bar">
         <div className="jpe-title">
           <b>{tr("Plan de l'infield — juges", "Infield plan — judges")}</b>
-          <span>{tr("Niveau piste · positions des juges par équipe", "Track level · judge positions by team")}</span>
+          <span>{tr("Salle, gradins et infield · positions des juges par équipe", "Hall, stands and infield · judge positions by team")}</span>
         </div>
         <div className={`cpe-status ${dirty ? "is-dirty" : ""}`}>
           {plan.loading ? tr("Chargement…", "Loading…") : dirty ? message || tr("Modifications non enregistrées", "Unsaved changes") : message || savedNote}
@@ -298,7 +303,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
                 {rows.map((el) => (
                   <div key={el.id} className={`jpe-row ${selected?.id === el.id ? "is-selected" : ""}`} onClick={() => setSelected({ type: "el", id: el.id })}>
                     <span className="cp-judge cp-judge--chip" style={{ background: team.color }}>{jText(el, "label", lang)}</span>
-                    <span className="cpe-row__name">{jText(el, "desc", lang) || <em>{tr("rôle à préciser", "role to set")}</em>}{levelBadge(el)}</span>
+                    <span className="cpe-row__name">{jText(el, "desc", lang) || <em>{tr("rôle à préciser", "role to set")}</em>}</span>
                   </div>
                 ))}
               </div>
@@ -328,7 +333,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
                   {el.kind === "door" ? "➜" : ""}
                 </span>
               )}
-              <span className="cpe-row__name">{jText(el, "label", lang)}{levelBadge(el)}</span>
+              <span className="cpe-row__name">{jText(el, "label", lang)}</span>
             </div>
           ))}
           <div className="cpe-adds">
@@ -342,13 +347,13 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
 
         <section className="cpe-stage">
           <div className="cpe-stage__bar">
-            <span><b>{tr("Infield", "Infield")}</b> · {tr("fais glisser juges et repères ; clique une équipe pour la mettre en avant", "drag judges and markers; click a team to highlight it")}</span>
+            <span><b>{tr("Coque", "Coque")}</b> · {tr("niveau 0 autour de la piste, infield en détail ; fais glisser juges et repères, clique une équipe pour la mettre en avant", "level 0 around the track, infield in detail; drag judges and markers, click a team to highlight it")}</span>
             {focusTeam ? <button type="button" className="cpe-link" onClick={() => setSelected(null)}>{tr("Tout afficher", "Show all")}</button> : null}
           </div>
           <div className="cpe-canvas jpe-canvas" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
             <div ref={canvasRef} className="judges-plan" onPointerDown={deselect}>
               <div className="coque-plan__layer" dangerouslySetInnerHTML={{ __html: baseHtml }} />
-              {renderItems(drawn.filter(jOnTrack))}
+              {renderItems(drawn)}
               {selectedEl?.kind === "line"
                 ? [-1, 1].map((sign) => {
                     const { X, Y } = jPoint(selectedEl);
@@ -366,18 +371,6 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
                     );
                   })
                 : null}
-            </div>
-          </div>
-          <div className="jpe-inset">
-            <div className="jpe-inset__head">
-              <b>{tr("Niveau 0 (arcades)", "Level 0 (arcades)")}</b>
-              <span>{tr("salle des juges, chambres d'appel : à l'étage de l'entrée, pas au niveau de la piste", "judges' room, call rooms: on the entrance floor, not at track level")}</span>
-            </div>
-            <div className="cpe-canvas jpe-inset__canvas" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-              <div className="judges-inset" onPointerDown={deselect}>
-                <div className="coque-plan__layer" dangerouslySetInnerHTML={{ __html: insetHtml }} />
-                {renderItems(drawn.filter((el) => !jOnTrack(el)))}
-              </div>
             </div>
           </div>
         </section>
@@ -555,8 +548,8 @@ function ElementDetail({ el, teams, onPatch, onDuplicate, onDelete }) {
               ) : null}
             </div>
           ) : null}
-          {planShowsText(el) ? <RotationField value={el.rot || 0} onChange={(rot) => onPatch({ rot })} /> : null}
-          {el.kind === "area" ? (
+          {el.kind === "mark" || el.kind === "area" ? <RotationField value={el.rot || 0} onChange={(rot) => onPatch({ rot })} /> : null}
+          {el.kind === "area" && !el.shape ? (
             <div className="cpe-field">
               <span>{tr("Taille", "Size")} <small>{tr("unités du plan (≈ 8 par mètre)", "plan units (≈ 8 per metre)")}</small></span>
               <div className="cpe-inline">
@@ -574,14 +567,6 @@ function ElementDetail({ el, teams, onPatch, onDuplicate, onDelete }) {
           <ColorField value={el.color} onChange={(color) => onPatch({ color })} />
         </>
       )}
-      {el.kind !== "line" ? (
-        <label className="cpe-field">
-          <span>{tr("Niveau", "Level")} <small>{tr("niveau 0 = dans l'encart sous le plan", "level 0 = in the inset under the plan")}</small></span>
-          <select value={el.level || "piste"} onChange={(event) => onPatch({ level: event.target.value, x: 50, y: 50 })}>
-            {Object.entries(JUDGES_LEVELS).map(([key, [fr, en]]) => <option key={key} value={key}>{tr(fr, en)}</option>)}
-          </select>
-        </label>
-      ) : null}
       <div className="jpe-actions">
         <button type="button" className="cpe-btn" onClick={onDuplicate}>{tr("Dupliquer", "Duplicate")}</button>
         <button type="button" className="cpe-btn cpe-btn--danger" onClick={onDelete}>{tr("Supprimer", "Delete")}</button>
