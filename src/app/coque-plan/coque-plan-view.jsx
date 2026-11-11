@@ -19,7 +19,7 @@ import {
 import "./coque-plan.css";
 
 // Ce qui est posé sur le plan pour un repère : numéro de zone, icône, étiquette, flèche, contrôle.
-export function PlanMarker({ el, color = planColorOf(el), lang = "fr" }) {
+export function PlanMarker({ el, color = planColorOf(el), lang = "fr", iconOnly = false }) {
   const label = planLabel(el, lang);
   if (el.kind === "zone") return <span className="cp-zone" style={{ background: color }}>{el.num}</span>;
   if (el.kind === "ctrl") return <span className="cp-ctrl" style={{ background: color }}>{label}</span>;
@@ -33,6 +33,15 @@ export function PlanMarker({ el, color = planColorOf(el), lang = "fr" }) {
   if (el.kind === "area" && el.shape) return <span className="cp-area-label" style={{ color }}>{label}</span>;
   if (el.kind === "area") {
     return <span className="cp-area" style={{ background: `${color}1f`, borderColor: color, color }}>{label}</span>;
+  }
+  // Icône + texte : dans la légende, l'icône seule suffit (le texte est à côté)
+  if (planHasIcon(el) && el.showText && !iconOnly) {
+    return (
+      <span className="cp-pill cp-pill--icon" style={{ background: color }}>
+        <span className={`cp-pill__ico ${el.iconImg && !el.iconImg.mono ? "is-img" : ""}`} dangerouslySetInnerHTML={{ __html: planIconHtml(el) }} />
+        {label}
+      </span>
+    );
   }
   if (planHasIcon(el)) {
     return (
@@ -98,7 +107,7 @@ export function PlanLegend({ elements, mapKey, compact = false, lang = "fr" }) {
             {el.kind === "area" && el.shape ? (
               <span className="cp-legend__swatch" style={{ background: el.bg === "piste" ? "#2f78c4" : `${el.color}55` }} />
             ) : (
-              <PlanMarker el={el} lang={lang} />
+              <PlanMarker el={el} lang={lang} iconOnly />
             )}
           </span>
           <span className="cp-legend__text">

@@ -93,7 +93,12 @@ export const planIconHtml = (el) =>
 export const planPictoBg = (el, color) => (el.iconImg && !el.iconImg.mono ? "#fff" : color);
 
 // Rotation d'une étiquette de texte (degrés, -180 à 180) ; les icônes et le reste restent droits.
-export const planRotation = (el) => (el.kind === "mark" && !planHasIcon(el) ? el.rot || 0 : 0);
+// Icône + texte : l'icône dans l'étiquette (showText sur un repère qui a une icône).
+export const planShowsText = (el) => el.kind === "mark" && (!planHasIcon(el) || Boolean(el.showText));
+export const planRotation = (el) => (planShowsText(el) ? el.rot || 0 : 0);
+// Icône à gauche dans l'étiquette (HTML) : blanche sur la couleur, ou image en couleurs sur un rond blanc.
+export const planPillIconHtml = (el) =>
+  `<span class="cp-pill__ico${el.iconImg && !el.iconImg.mono ? " is-img" : ""}">${planIconHtml(el)}</span>`;
 export const planElTransform = (el) => {
   const rot = planRotation(el);
   return rot ? `translate(-50%, -50%) rotate(${rot}deg)` : undefined;
@@ -185,6 +190,8 @@ export function normalizePlanElement(raw = {}, index = 0) {
     // Rotation de l'étiquette en degrés (repères existants : 0)
     const rot = Math.round(num(raw.rot, 0));
     element.rot = ((((rot + 180) % 360) + 360) % 360) - 180;
+    // Icône + texte (repères existants : icône seule)
+    element.showText = Boolean(raw.showText) && Boolean(element.icon);
   }
   if (kind === "door") element.angle = num(raw.angle, 0);
   // Point de contrôle : numéros des zones du badge qu'il garde (Accréditations › Contrôles)
@@ -370,6 +377,7 @@ export function planMarkerHtml(el, color = planColorOf(el), lang = "fr") {
   if (el.kind === "door") return `<span class="cp-door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></span>`;
   if (el.kind === "area" && el.shape) return `<span class="cp-area-label" style="color:${color}">${label}</span>`;
   if (el.kind === "area") return `<span class="cp-area" style="background:${color}1f;border-color:${color};color:${color}">${label}</span>`;
+  if (planHasIcon(el) && el.showText) return `<span class="cp-pill cp-pill--icon" style="background:${color}">${planPillIconHtml(el)}${label}</span>`;
   if (planHasIcon(el)) return `<span class="cp-picto${el.iconImg ? " cp-picto--img" : ""}" style="background:${planPictoBg(el, color)}">${planIconHtml(el)}</span>`;
   return `<span class="cp-pill" style="background:${color}">${label}</span>`;
 }
@@ -413,6 +421,11 @@ export const PLAN_PRINT_CSS = `
   .cp-picto { width: 3.6mm; height: 3.6mm; border-radius: 50%; border-width: .25mm; }
   .cp-picto svg { width: 62%; height: 62%; display: block; }
   .cp-picto img { width: 72%; height: 72%; display: block; object-fit: contain; }
+  .cp-pill--icon { display: inline-flex; align-items: center; gap: .6mm; padding-left: .6mm; }
+  .cp-pill__ico { width: 2.4mm; height: 2.4mm; display: grid; place-items: center; border-radius: 50%; }
+  .cp-pill__ico.is-img { background: #fff; }
+  .cp-pill__ico svg, .cp-pill__ico img { width: 100%; height: 100%; display: block; object-fit: contain; }
+  .cp-pill__ico.is-img img { width: 78%; height: 78%; }
   .cp-pill { display: inline-block; padding: .5mm 1.3mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Arial, "Segoe UI Symbol", sans-serif; font-variant-emoji: text; border: .25mm solid #fff; }
   .cp-picto--img { box-shadow: 0 0 0 .2mm #c9d3db; }
   .cp-area { display: grid; place-items: center; width: 100%; height: 100%; box-sizing: border-box; border: .3mm dashed; border-radius: 1.5mm; font: 800 4.6pt/1 Arial, sans-serif; text-align: center; }

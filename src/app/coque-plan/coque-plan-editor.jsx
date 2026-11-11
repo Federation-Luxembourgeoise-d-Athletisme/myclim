@@ -14,6 +14,7 @@ import {
   planIconHtml,
   planIconSvg,
   planPictoBg,
+  planShowsText,
 } from "./coque-plan-data";
 import { saveCoquePlan, useCoquePlan } from "./coque-plan-hooks";
 import { ICON_FILE_TYPES, processIconFile } from "./coque-plan-icon-upload";
@@ -392,6 +393,12 @@ function IconPicker({ el, icons, onPatch, onAddIcon, onPatchIcon, onDeleteIcon }
       <em className="cpe-icons__name">
         {el.icon === "" ? tr("Étiquette de texte", "Text label") : PLAN_ICONS[el.icon] ? tr(PLAN_ICONS[el.icon].label, PLAN_ICONS[el.icon].en) : current ? tr("Mon icône", "My icon") : ""}
       </em>
+      {el.icon ? (
+        <div className="cpe-seg cpe-seg--inline" role="group" aria-label={tr("Icône seule ou avec texte", "Icon alone or with text")}>
+          <button type="button" className={!el.showText ? "is-on" : ""} onClick={() => onPatch({ showText: false })}>{tr("Icône seule", "Icon only")}</button>
+          <button type="button" className={el.showText ? "is-on" : ""} onClick={() => onPatch({ showText: true })}>{tr("Icône + texte", "Icon + text")}</button>
+        </div>
+      ) : null}
       {error ? <em className="cpe-error">{error}</em> : null}
       {current ? (
         <div className="cpe-custom">
@@ -473,7 +480,7 @@ function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon
       {el.kind === "mark" ? (
         <IconPicker el={el} icons={icons} onPatch={onPatch} onAddIcon={onAddIcon} onPatchIcon={onPatchIcon} onDeleteIcon={onDeleteIcon} />
       ) : null}
-      {el.kind === "mark" && !planHasIcon(el) ? <RotationField value={el.rot || 0} onChange={(rot) => onPatch({ rot })} /> : null}
+      {planShowsText(el) ? <RotationField value={el.rot || 0} onChange={(rot) => onPatch({ rot })} /> : null}
       {el.kind === "area" && !el.shape ? (
         <div className="cpe-field">
           <span>{tr("Taille", "Size")} <small>{tr("unités du plan (la piste fait ~380 de large)", "map units (the track is ~380 wide)")}</small></span>
