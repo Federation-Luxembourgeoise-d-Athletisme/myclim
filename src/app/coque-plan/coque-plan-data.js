@@ -46,6 +46,10 @@ export const PLAN_ICONS = {
   exit: { label: "Sortie", en: "Exit", svg: `<path d="M10 4H5v16h5" /><path d="M13 8l4 4-4 4M17 12H9" />` },
   cloakroom: { label: "Vestiaire", en: "Cloakroom", svg: `<path d="M12 8.5a2 2 0 1 1 2-2" /><path d="M12 8.5v1.5L3.5 16.5h17L12 10" />` },
   parking: { label: "Parking", en: "Parking", svg: `<text x="12" y="17" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="800" ${FILL}>P</text>` },
+  table: { label: "Table", en: "Table", svg: `<rect x="3.5" y="7" width="17" height="4" rx="1" ${FILL} /><path d="M6 11v8M18 11v8" />` },
+  chair: { label: "Chaise", en: "Chair", svg: `<path d="M8 3.5v9h8" /><path d="M8 12.5v8M16 12.5v8" /><path d="M8 7.5h0" />` },
+  bench: { label: "Banc", en: "Bench", svg: `<rect x="3" y="10" width="18" height="3.5" rx="1" ${FILL} /><path d="M6 13.5v5M18 13.5v5" />` },
+  barrier: { label: "Barrière", en: "Barrier", svg: `<path d="M3.5 9h17M3.5 14h17" /><path d="M6 6v13M18 6v13M12 9v5" />` },
   star: { label: "Étoile", en: "Star", svg: `<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" ${FILL} />` },
 };
 export const planIconSvg = (name) =>
@@ -163,7 +167,65 @@ export const PLAN_DEFAULT_ELEMENTS = [
   { id: "c6", kind: "ctrl", label: "F", desc: "", color: "#0a2540", level: "rdc", ...at(150, 860), maps: on("ctrl") },
 ];
 
-const KINDS = ["zone", "mark", "area", "door", "ctrl"];
+const KINDS = ["zone", "mark", "area", "door", "ctrl", "facility", "line"];
+
+// Aires de la piste (dessinées dans l'infield, à afficher ou non sur chaque plan, comme un repère).
+// Positions fixes, en unités du plan. Le plan détaillé de l'infield (juges) viendra plus tard.
+const TRACK_BLUE = "#6f9fd4";
+const SAND = "#e8d39e";
+const MAT = "#34558b";
+export const PLAN_FACILITIES = {
+  sprint: { label: "Piste du 60 m", en: "60 m track" },
+  long: { label: "Longueur / triple", en: "Long / triple jump" },
+  pole: { label: "Perche", en: "Pole vault" },
+  shot: { label: "Poids", en: "Shot put" },
+  high: { label: "Hauteur", en: "High jump" },
+};
+const FACILITY_SVG = {
+  // 8 couloirs de 1,22 m, départ en bas, arrivée 60 m plus haut
+  sprint: () => {
+    const x0 = 384;
+    const lanes = Array.from({ length: 9 }, (_, i) => `<line x1="${x0 + i * 9}" y1="560" x2="${x0 + i * 9}" y2="1125" />`).join("");
+    return `<rect x="${x0}" y="560" width="72" height="565" fill="${TRACK_BLUE}" /><g stroke="#fff" stroke-width="1.1">${lanes}</g>
+      <line x1="${x0}" y1="1105" x2="${x0 + 72}" y2="1105" stroke="#fff" stroke-width="2.5" /><line x1="${x0}" y1="601" x2="${x0 + 72}" y2="601" stroke="#fff" stroke-width="3.5" />`;
+  },
+  long: () => `<rect x="478" y="610" width="10" height="378" fill="${TRACK_BLUE}" /><rect x="478" y="984" width="10" height="4" fill="#fff" />
+    <rect x="471" y="1000" width="24" height="76" rx="2" fill="${SAND}" stroke="#c4a86a" stroke-width="1.5" />`,
+  pole: () => `<rect x="512" y="640" width="10" height="362" fill="${TRACK_BLUE}" /><path d="M513 1002h8l-4 7z" fill="#4a5d6c" />
+    <rect x="497" y="1010" width="40" height="40" rx="3" fill="${MAT}" />`,
+  shot: () => {
+    const cx = 336;
+    const cy = 650;
+    const a = (17.46 * Math.PI) / 180;
+    const L = 150;
+    const ex = L * Math.sin(a);
+    const ey = cy + L * Math.cos(a);
+    return `<path d="M${cx} ${cy} L${cx - ex} ${ey} M${cx} ${cy} L${cx + ex} ${ey}" stroke="#5f7f9f" stroke-width="1.6" fill="none" />
+      <path d="M${cx - ex} ${ey} Q${cx} ${ey + 14} ${cx + ex} ${ey}" stroke="#5f7f9f" stroke-width="1" stroke-dasharray="4 4" fill="none" />
+      <circle cx="${cx}" cy="${cy}" r="9" fill="#c9d3db" stroke="#4a5d6c" stroke-width="1.6" /><path d="M${cx - 6} ${cy + 10}h12" stroke="#fff" stroke-width="2.5" />`;
+  },
+  high: () => `<path d="M296 1000 L296 920 A40 40 0 0 1 376 920 L376 1000 Z" fill="${TRACK_BLUE}" fill-opacity=".55" />
+    <rect x="316" y="956" width="40" height="24" rx="2" fill="${MAT}" /><path d="M312 953h48" stroke="#fff" stroke-width="2" /><circle cx="312" cy="953" r="2.2" fill="#4a5d6c" /><circle cx="360" cy="953" r="2.2" fill="#4a5d6c" />`,
+};
+// Aires absentes d'un plan enregistré avant leur arrivée : ajoutées, masquées partout.
+const DEFAULT_FACILITIES = Object.keys(PLAN_FACILITIES).map((key) => ({ id: `fac-${key}`, kind: "facility", facility: key, label: PLAN_FACILITIES[key].label, labelEn: PLAN_FACILITIES[key].en, maps: {} }));
+
+// Lignes (barrière, séparation) : centre x/y en % du plan, demi-vecteur dx/dy en unités du plan.
+export const PLAN_LINE_STYLES = {
+  barrier: { label: "Barrière", en: "Barrier" },
+  separation: { label: "Séparation (pointillés)", en: "Separation (dashed)" },
+  rope: { label: "Corde / ruban", en: "Rope / tape" },
+};
+const lineSvg = (el, X, Y) => {
+  const x1 = X - el.dx;
+  const y1 = Y - el.dy;
+  const x2 = X + el.dx;
+  const y2 = Y + el.dy;
+  const seg = `x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"`;
+  if (el.style === "separation") return `<line ${seg} stroke="${el.color}" stroke-width="3.5" stroke-dasharray="10 7" stroke-linecap="round" />`;
+  if (el.style === "rope") return `<line ${seg} stroke="${el.color}" stroke-width="2.2" stroke-linecap="round" /><circle cx="${x1}" cy="${y1}" r="4" fill="${el.color}" /><circle cx="${x2}" cy="${y2}" r="4" fill="${el.color}" />`;
+  return `<line ${seg} stroke="${el.color}" stroke-width="7" stroke-linecap="butt" /><line ${seg} stroke="#fff" stroke-width="2.4" stroke-dasharray="7 7" />`;
+};
 const num = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
 
 // Lecture prudente d'un repère enregistré (Firestore) : valeurs par défaut, cases des 4 plans.
@@ -194,6 +256,12 @@ export function normalizePlanElement(raw = {}, index = 0) {
     element.showText = Boolean(raw.showText) && Boolean(element.icon);
   }
   if (kind === "door") element.angle = num(raw.angle, 0);
+  if (kind === "facility") element.facility = PLAN_FACILITIES[raw.facility] ? raw.facility : "sprint";
+  if (kind === "line") {
+    element.dx = Math.max(-600, Math.min(600, num(raw.dx, 60)));
+    element.dy = Math.max(-900, Math.min(900, num(raw.dy, 0)));
+    element.style = PLAN_LINE_STYLES[raw.style] ? raw.style : "barrier";
+  }
   // Point de contrôle : numéros des zones du badge qu'il garde (Accréditations › Contrôles)
   if (kind === "ctrl") {
     element.badgeTypes = [...new Set((Array.isArray(raw.badgeTypes) ? raw.badgeTypes : []).map(String).filter((t) => CTRL_BADGE_NAMES[t]))];
@@ -214,8 +282,16 @@ export function normalizePlanElement(raw = {}, index = 0) {
   return element;
 }
 
-export const normalizePlanElements = (list) =>
-  (Array.isArray(list) ? list : []).map((el, index) => normalizePlanElement(el, index));
+export function normalizePlanElements(list) {
+  const elements = (Array.isArray(list) ? list : [])
+    .map((el, index) => normalizePlanElement(el, index))
+    .filter((el) => el.kind !== "facility" || PLAN_FACILITIES[el.facility]);
+  // Une seule aire de chaque sorte ; celles qui manquent arrivent masquées
+  const seen = new Set();
+  const unique = elements.filter((el) => el.kind !== "facility" || (!seen.has(el.facility) && seen.add(el.facility)));
+  const missing = DEFAULT_FACILITIES.filter((f) => !seen.has(f.facility)).map((f, i) => normalizePlanElement(f, unique.length + i));
+  return [...unique, ...missing];
+}
 
 // Texte affiché selon la langue du document (le site, les badges et le roadbook sont en anglais).
 export const planLabel = (el, lang = "fr") => (lang === "en" && el.labelEn ? el.labelEn : el.label);
@@ -263,11 +339,11 @@ const LEVEL_NOTE_EN = { piste: " · track level (R-1)", etage: " · gallery (R+1
 export function planLegendItems(elements, mapKey, lang = "fr") {
   const seen = new Set();
   const items = elements
-    .filter((el) => el.maps?.[mapKey])
+    .filter((el) => el.maps?.[mapKey] && el.kind !== "facility" && (el.kind !== "line" || el.label || el.desc))
     .sort((a, b) => (a.kind === "zone" ? a.num : 99) - (b.kind === "zone" ? b.num : 99));
   const lines = [];
   for (const el of items) {
-    const key = el.kind === "zone" ? `zone|${el.num}` : `${el.kind}|${el.label}|${el.desc}|${el.color}|${el.level}|${el.icon || ""}`;
+    const key = el.kind === "zone" ? `zone|${el.num}` : `${el.kind}|${el.label}|${el.desc}|${el.color}|${el.level}|${el.icon || ""}|${el.style || ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     lines.push({ key, el, level: el.level, where: (lang === "en" ? LEVEL_NOTE_EN : LEVEL_NOTE)[el.level] || "" });
@@ -327,8 +403,10 @@ export function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = fa
     <rect x="155" y="1010" width="62" height="16" fill="${warmup}" />
     <rect x="623" y="1010" width="62" height="16" fill="#f4f6f8" />
     <path d="${oval(205)}" fill="#fff" />
-    <path d="${oval(192)}" fill="#cfe0f3" />
-    <path d="${oval(155)}" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="12 9" />
+    <path d="${oval(192)}" fill="#8db4de" />
+    <path d="${[141, 151, 161, 171, 181].map(oval).join(" ")}" fill="none" stroke="#fff" stroke-width="1.1" stroke-opacity=".9" />
+    <path d="${oval(192)} ${oval(131)}" fill="none" stroke="#fff" stroke-width="2.2" />
+    <path d="M551 826 H612" stroke="#fff" stroke-width="3" />
     <path d="${oval(131)}" fill="${infield}" />
     <path d="${PLAN_WALLS}" fill="none" stroke="#4a5d6c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" />
   </svg>`;
@@ -348,9 +426,13 @@ let shapeCount = 0;
 // Zones dessinées (forme libre) d'une liste de repères, en un SVG posé sur le fond.
 export function planShapesSvg(list, crop = false) {
   const shapes = list.filter((el) => el.kind === "area" && el.shape);
-  if (!shapes.length) return "";
+  const facilities = list.filter((el) => el.kind === "facility");
+  const lines = list.filter((el) => el.kind === "line");
+  if (!shapes.length && !facilities.length && !lines.length) return "";
   const vb = crop ? `0 ${PLAN_CROP.y} ${PLAN_W} ${PLAN_CROP.h}` : `0 0 ${PLAN_W} ${PLAN_H}`;
-  return `<svg class="coque-plan__shapes" viewBox="${vb}" preserveAspectRatio="none" aria-hidden="true">${shapes.map((el) => {
+  const facilitiesSvg = facilities.map((el) => FACILITY_SVG[el.facility]?.() || "").join("");
+  const linesSvg = lines.map((el) => lineSvg(el, (el.x / 100) * PLAN_W, (el.y / 100) * PLAN_H)).join("");
+  return `<svg class="coque-plan__shapes" viewBox="${vb}" preserveAspectRatio="none" aria-hidden="true">${facilitiesSvg}${shapes.map((el) => {
     const X = (el.x / 100) * PLAN_W;
     const Y = (el.y / 100) * PLAN_H;
     const points = el.shape.map((p) => `${X + p.x},${Y + p.y}`).join(" ");
@@ -361,7 +443,7 @@ export function planShapesSvg(list, crop = false) {
     return `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="60" height="26" patternTransform="rotate(-28)"><rect width="60" height="26" fill="#2f78c4" /><line x1="0" y1="13" x2="60" y2="13" stroke="#fff" stroke-width="2.4" stroke-opacity=".85" /></pattern></defs>
       <polygon points="${points}" fill="url(#${id})" fill-opacity=".9" stroke="#1d5a9e" stroke-width="3" stroke-linejoin="round" />
       ${(el.pictos || []).map((p) => `<g transform="translate(${X + p.dx} ${Y + p.dy}) scale(${p.sc || 1})">${PICTOS[p.t] || ""}</g>`).join("")}`;
-  }).join("")}</svg>`;
+  }).join("")}${linesSvg}</svg>`;
 }
 
 // ─── Impression (fenêtre d'impression des badges : pas de React, du HTML) ─────
@@ -393,7 +475,7 @@ export function planBoxHtml(elements, { mapKey = "acc", crop = true, allowedZone
     infield: allowedZones ? (isAllowed(1) ? `${accent}40` : "#eef1f4") : undefined,
     warmup: allowedZones ? (isAllowed(2) ? `${accent}40` : "#e6ebef") : undefined,
   });
-  const markers = [...shown.filter((el) => el.kind === "area"), ...shown.filter((el) => el.kind !== "area")]
+  const markers = [...shown.filter((el) => el.kind === "area"), ...shown.filter((el) => el.kind !== "area" && el.kind !== "facility" && el.kind !== "line")]
     .map((el) => {
       const { x, y } = planPos(el, crop);
       if (y < 0 || y > 100) return "";

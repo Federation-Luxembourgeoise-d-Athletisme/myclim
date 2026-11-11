@@ -5,7 +5,11 @@ import {
   CUSTOM_ICON_PREFIX,
   normalizePlanElements,
   PLAN_DEFAULT_ELEMENTS,
+  PLAN_FACILITIES,
+  PLAN_H,
   PLAN_ICONS,
+  PLAN_LINE_STYLES,
+  PLAN_W,
   PLAN_LEVELS,
   PLAN_MAPS,
   PLAN_PALETTE,
@@ -23,9 +27,11 @@ import { PlanCanvas, PlanLegend } from "./coque-plan-view";
 // Libellés FR / EN de l'éditeur
 const GROUPS = [
   ["zone", "Zones d'accès", "Access zones"],
+  ["facility", "Piste et aires", "Track & field"],
   ["area", "Zones de stand", "Stand areas"],
   ["mark", "Repères", "Markers"],
   ["door", "Flèches d'entrée", "Entrance arrows"],
+  ["line", "Lignes", "Lines"],
   ["ctrl", "Points de contrôle", "Checkpoints"],
 ];
 const KIND_TITLES = {
@@ -34,6 +40,8 @@ const KIND_TITLES = {
   mark: ["Repère", "Marker"],
   door: ["Flèche d'entrée", "Entrance arrow"],
   ctrl: ["Point de contrôle", "Checkpoint"],
+  facility: ["Aire de la piste", "Track & field area"],
+  line: ["Ligne", "Line"],
 };
 const MAP_LABELS_EN = { web: "Website", vol: "Volunteers", acc: "Accreditations", ctrl: "Checkpoints" };
 const MAP_WHO_EN = {
@@ -66,6 +74,7 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
   const [showGhosts, setShowGhosts] = useState(true);
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
+  const handleRef = useRef(null);
 
   // Tant qu'on n'a rien modifié, on suit la version enregistrée (mises à jour des autres comprises).
   useEffect(() => {
@@ -100,7 +109,9 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
     const id = `${kind}-${Date.now().toString(36)}`;
     const maps = Object.fromEntries(PLAN_MAPS.map((m) => [m.key, m.key === mapKey]));
     const base = { id, kind, x: 50, y: 45, level: "rdc", desc: "", maps };
-    const extra = kind === "area"
+    const extra = kind === "line"
+      ? { label: tr("Barrière", "Barrier"), color: "#4a5d6c", style: "barrier", dx: 60, dy: 0 }
+      : kind === "area"
       ? { label: tr("Nouveau stand", "New stand"), color: PLAN_PALETTE[2], w: 140, h: 90 }
       : kind === "door"
         ? { label: tr("Entrée", "Entrance"), color: "#4a5d6c", angle: 0 }
@@ -152,7 +163,30 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
     event.currentTarget.classList.add("is-dragging");
     canvasRef.current?.setPointerCapture?.(event.pointerId);
   }
+  // Extrémités d'une ligne : l'autre bout ne bouge pas
+  function onHandlePointerDown(event, el, sign) {
+    event.preventDefault();
+    event.stopPropagation();
+    const X = (el.x / 100) * PLAN_W;
+    const Y = (el.y / 100) * PLAN_H;
+    handleRef.current = { id: el.id, ox: X - sign * el.dx, oy: Y - sign * el.dy, sign };
+    canvasRef.current?.setPointerCapture?.(event.pointerId);
+  }
   function onPointerMove(event) {
+    const handle = handleRef.current;
+    if (handle && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const px = Math.min(PLAN_W, Math.max(0, ((event.clientX - rect.left) / rect.width) * PLAN_W));
+      const py = Math.min(PLAN_H, Math.max(0, ((event.clientY - rect.top) / rect.height) * PLAN_H));
+      const round = (v) => Math.round(v * 10) / 10;
+      patch(handle.id, {
+        x: round((((px + handle.ox) / 2) / PLAN_W) * 1000) / 10,
+        y: round((((py + handle.oy) / 2) / PLAN_H) * 1000) / 10,
+        dx: round((handle.sign * (px - handle.ox)) / 2),
+        dy: round((handle.sign * (py - handle.oy)) / 2),
+      });
+      return;
+    }
     const drag = dragRef.current;
     if (!drag || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -165,6 +199,7 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
     drag.node.style.top = `${drag.y}%`;
   }
   function onPointerUp() {
+    handleRef.current = null;
     const drag = dragRef.current;
     if (!drag) return;
     drag.node.classList.remove("is-dragging");
@@ -218,12 +253,15 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
                     {planHasIcon(el) ? (
                       <span className="cpe-chip" style={{ background: planPictoBg(el, planColorOf(el)) }} dangerouslySetInnerHTML={{ __html: planIconHtml(el) }} />
                     ) : (
-                      <span className={`cpe-chip ${kind === "ctrl" ? "is-square" : ""}`} style={{ background: planColorOf(el) }}>
+                      <span
+                        className={`cpe-chip ${kind === "ctrl" || kind === "facility" ? "is-square" : ""} ${kind === "line" ? "is-line" : ""}`}
+                        style={{ background: kind === "facility" ? "#8db4de" : planColorOf(el) }}
+                      >
                         {kind === "zone" ? el.num : kind === "ctrl" ? el.label : kind === "door" ? "➜" : ""}
                       </span>
                     )}
                     <span className="cpe-row__name">
-                      {kind === "ctrl" ? `${tr("Contrôle", "Check")} ${el.label}` : el.label}
+                      {kind === "ctrl" ? `${tr("Contrôle", "Check")} ${el.label}` : kind === "facility" ? tr(PLAN_FACILITIES[el.facility].label, PLAN_FACILITIES[el.facility].en) : el.label}
                       {el.level !== "rdc" ? <span className="cpe-level">{el.level === "etage" ? "R+1" : "R-1"}</span> : null}
                     </span>
                     {PLAN_MAPS.map((m) => (
@@ -246,6 +284,7 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
             <button type="button" className="cpe-btn" onClick={() => addElement("mark")}>+ {tr("Repère", "Marker")}</button>
             <button type="button" className="cpe-btn" onClick={() => addElement("area")}>+ {tr("Zone de stand", "Stand area")}</button>
             <button type="button" className="cpe-btn" onClick={() => addElement("door")}>+ {tr("Flèche d'entrée", "Entrance arrow")}</button>
+            <button type="button" className="cpe-btn" onClick={() => addElement("line")}>+ {tr("Ligne (barrière, séparation)", "Line (barrier, separation)")}</button>
             <button type="button" className="cpe-btn cpe-btn--danger" onClick={resetToDefault}>{tr("Revenir au plan de départ", "Back to the starting map")}</button>
           </div>
         </aside>
@@ -262,7 +301,22 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
               isGhost={(el) => !el.maps[mapKey]}
               selectedId={selectedId}
               onElementPointerDown={onElementPointerDown}
-            />
+            >
+              {selected?.kind === "line"
+                ? [-1, 1].map((sign) => (
+                    <span
+                      key={sign}
+                      className="cpe-handle"
+                      title={tr("Tirer pour allonger ou tourner la ligne", "Drag to lengthen or turn the line")}
+                      style={{
+                        left: `${(((selected.x / 100) * PLAN_W + sign * selected.dx) / PLAN_W) * 100}%`,
+                        top: `${(((selected.y / 100) * PLAN_H + sign * selected.dy) / PLAN_H) * 100}%`,
+                      }}
+                      onPointerDown={(event) => onHandlePointerDown(event, selected, sign)}
+                    />
+                  ))
+                : null}
+            </PlanCanvas>
           </div>
           <div className="cpe-legend">
             <PlanLegend elements={shownElements} mapKey={mapKey} />
@@ -443,10 +497,37 @@ function RotationField({ value, onChange }) {
 
 function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon, onDeleteIcon, onDelete }) {
   const tr = useTr();
-  const short = el.kind === "mark" || el.kind === "area";
+  const short = el.kind === "mark" || el.kind === "area" || el.kind === "line";
+  // Aire de la piste : dessin fixe, on choisit seulement sur quels plans elle apparaît
+  if (el.kind === "facility") {
+    const facility = PLAN_FACILITIES[el.facility];
+    return (
+      <>
+        <h3>{tr(...KIND_TITLES.facility)}</h3>
+        <p className="cpe-facility-name">{tr(facility.label, facility.en)}</p>
+        <div className="cpe-field">
+          <span>{tr("Visible sur", "Shown on")}</span>
+          <div className="cpe-checks">
+            {PLAN_MAPS.map((m) => (
+              <label key={m.key}><input type="checkbox" checked={el.maps[m.key]} onChange={() => onToggleMap(m.key)} /> {tr(m.label, MAP_LABELS_EN[m.key])}</label>
+            ))}
+          </div>
+        </div>
+        <p className="cpe-empty">{tr("Le plan détaillé de l'infield (juges) viendra dans un onglet à part.", "The detailed infield plan (judges) will come in a separate tab.")}</p>
+      </>
+    );
+  }
   return (
     <>
       <h3>{tr(...KIND_TITLES[el.kind])}</h3>
+      {el.kind === "line" ? (
+        <label className="cpe-field">
+          <span>{tr("Type de ligne", "Line type")} <small>{tr("tirer les carrés bleus sur le plan", "drag the blue squares on the map")}</small></span>
+          <select value={el.style} onChange={(event) => onPatch({ style: event.target.value })}>
+            {Object.entries(PLAN_LINE_STYLES).map(([key, style]) => <option key={key} value={key}>{tr(style.label, style.en)}</option>)}
+          </select>
+        </label>
+      ) : null}
       {el.kind === "zone" ? (
         <label className="cpe-field">
           <span>{tr("Numéro (badge)", "Number (badge)")}</span>
@@ -456,7 +537,7 @@ function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon
         </label>
       ) : null}
       <label className="cpe-field">
-        <span>{el.kind === "zone" ? tr("Nom de la zone", "Zone name") : tr("Texte sur le plan", "Text on the map")} {short ? <small>{tr("1 ou 2 mots", "1 or 2 words")}</small> : null}</span>
+        <span>{el.kind === "zone" ? tr("Nom de la zone", "Zone name") : el.kind === "line" ? tr("Nom dans la légende", "Name in the legend") : tr("Texte sur le plan", "Text on the map")} {short ? <small>{tr("1 ou 2 mots", "1 or 2 words")}</small> : null}</span>
         <input type="text" value={el.label} maxLength={short ? 16 : 30} onChange={(event) => onPatch({ label: event.target.value })} />
       </label>
       <label className="cpe-field">

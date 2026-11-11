@@ -117,6 +117,25 @@
 .cp-legend__key .cp-picto { border-width: 0; box-shadow: none; }
 .cp-legend__key .cp-pill { padding: 3px 7px; font-size: 11px; border-width: 0; box-shadow: none; }
 .cp-legend__key .cp-area { width: 20px; height: 14px; font-size: 0; }
+.cp-legend__line { width: 22px; height: 0; margin-top: 8px; border-top: 4px solid var(--line); }
+.cp-legend__line[data-style="separation"] { border-top: 3px dashed var(--line); }
+.cp-legend__line[data-style="rope"] { border-top-width: 2px; }
+/* Ligne : poignée de déplacement, seulement dans l'éditeur */
+.cp-line-grip { display: none; }
+.cpe-canvas .cp-line-grip { display: block; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid #0b1b2b; }
+.cpe-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 2px;
+  background: #0d8fd3;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #0d8fd3;
+  cursor: crosshair;
+  z-index: 6;
+  touch-action: none;
+}
 .cp-legend__swatch { width: 20px; height: 14px; border-radius: 4px; display: inline-block; }
 .cp-legend__text { color: #4a5d6c; padding-top: 2px; }
 .cp-legend__text b { color: #0b1b2b; font-weight: 700; }
@@ -334,3 +353,7 @@
 @media (max-width: 760px) {
   .site-venue-map { grid-template-columns: 1fr; }
 }
+
+/* Éditeur : lignes et aires de la piste dans la liste */
+.cpe-chip.is-line { height: 4px; border-radius: 1px; }
+.cpe-facility-name { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #0b1b2b; }
