@@ -78,6 +78,8 @@
   .pz { width: 4.6mm; height: 4.6mm; border-radius: 50%; background: #fff; border: .35mm solid #c3ccd3; color: #a9b5be; font: 800 8pt/1 "Barlow Condensed", Arial, sans-serif; }
   .pz.on { color: #fff; border: .45mm solid #fff; box-shadow: 0 0 0 .2mm rgba(0,0,0,.25); }
   .pc { width: 3.6mm; height: 3.6mm; border-radius: .8mm; background: #0a2540; color: #fff; font: 800 6.5pt/1 "Barlow Condensed", Arial, sans-serif; }
+  .pi { width: 4mm; height: 4mm; border-radius: 50%; border: .3mm solid #fff; }
+  .pi svg { width: 62%; height: 62%; display: block; }
   .pm { padding: .5mm 1.4mm; border-radius: 99px; color: #fff; font: 700 4.6pt/1 Barlow, Arial, sans-serif; }
   /* À l'étage : contour violet en pointillés, comme dans l'éditeur de plans */
 
@@ -308,6 +310,7 @@
       const inner = el.kind === "zone"
         ? `<i class="pz${on ? " on" : ""}" style="${on ? `background:${cat}` : ""}">${el.num}</i>`
         : el.kind === "ctrl" ? `<i class="pc">${el.label}</i>`
+        : PLAN_ICONS[el.icon] ? `<i class="pi" style="background:${el.color}">${planIconSvg(el.icon)}</i>`
         : `<i class="pm" style="background:${el.color}">${el.label}</i>`;
       const { x, y } = planPos(el, true);
       if (y < 0 || y > 100) return "";

@@ -2,7 +2,6 @@ import { NavLink } from "react-router-dom";
 import ticketFan from "../assets/site-gallery/ticket-fan-1.jpg";
 import ticketStubRegular from "../assets/site-gallery/ticket-stub-regular.jpg";
 import ticketStubVip from "../assets/site-gallery/ticket-stub-vip.jpg";
-import { TICKET_PRICING } from "./ticket-pricing-config";
 import { getCountdownParts, showPlanVisitOnHome } from "./ticketing-utils";
 
 const DEFAULT_PARKING = "Coque car park, or the underground car park Coque 2.";
@@ -20,20 +19,20 @@ export function BuyTicketsLink({ ticketing, className, children, infoLabel = "Ti
 }
 
 function getTicketBarCopy(ticketing) {
-  const { phase, editionDay, doorsTime } = ticketing;
+  const { phase, editionDay, doorsTime, pricing } = ticketing;
   const where = editionDay ? `${editionDay} at the Coque` : "At the Coque";
-  const { regular } = TICKET_PRICING;
+  const { regular } = pricing;
   switch (phase) {
     case "presale":
       return {
-        strong: `Tickets on sale from ${TICKET_PRICING.saleOpensLabel}`,
-        detail: `Early-bird €${regular.earlyBird} until ${TICKET_PRICING.earlyBirdEndsLabel} · ${where}`,
-        short: `On sale from ${TICKET_PRICING.saleOpensLabel}`,
+        strong: `Tickets on sale from ${pricing.saleOpensLabel}`,
+        detail: `Early-bird €${regular.earlyBird} until ${pricing.earlyBirdEndsLabel} · ${where}`,
+        short: `On sale from ${pricing.saleOpensLabel}`,
       };
     case "earlyBird":
       return {
         strong: `Early-bird tickets: €${regular.earlyBird} instead of €${regular.onSite} at the door`,
-        detail: `Until ${TICKET_PRICING.earlyBirdEndsLabel} · ${where}`,
+        detail: `Until ${pricing.earlyBirdEndsLabel} · ${where}`,
         short: `Early-bird €${regular.earlyBird} instead of €${regular.onSite}`,
       };
     case "eventDay":
@@ -72,7 +71,7 @@ export function TicketBar({ ticketing }) {
 // Phone only: the ticket button stays at the bottom of the screen.
 export function MobileTicketButton({ ticketing }) {
   if (ticketing.phase === "past") return null;
-  const { regular } = TICKET_PRICING;
+  const { regular } = ticketing.pricing;
   const fromPrice = ticketing.phase === "earlyBird" || ticketing.phase === "presale" ? regular.earlyBird : regular.online;
   return (
     <div className="site-mobile-ticket">
@@ -139,9 +138,10 @@ const TICKET_STUBS = [
 
 // Homepage ticket section: three tickets with a tear-off stub.
 export function TicketStubsSection({ ticketing }) {
+  const pricing = ticketing.pricing;
   const earlyBirdOver = ticketing.phase === "regular" || ticketing.phase === "eventDay";
-  const regularSaving = TICKET_PRICING.regular.onSite - TICKET_PRICING.regular.earlyBird;
-  const regularPriceFrom = new Date(new Date(TICKET_PRICING.earlyBirdEndsAt).getTime() + 1000)
+  const regularSaving = pricing.regular.onSite - pricing.regular.earlyBird;
+  const regularPriceFrom = new Date(new Date(pricing.earlyBirdEndsAt).getTime() + 1000)
     .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/Luxembourg" });
   const doorsLine = [
     ticketing.editionDay,
@@ -160,13 +160,13 @@ export function TicketStubsSection({ ticketing }) {
           <p>
             {earlyBirdOver
               ? "Under 18s get in free."
-              : `Early-bird until ${TICKET_PRICING.earlyBirdEndsLabel} · Under 18s get in free.`}
+              : `Early-bird until ${pricing.earlyBirdEndsLabel} · Under 18s get in free.`}
           </p>
         </div>
 
         <div className="site-ticket-stubs__list">
           {TICKET_STUBS.map((ticket) => {
-            const prices = TICKET_PRICING[ticket.key];
+            const prices = pricing[ticket.key];
             const stubPrice = earlyBirdOver ? prices.online : prices.earlyBird;
             return (
               <article key={ticket.key} className={`site-ticket-stub site-ticket-stub--${ticket.key}`}>

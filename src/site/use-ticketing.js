@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSiteEditionYear } from "../app/edition";
 import { useMeetingEditions } from "../app/meeting-history-hooks";
 import { useLinksPageSettings } from "./site-hooks";
-import { TICKET_PRICING } from "./ticket-pricing-config";
+import { buildTicketPricing } from "./ticket-pricing-config";
 import { formatDoorsTime, getDoorsOpenDate, getTicketPhase } from "./ticketing-utils";
 
 function useNow(intervalMs) {
@@ -32,7 +32,9 @@ export function useTicketing() {
     : null;
   const edition = configuredEdition || editions[0] || null;
   const editionDate = edition?.date || null;
-  const phase = getTicketPhase(TICKET_PRICING, editionDate, now);
+  // Dates de vente et prix réglés dans l'admin (Page liens › Billets)
+  const pricing = buildTicketPricing(settings.tickets);
+  const phase = getTicketPhase(pricing, editionDate, now);
   const doorsOpen = getDoorsOpenDate(editionDate, settings.access.doors.en);
   const ticketUrl = settings.tickets.url;
   return {
@@ -46,5 +48,6 @@ export function useTicketing() {
     // Before the sale opens, buttons lead to the ticket info on the Event page.
     canBuy: phase !== "presale" && phase !== "past" && Boolean(ticketUrl),
     ticketUrl,
+    pricing,
   };
 }

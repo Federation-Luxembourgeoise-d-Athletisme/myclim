@@ -76,3 +76,11 @@
   gap: 12px;
   margin: 8px 0 32px;
 }
+
+/* Grille des prix des billets (Billets) */
+.links-admin-prices table { border-collapse: collapse; font-size: 0.85rem; }
+.links-admin-prices th { text-align: left; font-weight: 600; color: #4a5d6c; padding: 4px 10px 4px 0; white-space: nowrap; }
+.links-admin-prices thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.links-admin-prices td { padding: 3px 8px 3px 0; }
+.links-admin-prices input { width: 80px; height: 30px; padding: 4px 8px; border: 1px solid #cfd8df; border-radius: 5px; font: inherit; }
+.links-admin-hint { margin: 4px 0 0; font-size: 0.8rem; color: #4a5d6c; }

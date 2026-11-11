@@ -37,6 +37,21 @@ const volunteerAccreditationOverrideSeed = {
     printStatus: "Imprimé",
   },
 };
+// Catégories des badges (design piste B) : la couleur de la bande verticale ; le sous-rôle
+// (rôle bénévole, type de presse…) s'écrit sur le badge. Couleurs choisies par Margot :
+// Organisation rouge, Judge bleu foncé, Volunteer bleu clair, Press et Photographer violets proches.
+const BADGE_CATEGORIES = [
+  { key: "organisation", label: "Organisation", color: "#e30613" },
+  { key: "athlete", label: "Athlete", color: "#0f8a5f" },
+  { key: "coach", label: "Coach", color: "#f07c00" },
+  { key: "judge", label: "Judge", color: "#0a2540" },
+  { key: "press", label: "Press", color: "#5b2bb5" },
+  { key: "photographer", label: "Photographer", color: "#9157e6" },
+  { key: "volunteer", label: "Volunteer", color: "#27a9e1" },
+  { key: "technical", label: "Technical", color: "#4a5056" },
+];
+const DEFAULT_ROLE_BADGE_CATEGORY = "volunteer";
+
 const ACCREDITATION_PRINT_STATUS_OPTIONS = [
   "Non-imprimé",
   "Dans la file",
@@ -286,6 +301,16 @@ function normalizeAccreditationConfigurationPayload(data, roles = defaultTeamRol
     return accumulator;
   }, {});
 
+  // Catégorie de badge par rôle bénévole (Réglages) ; Volunteer par défaut.
+  const storedRoleBadgeCategories =
+    data?.roleBadgeCategories && typeof data.roleBadgeCategories === "object" ? data.roleBadgeCategories : {};
+  const roleBadgeCategories = Object.fromEntries(
+    roles.map((role) => {
+      const stored = storedRoleBadgeCategories[role.id];
+      return [role.id, BADGE_CATEGORIES.some((category) => category.key === stored) ? stored : DEFAULT_ROLE_BADGE_CATEGORY];
+    }),
+  );
+
   const volunteerOverrideSource = Object.keys(storedVolunteerOverrides).length
     ? storedVolunteerOverrides
     : volunteerAccreditationOverrideSeed;
@@ -345,6 +370,7 @@ function normalizeAccreditationConfigurationPayload(data, roles = defaultTeamRol
   return {
     zones,
     roleZoneAssignments,
+    roleBadgeCategories,
     volunteerOverrides,
     printHistory,
     badgeStorageLocations,
@@ -355,6 +381,8 @@ function normalizeAccreditationConfigurationPayload(data, roles = defaultTeamRol
 }
 
 export {
+  BADGE_CATEGORIES,
+  DEFAULT_ROLE_BADGE_CATEGORY,
   ACCREDITATION_BADGE_VISUALS,
   ACCREDITATION_PRINT_STATUS_OPTIONS,
   ACCREDITATION_QR_RESOURCE_SEED,
