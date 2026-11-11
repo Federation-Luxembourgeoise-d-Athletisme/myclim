@@ -6,7 +6,6 @@ import {
   buildAccreditationPrintHistoryMarkup,
   buildAccreditationRoleLabel,
   buildAccreditationUsers,
-  buildBadgePrintMarkup,
   formatZoneLabel,
   getAccreditationFinalZoneIds,
   getAccreditationStatusClass,
@@ -18,9 +17,12 @@ import {
 import {
   ACCREDITATION_BADGE_VISUALS,
   ACCREDITATION_PRINT_STATUS_OPTIONS,
+  BADGE_CATEGORIES,
   BADGE_STORAGE_LOCATIONS,
+  DEFAULT_ROLE_BADGE_CATEGORY,
   NON_NOMINATIVE_BADGE_TEMPLATES,
 } from "./accreditation-config";
+import { buildAccreditationBadgeMarkup } from "./badge-print";
 import { getDocumentUploadErrorMessage } from "./common-helpers";
 import { getDocumentReferenceUrl, useDocumentsCollection } from "./documents-hooks";
 import { FileUpload } from "./file-upload";
@@ -33,6 +35,8 @@ import { useActiveEdition } from "./edition";
 import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print";
 import { getVipRegistrationDocRef, useVipRegistrations } from "./vip-registrations-hooks";
 import { db } from "../services/firebase";
+import { CoquePlanEditor } from "./coque-plan/coque-plan-editor";
+import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 const PRESS_REQUEST_TYPE_LABELS = { press: "Presse", photographer: "Photographe" };
@@ -41,6 +45,7 @@ const ACCREDITATION_TAB_PATHS = {
   print: "/app/accreditations/impressions",
   tracking: "/app/accreditations/suivi",
   history: "/app/accreditations/historique",
+  plans: "/app/accreditations/plans",
   settings: "/app/accreditations/reglages",
 };
 
@@ -53,6 +58,7 @@ function getAccreditationTabFromPath(pathname, availableTabs) {
   if (normalizedPath.endsWith("/impressions") && availableTabs.includes("print")) return "print";
   if (normalizedPath.endsWith("/suivi") && availableTabs.includes("tracking")) return "tracking";
   if (normalizedPath.endsWith("/historique") && availableTabs.includes("history")) return "history";
+  if (normalizedPath.endsWith("/plans") && availableTabs.includes("plans")) return "plans";
   if (normalizedPath.endsWith("/roles") && availableTabs.includes("settings")) return "settings";
   // Legacy bookmarks/links from before the redesign (juges/presse/bénévoles
   // were merged into "people", the new default landing tab).
@@ -92,6 +98,8 @@ function AccreditationsPage(props) {
   const canManageJudges = activeRoles.includes("admin");
   const { roles, teamAssignments, loading: teamsLoading, error: teamsError } = useTeamConfiguration();
   const { judges, loading: judgesLoading, error: judgesError } = useJudgeRoster();
+  // Plan de la Coque (onglet Plans) imprimé au verso des badges
+  const { elements: coquePlanElements } = useCoquePlan();
   const { activeEditionId, loading: editionLoading } = useActiveEdition(canOperatePrinting);
   const { registrations: vipRegistrations, error: vipRegistrationsError } = useVipRegistrations(
     activeEditionId,
@@ -101,6 +109,7 @@ function AccreditationsPage(props) {
   const {
     zones: storedZones,
     roleZoneAssignments: storedRoleZoneAssignments,
+    roleBadgeCategories: storedRoleBadgeCategories,
     volunteerOverrides: storedVolunteerOverrides,
     printHistory: storedPrintHistory,
     badgeStorageLocations: storedBadgeStorageLocations,
@@ -152,6 +161,9 @@ function AccreditationsPage(props) {
   const zones = Array.isArray(storedZones) ? storedZones : [];
   const roleZoneAssignments = storedRoleZoneAssignments && typeof storedRoleZoneAssignments === "object"
     ? storedRoleZoneAssignments
+    : {};
+  const roleBadgeCategories = storedRoleBadgeCategories && typeof storedRoleBadgeCategories === "object"
+    ? storedRoleBadgeCategories
     : {};
   const volunteerOverrides = storedVolunteerOverrides && typeof storedVolunteerOverrides === "object"
     ? storedVolunteerOverrides
@@ -320,6 +332,23 @@ function AccreditationsPage(props) {
     [ACCREDITATION_CONFIGURATION_DOC_PATH],
   );
 
+  // Catégorie du badge d'un bénévole : celle de son premier rôle qui n'est pas « Volunteer »
+  // (Organisation, Technical…), sinon Volunteer. Réglée par rôle dans Réglages.
+  function getVolunteerBadgeCategory(roleNames = []) {
+    const categories = roleNames
+      .map((roleName) => roles.find((role) => normalizeComparableValue(role.roleName) === normalizeComparableValue(roleName)))
+      .filter(Boolean)
+      .map((role) => roleBadgeCategories[role.id] || DEFAULT_ROLE_BADGE_CATEGORY);
+    return categories.find((category) => category !== DEFAULT_ROLE_BADGE_CATEGORY) || DEFAULT_ROLE_BADGE_CATEGORY;
+  }
+
+  function setRoleBadgeCategory(roleId, category) {
+    persistAccreditationConfiguration(
+      buildCurrentConfiguration({ roleBadgeCategories: { ...roleBadgeCategories, [roleId]: category } }),
+      "Catégorie du badge mise à jour.",
+    );
+  }
+
   function getRoleZoneIds(roleId) {
     return roleZoneAssignments[roleId] ?? [];
   }
@@ -386,6 +415,7 @@ function AccreditationsPage(props) {
     (nextPartial = {}) => ({
       zones,
       roleZoneAssignments,
+      roleBadgeCategories,
       volunteerOverrides,
       printHistory,
       badgeStorageLocations,
@@ -400,6 +430,7 @@ function AccreditationsPage(props) {
       printHistory,
       qrResources,
       qrVisualAssignments,
+      roleBadgeCategories,
       roleZoneAssignments,
       volunteerOverrides,
       zones,
@@ -933,14 +964,16 @@ function AccreditationsPage(props) {
     if (!queuedPress.length) return;
 
     const printedAt = new Date().toISOString();
-    const legendZoneLabels = sortedZones.map((zone) => formatZoneLabel(zone));
     const pressResourceCards = await buildResourceCardsForVisual("press");
     const badgeItems = queuedPress.map((registration) => {
       const badgeRoleLabel = PRESS_REQUEST_TYPE_LABELS[registration.requestType] || "Presse";
       return {
         volunteerId: registration.id,
         name: `${registration.firstName || ""} ${registration.lastName || ""}`.trim() || registration.media || "Presse",
-        role: badgeRoleLabel,
+        firstName: registration.firstName || "",
+        lastName: registration.lastName || "",
+        category: registration.requestType === "photographer" ? "photographer" : "press",
+        role: [registration.requestType === "photographer" ? "Photographer" : "Press", registration.media].filter(Boolean).join(" · "),
         roleNames: [badgeRoleLabel],
         zoneIds: registration.zoneIds || [],
         zoneLabels: sortedZones
@@ -984,7 +1017,7 @@ function AccreditationsPage(props) {
       ),
     ]);
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
@@ -1237,11 +1270,14 @@ function AccreditationsPage(props) {
     const judgeResourceCards = await buildResourceCardsForVisual("judge");
 
     openPrintWindow(
-      buildBadgePrintMarkup([
+      buildAccreditationBadgeMarkup([
         {
           volunteerId: "sample-accreditation",
           name: "Carmela Esposito",
-          role: "Comite directeur FLA",
+          firstName: "Carmela",
+          lastName: "Esposito",
+          category: "organisation",
+          role: "FLA Executive Board",
           roleNames: ["Comite directeur FLA"],
           zoneIds: allZonesLabels.map((_, index) => `sample-zone-all-${index + 1}`),
           zoneLabels: allZonesLabels,
@@ -1250,7 +1286,10 @@ function AccreditationsPage(props) {
         {
           volunteerId: "sample-accreditation-2",
           name: "Nina Hoffmann",
-          role: "Officiel terrain",
+          firstName: "Nina",
+          lastName: "Hoffmann",
+          category: "judge",
+          role: "Referee",
           roleNames: ["Officiel terrain"],
           zoneIds: infieldOnlyLabels.map((_, index) => `sample-zone-infield-${index + 1}`),
           zoneLabels: infieldOnlyLabels,
@@ -1259,7 +1298,10 @@ function AccreditationsPage(props) {
         {
           volunteerId: "sample-accreditation-3",
           name: "Tom Becker",
-          role: "Media",
+          firstName: "Tom",
+          lastName: "Becker",
+          category: "photographer",
+          role: "Photographer · FLA",
           roleNames: ["Media"],
           zoneIds: partialWithoutInfieldLabels.map((_, index) => `sample-zone-no-infield-${index + 1}`),
           zoneLabels: partialWithoutInfieldLabels,
@@ -1268,13 +1310,16 @@ function AccreditationsPage(props) {
         {
           volunteerId: "sample-accreditation-4",
           name: "Alex Muller",
-          role: "Benevole",
+          firstName: "Alex",
+          lastName: "Muller",
+          category: "volunteer",
+          role: "Hurdles team",
           roleNames: ["Benevole"],
           zoneIds: [],
           zoneLabels: noZoneLabels,
           resourceCards: volunteerResourceCards,
         },
-      ], { legendZoneLabels }),
+      ], { planElements: coquePlanElements }),
     );
   }
 
@@ -1285,7 +1330,6 @@ function AccreditationsPage(props) {
     if (!queuedVolunteers.length) return;
 
     const printedAt = new Date().toISOString();
-    const legendZoneLabels = sortedZones.map((zone) => formatZoneLabel(zone));
     const volunteerResourceCards = await buildResourceCardsForVisual("volunteer");
     const badgeItems = queuedVolunteers.map((volunteer) => {
       const override = getVolunteerOverride(volunteer.id);
@@ -1293,6 +1337,9 @@ function AccreditationsPage(props) {
       return {
         volunteerId: volunteer.id,
         name: `${volunteer.firstName} ${volunteer.lastName}`.trim(),
+        firstName: volunteer.firstName || "",
+        lastName: volunteer.lastName || "",
+        category: getVolunteerBadgeCategory(normalizeSubRoles(volunteer.assignedRoles || [volunteer.assignedRole].filter(Boolean))),
         role: getBadgeRoleLabel(volunteer, override, normalizeComparableValue) || "Accreditation",
         roleNames: normalizeSubRoles(volunteer.assignedRoles || [volunteer.assignedRole].filter(Boolean)),
         zoneIds,
@@ -1346,7 +1393,7 @@ function AccreditationsPage(props) {
       "Lot d'impression généré.",
     );
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
@@ -1355,7 +1402,6 @@ function AccreditationsPage(props) {
 
     const quantity = Math.max(1, Number.parseInt(nonNominativeQuantity, 10) || 1);
     const printedAt = new Date().toISOString();
-    const legendZoneLabels = sortedZones.map((zone) => formatZoneLabel(zone));
     const resourceCards = await buildResourceCardsForVisual(selectedNonNominativeTemplate.id);
     const zoneIds = selectedNonNominativeTemplate.defaultZoneIds.filter((zoneId) =>
       sortedZones.some((zone) => zone.id === zoneId),
@@ -1366,7 +1412,9 @@ function AccreditationsPage(props) {
     const badgeItems = Array.from({ length: quantity }, (_, index) => ({
       volunteerId: `non-nominative-${selectedNonNominativeTemplate.id}-${Date.now()}-${index + 1}`,
       name: "Non nominatif",
-      role: selectedNonNominativeTemplate.badgeLabel,
+      nominative: false,
+      category: selectedNonNominativeTemplate.id === "coach" ? "coach" : "athlete",
+      role: "Accreditation",
       roleNames: [selectedNonNominativeTemplate.badgeLabel],
       zoneIds,
       zoneLabels,
@@ -1398,7 +1446,7 @@ function AccreditationsPage(props) {
       `${quantity} badge(s) ${selectedNonNominativeTemplate.label.toLowerCase()} non nominatif(s) généré(s).`,
     );
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
   }
 
   // Badges VIP : la mise en file se fait aussi depuis VIP › Inscrits (statut du badge).
@@ -1438,11 +1486,13 @@ function AccreditationsPage(props) {
     if (!queuedJudges.length) return;
 
     const printedAt = new Date().toISOString();
-    const legendZoneLabels = sortedZones.map((zone) => formatZoneLabel(zone));
     const judgeResourceCards = await buildResourceCardsForVisual("judge");
     const badgeItems = queuedJudges.map((judge) => ({
       volunteerId: judge.id,
       name: `${judge.firstName} ${judge.lastName}`.trim() || "Judge",
+      firstName: judge.firstName || "",
+      lastName: judge.lastName || "",
+      category: "judge",
       role: judge.badgeLabel || "Judge",
       roleNames: [judge.badgeLabel || "Judge"],
       zoneIds: judge.assignedZones,
@@ -1491,7 +1541,7 @@ function AccreditationsPage(props) {
       ),
     ]);
 
-    openPrintWindow(buildBadgePrintMarkup(badgeItems, { legendZoneLabels }));
+    openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
@@ -1608,7 +1658,7 @@ function AccreditationsPage(props) {
   const visibleAcceptedPress = getVisibleListItems("accepted-press", acceptedPressRegistrations);
 
   const availableAccreditationTabs = [
-    ...(canOperatePrinting ? ["people", "print", "tracking", "history"] : []),
+    ...(canOperatePrinting ? ["people", "print", "tracking", "history", "plans"] : []),
     ...(canManageAccreditationConfiguration ? ["settings"] : []),
   ];
   const [activeAccreditationTab, setActiveAccreditationTab] = useState(() =>
@@ -1788,6 +1838,13 @@ function AccreditationsPage(props) {
             >
               Historique
             </button>
+            <button
+              className={`admin-subtab ${activeAccreditationTab === "plans" ? "admin-subtab--active" : ""}`}
+              type="button"
+              onClick={() => openAccreditationTab("plans")}
+            >
+              Plans
+            </button>
           </>
         ) : null}
         {canManageAccreditationConfiguration ? (
@@ -1963,6 +2020,19 @@ function AccreditationsPage(props) {
                       <span>Position dans la liste des rôles</span>
                     </div>
                   </div>
+                  <label className="accreditation-role-category">
+                    <span>Catégorie du badge</span>
+                    <select
+                      value={roleBadgeCategories[selectedRole.id] || DEFAULT_ROLE_BADGE_CATEGORY}
+                      onChange={(event) => setRoleBadgeCategory(selectedRole.id, event.target.value)}
+                    >
+                      {BADGE_CATEGORIES.filter((category) => ["volunteer", "organisation", "technical"].includes(category.key)).map((category) => (
+                        <option key={category.key} value={category.key}>{category.label}</option>
+                      ))}
+                    </select>
+                    <i style={{ background: BADGE_CATEGORIES.find((category) => category.key === (roleBadgeCategories[selectedRole.id] || DEFAULT_ROLE_BADGE_CATEGORY))?.color }} />
+                    <small>Couleur de la bande sur le badge ; le nom du rôle s'écrit dessous.</small>
+                  </label>
                   <div className="choice-grid choice-grid--2">
                     {sortedZones.map((zone) => (
                       <label key={zone.id} className="selection-card selection-card--compact accreditation-zone-option">
@@ -3385,6 +3455,8 @@ function AccreditationsPage(props) {
           </Panel>
 
         </section>
+      ) : canOperatePrinting && activeAccreditationTab === "plans" ? (
+        <CoquePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "history" ? (
         <section className="admin-split">
           <div className="admin-split__nav">

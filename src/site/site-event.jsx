@@ -23,6 +23,7 @@ import ticketFan1 from "../assets/site-gallery/ticket-fan-1.jpg";
 import ticketPublic4 from "../assets/site-gallery/ticket-public-4.jpg";
 import ticketPublic5 from "../assets/site-gallery/ticket-public-5.jpg";
 import { PlanYourVisit } from "./site-ticketing";
+import { SiteVenueMap } from "./site-venue-map";
 
 const ACCESS_CARD = {
   icon: "🚌",
@@ -143,6 +144,9 @@ export function SiteEvent() {
       </div>
 
       <PlanYourVisit ticketing={ticketing} />
+
+      {/* ── Venue map (publié depuis Accréditations › Plans) ── */}
+      <SiteVenueMap />
 
       {/* ── About ────────────────────────────────────────── */}
       <section className="site-section">
