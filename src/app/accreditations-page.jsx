@@ -1620,47 +1620,6 @@ function AccreditationsPage(props) {
         .map((zone) => formatZoneLabel(zone))
     : [];
   const printableVolunteers = volunteers.filter((volunteer) => shouldDisplayVolunteerAccreditation(volunteer));
-  // Onglet Contrôles : tous les badges et leurs zones (bénévoles, juges, presse, VIP, lots non nominatifs)
-  const vipZoneIds = sortedZones.filter((zone) => zone.id === "zone-vip").map((zone) => zone.id);
-  const checkpointHolders = [
-    ...printableVolunteers.map((volunteer) => ({
-      id: volunteer.id,
-      family: "vol",
-      name: `${volunteer.firstName || ""} ${volunteer.lastName || ""}`.trim() || volunteer.email || "—",
-      group: getBadgeRoleLabel(volunteer, getVolunteerOverride(volunteer.id), normalizeComparableValue) || "Bénévole",
-      zoneIds: getFinalZoneIds(volunteer),
-    })),
-    ...judges.filter((judge) => !judge.destroyedAt).map((judge) => ({
-      id: judge.id,
-      family: "judge",
-      name: `${judge.firstName || ""} ${judge.lastName || ""}`.trim() || "Judge",
-      group: judge.badgeLabel || "Judge",
-      zoneIds: judge.assignedZones || [],
-    })),
-    ...pressRegistrations.filter((registration) => registration.status === "accepted" && !registration.destroyedAt).map((registration) => ({
-      id: registration.id,
-      family: "press",
-      name: `${registration.firstName || ""} ${registration.lastName || ""}`.trim() || registration.media || "Presse",
-      group: PRESS_REQUEST_TYPE_LABELS[registration.requestType] || "Presse",
-      zoneIds: registration.zoneIds || [],
-    })),
-    // Badges VIP : visuel dédié, accès à la VIP Zone
-    ...vipRegistrations.map((registration) => ({
-      id: registration.id,
-      family: "vip",
-      name: `${registration.firstName || ""} ${registration.lastName || ""}`.trim() || "VIP",
-      group: "VIP",
-      zoneIds: vipZoneIds,
-    })),
-    ...NON_NOMINATIVE_BADGE_TEMPLATES.map((template) => ({
-      id: `lot-${template.id}`,
-      family: "lot",
-      lot: true,
-      name: template.badgeLabel,
-      group: template.label,
-      zoneIds: template.defaultZoneIds,
-    })),
-  ];
   const filteredPrintableVolunteers = printableVolunteers.filter((volunteer) => {
     const haystack = [
       volunteer.firstName,
@@ -3509,7 +3468,7 @@ function AccreditationsPage(props) {
       ) : canOperatePrinting && activeAccreditationTab === "plans" ? (
         <CoquePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "controls" ? (
-        <AccreditationCheckpoints zones={sortedZones} holders={checkpointHolders} currentUserLabel={getCurrentOperatorLabel()} />
+        <AccreditationCheckpoints zones={sortedZones} currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "history" ? (
         <section className="admin-split">
           <div className="admin-split__nav">

@@ -189,6 +189,7 @@ export function normalizePlanElement(raw = {}, index = 0) {
   if (kind === "door") element.angle = num(raw.angle, 0);
   // Point de contrôle : numéros des zones du badge qu'il garde (Accréditations › Contrôles)
   if (kind === "ctrl") {
+    element.badgeTypes = [...new Set((Array.isArray(raw.badgeTypes) ? raw.badgeTypes : []).map(String).filter((t) => CTRL_BADGE_NAMES[t]))];
     element.zoneNums = [...new Set((Array.isArray(raw.zoneNums) ? raw.zoneNums : []).map((n) => Math.round(num(n))).filter((n) => n >= 1 && n <= 20))].sort((a, b) => a - b);
   }
   if (kind === "area") {
@@ -213,15 +214,36 @@ export const normalizePlanElements = (list) =>
 export const planLabel = (el, lang = "fr") => (lang === "en" && el.labelEn ? el.labelEn : el.label);
 export const planDesc = (el, lang = "fr") => (lang === "en" && el.descEn ? el.descEn : el.desc);
 
-// Texte automatique d'un point de contrôle : les zones qu'il garde, avec leur nom sur le plan.
+// Badges acceptés d'office à un point de contrôle, quel que soit le numéro : catégories des badges,
+// plus le badge VIP (qui ne porte pas de numéro de zone, le badge suffit).
+export const CTRL_BADGE_NAMES = {
+  vip: "VIP",
+  organisation: "Organisation",
+  technical: "Technical",
+  judge: "Judge",
+  athlete: "Athlete",
+  coach: "Coach",
+  press: "Press",
+  photographer: "Photographer",
+  volunteer: "Volunteer",
+};
+
+// Texte automatique d'un point de contrôle : les zones qu'il garde (avec leur nom sur le plan)
+// et les badges acceptés d'office.
 export function planCtrlText(el, elements = [], lang = "fr") {
+  const en = lang === "en";
   const nums = el.zoneNums || [];
-  if (!nums.length) return "";
+  const types = (el.badgeTypes || []).map((t) => CTRL_BADGE_NAMES[t]).filter(Boolean);
+  if (!nums.length && !types.length) return "";
   const names = nums.map((n) => {
     const zone = elements.find((item) => item.kind === "zone" && item.num === n);
     return zone ? `${n} ${planLabel(zone, lang)}` : String(n);
   });
-  return lang === "en" ? `Badge check: zone ${names.join(", ")}` : `Contrôle des badges : zone ${names.join(", ")}`;
+  const parts = [
+    names.length ? `zone ${names.join(", ")}` : "",
+    types.length ? `badge ${types.join(", ")}` : "",
+  ].filter(Boolean);
+  return `${en ? "Badge check: " : "Contrôle des badges : "}${parts.join(en ? " or " : " ou ")}`;
 }
 
 export const planColorOf = (el) => (el.kind === "zone" ? PLAN_ZONE_RED : el.color);
