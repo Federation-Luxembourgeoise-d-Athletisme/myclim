@@ -11238,3 +11238,330 @@ button.xc-card:hover { border-color: #9fb3c8; }
 @media (max-width: 640px) {
   .natwa { overflow-x: auto; }
 }
+
+/* ── Accréditations : version compacte et sobre (nov. 2026) ──────────────
+   Scopé sous .accreditation-page ; même esprit que .vip-admin. */
+.accreditation-page {
+  --acc-ink: #17324a;
+  --acc-muted: #627788;
+  --acc-line: #e3e9ef;
+  --acc-soft: #f6f9fc;
+  gap: 14px;
+}
+
+.accreditation-page .page-header h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: -0.01em;
+  color: var(--acc-ink);
+}
+
+.accreditation-page .page-header p {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  color: var(--acc-muted);
+}
+
+.accreditation-page .page-header .eyebrow {
+  font-size: 0.68rem;
+}
+
+/* Onglets soulignés au lieu de grosses pilules */
+.accreditation-page .admin-subtabs {
+  gap: 2px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--acc-line);
+}
+
+.accreditation-page .admin-subtab {
+  min-height: 0;
+  padding: 8px 12px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--acc-muted);
+}
+
+.accreditation-page .admin-subtab:hover {
+  color: var(--acc-ink);
+  background: none;
+  transform: none;
+}
+
+.accreditation-page .admin-subtab.admin-subtab--active {
+  color: var(--acc-ink);
+  background: none;
+  border-bottom-color: var(--acc-ink);
+}
+
+/* Panneaux */
+.accreditation-page .panel {
+  padding: 14px 16px;
+  gap: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--acc-line);
+  box-shadow: none;
+}
+
+.accreditation-page .panel-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--acc-ink);
+}
+
+.accreditation-page .panel-head p,
+.accreditation-page .panel-note {
+  font-size: 0.8rem;
+}
+
+/* Champs ~32px, petits libellés */
+.accreditation-page .field span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--acc-muted);
+}
+
+.accreditation-page .field input,
+.accreditation-page .field select,
+.accreditation-page .field textarea {
+  min-height: 32px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  font-size: 0.86rem;
+}
+
+/* Boutons plats et petits */
+.accreditation-page .button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.3;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.accreditation-page .button--small {
+  min-height: 0;
+  padding: 3px 9px;
+  font-size: 0.78rem;
+  border-radius: 6px;
+}
+
+.accreditation-page .button:hover {
+  transform: none;
+}
+
+.accreditation-page .button--primary {
+  background: var(--acc-ink);
+  color: #fff;
+}
+
+.accreditation-page .button--secondary {
+  background: #fff;
+  color: var(--acc-ink);
+  border: 1px solid #cfd9e3;
+}
+
+.accreditation-page .button--secondary:hover {
+  background: var(--acc-soft);
+}
+
+/* Tableaux denses */
+.accreditation-page .data-table th {
+  padding: 7px 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--acc-muted);
+}
+
+.accreditation-page .data-table td {
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  vertical-align: middle;
+}
+
+.accreditation-page .workflow-pill {
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  line-height: 18px;
+}
+
+.accreditation-page .accreditation-status-flag {
+  padding: 1px 7px;
+  font-size: 0.7rem;
+  line-height: 18px;
+  font-weight: 700;
+}
+
+/* Onglet Personnes */
+.acc-people-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.acc-people-filters {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.acc-people-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--acc-line, #e3e9ef);
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--acc-muted, #627788);
+  cursor: pointer;
+}
+
+.acc-people-filter:hover {
+  color: var(--acc-ink, #17324a);
+}
+
+.acc-people-filter.is-active {
+  border-color: var(--acc-ink, #17324a);
+  background: var(--acc-ink, #17324a);
+  color: #fff;
+}
+
+.acc-people-filter__count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #edf1f5;
+  font-size: 0.7rem;
+  line-height: 16px;
+  text-align: center;
+  color: var(--acc-muted, #627788);
+  font-variant-numeric: tabular-nums;
+}
+
+.acc-people-filter.is-active .acc-people-filter__count {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.acc-people-filter--alert:not(.is-active) .acc-people-filter__count {
+  background: #fde7c2;
+  color: #8b5b00;
+}
+
+.acc-people-search {
+  width: 260px;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid #cfd9e3;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.acc-people-table .acc-people-name {
+  display: block;
+  font-weight: 600;
+  color: var(--acc-ink, #17324a);
+}
+
+.acc-people-sub {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--acc-muted, #627788);
+}
+
+.acc-people-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: #edf1f5;
+  font-size: 0.68rem;
+  line-height: 16px;
+  color: var(--acc-muted, #627788);
+  vertical-align: 1px;
+}
+
+.acc-people-zones {
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.acc-people-muted {
+  font-size: 0.78rem;
+  color: #95a5b3;
+}
+
+.acc-people-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.acc-people-table td.acc-people-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.acc-people-actions .button + .button,
+.acc-people-actions .button + .acc-people-muted {
+  margin-left: 4px;
+}
+
+.acc-people-empty {
+  color: var(--acc-muted, #627788);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 720px) {
+  .acc-people-search {
+    width: 100%;
+  }
+}
+
+.accreditation-page .button--ghost {
+  background: transparent;
+  color: var(--acc-ink);
+  border: 1px solid transparent;
+}
+
+.accreditation-page .button--ghost:hover {
+  background: var(--acc-soft);
+  border-color: var(--acc-line);
+}
+
+.accreditation-page .accreditation-warning-panel {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.accreditation-page .accreditation-warning-panel strong {
+  font-size: 0.82rem;
+}
+
+.accreditation-page .accreditation-warning-panel p {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+}

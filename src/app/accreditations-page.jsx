@@ -39,6 +39,15 @@ import { CoquePlanEditor } from "./coque-plan/coque-plan-editor";
 import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
+const AUTO_CANCEL_MESSAGE = "Cette accréditation a été annulée car le bénévole n'est plus affecté.";
+const AUTO_DESTROY_MESSAGE = "Attention : ce bénévole n'est plus affecté. Badge imprimé à récupérer ou détruire.";
+const PEOPLE_FILTERS = [
+  { id: "all", label: "Tous" },
+  { id: "todo", label: "À imprimer" },
+  { id: "queued", label: "Dans la file" },
+  { id: "printed", label: "Imprimés" },
+  { id: "attention", label: "À traiter" },
+];
 const PRESS_REQUEST_TYPE_LABELS = { press: "Presse", photographer: "Photographe" };
 const ACCREDITATION_TAB_PATHS = {
   people: "/app/accreditations",
@@ -133,6 +142,7 @@ function AccreditationsPage(props) {
   const [newStorageLocationName, setNewStorageLocationName] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [volunteerSearch, setVolunteerSearch] = useState("");
+  const [peopleFilter, setPeopleFilter] = useState("all");
   const [trackingSearch, setTrackingSearch] = useState("");
   const [trackingStatusFilter, setTrackingStatusFilter] = useState("Tous");
   const [trackingLocationFilter, setTrackingLocationFilter] = useState("Tous");
@@ -205,19 +215,6 @@ function AccreditationsPage(props) {
     [buildAccreditationUsers, teamAssignments, users],
   );
   const [selectedVolunteerId, setSelectedVolunteerId] = useState("");
-  const effectiveSelectedVolunteerId =
-    selectedVolunteerId && volunteers.some((volunteer) => volunteer.id === selectedVolunteerId)
-      ? selectedVolunteerId
-      : volunteers[0]?.id ?? "";
-  const selectedVolunteer =
-    volunteers.find((volunteer) => volunteer.id === effectiveSelectedVolunteerId) ?? volunteers[0];
-  const badgeStatusCounts = Object.values(volunteerOverrides).reduce(
-    (accumulator, override) => ({
-      ...accumulator,
-      [override.printStatus]: (accumulator[override.printStatus] ?? 0) + 1,
-    }),
-    {},
-  );
 
   function volunteerHasPrintableAssignment(volunteer) {
     return normalizeSubRoles(volunteer?.assignedRoles || [volunteer?.assignedRole].filter(Boolean)).length > 0;
@@ -264,8 +261,11 @@ function AccreditationsPage(props) {
 
   function shouldDisplayVolunteerAccreditation(volunteer) {
     const override = getVolunteerOverride(volunteer.id);
-    if (override.destroyedAt) return false;
+    // Une personne réaffectée réapparaît toujours, même si son ancien badge a été détruit.
     if (volunteerHasPrintableAssignment(volunteer)) return true;
+    // Plus affectée : on ne la garde que s'il reste un badge physique à récupérer / détruire.
+    // Une accréditation annulée sans badge imprimé est traitée d'office et sort de la liste.
+    if (override.destroyedAt) return false;
     return volunteerHasPrintedBadgeEvidence(volunteer.id);
   }
 
@@ -851,6 +851,42 @@ function AccreditationsPage(props) {
         },
       }),
       "Badge marqué comme détruit.",
+    );
+  }
+
+  // Filtre « Personnes » : une ligne peut être à la fois « À imprimer » et « À traiter » (badge modifié).
+  function getPeopleRowState(volunteer) {
+    const override = getVolunteerOverride(volunteer.id);
+    switch (override.printStatus) {
+      case "Annulé":
+      case "Imprimé à détruire":
+        return { buckets: ["attention"], flag: "" };
+      case "Dans la file":
+        return { buckets: ["queued"], flag: "" };
+      case "Imprimé":
+        return { buckets: ["printed"], flag: "" };
+      default:
+        return override.warningMessage
+          ? { buckets: ["todo", "attention"], flag: "Modifié" }
+          : { buckets: ["todo"], flag: "" };
+    }
+  }
+
+  function persistVolunteerOverride(volunteer, nextOverride, successMessage) {
+    persistAccreditationConfiguration(
+      buildCurrentConfiguration({
+        volunteerOverrides: { ...volunteerOverrides, [volunteer.id]: nextOverride },
+      }),
+      successMessage,
+    );
+  }
+
+  // Alerte « modifié » vue : on retire le message, le badge reste « Non-imprimé » (à réimprimer).
+  function acknowledgeVolunteerWarning(volunteer) {
+    persistVolunteerOverride(
+      volunteer,
+      { ...getVolunteerOverride(volunteer.id), warningMessage: "" },
+      "Alerte retirée.",
     );
   }
 
@@ -1554,6 +1590,13 @@ function AccreditationsPage(props) {
   const selectedRoleZoneLabels = sortedZones
     .filter((zone) => selectedRoleZoneIds.includes(zone.id))
     .map((zone) => formatZoneLabel(zone));
+  // Le détail ne montre qu'une personne visible dans la liste (jamais un bénévole masqué).
+  const displayableVolunteers = volunteers.filter((volunteer) => shouldDisplayVolunteerAccreditation(volunteer));
+  const effectiveSelectedVolunteerId =
+    selectedVolunteerId && displayableVolunteers.some((volunteer) => volunteer.id === selectedVolunteerId)
+      ? selectedVolunteerId
+      : displayableVolunteers[0]?.id ?? "";
+  const selectedVolunteer = displayableVolunteers.find((volunteer) => volunteer.id === effectiveSelectedVolunteerId);
   const selectedVolunteerOverride = selectedVolunteer
     ? getVolunteerOverride(selectedVolunteer.id)
     : {
@@ -1616,8 +1659,20 @@ function AccreditationsPage(props) {
         .filter((zone) => selectedNonNominativeTemplate.defaultZoneIds.includes(zone.id))
         .map((zone) => formatZoneLabel(zone))
     : [];
-  const printableVolunteers = volunteers.filter((volunteer) => shouldDisplayVolunteerAccreditation(volunteer));
+  const printableVolunteers = displayableVolunteers;
+  const peopleBucketCounts = printableVolunteers.reduce(
+    (counts, volunteer) => {
+      const { buckets } = getPeopleRowState(volunteer);
+      buckets.forEach((bucket) => {
+        counts[bucket] = (counts[bucket] ?? 0) + 1;
+      });
+      counts.all += 1;
+      return counts;
+    },
+    { all: 0 },
+  );
   const filteredPrintableVolunteers = printableVolunteers.filter((volunteer) => {
+    if (peopleFilter !== "all" && !getPeopleRowState(volunteer).buckets.includes(peopleFilter)) return false;
     const haystack = [
       volunteer.firstName,
       volunteer.lastName,
@@ -1671,6 +1726,8 @@ function AccreditationsPage(props) {
     setActiveAccreditationTab(nextTab);
   }, [activeAccreditationTab, availableAccreditationTabs, location.pathname]);
 
+  const accreditationDataReady = !usersLoading && !teamsLoading && !accreditationLoading;
+
   function openAccreditationTab(tabId) {
     if (!availableAccreditationTabs.includes(tabId)) return;
     const nextPath = ACCREDITATION_TAB_PATHS[tabId] || ACCREDITATION_TAB_PATHS.people;
@@ -1681,23 +1738,64 @@ function AccreditationsPage(props) {
   }
 
   useEffect(() => {
+    // Ne jamais tourner avant que TOUT soit chargé : pendant le chargement chaque bénévole
+    // paraît « non affecté » et était annulé à tort (bug Lily / Margot, nov. 2026).
+    if (!accreditationDataReady) return undefined;
+
     const invalidVolunteerUpdates = volunteers
       .map((volunteer) => {
-        if (!isVolunteerAccreditationInvalid(volunteer)) return null;
-
         const override = getVolunteerOverride(volunteer.id);
-        const nextPrintStatus =
-          override.printStatus === "Imprimé" || override.printStatus === "Imprimé à détruire"
-            ? "Imprimé à détruire"
-            : "Annulé";
-        const nextWarningMessage =
-          nextPrintStatus === "Imprimé à détruire"
-            ? "Attention : ce bénévole n'est plus affecté. Badge imprimé à récupérer ou détruire."
-            : "Cette accréditation a été annulée car le bénévole n'est plus affecté.";
-        const statusAlreadyApplied =
-          override.printStatus === nextPrintStatus && override.warningMessage === nextWarningMessage;
 
-        if (statusAlreadyApplied) return null;
+        if (!isVolunteerAccreditationInvalid(volunteer)) {
+          // Personne (ré)affectée : on lève l'annulation automatique.
+          if (override.printStatus === "Annulé" && override.warningMessage === AUTO_CANCEL_MESSAGE) {
+            return {
+              volunteerId: volunteer.id,
+              override: { ...override, printStatus: "Non-imprimé", warningMessage: "" },
+            };
+          }
+          if (
+            override.printStatus === "Imprimé à détruire" &&
+            override.warningMessage === AUTO_DESTROY_MESSAGE &&
+            !override.destroyedAt
+          ) {
+            return {
+              volunteerId: volunteer.id,
+              override: { ...override, printStatus: "Imprimé", warningMessage: "" },
+            };
+          }
+          if (override.destroyedAt) {
+            // Ancien badge détruit puis réaffectation : nouveau badge à produire.
+            return {
+              volunteerId: volunteer.id,
+              override: {
+                ...override,
+                printStatus: "Non-imprimé",
+                warningMessage: "",
+                destroyedAt: null,
+              },
+            };
+          }
+          return null;
+        }
+
+        if (override.destroyedAt) return null;
+
+        let nextPrintStatus;
+        let nextWarningMessage;
+        if (volunteerHasPrintedBadgeEvidence(volunteer.id)) {
+          // Un badge physique existe : à récupérer ou détruire.
+          nextPrintStatus = "Imprimé à détruire";
+          nextWarningMessage = AUTO_DESTROY_MESSAGE;
+        } else if (override.printStatus === "Dans la file") {
+          nextPrintStatus = "Annulé";
+          nextWarningMessage = AUTO_CANCEL_MESSAGE;
+        } else {
+          // Jamais imprimé ni en file : rien à annuler, la personne sort simplement de la liste.
+          return null;
+        }
+
+        if (override.printStatus === nextPrintStatus && override.warningMessage === nextWarningMessage) return null;
 
         return {
           volunteerId: volunteer.id,
@@ -1721,12 +1819,13 @@ function AccreditationsPage(props) {
             ...Object.fromEntries(invalidVolunteerUpdates.map((entry) => [entry.volunteerId, entry.override])),
           },
         }),
-        "Certaines accréditations ont été invalidées après retrait d'affectation.",
+        "Statuts d'accréditation mis à jour selon les affectations.",
       );
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [
+    accreditationDataReady,
     buildCurrentConfiguration,
     getVolunteerOverride,
     normalizeSubRoles,
@@ -1736,6 +1835,8 @@ function AccreditationsPage(props) {
   ]);
 
   useEffect(() => {
+    if (!accreditationDataReady) return undefined;
+
     const printedUsersToReset = volunteers
       .map((volunteer) => {
         if (isVolunteerAccreditationInvalid(volunteer)) return null;
@@ -1783,6 +1884,7 @@ function AccreditationsPage(props) {
 
     return () => window.clearTimeout(timeoutId);
   }, [
+    accreditationDataReady,
     buildCurrentConfiguration,
     getBadgeRoleLabel,
     getFinalZoneIds,
@@ -1800,7 +1902,7 @@ function AccreditationsPage(props) {
         <div>
           <p className="eyebrow">Accès &amp; jour J</p>
           <h1>Accréditations</h1>
-          <p>Zones par personne, une file d'impression pour tous (bénévoles, juges, presse, badges non nominatifs), retrait des badges et réglages.</p>
+          <p>Zones par personne, file d'impression unique, retrait des badges.</p>
           {teamsLoading || accreditationLoading || usersLoading ? <p className="panel-note">Chargement en cours...</p> : null}
           {teamsError || accreditationError ? <p className="panel-note">{teamsError || accreditationError}</p> : null}
           {accreditationStatus ? <p className="panel-note">{accreditationStatus}</p> : null}
@@ -2374,105 +2476,146 @@ function AccreditationsPage(props) {
       ) : canOperatePrinting && activeAccreditationTab === "people" ? (
         <section className="admin-stack">
           <Panel
-            title="Zones par personne"
-            subtitle="Une ligne par personne affectée. Cliquez sur une ligne pour consulter et modifier ses zones d'accréditation."
+            title="Personnes"
+            subtitle="Cliquez sur une ligne pour modifier ses zones. « À traiter » : badge modifié (Vu) ou badge imprimé à détruire (Détruit)."
           >
-            <div className="admin-toolbar">
-              <label className="field">
-                <span>Rechercher une personne</span>
-                <input
-                  placeholder="Nom, email, rôle..."
-                  value={volunteerSearch}
-                  onChange={(event) => setVolunteerSearch(event.target.value)}
-                />
-              </label>
-              <div className="accreditation-metrics">
-                <ul className="compact-list">
-                  <li>{printableVolunteers.length} personne(s) affectée(s)</li>
-                  <li>{badgeStatusCounts["Non-imprimé"] ?? 0} non imprimé(s)</li>
-                  <li>{badgeStatusCounts["Imprimé"] ?? 0} imprimé(s)</li>
-                </ul>
+            <div className="acc-people-toolbar">
+              <div className="acc-people-filters">
+                {PEOPLE_FILTERS.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    className={`acc-people-filter${peopleFilter === filter.id ? " is-active" : ""}${
+                      filter.id === "attention" && peopleBucketCounts.attention ? " acc-people-filter--alert" : ""
+                    }`}
+                    onClick={() => setPeopleFilter(filter.id)}
+                  >
+                    {filter.label}
+                    <span className="acc-people-filter__count">{peopleBucketCounts[filter.id] ?? 0}</span>
+                  </button>
+                ))}
               </div>
+              <input
+                className="acc-people-search"
+                type="search"
+                placeholder="Rechercher nom, email, rôle…"
+                value={volunteerSearch}
+                onChange={(event) => setVolunteerSearch(event.target.value)}
+              />
             </div>
 
             <div className="table-wrap">
-              <table className="data-table data-table--admin accreditation-people-table">
+              <table className="data-table data-table--admin accreditation-people-table acc-people-table">
                 <thead>
                   <tr>
                     <th>Personne</th>
                     <th>Rôle badge</th>
-                    <th>Zones finales</th>
-                    <th>Statut impression</th>
-                    <th>Impression</th>
+                    <th>Zones</th>
+                    <th>Statut</th>
+                    <th aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
                   {visiblePrintableVolunteers.map((volunteer) => {
                     const override = getVolunteerOverride(volunteer.id);
-                    const hasWarning = Boolean(override.warningMessage);
+                    const rowState = getPeopleRowState(volunteer);
                     const isSelected = effectiveSelectedVolunteerId === volunteer.id;
+                    const isInvalid = isVolunteerAccreditationInvalid(volunteer);
                     const canDestroyBadge = override.printStatus === "Imprimé à détruire";
-                    const canQueueBadge =
-                      !canDestroyBadge &&
-                      !isVolunteerAccreditationInvalid(volunteer) &&
-                      override.printStatus !== "Dans la file";
+                    const canQueueBadge = !canDestroyBadge && !isInvalid && override.printStatus !== "Dans la file";
+                    const isConfirmed =
+                      getConfirmedAccreditationRoleNames(volunteer, normalizeComparableValue).length > 0;
+                    const zoneLabels = getFinalZoneLabels(volunteer);
                     return (
                       <tr
                         key={volunteer.id}
-                        className={`accreditation-people-row${isSelected ? " row--selected" : ""}${hasWarning ? " row--warning" : ""}`}
+                        className={`accreditation-people-row${isSelected ? " row--selected" : ""}${
+                          rowState.bucket === "attention" ? " row--warning" : ""
+                        }`}
                         onClick={() => setSelectedVolunteerId(volunteer.id)}
                       >
-                        <td className="accreditation-people-name">
-                          {`${volunteer.firstName} ${volunteer.lastName}`.trim() || volunteer.email}
-                        </td>
-                        <td>{getRoleTableLabel(volunteer)}</td>
-                        <td>{getFinalZoneLabels(volunteer).join(", ") || "—"}</td>
                         <td>
-                          <div className="accreditation-status-inline">
-                            <span className={getAccreditationStatusClass(override.printStatus)}>
-                              {override.printStatus}
+                          <span className="acc-people-name">
+                            {`${volunteer.firstName} ${volunteer.lastName}`.trim() || volunteer.email}
+                          </span>
+                          {volunteer.email ? <span className="acc-people-sub">{volunteer.email}</span> : null}
+                        </td>
+                        <td>
+                          {getBadgeRoleLabel(volunteer, override, normalizeComparableValue) || "—"}
+                          {!isConfirmed && !isInvalid ? (
+                            <span className="acc-people-tag" title="Affectation pas encore confirmée">
+                              non confirmé
                             </span>
-                            {hasWarning ? (
-                              <span className="accreditation-status-flag" title={override.warningMessage}>
-                                Modifiee
-                              </span>
-                            ) : null}
-                          </div>
-                          {hasWarning ? (
-                            <p className="print-warning-note">{override.warningMessage}</p>
                           ) : null}
                         </td>
-                        <td onClick={(e) => e.stopPropagation()}>
+                        <td>
+                          {zoneLabels.length ? (
+                            <span className="acc-people-zones" title={zoneLabels.join(", ")}>
+                              {zoneLabels.join(", ")}
+                            </span>
+                          ) : (
+                            <span className="acc-people-muted" title="Aucune zone liée à ce rôle (Réglages › zones par rôle)">
+                              aucune zone
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="acc-people-status">
+                            <span
+                              className={getAccreditationStatusClass(override.printStatus)}
+                              title={override.warningMessage || undefined}
+                            >
+                              {override.printStatus}
+                            </span>
+                            {rowState.flag ? (
+                              <span className="accreditation-status-flag" title={override.warningMessage}>
+                                {rowState.flag}
+                              </span>
+                            ) : null}
+                          </span>
+                        </td>
+                        <td className="acc-people-actions" onClick={(event) => event.stopPropagation()}>
                           {canDestroyBadge ? (
                             <button
                               className="button button--ghost-danger button--small"
                               type="button"
+                              title="Le badge imprimé a été récupéré ou détruit"
                               onClick={() => markBadgeDestroyed(volunteer)}
                             >
-                              Destruction effectuée
+                              Détruit
                             </button>
-                          ) : canQueueBadge ? (
+                          ) : null}
+                          {rowState.flag === "Modifié" ? (
+                            <button
+                              className="button button--ghost button--small"
+                              type="button"
+                              title="Modification vue : retirer l'alerte (le badge reste à réimprimer)"
+                              onClick={() => acknowledgeVolunteerWarning(volunteer)}
+                            >
+                              Vu
+                            </button>
+                          ) : null}
+                          {canQueueBadge ? (
                             <button
                               className="button button--secondary button--small"
                               type="button"
                               onClick={() => addVolunteerToPrintQueue(volunteer)}
                             >
-                              Ajouter à la file
+                              + File
                             </button>
-                          ) : override.printStatus === "Dans la file" ? (
-                            <span className="panel-note">Déjà dans la file</span>
-                          ) : (
-                            <span className="panel-note">Aucune impression à gérer</span>
-                          )}
+                          ) : null}
+                          {override.printStatus === "Dans la file" ? (
+                            <span className="acc-people-muted">en file</span>
+                          ) : null}
                         </td>
                       </tr>
                     );
                   })}
                   {!filteredPrintableVolunteers.length ? (
                     <tr>
-                      <td colSpan="5">
+                      <td colSpan="5" className="acc-people-empty">
                         {printableVolunteers.length
-                          ? "Aucune personne ne correspond à la recherche."
+                          ? "Aucune personne dans ce filtre."
                           : "Aucune personne n'a encore été affectée à un rôle."}
                       </td>
                     </tr>
