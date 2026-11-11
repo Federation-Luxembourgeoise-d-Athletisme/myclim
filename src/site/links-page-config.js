@@ -4,6 +4,8 @@
 // e-magazine) viennent de meetingEditions et ne sont pas dupliquées ici.
 // Logique pure, testée dans tests/links-page-config.test.js.
 
+import { DEFAULT_TICKET_SALE, normalizeTicketSale } from "./ticket-pricing-config.js";
+
 const LINKS_PAGE_DOC_ID = "linksPage";
 // Adresse imprimée dans le QR code : toujours le site en production, même
 // quand l'admin est ouvert en local.
@@ -37,6 +39,8 @@ const DEFAULT_LINKS_PAGE = {
     url: "https://www.ticket-regional.lu/",
     note: L("From €8 · free for under-18s", "Dès 8 € · gratuit pour les moins de 18 ans"),
     dayNote: L("On sale at the entrance", "Vente sur place à l'entrée"),
+    // Dates de vente et prix (ticket-pricing-config.js)
+    ...DEFAULT_TICKET_SALE,
   },
   photos: {
     // Galerie du meeting en cours (Sprintshot, renseignée le jour J).
@@ -85,6 +89,7 @@ function normalizeLinksPage(stored = {}) {
       url: pick(source.tickets?.url, base.tickets.url),
       note: normalizeLocalized(source.tickets?.note, base.tickets.note),
       dayNote: normalizeLocalized(source.tickets?.dayNote, base.tickets.dayNote),
+      ...normalizeTicketSale(source.tickets),
     },
     photos: {
       currentUrl: pick(source.photos?.currentUrl, base.photos.currentUrl),

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { DEFAULT_LINKS_PAGE, LINKS_PAGE_BLOCKS, PUBLIC_LINKS_URL } from "../site/links-page-config";
 import { saveLinksPageSettings, useLinksPageSettings } from "../site/site-hooks";
+import { buildTicketPricing, TICKET_PRICE_KINDS, TICKET_TYPES } from "../site/ticket-pricing-config";
 import { AuthFormField } from "./form-components";
 import "./website-links-page.css";
 
@@ -33,6 +34,41 @@ function LocalizedField({ draft, onChange, label, path, hint }) {
     <div className="links-admin-pair">
       <TextField draft={draft} onChange={onChange} label={`${label} (FR)`} path={[...path, "fr"]} hint={hint} />
       <TextField draft={draft} onChange={onChange} label={`${label} (EN)`} path={[...path, "en"]} />
+    </div>
+  );
+}
+
+// Grille des prix (en euros) : une ligne par type de billet, une colonne par moment d'achat.
+function TicketPriceGrid({ draft, onChange }) {
+  return (
+    <div className="links-admin-prices">
+      <table>
+        <thead>
+          <tr>
+            <th />
+            {TICKET_PRICE_KINDS.map((kind) => <th key={kind.key}>{kind.label} (€)</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {TICKET_TYPES.map((type) => (
+            <tr key={type.key}>
+              <th scope="row">{type.label}</th>
+              {TICKET_PRICE_KINDS.map((kind) => (
+                <td key={kind.key}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={getIn(draft, ["tickets", "prices", type.key, kind.key]) ?? ""}
+                    onChange={(event) => onChange(["tickets", "prices", type.key, kind.key], event.target.value)}
+                    aria-label={`${type.label} · ${kind.label}`}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -171,9 +207,20 @@ function WebsiteLinksPage({ Panel }) {
         </div>
       </Panel>
 
-      <Panel title="Billets">
+      <Panel title="Billets" subtitle="Dates de vente et prix : ils pilotent le bandeau rouge, les boutons « Buy tickets » et les prix affichés sur tout le site.">
         <div className="auth-form auth-form--compact links-admin-form">
           <TextField {...fieldProps} label="Lien de la billetterie" path={["tickets", "url"]} type="url" placeholder="https://www.ticket-regional.lu/" />
+          <div className="links-admin-pair">
+            <TextField {...fieldProps} label="Ouverture de la vente (jour)" path={["tickets", "saleOpensDate"]} type="date" hint="Avant : « Ticket info » et compte à rebours ; après : « Buy tickets »." />
+            <TextField {...fieldProps} label="Ouverture de la vente (heure)" path={["tickets", "saleOpensTime"]} type="time" />
+          </div>
+          <TextField {...fieldProps} label="Dernier jour de l'early-bird" path={["tickets", "earlyBirdEndsDate"]} type="date" hint="Jusqu'à 23:59 ce jour-là ; ensuite le site affiche le prix en ligne." />
+          <TicketPriceGrid {...fieldProps} />
+          {draft ? (
+            <p className="links-admin-hint">
+              Sur le site : vente ouverte le {buildTicketPricing(draft.tickets).saleOpensLabel}, early-bird jusqu'au {buildTicketPricing(draft.tickets).earlyBirdEndsLabel}.
+            </p>
+          ) : null}
           <LocalizedField {...fieldProps} label="Texte avant le meeting" path={["tickets", "note"]} />
           <LocalizedField {...fieldProps} label="Texte le jour J" path={["tickets", "dayNote"]} />
         </div>
