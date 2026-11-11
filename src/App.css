@@ -11173,3 +11173,68 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-role-category select { height: 30px; padding: 2px 8px; border: 1px solid #cfd8df; border-radius: 5px; font: inherit; }
 .accreditation-role-category i { width: 18px; height: 18px; border-radius: 4px; display: inline-block; }
 .accreditation-role-category small { color: #8a9aa7; }
+
+/* Courses nationales : statistiques World Athletics (WAID) */
+.natwa {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f7f9fc;
+  font-size: 12px;
+}
+
+.natwa--muted { color: #6b7a90; }
+.natwa--error { color: #b42318; background: #fef3f2; border-color: #fecdca; }
+
+.natwa__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.natwa__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.natwa__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.natwa__table th,
+.natwa__table td {
+  padding: 3px 8px 3px 0;
+  text-align: left;
+  border-bottom: 1px solid #e6ecf4;
+  white-space: nowrap;
+}
+
+.natwa__table thead th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7a90;
+}
+
+.natwa__table tbody th { font-weight: 600; }
+.natwa__table tr:last-child > * { border-bottom: 0; }
+.natwa__count { margin-left: 6px; font-weight: 400; color: #6b7a90; }
+.natwa__year { color: #6b7a90; font-size: 11px; }
+.natwa__empty { color: #9aa7b8; }
+.natwa__latest { color: #3b4a5f; }
+
+.natx-detail__wa { margin-top: 12px; }
+.natx-detail__wa .natwa { background: #fff; }
+.natx-detail__wa .natwa__table tbody th { text-transform: none; letter-spacing: 0; font-size: 12px; color: inherit; }
+
+@media (max-width: 640px) {
+  .natwa { overflow-x: auto; }
+}

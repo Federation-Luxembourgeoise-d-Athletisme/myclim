@@ -304,7 +304,25 @@ function createEmptyNationalRaceForm() {
   };
 }
 
+// WAID World Athletics : saisi seul (7 à 10 chiffres) ou lien du profil.
+const WA_PROFILE_BASE = "https://worldathletics.org/athletes/_/";
+
+// WAID seul (7 à 10 chiffres) ou lien de profil World Athletics.
+function parseWaid(value) {
+  const text = String(value || "").trim();
+  if (/^\d{7,10}$/.test(text)) return text;
+  const match = text.match(/[/-](\d{7,10})(?:[/#?].*)?$/);
+  return match ? match[1] : null;
+}
+
+function waProfileUrl(value) {
+  const text = String(value || "").trim();
+  return /^\d{7,10}$/.test(text) ? `${WA_PROFILE_BASE}${text}` : text;
+}
+
 export {
+  parseWaid,
+  waProfileUrl,
   DEFAULT_NATIONAL_RACE_MAIL_TEMPLATES,
   NATIONAL_RACE_ADULT_AGE,
   NATIONAL_RACE_ATHLETE_ROLE,
