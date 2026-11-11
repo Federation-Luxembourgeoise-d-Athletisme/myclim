@@ -33,6 +33,7 @@ import { useActiveEdition } from "./edition";
 import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print";
 import { getVipRegistrationDocRef, useVipRegistrations } from "./vip-registrations-hooks";
 import { db } from "../services/firebase";
+import { CoquePlanEditor } from "./coque-plan/coque-plan-editor";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 const PRESS_REQUEST_TYPE_LABELS = { press: "Presse", photographer: "Photographe" };
@@ -41,6 +42,7 @@ const ACCREDITATION_TAB_PATHS = {
   print: "/app/accreditations/impressions",
   tracking: "/app/accreditations/suivi",
   history: "/app/accreditations/historique",
+  plans: "/app/accreditations/plans",
   settings: "/app/accreditations/reglages",
 };
 
@@ -53,6 +55,7 @@ function getAccreditationTabFromPath(pathname, availableTabs) {
   if (normalizedPath.endsWith("/impressions") && availableTabs.includes("print")) return "print";
   if (normalizedPath.endsWith("/suivi") && availableTabs.includes("tracking")) return "tracking";
   if (normalizedPath.endsWith("/historique") && availableTabs.includes("history")) return "history";
+  if (normalizedPath.endsWith("/plans") && availableTabs.includes("plans")) return "plans";
   if (normalizedPath.endsWith("/roles") && availableTabs.includes("settings")) return "settings";
   // Legacy bookmarks/links from before the redesign (juges/presse/bénévoles
   // were merged into "people", the new default landing tab).
@@ -1608,7 +1611,7 @@ function AccreditationsPage(props) {
   const visibleAcceptedPress = getVisibleListItems("accepted-press", acceptedPressRegistrations);
 
   const availableAccreditationTabs = [
-    ...(canOperatePrinting ? ["people", "print", "tracking", "history"] : []),
+    ...(canOperatePrinting ? ["people", "print", "tracking", "history", "plans"] : []),
     ...(canManageAccreditationConfiguration ? ["settings"] : []),
   ];
   const [activeAccreditationTab, setActiveAccreditationTab] = useState(() =>
@@ -1787,6 +1790,13 @@ function AccreditationsPage(props) {
               onClick={() => openAccreditationTab("history")}
             >
               Historique
+            </button>
+            <button
+              className={`admin-subtab ${activeAccreditationTab === "plans" ? "admin-subtab--active" : ""}`}
+              type="button"
+              onClick={() => openAccreditationTab("plans")}
+            >
+              Plans
             </button>
           </>
         ) : null}
@@ -3385,6 +3395,8 @@ function AccreditationsPage(props) {
           </Panel>
 
         </section>
+      ) : canOperatePrinting && activeAccreditationTab === "plans" ? (
+        <CoquePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "history" ? (
         <section className="admin-split">
           <div className="admin-split__nav">
