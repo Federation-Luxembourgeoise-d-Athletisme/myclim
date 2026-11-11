@@ -566,7 +566,11 @@ export function SiteEvent() {
             flexWrap: "wrap",
           }}>
             <span style={{ fontSize: "0.875rem", color: "var(--site-text-muted)", flex: 1 }}>
-              On sale from <strong style={{ color: "var(--site-text)" }}>{TICKET_PRICING.saleOpensLabel}</strong> on ticket-regional.lu
+              {ticketing.phase === "presale" ? (
+                <>On sale from <strong style={{ color: "var(--site-text)" }}>{TICKET_PRICING.saleOpensLabel}</strong> on ticket-regional.lu</>
+              ) : (
+                <><strong style={{ color: "var(--site-text)" }}>On sale now</strong> on ticket-regional.lu</>
+              )}
             </span>
             <a href={ticketing.ticketUrl || "https://www.ticket-regional.lu/"} target="_blank" rel="noopener noreferrer" className="site-btn site-btn--primary site-btn--sm">
               Access ticketing →
