@@ -19,9 +19,12 @@ import {
   isNationalRaceMailPending,
   isNationalRacePacer,
   parsePerformanceToSeconds,
+  parseWaid,
+  waProfileUrl,
 } from "./national-races-helpers";
 import { useNationalRaceMailTemplates, useNationalRaceRequests } from "./national-races-hooks";
 import { useNationalRacesAdminCopy } from "./national-races-admin-copy";
+import { WaStatsPanel } from "./national-races-wa-stats";
 import { useActiveEdition } from "./edition";
 import { useLanguage } from "./language-context";
 import { useMeetingEditions } from "./meeting-history-hooks";
@@ -88,7 +91,8 @@ function formToRequestFields(form) {
     birthDate: form.birthDate,
     birthYear: form.birthDate ? new Date(form.birthDate).getFullYear() : null,
     nationality: form.nationality.trim(),
-    worldAthleticsUrl: form.worldAthleticsUrl.trim(),
+    // WAID seul accepté : on enregistre le lien complet du profil.
+    worldAthleticsUrl: waProfileUrl(form.worldAthleticsUrl),
     previousSeasonBest: form.previousSeasonBest.trim(),
     previousSeasonBestDate: form.previousSeasonBestDate,
     isLuxLicensed: isLux,
@@ -135,7 +139,36 @@ function AddAthleteForm({ race, raceLabel, initial = null, onCancel, onSubmit, i
   const text = copy.add;
   const [form, setForm] = useState(() => (initial ? { ...EMPTY_ADD_FORM, ...requestToForm(initial) } : EMPTY_ADD_FORM));
   const [error, setError] = useState("");
+  const { language } = useLanguage();
   const isLux = form.isLuxLicensed === "oui";
+  const waid = parseWaid(form.worldAthleticsUrl);
+
+  // Reprend les données World Athletics dans les champs encore vides.
+  function fillFromWa(data, stats) {
+    const toDate = (value) => (value ? String(value).slice(0, 10) : "");
+    const mark = (result) => (result ? result.mark : "");
+    setForm((current) => {
+      const candidates = {
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+        birthDate: toDate(data.birthDate),
+        nationality: data.countryCode || "",
+        seasonBest: mark(stats.seasonBest),
+        seasonBestPlace: stats.seasonBest?.venue || "",
+        seasonBestDate: toDate(stats.seasonBest?.date),
+        previousSeasonBest: mark(stats.previousSeasonBest),
+        previousSeasonBestDate: toDate(stats.previousSeasonBest?.date),
+      };
+      if (data.countryCode && data.countryCode !== "LUX" && current.isLuxLicensed === "non") {
+        candidates.foreignCountry = data.countryCode;
+      }
+      const next = { ...current };
+      Object.entries(candidates).forEach(([key, value]) => {
+        if (value && !String(current[key] || "").trim()) next[key] = value;
+      });
+      return next;
+    });
+  }
 
   function update(event) {
     const { name, type, checked, value } = event.target;
@@ -182,8 +215,9 @@ function AddAthleteForm({ race, raceLabel, initial = null, onCancel, onSubmit, i
       </div>
       <label className="field">
         <span>{text.worldAthletics}</span>
-        <input name="worldAthleticsUrl" placeholder="https://worldathletics.org/athletes/..." required type="url" value={form.worldAthleticsUrl} onChange={update} />
+        <input name="worldAthleticsUrl" placeholder={text.worldAthleticsPlaceholder} required value={form.worldAthleticsUrl} onChange={update} />
       </label>
+      <WaStatsPanel language={language} raceEvent={race.event} waid={waid} onFill={fillFromWa} />
       <div className="field-grid">
         <label className="field">
           <span>{text.licence}</span>
@@ -1006,6 +1040,11 @@ function NationalRacesPage(props) {
                                 <dd>{request.worldAthleticsUrl ? <a href={request.worldAthleticsUrl} rel="noreferrer" target="_blank">{copy.worldAthleticsLink}</a> : "-"}</dd>
                               </dl>
                             </div>
+                            {parseWaid(request.worldAthleticsUrl) ? (
+                              <div className="natx-detail__wa">
+                                <WaStatsPanel language={language} raceEvent={selectedRace.event} waid={parseWaid(request.worldAthleticsUrl)} />
+                              </div>
+                            ) : null}
                             <div>
                               <h4>{ui.detailContact}</h4>
                               <dl>

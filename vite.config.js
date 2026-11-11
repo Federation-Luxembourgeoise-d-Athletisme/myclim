@@ -14,6 +14,14 @@ function galleryApiDev() {
         response.headers.forEach((value, key) => res.setHeader(key, value));
         res.end(await response.text());
       });
+      // /api/wa (World Athletics) → same handler as the Netlify redirect.
+      server.middlewares.use("/api/wa", async (req, res) => {
+        const { default: handler } = await server.ssrLoadModule("/netlify/functions/wa-athlete.mjs");
+        const response = await handler(new Request(new URL(req.originalUrl, "http://localhost")));
+        res.statusCode = response.status;
+        response.headers.forEach((value, key) => res.setHeader(key, value));
+        res.end(await response.text());
+      });
     },
   };
 }
