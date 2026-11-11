@@ -12,7 +12,6 @@ import {
   DEFAULT_PORTAL_SETTINGS,
   FIELD_GROUPS,
   athleteMergeKey,
-  rebuildAthleteRegistryFromHistoricalResults,
   splitHistoricalHomonyms,
   canImportAthletes,
   extractWaid,
@@ -4441,51 +4440,18 @@ function AthleteRegistryPage({ Panel, maintenance }) {
     <Panel
       title="Maintenance"
       subtitle={tr(
-        "Reconstruire la base athlètes historique à partir des résultats corrigés du meeting",
-        "Rebuild the historical athlete database from the corrected meeting results",
+        "Séparer les homonymes de la base athlètes",
+        "Split homonyms in the athlete database",
       )}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <p className="panel-note" style={{ margin: 0 }}>
-          {tr("Cette action vide complètement ", "This action completely empties ")}<code>athleteRegistry</code>
-          {tr(", puis le reconstruit à partir de", ", then rebuilds it from")}
-          <code> meetingResults.json</code>
           {tr(
-            ". « Séparer les homonymes » ne touche qu'aux fiches qui mélangent deux athlètes du même nom et garde toutes les fusions déjà faites.",
-            ". “Split homonyms” only touches profiles that mix two athletes with the same name and keeps all merges already done.",
+            "« Séparer les homonymes » ne touche qu'aux fiches qui mélangent deux athlètes du même nom et garde toutes les fusions déjà faites. La base n'est plus jamais vidée : les WAID et les fusions faits fiche par fiche sont la référence.",
+            "“Split homonyms” only touches profiles that mix two athletes with the same name and keeps all merges already done. The database is never emptied any more: the WAIDs and merges done profile by profile are the reference.",
           )}
         </p>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            className="button button--danger"
-            disabled={rebuilding}
-            onClick={async () => {
-              if (!window.confirm(tr(
-                `Vider complètement la base athlètes puis la reconstruire depuis les résultats historiques corrigés ?\n\nATTENTION : ${withWaidCount} fiche(s) ont un WAID et toutes les fusions seront perdues.`,
-                `Completely empty the athlete database and rebuild it from the corrected historical results?\n\nWARNING: ${withWaidCount} profile(s) have a WAID and all merges will be lost.`,
-              ))) return;
-              setRebuildLog([]);
-              setRebuilding(true);
-              try {
-                const summary = await rebuildAthleteRegistryFromHistoricalResults((msg) => {
-                  setRebuildLog((prev) => [...prev, msg]);
-                });
-                setRebuildLog((prev) => [
-                  ...prev,
-                  tr(
-                    `✅ Base athlètes reconstruite : ${summary.deleted} supprimés, ${summary.written} recréés, source ${summary.sourceRows} lignes.`,
-                    `✅ Athlete database rebuilt: ${summary.deleted} deleted, ${summary.written} recreated, source ${summary.sourceRows} rows.`,
-                  ),
-                ]);
-              } catch (error) {
-                setRebuildLog((prev) => [...prev, `❌ ${error.message}`]);
-              } finally {
-                setRebuilding(false);
-              }
-            }}
-          >
-            {rebuilding ? tr("Reconstruction…", "Rebuilding…") : tr("Vider et reconstruire la base athlètes", "Empty and rebuild the athlete database")}
-          </button>
           <button
             className="button button--secondary"
             disabled={rebuilding}
