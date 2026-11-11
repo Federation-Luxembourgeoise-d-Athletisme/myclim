@@ -1,20 +1,14 @@
-// Plan de l'infield pour les juges (Accréditations › Plan juges) : vue rapprochée de la piste de la
-// Coque, aires de concours dessinées en détail, position des juges par équipe (ronds de couleur),
-// chambres d'appel, scène, haies, entrée de l'infield, salle et tribune des juges, bancs d'attente.
-// Même grille que les plans de la Coque (unités du plan, 8,4 unités ≈ 1 m), cadrée sur la piste :
-// les aires sont au même endroit que sur la vue d'ensemble. Positions des éléments en % du cadre.
+// Plan de l'infield pour les juges (Accréditations › Plan juges) : le fond des plans de la Coque
+// (niveau 0 : vrais murs, gradins, warm-up, salon VIP) cadré sur la salle, l'infield dessiné en détail
+// (sens des aires vérifié sur le plan d'architecte R-1), la position des juges par équipe (ronds de
+// couleur), les chambres d'appel, la scène, les haies, l'entrée de l'infield, la salle et la tribune
+// des juges, les bancs d'attente : chacun à sa place réelle, comme sur l'ancien plan des juges.
+// Même grille que les plans de la Coque (unités du plan) ; positions des éléments en % du cadre.
 import { lineSvg, normalizePlanElement, PLAN_PALETTE, planBaseSvg } from "./coque-plan-data";
 
-// Cadre (unités du plan) : la piste et une bande autour, au format A4 portrait (≈ 1 : 1,414).
-export const JUDGES_BOX = { x: 110, y: 386, w: 620, h: 880 };
+// Cadre (unités du plan) : la salle autour de la piste (gradins, warm-up, salon VIP), format A4 portrait.
+export const JUDGES_BOX = { x: 30, y: 260, w: 800, h: 1130 };
 const B = JUDGES_BOX;
-// Encart « niveau 0 » (arcades) : salle des juges et chambres d'appel ne sont pas au niveau de la piste.
-// Même fond que les plans de la Coque, cadré sur le warm-up, la salle et le salon VIP.
-export const JUDGES_INSET = { x: 20, y: 560, w: 900, h: 740 };
-const I = JUDGES_INSET;
-export const JUDGES_LEVELS = { piste: ["Piste (R-1)", "Track (R-1)"], rdc: ["Niveau 0 (arcades)", "Level 0 (arcades)"] };
-export const judgesInsetSvg = (lang = "fr") =>
-  planBaseSvg({ lang }).replace(/viewBox="[^"]*"/, `viewBox="${I.x} ${I.y} ${I.w} ${I.h}"`);
 
 const TRACK_BLUE = "#6f9fd4";
 const SAND = "#e8d39e";
@@ -89,10 +83,12 @@ const FACILITY_SVG = {
 };
 const SHOT = { cx: 334, cy: 1095 };
 
-// Fond : sol, piste de 200 m (6 couloirs), infield ; les aires visibles par-dessus.
+// Fond : le niveau 0 des plans de la Coque (murs, gradins, piste de 6 couloirs, warm-up teinté),
+// cadré ; par-dessus, les aires de concours et les lignes.
 export function judgesPlanSvg(elements, lang = "fr") {
   const en = lang === "en";
-  const oval = (r) => `M${420 - r} 634 A${r} ${r} 0 0 1 ${420 + r} 634 L${420 + r} 1018 A${r} ${r} 0 0 1 ${420 - r} 1018 Z`;
+  const viewBox = `${B.x} ${B.y} ${B.w} ${B.h}`;
+  const base = planBaseSvg({ lang, infield: "#e9eff5", warmup: "#f6ecb8" }).replace(/viewBox="[^"]*"/, `viewBox="${viewBox}"`);
   const facilities = elements
     .filter((el) => el.kind === "facility" && !el.hidden)
     .map((el) => FACILITY_SVG[el.facility]?.(en) || "")
@@ -101,16 +97,9 @@ export function judgesPlanSvg(elements, lang = "fr") {
     .filter((el) => el.kind === "line")
     .map((el) => lineSvg(el, B.x + (el.x / 100) * B.w, B.y + (el.y / 100) * B.h))
     .join("");
-  return `<svg viewBox="${B.x} ${B.y} ${B.w} ${B.h}" preserveAspectRatio="none" aria-hidden="true">
-    <rect x="${B.x}" y="${B.y}" width="${B.w}" height="${B.h}" fill="#f4f6f8" />
-    <path d="${oval(205)}" fill="#fff" />
-    <path d="${oval(192)}" fill="#8db4de" />
-    <path d="${[141, 151, 161, 171, 181].map(oval).join(" ")}" fill="none" stroke="#fff" stroke-width="1.1" stroke-opacity=".9" />
-    <path d="${oval(192)} ${oval(131)}" fill="none" stroke="#fff" stroke-width="2.2" />
-    <path d="M551 826 H612" stroke="#fff" stroke-width="3" />
-    <path d="${oval(131)}" fill="#e9eff5" />
+  return `${base}<svg viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
     ${facilities}${lines}
-    ${txt(B.x + 10, B.y + 18, en ? "TRACK LEVEL (R-1)" : "NIVEAU PISTE (R-1)", { size: 10, fill: "#9aa8b3", anchor: "start" })}
+    ${txt(150, 1250, "WARM-UP", { size: 22, fill: "#b8a24a", rot: -52 })}
   </svg>`;
 }
 
@@ -131,8 +120,6 @@ export const JUDGES_DEFAULT_TEAMS = [
 const at = (X, Y) => ({ x: Math.round(((X - B.x) / B.w) * 10000) / 100, y: Math.round(((Y - B.y) / B.h) * 10000) / 100 });
 let seq = 0;
 const judge = (team, label, desc, descEn, X, Y, labelEn = "") => ({ id: `j-${team}-${++seq}`, kind: "judge", team, label, labelEn, desc, descEn, ...at(X, Y) });
-// Niveau 0 : positions en unités des plans de la Coque, dans le cadre de l'encart
-const at0 = (X, Y) => ({ level: "rdc", x: Math.round(((X - I.x) / I.w) * 10000) / 100, y: Math.round(((Y - I.y) / I.h) * 10000) / 100 });
 
 export const JUDGES_DEFAULT_ELEMENTS = [
   ...Object.keys(JUDGES_FACILITIES).map((key) => ({ id: `fac-${key}`, kind: "facility", facility: key })),
@@ -143,8 +130,8 @@ export const JUDGES_DEFAULT_ELEMENTS = [
   judge("finish", "PF", "Photo-finish", "Photo finish", 468, 590),
   judge("finish", "1", "Juge à l'arrivée", "Finish judge", 360, 586),
   judge("finish", "2", "Juge à l'arrivée", "Finish judge", 360, 608),
-  judge("hurdles", "1", "Mise en place des haies", "Hurdle set-up", 214, 1146),
-  judge("hurdles", "2", "Mise en place des haies", "Hurdle set-up", 234, 1160),
+  judge("hurdles", "1", "Mise en place des haies", "Hurdle set-up", 300, 1205),
+  judge("hurdles", "2", "Mise en place des haies", "Hurdle set-up", 360, 1205),
   judge("pole", "C", "Chef de concours", "Chief judge", 544, 985),
   judge("pole", "1", "Sautoirs et barre", "Uprights and bar", 544, 1022),
   judge("pole", "2", "Derrière le tapis", "Behind the landing mat", 517, 1064),
@@ -160,26 +147,25 @@ export const JUDGES_DEFAULT_ELEMENTS = [
   judge("high", "C", "Chef de concours", "Chief judge", 302, 700),
   judge("high", "1", "Sautoir haut", "Upper upright", 346, 724),
   judge("high", "2", "Sautoir bas", "Lower upright", 346, 786),
-  { ...judge("callroom", "1", "Chambre d'appel 1", "Call room 1", 0, 0), ...at0(212, 760) },
-  { ...judge("callroom", "2", "Chambre d'appel 2", "Call room 2", 0, 0), ...at0(212, 900) },
+  judge("callroom", "1", "Chambre d'appel 1", "Call room 1", 160, 905),
+  judge("callroom", "2", "Chambre d'appel 2", "Call room 2", 236, 1000),
   judge("infield", "M", "Commissaire infield", "Infield marshal", 330, 560),
   judge("infield", "M", "Commissaire infield", "Infield marshal", 510, 560),
 
-  { id: "stage", kind: "area", label: "Scène", labelEn: "Stage", desc: "Scène (présentations, cérémonies)", descEn: "Stage (presentations, ceremonies)", color: "#9157e6", w: 76, h: 150, ...at(680, 826) },
-  { id: "stand", kind: "area", label: "Tribune juges", labelEn: "Judges' stand", desc: "Tribune des juges, dans l'axe de l'arrivée", descEn: "Judges' stand, in line with the finish", color: "#0a2540", w: 76, h: 56, ...at(680, 600) },
-  { id: "hurdles", kind: "area", label: "Haies", labelEn: "Hurdles", desc: "Stockage des haies", descEn: "Hurdles storage", color: "#f07c00", w: 84, h: 56, ...at(160, 1190) },
-  { id: "entry", kind: "door", label: "Entrée infield", labelEn: "Infield entry", desc: "Entrée de l'infield : tunnel depuis le warm-up (niveau 0)", descEn: "Infield entry: tunnel from the warm-up (level 0)", color: "#0f8a5f", angle: 270, ...at(420, 1238) },
+  { id: "stage", kind: "area", label: "Scène", labelEn: "Stage", desc: "Scène (présentations, cérémonies), au bout de la piste côté départ", descEn: "Stage (presentations, ceremonies), at the start end of the track", color: "#e0601a", w: 70, h: 26, ...at(420, 1252) },
+  { id: "hurdles", kind: "area", label: "Haies", labelEn: "Hurdles", desc: "Stockage des haies", descEn: "Hurdles storage", color: "#f07c00", w: 44, h: 40, ...at(330, 1180) },
+  { id: "entry", kind: "door", label: "Entrée infield", labelEn: "Infield entry", desc: "Entrée de l'infield, à côté de la salle des juges", descEn: "Infield entry, next to the judges' room", color: "#e30613", angle: 180, ...at(640, 848) },
+  { id: "room", kind: "mark", label: "Salle des juges", labelEn: "Judges' room", desc: "Salle des juges : salon VIP (niveau 0)", descEn: "Judges' room: VIP lounge (level 0)", color: "#e30613", icon: "", ...at(735, 822) },
+  { id: "stand", kind: "mark", label: "Tribune juges", labelEn: "Judges' stand", desc: "Tribune des juges, dans les gradins", descEn: "Judges' stand, in the stands", color: "#c8102e", icon: "", rot: -90, ...at(668, 925) },
+  { id: "team-h", kind: "mark", label: "Team haies", labelEn: "Hurdles team", desc: "Équipe haies : local au pied des gradins", descEn: "Hurdles team: room at the foot of the stands", color: "#0f8a5f", icon: "", rot: -90, ...at(690, 1010) },
+  { id: "cr1", kind: "mark", label: "CR1", labelEn: "CR1", desc: "Call room 1 et contrôle du poids : dans le warm-up", descEn: "Call room 1 and shot put implement control: in the warm-up", color: "#8e2a8e", icon: "", ...at(120, 905) },
+  { id: "cr2", kind: "mark", label: "CR2", labelEn: "CR2", desc: "Call room 2 : au pied des gradins, côté warm-up", descEn: "Call room 2: at the foot of the stands, warm-up side", color: "#8e2a8e", icon: "", ...at(236, 970) },
   { id: "b-60", kind: "mark", label: "Bancs 60 m", labelEn: "Benches 60 m", desc: "Bancs d'attente : 60 m", descEn: "Waiting benches: 60 m", color: "#4a5d6c", icon: "bench", ...at(395, 1140) },
   { id: "b-pole", kind: "mark", label: "Bancs perche", labelEn: "Benches PV", desc: "Bancs d'attente : perche", descEn: "Waiting benches: pole vault", color: "#4a5d6c", icon: "bench", ...at(544, 920) },
   { id: "b-long", kind: "mark", label: "Bancs longueur", labelEn: "Benches LJ/TJ", desc: "Bancs d'attente : longueur / triple", descEn: "Waiting benches: long / triple jump", color: "#4a5d6c", icon: "bench", ...at(466, 880) },
   { id: "b-shot", kind: "mark", label: "Bancs poids", labelEn: "Benches SP", desc: "Bancs d'attente : poids", descEn: "Waiting benches: shot put", color: "#4a5d6c", icon: "bench", ...at(300, 1060) },
   { id: "b-high", kind: "mark", label: "Bancs hauteur", labelEn: "Benches HJ", desc: "Bancs d'attente : hauteur", descEn: "Waiting benches: high jump", color: "#4a5d6c", icon: "bench", ...at(300, 840) },
-
-  // Niveau 0 (arcades) : dans l'encart
-  { id: "room", kind: "mark", label: "Salle des juges", labelEn: "Judges' room", desc: "Salle des juges : salon VIP", descEn: "Judges' room: VIP lounge", color: "#0a2540", icon: "", ...at0(735, 828) },
-  { id: "cr1", kind: "mark", label: "CR1", labelEn: "CR1", desc: "Chambre d'appel 1 : warm-up, derrière les gradins", descEn: "Call room 1: warm-up, behind the stands", color: "#6b7a86", icon: "", ...at0(150, 760) },
-  { id: "cr2", kind: "mark", label: "CR2", labelEn: "CR2", desc: "Chambre d'appel 2 : warm-up, derrière les gradins", descEn: "Call room 2: warm-up, behind the stands", color: "#6b7a86", icon: "", ...at0(150, 900) },
-  { id: "down", kind: "door", label: "Vers la piste", labelEn: "To the track", desc: "Descente vers la piste (tunnel) puis entrée de l'infield", descEn: "Way down to the track (tunnel), then the infield entry", color: "#0f8a5f", angle: 270, ...at0(420, 1250) },
+  { id: "b-out", kind: "mark", label: "Bancs d'attente", labelEn: "Waiting benches", desc: "Bancs d'attente des athlètes, hors de l'infield", descEn: "Athletes' waiting benches, outside the infield", color: "#9157e6", icon: "", ...at(660, 600) },
 ];
 
 // ─── Lecture prudente (Firestore) ────────────────────────────────────────────
@@ -217,7 +203,6 @@ export function normalizeJudgesElements(list, teams) {
           labelEn: String(raw.labelEn ?? "").slice(0, 3),
           desc: String(raw.desc ?? "").slice(0, 80),
           descEn: String(raw.descEn ?? "").slice(0, 80),
-          level: raw.level === "rdc" ? "rdc" : "piste",
           x: clampPct(raw.x),
           y: clampPct(raw.y),
         };
@@ -225,8 +210,6 @@ export function normalizeJudgesElements(list, teams) {
       // Repères, zones, flèches, lignes : mêmes règles que les plans de la Coque (sans niveau ni plans)
       const { maps, level, ...el } = normalizePlanElement(raw, index); // eslint-disable-line no-unused-vars
       if (!["mark", "area", "door", "line"].includes(el.kind)) return null;
-      // Lignes : seulement au niveau de la piste
-      el.level = raw.level === "rdc" && el.kind !== "line" ? "rdc" : "piste";
       if (el.kind === "area") {
         delete el.shape;
         el.w = Math.max(20, num(raw.w, 76));
@@ -249,8 +232,5 @@ export const teamColor = (teams, id) => teams.find((t) => t.id === id)?.color ||
 
 // Position en unités du plan (lignes, poignées) et taille d'une zone en % du cadre
 export const jPoint = (el) => ({ X: B.x + (el.x / 100) * B.w, Y: B.y + (el.y / 100) * B.h });
-export const jAreaSize = (el) => {
-  const box = el.level === "rdc" ? I : B;
-  return { width: `${(el.w / box.w) * 100}%`, height: `${(el.h / box.h) * 100}%` };
-};
-export const jOnTrack = (el) => el.level !== "rdc";
+export const jAreaSize = (el) => ({ width: `${(el.w / B.w) * 100}%`, height: `${(el.h / B.h) * 100}%` });
+

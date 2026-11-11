@@ -3,7 +3,7 @@
 .judges-plan {
   position: relative;
   width: 100%;
-  aspect-ratio: 620 / 880;
+  aspect-ratio: 800 / 1130;
   user-select: none;
 }
 .cp-judge {
@@ -83,10 +83,3 @@
 .judges-plan .cp-area { padding: 2px; line-height: 1.05; }
 .jpe .cpe-field select { padding-top: 0; padding-bottom: 0; line-height: 28px; }
 
-/* Encart niveau 0 (arcades) : salle des juges, chambres d'appel */
-.judges-inset { position: relative; width: 100%; aspect-ratio: 900 / 740; user-select: none; }
-.jpe-inset { border-top: 1px solid #e3e9ee; padding: 8px 10px 10px; display: grid; gap: 6px; }
-.jpe-inset__head { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 12.5px; color: #6c7f8d; }
-.jpe-inset__head b { color: #0b1b2b; }
-.jpe-inset__canvas { width: min(100%, 420px); border: 1px solid #e3e9ee; border-radius: 6px; overflow: hidden; }
-.jpe-level { margin-left: 5px; padding: 0 4px; border-radius: 3px; background: #f1ebfd; color: #7a4fd0; font: 800 9.5px/14px inherit; font-family: inherit; }
