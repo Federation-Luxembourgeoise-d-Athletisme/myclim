@@ -572,16 +572,20 @@ service cloud.firestore {
     }
 
     // ── Invitations plateforme ───────────────────────────────────────────────
-    // Lecture publique : le token UUID fait office de secret (lien d'activation).
-    // Création/suppression réservées aux admins.
-    // Mise à jour : admins OU l'utilisateur qui accepte sa propre invitation
-    // (email auth == email invitation, statut encore pending).
+    // L'id du document est le token UUID du lien d'activation : qui a reçu le
+    // lien peut lire son invitation (get) sans être connecté, mais personne
+    // d'autre qu'un admin ne peut lister la collection (emails, rôles, tokens).
+    // Le token envoyé par mail prouve aussi que la personne lit cette boîte :
+    // c'est ce qui remplace la vérification d'email que Firebase Auth ne fait
+    // pas, avant que le profil cite l'invitation (isInvitationRoleGrant).
     match /invitations/{invitationId} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       // Une invitation accorde des rôles : seuls les admins la créent ou la
       // modifient (la page Invitations leur est réservée). La personne invitée
       // peut seulement la marquer acceptée, sans toucher aux rôles.
-      allow create, delete: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.token == invitationId;
+      allow delete: if isAdmin();
       allow update: if isAdmin() ||
         (isSignedIn() &&
          resource.data.email == request.auth.token.email.lower() &&
@@ -832,10 +836,12 @@ service cloud.firestore {
     // Cloud Functions : jetons (server_secrets) et codes des postes de caisse.
     // ({rest=**} couvre aussi les sous-collections.) Les profils (users) et les
     // invitations portent les rôles : leur écriture reste aux seules règles
-    // dédiées plus haut, sinon un gestionnaire pourrait se nommer admin.
+    // dédiées plus haut, sinon un gestionnaire pourrait se nommer admin. Les
+    // invitations ne sont pas non plus lisibles ici : leurs tokens permettent
+    // d'activer un compte avec les rôles qu'elles portent.
     match /{collection}/{rest=**} {
       allow read: if isAdminOrManager() &&
-        !(collection in ["server_secrets", "cashPostSecrets", "cashAccessAttempts"]);
+        !(collection in ["server_secrets", "cashPostSecrets", "cashAccessAttempts", "invitations"]);
       allow write: if isAdminOrManager() &&
         !(collection in ["server_secrets", "cashPostSecrets", "cashAccessAttempts", "users", "invitations"]);
     }
