@@ -27,7 +27,8 @@ import {
   roadbookFromPreviousEdition,
   withAccreditationZones,
 } from "./athlete-roadbook-shared";
-import accreditationPlanUrl from "../assets/accreditation-plan.png";
+import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
+import { PlanCanvas } from "./coque-plan/coque-plan-view";
 
 const TABS = [
   { id: "general", label: "Infos générales" },
@@ -159,6 +160,7 @@ const SECTION_LABELS_FR = {
 function AthleteRoadbookAdminPage({ Panel }) {
   const { siteEditionYear, loading: siteYearLoading } = useSiteEditionYear();
   const { editions, loading: editionsLoading } = useMeetingEditions();
+  const { elements: coquePlanElements } = useCoquePlan();
   const [stored, setStored] = useState(undefined);
   const [draft, setDraft] = useState(null);
   const [dirty, setDirty] = useState(false);
@@ -808,7 +810,9 @@ function AthleteRoadbookAdminPage({ Panel }) {
                       roadbook à chaque enregistrement.
                     </p>
                   </div>
-                  <img className="roadbook-admin-plan" src={accreditationPlanUrl} alt="Plan des accréditations" />
+                  <div className="roadbook-admin-plan">
+                    <PlanCanvas elements={coquePlanElements} mapKey="acc" crop lang="en" />
+                  </div>
                 </div>
               ) : (
                 <>

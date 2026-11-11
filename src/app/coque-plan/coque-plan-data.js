@@ -52,43 +52,43 @@ export const PLAN_DEFAULT_ELEMENTS = [
   { id: "z3a", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(224, 826), maps: on("acc", "ctrl") },
   { id: "z3b", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(612, 705), maps: on("acc", "ctrl") },
   { id: "z3c", kind: "zone", num: 3, label: "Coaching Zone", level: "piste", ...at(612, 950), maps: on("acc", "ctrl") },
-  { id: "z4", kind: "zone", num: 4, label: "Judges Room", desc: "Dans le salon VIP", level: "rdc", ...at(735, 828), maps: on("acc", "ctrl") },
-  { id: "z5", kind: "zone", num: 5, label: "Mixed Zone", desc: "À l'entrée de la piste", level: "piste", ...at(420, 400), maps: on("acc", "ctrl") },
+  { id: "z4", kind: "zone", labelEn: "Judges Room", descEn: "In the VIP lounge", num: 4, label: "Judges Room", desc: "Dans le salon VIP", level: "rdc", ...at(735, 828), maps: on("acc", "ctrl") },
+  { id: "z5", kind: "zone", labelEn: "Mixed Zone", descEn: "At the track entrance", num: 5, label: "Mixed Zone", desc: "À l'entrée de la piste", level: "piste", ...at(420, 400), maps: on("acc", "ctrl") },
   { id: "z6", kind: "zone", num: 6, label: "VIP Zone", level: "etage", ...at(690, 470), maps: on("acc", "ctrl") },
 
-  { id: "m1", kind: "mark", label: "Entrée · Info", desc: "Entrée principale et point info : le contact en cas de besoin (secours, objets trouvés)", color: "#0f8a5f", level: "rdc", ...at(935, 790), maps: on("web", "vol", "acc") },
-  { id: "m9", kind: "mark", label: "Billetterie", desc: "Caisse et contrôle des billets (un seul point)", color: "#0f8a5f", level: "rdc", ...at(860, 690), maps: on("web", "vol") },
+  { id: "m1", kind: "mark", labelEn: "Entrance · Info", descEn: "Main entrance and info point: ask here for first aid or lost property", label: "Entrée · Info", desc: "Entrée principale et point info : le contact en cas de besoin (secours, objets trouvés)", color: "#0f8a5f", level: "rdc", ...at(935, 790), maps: on("web", "vol", "acc") },
+  { id: "m9", kind: "mark", labelEn: "Tickets", descEn: "Ticket office and ticket check", label: "Billetterie", desc: "Caisse et contrôle des billets (un seul point)", color: "#0f8a5f", level: "rdc", ...at(860, 690), maps: on("web", "vol") },
   { id: "m7", kind: "mark", label: "VIP", desc: "Accueil VIP et retrait des badges VIP", color: "#b8912a", level: "rdc", ...at(800, 862), maps: on("vol") },
-  { id: "m8", kind: "mark", label: "Staff", desc: "Accueil bénévoles, juges et presse, retrait des badges", color: "#27a9e1", level: "rdc", ...at(928, 850), maps: on("vol", "acc") },
+  { id: "m8", kind: "mark", labelEn: "Staff", descEn: "Volunteers, judges and press welcome", label: "Staff", desc: "Accueil bénévoles, juges et presse, retrait des badges", color: "#27a9e1", level: "rdc", ...at(928, 850), maps: on("vol", "acc") },
 
-  { id: "m3", kind: "mark", icon: "ticket", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 335), maps: on("web", "vol") },
-  { id: "m2", kind: "mark", icon: "bar", label: "Bar & food", desc: "Bar et restauration, le long du mur du gymnase", color: "#e5719a", level: "rdc", ...at(700, 445), maps: on("web", "vol") },
+  { id: "m3", kind: "mark", labelEn: "Drink cards", descEn: "Drink cards on sale at the bar", icon: "ticket", label: "Drink cards", desc: "Vente des drink cards, à la buvette", color: "#e5719a", level: "rdc", ...at(420, 335), maps: on("web", "vol") },
+  { id: "m2", kind: "mark", labelEn: "Bar & food", descEn: "Bar and food along the gym wall", icon: "bar", label: "Bar & food", desc: "Bar et restauration, le long du mur du gymnase", color: "#e5719a", level: "rdc", ...at(700, 445), maps: on("web", "vol") },
   {
-    id: "m5", kind: "area", label: "Discovery corner", color: "#e30613", level: "rdc", ...at(530, 180), bg: "piste",
+    id: "m5", kind: "area", labelEn: "Discovery corner", descEn: "Athletics Discovery Corner: workshops for kids, between the bar and the amphitheatre", label: "Discovery corner", color: "#e30613", level: "rdc", ...at(530, 180), bg: "piste",
     desc: "Athletics Discovery Corner : ateliers pour les enfants, dans le couloir entre la buvette et l'amphithéâtre",
     shape: pts([[-100, -67], [56, -136], [60, -120], [23, -92], [15, -40], [30, 15], [70, 46], [95, 42], [128, 103], [31, 116], [-45, 47], [-74, 10]]),
     pictos: [{ t: "runner", dx: -28, dy: -66, sc: 1.7 }, { t: "hurdle", dx: 40, dy: 75, sc: 1.4 }, { t: "star", dx: 30, dy: -108, sc: 1 }, { t: "star", dx: -40, dy: -30, sc: 0.8 }, { t: "star", dx: 85, dy: 60, sc: 0.9 }],
     maps: on("web", "vol"),
   },
-  { id: "m16", kind: "mark", icon: "camera", label: "Photobooth", desc: "Photobooth (à placer sur le plan)", color: "#9157e6", level: "rdc", ...at(900, 1150), maps: on("web", "vol") },
-  { id: "m17", kind: "mark", label: "Asport", desc: "Stand Asport : vêtements (à placer sur le plan)", color: "#0d8fd3", level: "rdc", ...at(900, 1215), maps: on("web", "vol") },
-  { id: "m4", kind: "mark", icon: "signature", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(240, 420), maps: on("web", "vol") },
+  { id: "m16", kind: "mark", labelEn: "Photobooth", descEn: "Photobooth", icon: "camera", label: "Photobooth", desc: "Photobooth (à placer sur le plan)", color: "#9157e6", level: "rdc", ...at(900, 1150), maps: on("web", "vol") },
+  { id: "m17", kind: "mark", labelEn: "Asport", descEn: "Asport stand: sports clothing", label: "Asport", desc: "Stand Asport : vêtements (à placer sur le plan)", color: "#0d8fd3", level: "rdc", ...at(900, 1215), maps: on("web", "vol") },
+  { id: "m4", kind: "mark", labelEn: "Autographs", descEn: "Signing zone: meet the athletes", icon: "signature", label: "Autographes", desc: "Signing zone : rencontre avec les athlètes", color: "#6b7a86", level: "rdc", ...at(240, 420), maps: on("web", "vol") },
 
-  { id: "wf1", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(326, 252), maps: on("web", "vol") },
-  { id: "wf2", kind: "mark", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(496, 262), maps: on("web", "vol") },
-  { id: "wh1", kind: "mark", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(484, 208), maps: on("web", "vol") },
-  { id: "wm1", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 652), maps: on("web", "vol") },
-  { id: "wm2", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 738), maps: on("web", "vol") },
-  { id: "wm3", kind: "mark", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 921), maps: on("web", "vol") },
-  { id: "wf3", kind: "mark", label: "WC ♀", desc: "Toilettes femmes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(320, 1420), maps: on("vol", "acc") },
-  { id: "wh2", kind: "mark", label: "WC ♂", desc: "Toilettes hommes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("vol", "acc") },
+  { id: "wf1", kind: "mark", labelEn: "WC ♀", descEn: "Toilets (women)", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(326, 252), maps: on("web", "vol") },
+  { id: "wf2", kind: "mark", labelEn: "WC ♀", descEn: "Toilets (women)", label: "WC ♀", desc: "Toilettes femmes", color: "#3a7ca5", level: "rdc", ...at(496, 262), maps: on("web", "vol") },
+  { id: "wh1", kind: "mark", labelEn: "WC ♂", descEn: "Toilets (men)", label: "WC ♂", desc: "Toilettes hommes", color: "#3a7ca5", level: "rdc", ...at(484, 208), maps: on("web", "vol") },
+  { id: "wm1", kind: "mark", labelEn: "WC ♀♂", descEn: "Toilets", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 652), maps: on("web", "vol") },
+  { id: "wm2", kind: "mark", labelEn: "WC ♀♂", descEn: "Toilets", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 738), maps: on("web", "vol") },
+  { id: "wm3", kind: "mark", labelEn: "WC ♀♂", descEn: "Toilets", label: "WC ♀♂", desc: "Toilettes femmes et hommes", color: "#3a7ca5", level: "rdc", ...at(736, 921), maps: on("web", "vol") },
+  { id: "wf3", kind: "mark", labelEn: "WC ♀", descEn: "Warm-up toilets (women)", label: "WC ♀", desc: "Toilettes femmes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(320, 1420), maps: on("vol", "acc") },
+  { id: "wh2", kind: "mark", labelEn: "WC ♂", descEn: "Warm-up toilets (men)", label: "WC ♂", desc: "Toilettes hommes du warm-up (athlètes)", color: "#3a7ca5", level: "rdc", ...at(532, 1340), maps: on("vol", "acc") },
 
-  { id: "m11", kind: "mark", label: "VIP", desc: "Accès VIP à la galerie : l'entrée à gauche de l'escalier", color: "#b8912a", level: "rdc", ...at(700, 605), maps: on("vol", "acc") },
-  { id: "m13", kind: "mark", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(436, 138), maps: on("vol", "acc") },
+  { id: "m11", kind: "mark", labelEn: "VIP", descEn: "VIP access to the gallery", label: "VIP", desc: "Accès VIP à la galerie : l'entrée à gauche de l'escalier", color: "#b8912a", level: "rdc", ...at(700, 605), maps: on("vol", "acc") },
+  { id: "m13", kind: "mark", labelEn: "↑ Volunteers", descEn: "Spiral staircase to the volunteers area", label: "↑ Bénévoles", desc: "Escalier en colimaçon vers l'espace bénévoles (galerie)", color: "#4a5d6c", level: "rdc", ...at(436, 138), maps: on("vol", "acc") },
   { id: "d1", kind: "door", label: "Amphi", desc: "Entrée de l'amphithéâtre (salle aussi utilisée par les bénévoles)", color: "#4a5d6c", angle: 0, level: "rdc", ...at(550, 166), maps: on("vol") },
-  { id: "m14", kind: "mark", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
+  { id: "m14", kind: "mark", labelEn: "Call room", descEn: "Call room: in the warm-up, behind the stands, before going down to the track", label: "Call room", desc: "Call room : dans le warm-up, derrière les gradins, avant la descente vers la piste", color: "#f07c00", level: "rdc", ...at(112, 800), maps: on("vol", "acc", "ctrl") },
 
-  { id: "m6", kind: "mark", label: "Secours", desc: "Premiers secours, au niveau de la piste (R-1)", color: "#e30613", level: "piste", ...at(300, 470), maps: on("acc") },
+  { id: "m6", kind: "mark", labelEn: "First aid", descEn: "First aid, at track level (R-1)", label: "Secours", desc: "Premiers secours, au niveau de la piste (R-1)", color: "#e30613", level: "piste", ...at(300, 470), maps: on("acc") },
   { id: "m12", kind: "mark", label: "Bénévoles", desc: "Espace bénévoles (nouveau en 2027), galerie R+1", color: "#27a9e1", level: "etage", ...at(418, 125), maps: on() },
 
   { id: "c1", kind: "ctrl", label: "A", desc: "", color: "#0a2540", level: "rdc", ...at(760, 870), maps: on("ctrl") },
@@ -111,6 +111,9 @@ export function normalizePlanElement(raw = {}, index = 0) {
     kind,
     label: String(raw.label ?? "").slice(0, 40),
     desc: String(raw.desc ?? ""),
+    // Textes du site et des documents en anglais (badges, roadbook) : à défaut, le texte français
+    labelEn: String(raw.labelEn ?? "").slice(0, 40),
+    descEn: String(raw.descEn ?? ""),
     color: String(raw.color || (kind === "zone" ? PLAN_ZONE_RED : PLAN_PALETTE[1])),
     level: PLAN_LEVELS[raw.level] ? raw.level : "rdc",
     x: Math.min(100, Math.max(0, num(raw.x, 50))),
@@ -138,13 +141,18 @@ export function normalizePlanElement(raw = {}, index = 0) {
 export const normalizePlanElements = (list) =>
   (Array.isArray(list) ? list : []).map((el, index) => normalizePlanElement(el, index));
 
+// Texte affiché selon la langue du document (le site, les badges et le roadbook sont en anglais).
+export const planLabel = (el, lang = "fr") => (lang === "en" && el.labelEn ? el.labelEn : el.label);
+export const planDesc = (el, lang = "fr") => (lang === "en" && el.descEn ? el.descEn : el.desc);
+
 export const planColorOf = (el) => (el.kind === "zone" ? PLAN_ZONE_RED : el.color);
 
 const LEVEL_NOTE = { piste: " · piste (R-1)", etage: " · galerie (R+1)" };
+const LEVEL_NOTE_EN = { piste: " · track level (R-1)", etage: " · gallery (R+1)" };
 
 // Légende d'un plan : une ligne par numéro de zone, puis repères (doublons regroupés), flèches,
 // contrôles. C'est là que vont les textes longs.
-export function planLegendItems(elements, mapKey) {
+export function planLegendItems(elements, mapKey, lang = "fr") {
   const seen = new Set();
   const items = elements
     .filter((el) => el.maps?.[mapKey])
@@ -154,7 +162,7 @@ export function planLegendItems(elements, mapKey) {
     const key = el.kind === "zone" ? `zone|${el.num}` : `${el.kind}|${el.label}|${el.desc}|${el.color}|${el.level}|${el.icon || ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    lines.push({ key, el, level: el.level, where: LEVEL_NOTE[el.level] || "" });
+    lines.push({ key, el, level: el.level, where: (lang === "en" ? LEVEL_NOTE_EN : LEVEL_NOTE)[el.level] || "" });
   }
   return lines;
 }
@@ -166,7 +174,8 @@ let planSvgCount = 0;
 
 // Fond de carte (niveau des arcades). crop = true cadre sur la salle (verso des badges).
 // Infield et Warm-up peuvent être colorés (zones autorisées du badge).
-export function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false } = {}) {
+export function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = false, lang = "fr" } = {}) {
+  const en = lang === "en";
   const viewBox = crop ? `0 ${PLAN_CROP.y} ${PLAN_W} ${PLAN_CROP.h}` : `0 0 ${PLAN_W} ${PLAN_H}`;
   const n = ++planSvgCount;
   const hatch = `coque-hatch-${n}`;
@@ -184,10 +193,10 @@ export function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = fa
       <pattern id="${hatch}" patternUnits="userSpaceOnUse" width="16" height="16" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="16" stroke="#d3dae0" stroke-width="3" /></pattern>
     </defs>
     <path d="M625 222 L658 283 C676 330 700 380 713 403 C735 440 770 490 798 520 C830 555 860 585 892 602 L1020 602 L1020 30 L690 30 L662 60 L662 120 L640 205 Z" fill="url(#${hatch})" />
-    ${label(885, 330, "GYMNASE", 26, "#a9b5be")}
+    ${label(885, 330, en ? "GYM" : "GYMNASE", 26, "#a9b5be")}
     <path d="M716 640 L773 630 L893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930 L716 930 Z" fill="#f4f6f8" />
     <path d="M893 600 L920 627 L924 705 L1001 739 L1001 921 L847 857 L824 898 L772 930" fill="none" stroke="#5f6f7c" stroke-width="3" stroke-linejoin="round" />
-    ${label(880, 650, "HALL D'ENTRÉE", 18, "#7d8d99")}
+    ${label(880, 650, en ? "ENTRANCE HALL" : "HALL D'ENTRÉE", 18, "#7d8d99")}
     <path d="M1018 810 L1004 830 L1018 850 Z" fill="#0f8a5f" />
     <path d="${arcades}" fill="#f4f6f8" />
     <path d="M0 1085 L${PLAN_W} 1085 L${PLAN_W} 1700 L0 1700 Z M0 700 L300 700 L300 1085 L0 1085 Z" fill="${warmup}" clip-path="url(#${clip})" />
@@ -196,7 +205,7 @@ export function planBaseSvg({ infield = "#e3edf8", warmup = "#c9d9ee", crop = fa
     <path d="M590 60 C548 80 538 160 560 195 C575 215 600 228 625 222 C645 205 660 165 662 120 C662 95 658 70 654 52 Z" fill="#e4e9ed" stroke="#4a5d6c" stroke-width="4" stroke-linejoin="round" />
     <rect x="562" y="100" width="9" height="62" rx="2" fill="#9aa8b3" />
     <path d="M592 86 Q616 131 592 186 M608 76 Q640 131 606 200 M624 68 Q660 131 620 212" fill="none" stroke="#b9c5ce" stroke-width="3" />
-    ${label(600, 26, "AMPHITHÉÂTRE", 16)}
+    ${label(600, 26, en ? "AMPHITHEATRE" : "AMPHITHÉÂTRE", 16)}
     <path d="M300 296 L561 296 L485 227 L456 190 L380 190 L351 227 Z" fill="#e4e9ed" stroke="#4a5d6c" stroke-width="3" stroke-linejoin="round" />
     <circle cx="418" cy="172" r="16" fill="#fff" stroke="#4a5d6c" stroke-width="3" />
     <path d="M300 1352 L561 1352 L485 1420 L456 1458 L380 1458 L351 1420 Z" fill="#e4e9ed" stroke="#4a5d6c" stroke-width="3" stroke-linejoin="round" />
@@ -253,8 +262,8 @@ const escapePlanText = (value) =>
   String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // Un repère en HTML, mêmes classes que PlanMarker (coque-plan-view.jsx).
-export function planMarkerHtml(el, color = planColorOf(el)) {
-  const label = escapePlanText(el.label);
+export function planMarkerHtml(el, color = planColorOf(el), lang = "fr") {
+  const label = escapePlanText(planLabel(el, lang));
   if (el.kind === "zone") return `<span class="cp-zone" style="background:${color}">${el.num}</span>`;
   if (el.kind === "ctrl") return `<span class="cp-ctrl" style="background:${color}">${label}</span>`;
   if (el.kind === "door") return `<span class="cp-door" style="background:${color}"><span style="display:inline-block;transform:rotate(${el.angle || 0}deg)">➜</span></span>`;
@@ -266,11 +275,12 @@ export function planMarkerHtml(el, color = planColorOf(el)) {
 
 // Le plan complet en HTML : fond (Infield / Warm-up teintés si autorisés), formes, repères du plan
 // choisi. allowedZones : numéros de zones autorisées, allumés dans la couleur accent ; les autres en gris.
-export function planBoxHtml(elements, { mapKey = "acc", crop = true, allowedZones = null, accent = PLAN_ZONE_RED } = {}) {
+export function planBoxHtml(elements, { mapKey = "acc", crop = true, allowedZones = null, accent = PLAN_ZONE_RED, lang = "fr" } = {}) {
   const shown = elements.filter((el) => el.maps?.[mapKey]);
   const isAllowed = (n) => !allowedZones || allowedZones.has(n);
   const base = planBaseSvg({
     crop,
+    lang,
     infield: allowedZones ? (isAllowed(1) ? `${accent}40` : "#eef1f4") : undefined,
     warmup: allowedZones ? (isAllowed(2) ? `${accent}40` : "#e6ebef") : undefined,
   });
@@ -282,7 +292,7 @@ export function planBoxHtml(elements, { mapKey = "acc", crop = true, allowedZone
         ? `width:${(el.w / PLAN_W) * 100}%;height:${(el.h / (crop ? PLAN_CROP.h : PLAN_H)) * 100}%;`
         : "";
       const color = el.kind === "zone" && allowedZones ? (isAllowed(el.num) ? accent : "#c3ccd3") : planColorOf(el);
-      return `<div class="coque-plan__el" style="left:${x}%;top:${y}%;${size}">${planMarkerHtml(el, color)}</div>`;
+      return `<div class="coque-plan__el" style="left:${x}%;top:${y}%;${size}">${planMarkerHtml(el, color, lang)}</div>`;
     })
     .join("");
   return `<div class="coque-plan${crop ? " coque-plan--crop" : ""}"><div class="coque-plan__layer">${base}</div><div class="coque-plan__layer">${planShapesSvg(shown, crop)}</div>${markers}</div>`;

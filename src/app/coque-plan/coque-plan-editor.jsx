@@ -33,6 +33,7 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
   const plan = useCoquePlan();
   const [elements, setElements] = useState(plan.elements);
   const [dirty, setDirty] = useState(false);
+  const [published, setPublished] = useState(plan.published);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [mapKey, setMapKey] = useState("web");
@@ -43,8 +44,11 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
 
   // Tant qu'on n'a rien modifié, on suit la version enregistrée (mises à jour des autres comprises).
   useEffect(() => {
-    if (!dirty) setElements(plan.elements);
-  }, [plan.elements, dirty]);
+    if (!dirty) {
+      setElements(plan.elements);
+      setPublished(plan.published);
+    }
+  }, [plan.elements, plan.published, dirty]);
 
   const selected = elements.find((el) => el.id === selectedId) || null;
   const currentMap = PLAN_MAPS.find((m) => m.key === mapKey);
@@ -74,7 +78,7 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
   async function save() {
     setSaving(true);
     try {
-      await saveCoquePlan(elements, currentUserLabel);
+      await saveCoquePlan(elements, currentUserLabel, published);
       setDirty(false);
       setMessage("Plan enregistré.");
     } catch (error) {
@@ -90,6 +94,7 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
 
   function cancel() {
     setElements(plan.elements);
+    setPublished(plan.published);
     setDirty(false);
     setMessage("Modifications annulées.");
   }
@@ -140,6 +145,10 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
             </button>
           ))}
         </div>
+        <label className="cpe-publish" title="Le plan « Site internet » s'affiche sur la page The Event du site">
+          <input type="checkbox" checked={published} onChange={(event) => { setPublished(event.target.checked); setDirty(true); setMessage(""); }} />
+          Publié sur le site
+        </label>
         <div className={`cpe-status ${dirty ? "is-dirty" : ""}`}>
           {plan.loading ? "Chargement…" : dirty ? message || "Modifications non enregistrées" : message || (plan.saved ? `Enregistré${savedAt ? ` le ${savedAt}` : ""}${plan.updatedBy ? ` par ${plan.updatedBy}` : ""}` : "Plan de départ (pas encore enregistré)")}
           {dirty ? <button type="button" className="cpe-btn" onClick={cancel} disabled={saving}>Annuler</button> : null}
@@ -269,6 +278,20 @@ function ElementDetail({ el, onPatch, onToggleMap, onDelete }) {
         <span>{el.kind === "ctrl" ? "Ce qu'on contrôle ici" : "Légende"} <small>{el.kind === "ctrl" ? "ex. accès Infield et Warm-up" : "le détail, à côté du plan"}</small></span>
         <textarea value={el.desc} onChange={(event) => onPatch({ desc: event.target.value })} />
       </label>
+      {el.kind !== "door" ? (
+        <>
+          <label className="cpe-field">
+            <span>Texte en anglais <small>site, badges, roadbook ; vide = texte ci-dessus</small></span>
+            <input type="text" value={el.labelEn || ""} maxLength={short ? 16 : 30} onChange={(event) => onPatch({ labelEn: event.target.value })} />
+          </label>
+          {el.kind !== "zone" ? (
+            <label className="cpe-field">
+              <span>Légende en anglais</span>
+              <textarea value={el.descEn || ""} onChange={(event) => onPatch({ descEn: event.target.value })} />
+            </label>
+          ) : null}
+        </>
+      ) : null}
       {el.kind === "mark" ? (
         <label className="cpe-field">
           <span>Affichage <small>une icône prend moins de place</small></span>

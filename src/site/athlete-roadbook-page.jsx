@@ -19,7 +19,8 @@ import {
 } from "../app/athlete-roadbook-shared";
 import cmcmLogo from "../assets/cmcm-logo.png";
 import waLogo from "../assets/wa-indoor-tour-silver.png";
-import accreditationPlanUrl from "../assets/accreditation-plan.png";
+import { useCoquePlan } from "../app/coque-plan/coque-plan-hooks";
+import { PlanCanvas } from "../app/coque-plan/coque-plan-view";
 import { AthleteHubSections } from "./athlete-hub-sections";
 import "./athlete-roadbook.css";
 
@@ -192,6 +193,7 @@ function AthleteRoadbookPage() {
   const language = "en";
   const { siteEditionYear, loading: siteYearLoading } = useSiteEditionYear();
   const { editions, loading: editionsLoading } = useMeetingEditions();
+  const { elements: coquePlanElements } = useCoquePlan();
   // { editionId, data, exists } du dernier snapshot reçu ; l'état affiché en est déduit.
   const [snapshotState, setSnapshotState] = useState(null);
   const [activeSection, setActiveSection] = useState(SECTION_IDS[0]);
@@ -312,9 +314,11 @@ function AthleteRoadbookPage() {
   const emergencyHref = roadbook.emergency.phone ? `tel:${roadbook.emergency.phone.replace(/[^\d+]/g, "")}` : "";
   const emergencyLabel = t(roadbook.emergency.label) || labels.emergency;
   const zones = splitLines(t(roadbook.venue.zones));
-  // Plan : celui du dos des badges d'accréditation (zones numérotées 1 à 6),
-  // sauf si un plan propre au roadbook a été choisi.
-  const planUrl = roadbook.venue.source === "custom" ? roadbook.venue.planImageUrl : accreditationPlanUrl;
+  // Plan : celui du dos des badges (Accréditations › Plans, zones numérotées), sauf si un plan
+  // propre au roadbook a été choisi.
+  const customPlan = roadbook.venue.source === "custom";
+  const planUrl = customPlan ? roadbook.venue.planImageUrl : "";
+  const hasPlan = customPlan ? Boolean(planUrl) : true;
   const callTimes = roadbook.callTimes.filter((row) => callTimeMatchesFilter(row, callTimeFilter));
   const extraTicketsUrl = roadbook.bookings.extraTicketsUrl;
   const head = (section, index) => <SectionHead index={index} eyebrow={section.eyebrow} title={section.title} />;
@@ -401,7 +405,7 @@ function AthleteRoadbookPage() {
           <section key={section.id} id="venue" className="rb-section">
             {head(section, index)}
             {t(roadbook.venue.intro) ? <LineList text={t(roadbook.venue.intro)} className="rb-lead" /> : null}
-            <div className={`rb-venue ${planUrl ? "" : "rb-venue--noplan"}`}>
+            <div className={`rb-venue ${hasPlan ? "" : "rb-venue--noplan"}`}>
               {zones.length ? (
                 <div className="rb-zones">
                   <h3>{labels.accessZones}</h3>
@@ -412,7 +416,12 @@ function AthleteRoadbookPage() {
                   </ol>
                 </div>
               ) : null}
-              {planUrl ? <img className="rb-plan" src={planUrl} alt={section.title} /> : null}
+              {customPlan && planUrl ? <img className="rb-plan" src={planUrl} alt={section.title} /> : null}
+              {!customPlan ? (
+                <div className="rb-plan rb-plan--coque" role="img" aria-label={section.title}>
+                  <PlanCanvas elements={coquePlanElements} mapKey="acc" crop lang="en" />
+                </div>
+              ) : null}
             </div>
           </section>
         );

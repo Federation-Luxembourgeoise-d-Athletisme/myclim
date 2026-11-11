@@ -6,7 +6,9 @@ import {
   PLAN_W,
   planBaseSvg,
   planColorOf,
+  planDesc,
   planIconSvg,
+  planLabel,
   planLegendItems,
   planPos,
   planShapesSvg,
@@ -14,24 +16,25 @@ import {
 import "./coque-plan.css";
 
 // Ce qui est posé sur le plan pour un repère : numéro de zone, icône, étiquette, flèche, contrôle.
-export function PlanMarker({ el, color = planColorOf(el) }) {
+export function PlanMarker({ el, color = planColorOf(el), lang = "fr" }) {
+  const label = planLabel(el, lang);
   if (el.kind === "zone") return <span className="cp-zone" style={{ background: color }}>{el.num}</span>;
-  if (el.kind === "ctrl") return <span className="cp-ctrl" style={{ background: color }}>{el.label}</span>;
+  if (el.kind === "ctrl") return <span className="cp-ctrl" style={{ background: color }}>{label}</span>;
   if (el.kind === "door") {
     return (
-      <span className="cp-door" style={{ background: color }} title={el.label}>
+      <span className="cp-door" style={{ background: color }} title={label}>
         <span style={{ display: "inline-block", transform: `rotate(${el.angle || 0}deg)` }}>➜</span>
       </span>
     );
   }
-  if (el.kind === "area" && el.shape) return <span className="cp-area-label" style={{ color }}>{el.label}</span>;
+  if (el.kind === "area" && el.shape) return <span className="cp-area-label" style={{ color }}>{label}</span>;
   if (el.kind === "area") {
-    return <span className="cp-area" style={{ background: `${color}1f`, borderColor: color, color }}>{el.label}</span>;
+    return <span className="cp-area" style={{ background: `${color}1f`, borderColor: color, color }}>{label}</span>;
   }
   if (PLAN_ICONS[el.icon]) {
-    return <span className="cp-picto" style={{ background: color }} title={el.label} dangerouslySetInnerHTML={{ __html: planIconSvg(el.icon) }} />;
+    return <span className="cp-picto" style={{ background: color }} title={label} dangerouslySetInnerHTML={{ __html: planIconSvg(el.icon) }} />;
   }
-  return <span className="cp-pill" style={{ background: color }}>{el.label}</span>;
+  return <span className="cp-pill" style={{ background: color }}>{label}</span>;
 }
 
 const areasFirst = (list) => [...list.filter((el) => el.kind === "area"), ...list.filter((el) => el.kind !== "area")];
@@ -40,12 +43,12 @@ const areasFirst = (list) => [...list.filter((el) => el.kind === "area"), ...lis
 // mapKey filtre les repères d'un des 4 plans ; sans mapKey (éditeur), tout est affiché et ce qui
 // n'est pas sur le plan courant passe en transparence via isGhost.
 export const PlanCanvas = forwardRef(function PlanCanvas(
-  { elements, mapKey, crop = false, base = {}, colorFor, isGhost, selectedId, className = "", onElementPointerDown, ...rest },
+  { elements, mapKey, crop = false, base = {}, colorFor, isGhost, selectedId, className = "", lang = "fr", onElementPointerDown, ...rest },
   ref,
 ) {
   const shown = mapKey ? elements.filter((el) => el.maps?.[mapKey]) : elements;
   const { infield, warmup } = base;
-  const baseHtml = useMemo(() => planBaseSvg({ infield, warmup, crop }), [infield, warmup, crop]);
+  const baseHtml = useMemo(() => planBaseSvg({ infield, warmup, crop, lang }), [infield, warmup, crop, lang]);
   const shapesHtml = planShapesSvg(mapKey ? shown : elements.filter((el) => !isGhost?.(el)), crop);
   return (
     <div ref={ref} className={`coque-plan ${crop ? "coque-plan--crop" : ""} ${className}`} {...rest}>
@@ -66,7 +69,7 @@ export const PlanCanvas = forwardRef(function PlanCanvas(
             data-id={el.id}
             onPointerDown={onElementPointerDown ? (event) => onElementPointerDown(event, el) : undefined}
           >
-            <PlanMarker el={el} color={colorFor ? colorFor(el) : planColorOf(el)} />
+            <PlanMarker el={el} lang={lang} color={colorFor ? colorFor(el) : planColorOf(el)} />
           </div>
         );
       })}
@@ -74,8 +77,8 @@ export const PlanCanvas = forwardRef(function PlanCanvas(
   );
 });
 
-export function PlanLegend({ elements, mapKey, compact = false }) {
-  const lines = planLegendItems(elements, mapKey);
+export function PlanLegend({ elements, mapKey, compact = false, lang = "fr" }) {
+  const lines = planLegendItems(elements, mapKey, lang);
   if (!lines.length) return null;
   return (
     <div className={`cp-legend ${compact ? "cp-legend--compact" : ""}`}>
@@ -85,14 +88,14 @@ export function PlanLegend({ elements, mapKey, compact = false }) {
             {el.kind === "area" && el.shape ? (
               <span className="cp-legend__swatch" style={{ background: el.bg === "piste" ? "#2f78c4" : `${el.color}55` }} />
             ) : (
-              <PlanMarker el={el} />
+              <PlanMarker el={el} lang={lang} />
             )}
           </span>
           <span className="cp-legend__text">
-            {el.kind === "zone" || PLAN_ICONS[el.icon] || el.kind === "area" ? <b>{el.label}</b> : null}
-            {el.kind === "ctrl" && !el.desc ? <em className="cp-legend__todo">à compléter : ce qu&apos;on contrôle ici</em> : null}
-            {el.desc ? <>{el.kind === "zone" || PLAN_ICONS[el.icon] || el.kind === "area" ? " — " : ""}{el.desc}</> : null}
-            {!el.desc && el.kind === "mark" && !PLAN_ICONS[el.icon] ? el.label : null}
+            {el.kind === "zone" || PLAN_ICONS[el.icon] || el.kind === "area" ? <b>{planLabel(el, lang)}</b> : null}
+            {el.kind === "ctrl" && !planDesc(el, lang) ? <em className="cp-legend__todo">{lang === "en" ? "to complete" : "à compléter : ce qu'on contrôle ici"}</em> : null}
+            {planDesc(el, lang) ? <>{el.kind === "zone" || PLAN_ICONS[el.icon] || el.kind === "area" ? " — " : ""}{planDesc(el, lang)}</> : null}
+            {!planDesc(el, lang) && el.kind === "mark" && !PLAN_ICONS[el.icon] ? planLabel(el, lang) : null}
             {where ? <small>{where}</small> : null}
           </span>
         </div>

@@ -304,7 +304,7 @@ function buildBadgePrintMarkup(items, options = {}) {
     const allowedZones = new Set(
       (item.zoneLabels || []).map((label) => Number.parseInt(String(label), 10)).filter(Number.isFinite),
     );
-    return planBoxHtml(planElements, { mapKey: "acc", crop: true, allowedZones, accent: "#1590cf" });
+    return planBoxHtml(planElements, { mapKey: "acc", crop: true, allowedZones, accent: "#1590cf", lang: "en" });
   };
 
   const renderLegendPills = (authorizedLabels = []) =>
