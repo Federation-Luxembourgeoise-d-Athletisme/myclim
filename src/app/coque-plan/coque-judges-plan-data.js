@@ -83,12 +83,12 @@ const FACILITY_SVG = {
 };
 const SHOT = { cx: 334, cy: 1095 };
 
-// Fond : le niveau 0 des plans de la Coque (murs, gradins, piste de 6 couloirs, warm-up teinté),
+// Fond : le niveau 0 des plans de la Coque (murs, gradins, piste de 6 couloirs, warm-up en bleu comme sur les autres plans),
 // cadré ; par-dessus, les aires de concours et les lignes.
 export function judgesPlanSvg(elements, lang = "fr") {
   const en = lang === "en";
   const viewBox = `${B.x} ${B.y} ${B.w} ${B.h}`;
-  const base = planBaseSvg({ lang, infield: "#e9eff5", warmup: "#f6ecb8" }).replace(/viewBox="[^"]*"/, `viewBox="${viewBox}"`);
+  const base = planBaseSvg({ lang, infield: "#e9eff5" }).replace(/viewBox="[^"]*"/, `viewBox="${viewBox}"`);
   const facilities = elements
     .filter((el) => el.kind === "facility" && !el.hidden)
     .map((el) => FACILITY_SVG[el.facility]?.(en) || "")
@@ -99,7 +99,7 @@ export function judgesPlanSvg(elements, lang = "fr") {
     .join("");
   return `${base}<svg viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
     ${facilities}${lines}
-    ${txt(150, 1250, "WARM-UP", { size: 22, fill: "#b8a24a", rot: -52 })}
+    ${txt(150, 1250, "WARM-UP", { size: 22, fill: "#7d93ad", rot: -52 })}
   </svg>`;
 }
 
