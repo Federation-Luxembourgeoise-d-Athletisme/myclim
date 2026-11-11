@@ -513,7 +513,7 @@ function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon
             ))}
           </div>
         </div>
-        <p className="cpe-empty">{tr("Le plan détaillé de l'infield (juges) viendra dans un onglet à part.", "The detailed infield plan (judges) will come in a separate tab.")}</p>
+        <p className="cpe-empty">{tr("Version détaillée, avec les juges : onglet Plan juges.", "Detailed version, with the judges: Plan juges tab.")}</p>
       </>
     );
   }

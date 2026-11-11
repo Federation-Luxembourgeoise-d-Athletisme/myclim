@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTr } from "../use-tr";
 import { useLanguage } from "../language-context";
 import { PLAN_ICONS, PLAN_LINE_STYLES, PLAN_PALETTE, planElTransform, planIconSvg, planShowsText } from "./coque-plan-data";
-import { JUDGES_BOX, JUDGES_FACILITIES, jAreaSize, jPoint, jText, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
+import { JUDGES_BOX, JUDGES_FACILITIES, JUDGES_LEVELS, jAreaSize, jOnTrack, jPoint, jText, judgesInsetSvg, judgesPlanSvg, teamColor } from "./coque-judges-plan-data";
 import { judgesPlanDefaults, saveJudgesPlan, useJudgesPlan } from "./coque-judges-plan-hooks";
 import { judgesPlanPrintHtml } from "./coque-judges-plan-print";
 import { RotationField } from "./coque-plan-editor";
@@ -77,7 +77,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     while (used.has(String(n))) n += 1;
     const id = newId("j");
     change((list) => [...list, {
-      id, kind: "judge", team: teamId, label: String(n), labelEn: "", desc: "", descEn: "",
+      id, kind: "judge", team: teamId, label: String(n), labelEn: "", desc: "", descEn: "", level: last?.level || "piste",
       x: last ? Math.min(97, last.x + 3) : 50, y: last ? last.y : 50,
     }]);
     setSelected({ type: "el", id });
@@ -89,7 +89,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   }
   function addElement(kind) {
     const id = newId(kind);
-    const base = { id, kind, x: 50, y: 50, desc: "", descEn: "", labelEn: "" };
+    const base = { id, kind, x: 50, y: 50, desc: "", descEn: "", labelEn: "", level: "piste" };
     const extra = kind === "line"
       ? { label: tr("Barrière", "Barrier"), color: "#4a5d6c", style: "barrier", dx: 50, dy: 0 }
       : kind === "area"
@@ -178,9 +178,10 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     event.preventDefault();
     event.stopPropagation();
     setSelected({ type: "el", id: el.id });
-    dragRef.current = { id: el.id, node: event.currentTarget, moved: false };
+    const canvas = event.currentTarget.closest(".judges-plan, .judges-inset");
+    dragRef.current = { id: el.id, node: event.currentTarget, canvas, moved: false };
     event.currentTarget.classList.add("is-dragging");
-    canvasRef.current?.setPointerCapture?.(event.pointerId);
+    canvas?.setPointerCapture?.(event.pointerId);
   }
   function onHandlePointerDown(event, el, sign) {
     event.preventDefault();
@@ -190,10 +191,9 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
     canvasRef.current?.setPointerCapture?.(event.pointerId);
   }
   function onPointerMove(event) {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
     const handle = handleRef.current;
-    if (handle) {
+    if (handle && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
       const px = JUDGES_BOX.x + Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)) * JUDGES_BOX.w;
       const py = JUDGES_BOX.y + Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)) * JUDGES_BOX.h;
       const round = (v) => Math.round(v * 10) / 10;
@@ -206,7 +206,8 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
       return;
     }
     const drag = dragRef.current;
-    if (!drag) return;
+    if (!drag?.canvas) return;
+    const rect = drag.canvas.getBoundingClientRect();
     drag.moved = true;
     drag.x = Math.round(Math.min(99, Math.max(1, ((event.clientX - rect.left) / rect.width) * 100)) * 100) / 100;
     drag.y = Math.round(Math.min(99, Math.max(1, ((event.clientY - rect.top) / rect.height) * 100)) * 100) / 100;
@@ -226,6 +227,29 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   const judges = elements.filter((el) => el.kind === "judge");
   const others = elements.filter((el) => ["area", "mark", "door", "line"].includes(el.kind));
   const drawn = [...others.filter((el) => el.kind === "area"), ...others.filter((el) => el.kind !== "area"), ...judges];
+  const insetHtml = useMemo(() => judgesInsetSvg(lang), [lang]);
+  const levelBadge = (el) => (jOnTrack(el) ? null : <span className="jpe-level" title={tr(...JUDGES_LEVELS.rdc)}>N0</span>);
+  const deselect = (event) => { if (event.target === event.currentTarget || event.target.closest(".coque-plan__layer")) setSelected(null); };
+  const renderItems = (list) => list.map((el) => {
+    const ghost = focusTeam && el.kind === "judge" && el.team !== focusTeam;
+    const classes = ["coque-plan__el", ghost ? "is-ghost" : "", selected?.id === el.id ? "is-selected" : ""].join(" ");
+    const size = el.kind === "area" ? jAreaSize(el) : {};
+    return (
+      <div
+        key={el.id}
+        className={classes}
+        style={{ left: `${el.x}%`, top: `${el.y}%`, ...size, transform: el.kind === "judge" ? undefined : planElTransform(el) }}
+        title={el.kind === "judge" ? `${jText(teams.find((t) => t.id === el.team), "label", lang)} · ${jText(el, "desc", lang)}` : undefined}
+        onPointerDown={(event) => onElementPointerDown(event, el)}
+      >
+        {el.kind === "judge" ? (
+          <span className="cp-judge" style={{ background: teamColor(teams, el.team) }}>{jText(el, "label", lang)}</span>
+        ) : (
+          <PlanMarker el={el} lang={lang} color={el.color} />
+        )}
+      </div>
+    );
+  });
 
   const savedAt = formatSavedAt(plan.updatedAt);
   const savedNote = plan.saved
@@ -274,7 +298,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
                 {rows.map((el) => (
                   <div key={el.id} className={`jpe-row ${selected?.id === el.id ? "is-selected" : ""}`} onClick={() => setSelected({ type: "el", id: el.id })}>
                     <span className="cp-judge cp-judge--chip" style={{ background: team.color }}>{jText(el, "label", lang)}</span>
-                    <span className="cpe-row__name">{jText(el, "desc", lang) || <em>{tr("rôle à préciser", "role to set")}</em>}</span>
+                    <span className="cpe-row__name">{jText(el, "desc", lang) || <em>{tr("rôle à préciser", "role to set")}</em>}{levelBadge(el)}</span>
                   </div>
                 ))}
               </div>
@@ -304,7 +328,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
                   {el.kind === "door" ? "➜" : ""}
                 </span>
               )}
-              <span className="cpe-row__name">{jText(el, "label", lang)}</span>
+              <span className="cpe-row__name">{jText(el, "label", lang)}{levelBadge(el)}</span>
             </div>
           ))}
           <div className="cpe-adds">
@@ -322,28 +346,9 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
             {focusTeam ? <button type="button" className="cpe-link" onClick={() => setSelected(null)}>{tr("Tout afficher", "Show all")}</button> : null}
           </div>
           <div className="cpe-canvas jpe-canvas" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-            <div ref={canvasRef} className="judges-plan" onPointerDown={(event) => { if (event.target === event.currentTarget || event.target.closest(".coque-plan__layer")) setSelected(null); }}>
+            <div ref={canvasRef} className="judges-plan" onPointerDown={deselect}>
               <div className="coque-plan__layer" dangerouslySetInnerHTML={{ __html: baseHtml }} />
-              {drawn.map((el) => {
-                const ghost = focusTeam && el.kind === "judge" && el.team !== focusTeam;
-                const classes = ["coque-plan__el", ghost ? "is-ghost" : "", selected?.id === el.id ? "is-selected" : ""].join(" ");
-                const size = el.kind === "area" ? jAreaSize(el) : {};
-                return (
-                  <div
-                    key={el.id}
-                    className={classes}
-                    style={{ left: `${el.x}%`, top: `${el.y}%`, ...size, transform: el.kind === "judge" ? undefined : planElTransform(el) }}
-                    title={el.kind === "judge" ? `${jText(teams.find((t) => t.id === el.team), "label", lang)} · ${jText(el, "desc", lang)}` : undefined}
-                    onPointerDown={(event) => onElementPointerDown(event, el)}
-                  >
-                    {el.kind === "judge" ? (
-                      <span className="cp-judge" style={{ background: teamColor(teams, el.team) }}>{jText(el, "label", lang)}</span>
-                    ) : (
-                      <PlanMarker el={el} lang={lang} color={el.color} />
-                    )}
-                  </div>
-                );
-              })}
+              {renderItems(drawn.filter(jOnTrack))}
               {selectedEl?.kind === "line"
                 ? [-1, 1].map((sign) => {
                     const { X, Y } = jPoint(selectedEl);
@@ -361,6 +366,18 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
                     );
                   })
                 : null}
+            </div>
+          </div>
+          <div className="jpe-inset">
+            <div className="jpe-inset__head">
+              <b>{tr("Niveau 0 (arcades)", "Level 0 (arcades)")}</b>
+              <span>{tr("salle des juges, chambres d'appel : à l'étage de l'entrée, pas au niveau de la piste", "judges' room, call rooms: on the entrance floor, not at track level")}</span>
+            </div>
+            <div className="cpe-canvas jpe-inset__canvas" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+              <div className="judges-inset" onPointerDown={deselect}>
+                <div className="coque-plan__layer" dangerouslySetInnerHTML={{ __html: insetHtml }} />
+                {renderItems(drawn.filter((el) => !jOnTrack(el)))}
+              </div>
             </div>
           </div>
         </section>
@@ -557,6 +574,14 @@ function ElementDetail({ el, teams, onPatch, onDuplicate, onDelete }) {
           <ColorField value={el.color} onChange={(color) => onPatch({ color })} />
         </>
       )}
+      {el.kind !== "line" ? (
+        <label className="cpe-field">
+          <span>{tr("Niveau", "Level")} <small>{tr("niveau 0 = dans l'encart sous le plan", "level 0 = in the inset under the plan")}</small></span>
+          <select value={el.level || "piste"} onChange={(event) => onPatch({ level: event.target.value, x: 50, y: 50 })}>
+            {Object.entries(JUDGES_LEVELS).map(([key, [fr, en]]) => <option key={key} value={key}>{tr(fr, en)}</option>)}
+          </select>
+        </label>
+      ) : null}
       <div className="jpe-actions">
         <button type="button" className="cpe-btn" onClick={onDuplicate}>{tr("Dupliquer", "Duplicate")}</button>
         <button type="button" className="cpe-btn cpe-btn--danger" onClick={onDelete}>{tr("Supprimer", "Delete")}</button>

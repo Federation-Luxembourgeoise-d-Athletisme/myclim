@@ -170,7 +170,7 @@ export const PLAN_DEFAULT_ELEMENTS = [
 const KINDS = ["zone", "mark", "area", "door", "ctrl", "facility", "line"];
 
 // Aires de la piste (dessinées dans l'infield, à afficher ou non sur chaque plan, comme un repère).
-// Positions fixes, en unités du plan. Le plan détaillé de l'infield (juges) viendra plus tard.
+// Positions fixes, en unités du plan. Version détaillée : Accréditations › Plan juges.
 const TRACK_BLUE = "#6f9fd4";
 const SAND = "#e8d39e";
 const MAT = "#34558b";
@@ -189,23 +189,26 @@ const FACILITY_SVG = {
     return `<rect x="${x0}" y="560" width="72" height="565" fill="${TRACK_BLUE}" /><g stroke="#fff" stroke-width="1.1">${lanes}</g>
       <line x1="${x0}" y1="1105" x2="${x0 + 72}" y2="1105" stroke="#fff" stroke-width="2.5" /><line x1="${x0}" y1="601" x2="${x0 + 72}" y2="601" stroke="#fff" stroke-width="3.5" />`;
   },
-  long: () => `<rect x="478" y="610" width="10" height="378" fill="${TRACK_BLUE}" /><rect x="478" y="984" width="10" height="4" fill="#fff" />
-    <rect x="471" y="1000" width="24" height="76" rx="2" fill="${SAND}" stroke="#c4a86a" stroke-width="1.5" />`,
+  // Sens vérifié sur le plan d'architecte (R-1) : fosse de la longueur côté arrivée du 60 m,
+  // tapis de la perche côté départ, cercle du poids côté départ (lancer vers l'arrivée),
+  // hauteur côté arrivée, tapis contre le bord gauche et élan ouvert vers le 60 m.
+  long: () => `<rect x="478" y="658" width="10" height="442" fill="${TRACK_BLUE}" /><rect x="478" y="673" width="10" height="4" fill="#fff" />
+    <rect x="471" y="582" width="24" height="76" rx="2" fill="${SAND}" stroke="#c4a86a" stroke-width="1.5" />`,
   pole: () => `<rect x="512" y="640" width="10" height="362" fill="${TRACK_BLUE}" /><path d="M513 1002h8l-4 7z" fill="#4a5d6c" />
     <rect x="497" y="1010" width="40" height="40" rx="3" fill="${MAT}" />`,
   shot: () => {
-    const cx = 336;
-    const cy = 650;
+    const cx = 334;
+    const cy = 1095;
     const a = (17.46 * Math.PI) / 180;
-    const L = 150;
+    const L = 140;
     const ex = L * Math.sin(a);
-    const ey = cy + L * Math.cos(a);
+    const ey = cy - L * Math.cos(a);
     return `<path d="M${cx} ${cy} L${cx - ex} ${ey} M${cx} ${cy} L${cx + ex} ${ey}" stroke="#5f7f9f" stroke-width="1.6" fill="none" />
-      <path d="M${cx - ex} ${ey} Q${cx} ${ey + 14} ${cx + ex} ${ey}" stroke="#5f7f9f" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-      <circle cx="${cx}" cy="${cy}" r="9" fill="#c9d3db" stroke="#4a5d6c" stroke-width="1.6" /><path d="M${cx - 6} ${cy + 10}h12" stroke="#fff" stroke-width="2.5" />`;
+      <path d="M${cx - ex} ${ey} Q${cx} ${ey - 14} ${cx + ex} ${ey}" stroke="#5f7f9f" stroke-width="1" stroke-dasharray="4 4" fill="none" />
+      <circle cx="${cx}" cy="${cy}" r="9" fill="#c9d3db" stroke="#4a5d6c" stroke-width="1.6" /><path d="M${cx - 6} ${cy - 10}h12" stroke="#fff" stroke-width="2.5" />`;
   },
-  high: () => `<path d="M296 1000 L296 920 A40 40 0 0 1 376 920 L376 1000 Z" fill="${TRACK_BLUE}" fill-opacity=".55" />
-    <rect x="316" y="956" width="40" height="24" rx="2" fill="${MAT}" /><path d="M312 953h48" stroke="#fff" stroke-width="2" /><circle cx="312" cy="953" r="2.2" fill="#4a5d6c" /><circle cx="360" cy="953" r="2.2" fill="#4a5d6c" />`,
+  high: () => `<path d="M328 735 L384 662 L384 848 L328 775 Z" fill="${TRACK_BLUE}" fill-opacity=".55" />
+    <rect x="296" y="735" width="30" height="40" rx="2" fill="${MAT}" /><path d="M329 732v46" stroke="#fff" stroke-width="2" /><circle cx="329" cy="732" r="2.2" fill="#4a5d6c" /><circle cx="329" cy="778" r="2.2" fill="#4a5d6c" />`,
 };
 // Aires absentes d'un plan enregistré avant leur arrivée : ajoutées, masquées partout.
 const DEFAULT_FACILITIES = Object.keys(PLAN_FACILITIES).map((key) => ({ id: `fac-${key}`, kind: "facility", facility: key, label: PLAN_FACILITIES[key].label, labelEn: PLAN_FACILITIES[key].en, maps: {} }));
