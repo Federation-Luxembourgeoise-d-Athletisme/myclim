@@ -1,0 +1,106 @@
+/* Accréditations › Contrôles : points de contrôle ↔ zones du badge (compact) */
+
+.ctl { display: grid; gap: 10px; }
+.ctl-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.ctl-intro { margin: 0; font-size: 12.5px; color: #4a5d6c; max-width: 720px; line-height: 1.45; }
+.ctl-status { display: inline-flex; gap: 8px; align-items: center; font-size: 12.5px; color: #4a5d6c; }
+.ctl-status.is-dirty { color: #b45309; }
+
+.ctl-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .ctl-layout { grid-template-columns: 1fr; } }
+.ctl-card { background: #fff; border: 1px solid #e3e9ee; border-radius: 8px; padding: 10px; overflow-x: auto; }
+
+.ctl-matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ctl-matrix th { font-weight: 600; color: #6c7f8d; padding: 4px 4px 6px; border-bottom: 1px solid #e3e9ee; vertical-align: bottom; text-align: center; }
+.ctl-matrix th small { display: block; font-size: 10.5px; font-weight: 500; max-width: 74px; margin: 3px auto 0; line-height: 1.15; }
+.ctl-matrix td { padding: 3px 4px; border-bottom: 1px solid #f0f3f6; }
+.ctl-matrix tbody tr { cursor: pointer; }
+.ctl-matrix tbody tr:hover { background: #f6f8fa; }
+.ctl-matrix tbody tr.is-selected { background: #e6f3fb; }
+.ctl-matrix__name { text-align: left !important; min-width: 200px; }
+.ctl-matrix td.ctl-matrix__name { display: flex; gap: 8px; align-items: center; }
+.ctl-zone {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #c8102e;
+  color: #fff;
+  font: 800 12px/1 "Barlow Condensed", Arial, sans-serif;
+}
+.ctl-letter {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #0a2540;
+  color: #fff;
+  font: 800 12px/1 "Barlow Condensed", Arial, sans-serif;
+}
+.ctl-letter--lg { width: 34px; height: 34px; border-radius: 6px; font-size: 20px; }
+.ctl-where { color: #4a5d6c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.ctl-where em { color: #b45309; font-style: normal; }
+.ctl-cell { text-align: center; }
+.ctl-tick {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #cfd8df;
+  border-radius: 4px;
+  background: #fff;
+  color: #fff;
+  font: 800 13px/1 Arial, sans-serif;
+  cursor: pointer;
+}
+.ctl-tick:hover:not(:disabled) { border-color: #0b1b2b; }
+.ctl-tick.is-on { background: #0b1b2b; border-color: #0b1b2b; }
+.ctl-tick:disabled { cursor: default; }
+.ctl-foot { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 10px; }
+.ctl-warn { font-size: 12px; color: #b45309; }
+.ctl-hint { margin: 8px 0 0; font-size: 11.5px; color: #8a9aa7; line-height: 1.4; }
+.ctl-empty { margin: 8px 0 0; font-size: 12.5px; color: #8a9aa7; }
+
+.ctl-matrix__types { text-align: left !important; min-width: 120px; }
+.ctl-matrix td.ctl-matrix__types { display: table-cell; }
+.ctl-zone--lg { width: 30px; height: 30px; font-size: 18px; }
+
+/* Types de badge : pastille couleur de la catégorie */
+.ctl-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 1px 3px 1px 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #0b1b2b;
+  white-space: nowrap;
+}
+.ctl-type::before { content: ""; width: 10px; height: 7px; border-radius: 2px; background: var(--type); }
+.ctl-type-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.ctl-type--btn {
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid #d6dee5;
+  border-radius: 5px;
+  background: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+.ctl-type--btn:hover:not(:disabled) { border-color: #9fb0bd; }
+.ctl-type--btn.is-on { border-color: #0b1b2b; background: #0b1b2b; color: #fff; }
+.ctl-type--btn:disabled { cursor: default; }
+
+.ctl-detail__head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #e3e9ee; }
+.ctl-detail__head h3 { margin: 0; font-size: 13.5px; color: #0b1b2b; }
+.ctl-rule { border-radius: 6px; padding: 7px 10px; margin-bottom: 6px; border-left: 3px solid; }
+.ctl-rule.is-yes { background: #eaf6f0; border-color: #0f8a5f; }
+.ctl-rule.is-no { background: #fbeced; border-color: #c8102e; }
+.ctl-rule h4 { margin: 0 0 4px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #4a5d6c; }
+.ctl-nums { display: flex; flex-wrap: wrap; gap: 5px; }
+.ctl-rule__or { margin: 4px 0 0; font-size: 12.5px; color: #0b1b2b; }
+.ctl-types { display: grid; gap: 5px; margin-top: 10px; }
+.ctl-types > span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6c7f8d; }
+.ctl-types small { font-size: 11px; color: #8a9aa7; text-transform: none; letter-spacing: 0; font-weight: 500; }

@@ -59,15 +59,27 @@
   border-width: 1.5px;
 }
 .cp-picto svg { width: 62%; height: 62%; display: block; }
+.cp-picto img { width: 72%; height: 72%; display: block; object-fit: contain; pointer-events: none; }
+/* Icône perso gardée en couleurs : rond blanc cerclé */
+.cp-picto--img { box-shadow: 0 0 0 1px #c9d3db, 0 1px 4px rgba(0, 0, 0, 0.3); }
 .cp-pill {
   display: inline-block;
   padding: 4px 9px;
   border-radius: 999px;
   color: #fff;
-  font: 700 12px/1 Barlow, Arial, sans-serif;
+  /* ♀ ♂ en texte, pas en emoji (sinon l'étiquette grossit selon le système) */
+  font: 700 12px/1 Barlow, Arial, "Segoe UI Symbol", sans-serif;
+  font-variant-emoji: text;
   border: 2px solid #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
+/* Icône + texte : l'icône dans l'étiquette, à gauche */
+.cp-pill--icon { display: inline-flex; align-items: center; gap: 4px; padding-left: 4px; }
+.cp-pill__ico { width: 14px; height: 14px; display: grid; place-items: center; border-radius: 50%; flex: none; }
+.cp-pill__ico.is-img { background: #fff; }
+.cp-pill__ico svg,
+.cp-pill__ico img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.cp-pill__ico.is-img img { width: 78%; height: 78%; }
 .cp-area {
   display: grid;
   place-items: center;
@@ -105,6 +117,25 @@
 .cp-legend__key .cp-picto { border-width: 0; box-shadow: none; }
 .cp-legend__key .cp-pill { padding: 3px 7px; font-size: 11px; border-width: 0; box-shadow: none; }
 .cp-legend__key .cp-area { width: 20px; height: 14px; font-size: 0; }
+.cp-legend__line { width: 22px; height: 0; margin-top: 8px; border-top: 4px solid var(--line); }
+.cp-legend__line[data-style="separation"] { border-top: 3px dashed var(--line); }
+.cp-legend__line[data-style="rope"] { border-top-width: 2px; }
+/* Ligne : poignée de déplacement, seulement dans l'éditeur */
+.cp-line-grip { display: none; }
+.cpe-canvas .cp-line-grip { display: block; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid #0b1b2b; }
+.cpe-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 2px;
+  background: #0d8fd3;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #0d8fd3;
+  cursor: crosshair;
+  z-index: 6;
+  touch-action: none;
+}
 .cp-legend__swatch { width: 20px; height: 14px; border-radius: 4px; display: inline-block; }
 .cp-legend__text { color: #4a5d6c; padding-top: 2px; }
 .cp-legend__text b { color: #0b1b2b; font-weight: 700; }
@@ -220,7 +251,10 @@
 .cpe-canvas { width: min(100%, 540px); margin: 0 auto; touch-action: none; }
 .cpe-canvas .coque-plan__el { cursor: grab; }
 .cpe-canvas .coque-plan__el.is-dragging { cursor: grabbing; z-index: 10; }
-.cpe-canvas .coque-plan__el.is-selected > * { outline: 2px solid #0d8fd3; outline-offset: 2px; }
+/* Sélection : un liseré collé au repère (il ne doit pas le faire paraître plus gros que les autres),
+   et le repère passe au-dessus de ses voisins */
+.cpe-canvas .coque-plan__el.is-selected { z-index: 5; }
+.cpe-canvas .coque-plan__el.is-selected > * { outline: 1.5px solid #0d8fd3; outline-offset: 0; }
 .cpe-legend { border-top: 1px solid #e3e9ee; padding: 10px 12px 12px; }
 
 .cpe-detail .cpe-field { display: grid; gap: 3px; margin-bottom: 8px; }
@@ -250,6 +284,55 @@
 .cpe-colors { display: flex; flex-wrap: wrap; gap: 5px; }
 .cpe-colors button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #cfd8df; padding: 0; cursor: pointer; }
 .cpe-colors button.is-on { box-shadow: 0 0 0 2px #0b1b2b; }
+/* Choix de l'affichage : grille d'icônes compacte */
+.cpe-icons { display: grid; grid-template-columns: repeat(auto-fill, 26px); gap: 4px; }
+.cpe-icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #e3e9ee;
+  border-radius: 5px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.cpe-icon:hover { border-color: #9fb0bd; }
+.cpe-icon.is-on { border-color: #0b1b2b; box-shadow: 0 0 0 1px #0b1b2b; }
+.cpe-icon > span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font: 800 9px/1 Barlow, Arial, sans-serif;
+}
+.cpe-icon > span svg { width: 66%; height: 66%; display: block; }
+.cpe-icon > span img { width: 72%; height: 72%; display: block; object-fit: contain; }
+.cpe-icon.is-custom > span { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.cpe-icon.is-text > span { color: #0b1b2b; font-size: 10px; width: auto; border-radius: 0; }
+.cpe-icon.is-add { border-style: dashed; color: #6c7f8d; }
+.cpe-icon.is-add > span { color: #4a5d6c; font: 600 16px/1 inherit; font-family: inherit; }
+.cpe-icons__name { font-style: normal; font-size: 11.5px; color: #6c7f8d; }
+.cpe-error { font-style: normal; font-size: 11.5px; color: #b0101c; }
+.cpe-custom { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding: 6px; background: #f6f8fa; border-radius: 5px; }
+.cpe-custom input[type="text"] { height: 26px; font-size: 12.5px; }
+.cpe-custom label { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: #0b1b2b; cursor: pointer; }
+.cpe-custom input[type="checkbox"] { height: auto; }
+.cpe-link { grid-column: 1 / -1; justify-self: start; border: 0; background: none; padding: 0; font: 600 11.5px/1.2 inherit; font-family: inherit; color: #0d8fd3; cursor: pointer; }
+.cpe-link--danger { color: #b0101c; }
+
+/* Rotation d'une étiquette */
+.cpe-rotate { display: grid; grid-template-columns: 1fr 58px; gap: 4px 6px; align-items: center; }
+.cpe-rotate input[type="range"] { height: 20px; padding: 0; border: 0; accent-color: #0b1b2b; }
+.cpe-rotate input[type="number"] { height: 26px; width: 58px; }
+.cpe-seg { grid-column: 1 / -1; display: flex; border: 1px solid #d6dee5; border-radius: 5px; overflow: hidden; }
+.cpe-seg button { flex: 1; border: 0; border-right: 1px solid #d6dee5; background: #fff; padding: 3px 0; font: 600 11px/1.2 inherit; font-family: inherit; color: #4a5d6c; cursor: pointer; }
+.cpe-seg button:last-child { border-right: 0; }
+.cpe-seg--inline { margin-top: 2px; }
+.cpe-seg button.is-on { background: #0b1b2b; color: #fff; }
+
 .cpe-checks { display: grid; gap: 3px; font-size: 13px; }
 .cpe-checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .cpe-empty { font-size: 12.5px; color: #8a9aa7; line-height: 1.45; margin: 0; }
@@ -270,3 +353,7 @@
 @media (max-width: 760px) {
   .site-venue-map { grid-template-columns: 1fr; }
 }
+
+/* Éditeur : lignes et aires de la piste dans la liste */
+.cpe-chip.is-line { height: 4px; border-radius: 1px; }
+.cpe-facility-name { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #0b1b2b; }

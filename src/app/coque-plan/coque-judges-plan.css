@@ -1,0 +1,92 @@
+/* Plan de l'infield pour les juges (Accréditations › Plan juges). Reprend les classes des plans de la Coque. */
+
+.judges-plan {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 620 / 880;
+  user-select: none;
+}
+.cp-judge {
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  color: #fff;
+  border: 1.5px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  font: 800 11px/1 "Barlow Condensed", Arial, sans-serif;
+}
+.cp-judge--chip { min-width: 16px; height: 16px; border-width: 0; box-shadow: none; font-size: 10px; }
+
+.jpe-title { display: grid; gap: 1px; }
+.jpe-title b { font-size: 14px; color: #0b1b2b; }
+.jpe-title span { font-size: 12px; color: #6c7f8d; }
+.jpe .cpe-status { margin-left: auto; }
+.jpe-canvas { width: min(100%, 620px); }
+.jpe-canvas .judges-plan { cursor: default; }
+
+.jpe-list { max-height: calc(100vh - 220px); overflow: auto; }
+.jpe-h3 { margin-top: 14px !important; }
+.jpe-team { margin-bottom: 4px; }
+.jpe-team__head {
+  display: grid;
+  grid-template-columns: 12px 1fr auto 20px;
+  gap: 6px;
+  align-items: center;
+  padding: 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0b1b2b;
+}
+.jpe-team__head small { color: #8a9aa7; font-weight: 600; }
+.jpe-team__head:hover { background: #f2f5f8; }
+.jpe-team__head.is-selected { background: #e6f3fb; }
+.jpe-swatch { width: 12px; height: 12px; border-radius: 50%; }
+.jpe-add {
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid #d6dee5;
+  border-radius: 4px;
+  background: #fff;
+  color: #4a5d6c;
+  font: 700 13px/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.jpe-add:hover { border-color: #0b1b2b; color: #0b1b2b; }
+.jpe-row {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 4px 2px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #4a5d6c;
+}
+.jpe-row:hover { background: #f2f5f8; }
+.jpe-row.is-selected { background: #e6f3fb; color: #0b1b2b; }
+.jpe-row em { color: #b45309; font-style: normal; }
+.jpe-facilities { font-size: 12.5px; }
+.jpe-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.jpe-pair input { min-width: 0; }
+.jpe-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+/* Zones : le texte peut passer sur deux lignes ; listes déroulantes sans texte rogné */
+.judges-plan .coque-plan__el:has(.cp-area) { white-space: normal; }
+.judges-plan .cp-area { padding: 2px; line-height: 1.05; }
+.jpe .cpe-field select { padding-top: 0; padding-bottom: 0; line-height: 28px; }
+
+/* Encart niveau 0 (arcades) : salle des juges, chambres d'appel */
+.judges-inset { position: relative; width: 100%; aspect-ratio: 900 / 740; user-select: none; }
+.jpe-inset { border-top: 1px solid #e3e9ee; padding: 8px 10px 10px; display: grid; gap: 6px; }
+.jpe-inset__head { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 12.5px; color: #6c7f8d; }
+.jpe-inset__head b { color: #0b1b2b; }
+.jpe-inset__canvas { width: min(100%, 420px); border: 1px solid #e3e9ee; border-radius: 6px; overflow: hidden; }
+.jpe-level { margin-left: 5px; padding: 0 4px; border-radius: 3px; background: #f1ebfd; color: #7a4fd0; font: 800 9.5px/14px inherit; font-family: inherit; }
