@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import {
+  NATIONAL_RACE_DEFINITIONS,
   NATIONAL_RACE_MAIL_TEMPLATES_DOC_PATH,
   NATIONAL_RACE_REQUESTS_COLLECTION,
   normalizeNationalRaceMailTemplates,
 } from "./national-races-helpers";
+import { NATIONAL_RACE_CONFIG_COLLECTION, normalizeNationalRaceConfig } from "./national-races-heats";
 import { getTimestampMs } from "./u14-helpers";
 import { recordMatchesEdition, useActiveEdition } from "./edition";
 import { db } from "../services/firebase";
@@ -75,4 +77,26 @@ function useNationalRaceMailTemplates(enabled = true) {
   return { templates, error };
 }
 
-export { useNationalRaceMailTemplates, useNationalRaceRequests };
+// Réglage des séries / couloirs par course pour l'édition active
+// (nationalRaceConfigs/{édition}), fixé par un admin.
+function useNationalRaceConfig(editionId, enabled = true) {
+  const [config, setConfig] = useState(() => normalizeNationalRaceConfig(null, NATIONAL_RACE_DEFINITIONS));
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!enabled || !editionId) return undefined;
+
+    return onSnapshot(
+      doc(db, NATIONAL_RACE_CONFIG_COLLECTION, String(editionId)),
+      (snapshot) => {
+        setConfig(normalizeNationalRaceConfig(snapshot.exists() ? snapshot.data() : null, NATIONAL_RACE_DEFINITIONS));
+        setError("");
+      },
+      () => setError("Impossible de charger le réglage des séries."),
+    );
+  }, [editionId, enabled]);
+
+  return { config, error };
+}
+
+export { useNationalRaceConfig, useNationalRaceMailTemplates, useNationalRaceRequests };
