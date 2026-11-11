@@ -16,7 +16,7 @@ const MAT = "#34558b";
 const INK = "#34558b";
 
 export const JUDGES_FACILITIES = {
-  details: { label: "Sièges, escaliers, pièces (plan d'architecte)", en: "Seats, stairs, rooms (architect plan)" },
+  details: { label: "Bâtiment de la salle des juges (plan d'architecte)", en: "Judges' room building (architect plan)" },
   sprint: { label: "Ligne droite du 60 m", en: "60 m straight" },
   pole: { label: "Perche", en: "Pole vault" },
   long: { label: "Longueur / triple", en: "Long / triple jump" },
@@ -29,7 +29,7 @@ const txt = (x, y, text, { size = 8, fill = INK, rot = 0, weight = 800, anchor =
 
 // Aires dessinées en détail (mêmes positions que les versions simplifiées de coque-plan-data.js).
 const FACILITY_SVG = {
-  // Sièges des gradins, escaliers, équipements des pièces : chargés à part (coque-plan-details.js)
+  // Bâtiment de la salle des juges en détail (plan d'architecte) : chargé à part (coque-plan-details.js)
   details: (en, details) => (details ? `<path d="${details}" fill="none" stroke="#7d8d99" stroke-width=".45" stroke-linejoin="round" />` : ""),
   // 8 couloirs de 9 unités, départ en bas (y 1105), arrivée 60 m plus haut (y 601), dégagement au-delà
   sprint: (en) => {

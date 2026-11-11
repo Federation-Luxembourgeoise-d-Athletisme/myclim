@@ -37,7 +37,7 @@ export function JudgesPlanEditor({ currentUserLabel = "" }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState(null); // { type: "el" | "team", id }
-  // Sièges, escaliers et pièces du plan d'architecte : un gros tracé, chargé à part
+  // Bâtiment de la salle des juges (plan d'architecte) : tracé chargé à part
   const [details, setDetails] = useState("");
   useEffect(() => {
     let alive = true;
