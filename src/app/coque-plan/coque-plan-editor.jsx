@@ -21,6 +21,7 @@ import {
   planShowsText,
 } from "./coque-plan-data";
 import { saveCoquePlan, useCoquePlan } from "./coque-plan-hooks";
+import { syncPlanZones } from "./plan-zone-sync";
 import { ICON_FILE_TYPES, processIconFile } from "./coque-plan-icon-upload";
 import { PlanCanvas, PlanLegend } from "./coque-plan-view";
 
@@ -60,7 +61,9 @@ function formatSavedAt(value) {
 
 // Éditeur des plans de la Coque : un seul jeu de repères, coché pour chacun des 4 plans.
 // Les modifications restent locales jusqu'à « Enregistrer » (plusieurs personnes peuvent éditer).
-export function CoquePlanEditor({ currentUserLabel = "" }) {
+// accreditationZones : la liste des zones des accréditations (numéro + nom),
+// qui fait foi pour les repères « zone » (plan-zone-sync.js).
+export function CoquePlanEditor({ currentUserLabel = "", accreditationZones = [] }) {
   const tr = useTr();
   const plan = useCoquePlan();
   const [elements, setElements] = useState(plan.rawElements);
@@ -86,7 +89,10 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
   }, [plan.rawElements, plan.icons, plan.published, dirty]);
 
   // Repères avec l'image de leur icône perso, pour l'affichage
-  const shownElements = useMemo(() => attachPlanIcons(elements, icons), [elements, icons]);
+  const shownElements = useMemo(
+    () => syncPlanZones(attachPlanIcons(elements, icons), accreditationZones),
+    [elements, icons, accreditationZones],
+  );
   const selected = shownElements.find((el) => el.id === selectedId) || null;
   const currentMap = PLAN_MAPS.find((m) => m.key === mapKey);
   const mapLabel = (m) => tr(m.label, MAP_LABELS_EN[m.key]);
@@ -124,7 +130,8 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
     setSaving(true);
     try {
       // Les icônes perso que plus aucun repère n'utilise restent dans la bibliothèque (réutilisables)
-      await saveCoquePlan(elements, currentUserLabel, published, icons);
+      // Les zones gardent le nom de la liste des accréditations.
+      await saveCoquePlan(syncPlanZones(elements, accreditationZones), currentUserLabel, published, icons);
       setDirty(false);
       setMessage(tr("Plan enregistré.", "Map saved."));
     } catch (error) {
@@ -329,6 +336,7 @@ export function CoquePlanEditor({ currentUserLabel = "" }) {
               el={selected}
               icons={icons}
               onPatch={(values) => patch(selected.id, values)}
+              zones={accreditationZones}
               onToggleMap={(key) => toggleMap(selected.id, key)}
               onAddIcon={(icon) => { changeIcons((list) => [...list, icon]); patch(selected.id, { icon: `${CUSTOM_ICON_PREFIX}${icon.id}` }); }}
               onPatchIcon={(id, values) => changeIcons((list) => list.map((icon) => (icon.id === id ? { ...icon, ...values } : icon)))}
@@ -495,7 +503,7 @@ export function RotationField({ value, onChange }) {
   );
 }
 
-function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon, onDeleteIcon, onDelete }) {
+function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon, onDeleteIcon, onDelete, zones = [] }) {
   const tr = useTr();
   const short = el.kind === "mark" || el.kind === "area" || el.kind === "line";
   // Aire de la piste : dessin fixe, on choisit seulement sur quels plans elle apparaît
@@ -528,7 +536,35 @@ function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon
           </select>
         </label>
       ) : null}
-      {el.kind === "zone" ? (
+      {el.kind === "zone" && zones.length ? (
+        <label className="cpe-field">
+          <span>
+            {tr("Zone", "Zone")} <small>{tr("liste des zones des accréditations", "accreditation zone list")}</small>
+          </span>
+          <select
+            value={el.num}
+            onChange={(event) => {
+              const zone = zones.find((item) => Number(item.order) === Number(event.target.value));
+              onPatch({ num: Number(event.target.value), label: zone?.name || el.label, labelEn: "" });
+            }}
+          >
+            {zones.some((zone) => Number(zone.order) === Number(el.num)) ? null : (
+              <option value={el.num}>{tr(`${el.num} · aucune zone de ce numéro`, `${el.num} · no zone with this number`)}</option>
+            )}
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.order}>
+                {zone.order}. {zone.name}
+              </option>
+            ))}
+          </select>
+          <small className="cpe-empty">
+            {tr(
+              "Le nom vient d'Accréditations › Réglages › Liste des zones : renommez-la là-bas.",
+              "The name comes from Accreditations › Settings › Zone list: rename it there.",
+            )}
+          </small>
+        </label>
+      ) : el.kind === "zone" ? (
         <label className="cpe-field">
           <span>{tr("Numéro (badge)", "Number (badge)")}</span>
           <select value={el.num} onChange={(event) => onPatch({ num: Number(event.target.value) })}>
@@ -536,15 +572,17 @@ function ElementDetail({ el, icons, onPatch, onToggleMap, onAddIcon, onPatchIcon
           </select>
         </label>
       ) : null}
+      {el.kind === "zone" && zones.length ? null : (
       <label className="cpe-field">
         <span>{el.kind === "zone" ? tr("Nom de la zone", "Zone name") : el.kind === "line" ? tr("Nom dans la légende", "Name in the legend") : tr("Texte sur le plan", "Text on the map")} {short ? <small>{tr("1 ou 2 mots", "1 or 2 words")}</small> : null}</span>
         <input type="text" value={el.label} maxLength={short ? 16 : 30} onChange={(event) => onPatch({ label: event.target.value })} />
       </label>
+      )}
       <label className="cpe-field">
         <span>{el.kind === "ctrl" ? tr("Ce qu'on contrôle ici", "What is checked here") : tr("Légende", "Legend")} <small>{el.kind === "ctrl" ? tr("vide = zones liées dans l'onglet Contrôles", "empty = zones linked in the Checkpoints tab") : tr("le détail, à côté du plan", "the detail, next to the map")}</small></span>
         <textarea value={el.desc} onChange={(event) => onPatch({ desc: event.target.value })} />
       </label>
-      {el.kind !== "door" ? (
+      {el.kind !== "door" && !(el.kind === "zone" && zones.length) ? (
         <>
           <label className="cpe-field">
             <span>{tr("Texte en anglais", "English text")} <small>{tr("site, badges, roadbook ; vide = texte ci-dessus", "site, badges, roadbook; empty = text above")}</small></span>

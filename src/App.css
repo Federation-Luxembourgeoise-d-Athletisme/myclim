@@ -12087,3 +12087,12 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-page .acc-matrix__toggle:hover { transform: scale(1.1); border-color: #8aa0b6; }
 .accreditation-page .acc-matrix__toggle.is-on { border: 0; }
 .accreditation-page .acc-matrix__toggle:focus-visible { outline: 2px solid #1a4aa1; outline-offset: 1px; }
+
+/* Réglages accréditations : liste des zones reliée au plan (12/11/2026). */
+.accreditation-page .acc-zone-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.accreditation-page .acc-zone-table th { padding: 6px 8px; border-bottom: 1px solid var(--acc-line); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--acc-muted); text-align: left; }
+.accreditation-page .acc-zone-table td { padding: 4px 8px; border-bottom: 1px solid #eef2f5; vertical-align: middle; }
+.accreditation-page .acc-zone-table__num { width: 58px; height: 30px; min-height: 0; padding: 0 6px; border: 1px solid #cfd9e3; border-radius: 7px; font-weight: 700; box-shadow: none; }
+.accreditation-page .acc-zone-table__name { width: 100%; max-width: 260px; height: 30px; min-height: 0; padding: 0 8px; border: 1px solid #cfd9e3; border-radius: 7px; box-shadow: none; }
+.accreditation-page .acc-zone-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
+.accreditation-page .acc-zone-add input { height: 32px; min-width: 0; flex: 0 1 260px; padding: 0 9px; border: 1px solid #cfd9e3; border-radius: 7px; box-shadow: none; }

@@ -45,7 +45,8 @@ import { EntrancePlanEditor } from "./coque-plan/entrance-plan-editor";
 import { JudgesPlanEditor } from "./coque-plan/coque-judges-plan-editor";
 import { AccreditationCheckpoints } from "./accreditation-checkpoints";
 import { AccreditationDesk } from "./accreditation-desk";
-import { useCoquePlan } from "./coque-plan/coque-plan-hooks";
+import { saveCoquePlan, useCoquePlan } from "./coque-plan/coque-plan-hooks";
+import { getZonePlacement, syncPlanZones } from "./coque-plan/plan-zone-sync";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 const AUTO_CANCEL_MESSAGE = "Cette accréditation a été annulée car le bénévole n'est plus affecté.";
@@ -128,7 +129,7 @@ function AccreditationsPage(props) {
   const { roles, teamAssignments, loading: teamsLoading, error: teamsError } = useTeamConfiguration();
   const { judges, loading: judgesLoading, error: judgesError } = useJudgeRoster();
   // Plan de la Coque (onglet Plans) imprimé au verso des badges
-  const { elements: coquePlanElements } = useCoquePlan();
+  const coquePlan = useCoquePlan();
   const { activeEditionId, loading: editionLoading } = useActiveEdition(canOperatePrinting);
   // Liens repris pour les QR des badges : résultats (édition), photos (page liens).
   const { editions: meetingEditions } = useMeetingEditions();
@@ -157,7 +158,6 @@ function AccreditationsPage(props) {
     loading: documentsLoading,
     error: documentsError,
   } = useDocumentsCollection(canManageAccreditationConfiguration);
-  const [isZoneLibraryExpanded, setIsZoneLibraryExpanded] = useState(false);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [accreditationStatus, setAccreditationStatus] = useState("");
@@ -233,6 +233,9 @@ function AccreditationsPage(props) {
     [documents],
   );
   const sortedZones = useMemo(() => sortAccreditationZones(zones), [sortAccreditationZones, zones]);
+  // Plan des badges : les zones portent le nom de la liste des zones (plan-zone-sync.js).
+  const coquePlanElements = useMemo(() => syncPlanZones(coquePlan.elements, sortedZones), [coquePlan.elements, sortedZones]);
+  const zonePlacement = useMemo(() => getZonePlacement(coquePlan.rawElements, sortedZones), [coquePlan.rawElements, sortedZones]);
   const volunteers = useMemo(
     () => buildAccreditationUsers(users, teamAssignments),
     [buildAccreditationUsers, teamAssignments, users],
@@ -1118,6 +1121,22 @@ function AccreditationsPage(props) {
     }
 
     return nextOverride;
+  }
+
+  // Renommer une zone renomme aussi ses repères sur le plan enregistré (badges,
+  // plan du site, roadbook), une fois la saisie terminée.
+  async function syncZoneNamesToPlan() {
+    if (!coquePlan.saved) return;
+    const synced = syncPlanZones(coquePlan.rawElements, sortedZones);
+    const changed = synced.some((element, index) => element !== coquePlan.rawElements[index]);
+    if (!changed) return;
+    try {
+      await saveCoquePlan(synced, getCurrentOperatorLabel(), coquePlan.published, coquePlan.icons);
+      setAccreditationStatus("Nom de zone repris sur le plan de la Coque.");
+    } catch (error) {
+      console.error("Impossible de mettre à jour le plan.", error);
+      setAccreditationStatus("La zone est renommée, mais le plan n'a pas pu être mis à jour : enregistrez-le depuis Plans & contrôles.");
+    }
   }
 
   function updateZone(zoneId, field, value) {
@@ -2113,85 +2132,83 @@ function AccreditationsPage(props) {
           {settingsSection === "zones" ? (
           <>
           <Panel
-            title="Bibliothèque des zones"
-            subtitle="Gérez ici les zones d'accréditation : nom, ordre, ajout ou suppression."
-            actions={
-              <button
-                className="button button--secondary button--small"
-                type="button"
-                onClick={() => setIsZoneLibraryExpanded((current) => !current)}
-                aria-expanded={isZoneLibraryExpanded}
-              >
-                {isZoneLibraryExpanded ? "Replier" : "Déplier"}
-              </button>
-            }
+            title="Liste des zones"
+            subtitle="Le numéro est imprimé au dos du badge et sur le plan de la Coque. Cette liste fait foi : les zones du plan reprennent ces noms."
           >
-            {isZoneLibraryExpanded ? (
-              <>
-                <div className="accreditation-zone-list">
-                  {sortedZones.map((zone) => (
-                    <div key={zone.id} className="accreditation-zone-row">
-                      <label className="field">
-                        <span>Numéro</span>
-                        <input
-                          type="number"
-                          min="1"
-                          value={zone.order}
-                          onChange={(event) => updateZone(zone.id, "order", event.target.value)}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Nom de la zone</span>
-                        <input
-                          value={zone.name}
-                          onChange={(event) => updateZone(zone.id, "name", event.target.value)}
-                        />
-                      </label>
-                      <button
-                        className="button button--ghost-danger"
-                        type="button"
-                        onClick={() => removeZone(zone.id)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="accreditation-zone-add">
-                  <label className="field">
-                    <span>Nouvelle zone</span>
-                    <input
-                      placeholder="Ex: Media lounge"
-                      value={newZoneName}
-                      onChange={(event) => setNewZoneName(event.target.value)}
-                    />
-                  </label>
-                  <button className="button button--secondary" type="button" onClick={addZone}>
-                    Ajouter la zone
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="accreditation-zone-collapsed">
-                <div className="accreditation-zone-library-preview">
-                  <div className="team-summary-pill">
-                    <strong>{sortedZones.length}</strong>
-                    <span>Zone(s) disponibles</span>
-                  </div>
-                  <div className="accreditation-tag-list">
-                    {sortedZones.slice(0, 4).map((zone) => (
-                      <span key={zone.id} className="accreditation-tag">
-                        {formatZoneLabel(zone)}
-                      </span>
-                    ))}
-                    {sortedZones.length > 4 ? (
-                      <span className="accreditation-tag">+ {sortedZones.length - 4} autres</span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="table-wrap">
+              <table className="acc-zone-table">
+                <thead>
+                  <tr>
+                    <th>N°</th>
+                    <th>Nom</th>
+                    <th>Sur le plan des badges</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedZones.map((zone) => {
+                    const placed = zonePlacement.counts.get(Number(zone.order)) || 0;
+                    return (
+                      <tr key={zone.id}>
+                        <td>
+                          <input
+                            aria-label={`Numéro de ${zone.name}`}
+                            className="acc-zone-table__num"
+                            min="1"
+                            type="number"
+                            value={zone.order}
+                            onChange={(event) => updateZone(zone.id, "order", event.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label="Nom de la zone"
+                            className="acc-zone-table__name"
+                            value={zone.name}
+                            onChange={(event) => updateZone(zone.id, "name", event.target.value)}
+                            onBlur={() => syncZoneNamesToPlan()}
+                          />
+                        </td>
+                        <td>
+                          {placed ? (
+                            <span className="acc-step acc-step--given">✓ placée{placed > 1 ? ` (${placed} repères)` : ""}</span>
+                          ) : (
+                            <span className="acc-step acc-step--attn">pas encore sur le plan</span>
+                          )}
+                        </td>
+                        <td className="acc-people-actions">
+                          <button className="button button--ghost-danger button--small" type="button" onClick={() => removeZone(zone.id)}>
+                            Supprimer
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {zonePlacement.orphans.length ? (
+              <p className="acc-step-reason">
+                Sur le plan, {zonePlacement.orphans.length > 1 ? "les repères" : "le repère"} n° {zonePlacement.orphans.join(", ")}{" "}
+                {zonePlacement.orphans.length > 1 ? "ne correspondent" : "ne correspond"} à aucune zone de cette liste : à corriger dans Plans
+                &amp; contrôles.
+              </p>
+            ) : null}
+            <div className="acc-zone-add">
+              <input
+                aria-label="Nouvelle zone"
+                placeholder="Nouvelle zone, ex. Media lounge"
+                value={newZoneName}
+                onChange={(event) => setNewZoneName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") addZone();
+                }}
+              />
+              <button className="button button--secondary button--small" type="button" onClick={addZone} disabled={!newZoneName.trim()}>
+                Ajouter
+              </button>
+              <span className="acc-people-muted">Placez-la ensuite sur le plan (Plans &amp; contrôles › Plan de la Coque).</span>
+            </div>
           </Panel>
 
           </>
@@ -3420,7 +3437,7 @@ function AccreditationsPage(props) {
           ) : null}
         </section>
       ) : canOperatePrinting && activeAccreditationTab === "plans" ? (
-        <CoquePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
+        <CoquePlanEditor accreditationZones={sortedZones} currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "entrance" ? (
         <EntrancePlanEditor currentUserLabel={getCurrentOperatorLabel()} />
       ) : canOperatePrinting && activeAccreditationTab === "judgesPlan" ? (
