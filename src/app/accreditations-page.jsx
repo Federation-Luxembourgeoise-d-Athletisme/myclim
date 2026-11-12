@@ -19,6 +19,7 @@ import {
   BADGE_CATEGORIES,
   BADGE_STORAGE_LOCATIONS,
   DEFAULT_ROLE_BADGE_CATEGORY,
+  QR_LINK_SOURCES,
   NON_NOMINATIVE_BADGE_TEMPLATES,
 } from "./accreditation-config";
 import { buildAccreditationBadgeMarkup } from "./badge-print";
@@ -33,6 +34,9 @@ import { enterQueue } from "./accreditation-queue";
 import { REASON_LABELS, STEP_LABELS, canPrintStep, countSteps, getBadgeStep } from "./accreditation-steps";
 import { useAuth } from "../context/auth-context";
 import { useActiveEdition } from "./edition";
+import { useMeetingEditions } from "./meeting-history-hooks";
+import { useLinksPageSettings } from "../site/site-hooks";
+import { PUBLIC_SITE_URL } from "./qr-link-sources";
 import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print";
 import { getVipRegistrationDocRef, useVipRegistrations } from "./vip-registrations-hooks";
 import { db } from "../services/firebase";
@@ -97,9 +101,10 @@ function getAccreditationTabFromPath(pathname, availableTabs) {
 const EMPTY_QR_RESOURCE_FORM = {
   label: "",
   subtitle: "",
-  targetMode: "document_existing",
+  targetMode: "linked",
   documentId: "",
   url: "",
+  source: "results",
   uploadedFileUrl: "",
   uploadedFileName: "",
   uploadedFilePath: "",
@@ -125,6 +130,10 @@ function AccreditationsPage(props) {
   // Plan de la Coque (onglet Plans) imprimé au verso des badges
   const { elements: coquePlanElements } = useCoquePlan();
   const { activeEditionId, loading: editionLoading } = useActiveEdition(canOperatePrinting);
+  // Liens repris pour les QR des badges : résultats (édition), photos (page liens).
+  const { editions: meetingEditions } = useMeetingEditions();
+  const currentEdition = meetingEditions.find((item) => String(item.year || item.id) === String(activeEditionId)) || null;
+  const { settings: linksPage } = useLinksPageSettings();
   const { registrations: vipRegistrations, error: vipRegistrationsError } = useVipRegistrations(
     activeEditionId,
     canOperatePrinting && !editionLoading,
@@ -485,7 +494,7 @@ function AccreditationsPage(props) {
   }
 
   function editQrResource(resource) {
-    const resolvedTargetMode = resource.targetType === "document" ? "document_existing" : "url";
+    const resolvedTargetMode = resource.source ? "linked" : resource.targetType === "document" ? "document_existing" : "url";
 
     setEditingQrResourceId(resource.id);
     setQrResourceForm({
@@ -494,14 +503,35 @@ function AccreditationsPage(props) {
       targetMode: resolvedTargetMode,
       documentId: resource.documentId || "",
       url: resource.url || "",
+      source: resource.source || QR_LINK_SOURCES[0].key,
       uploadedFileUrl: "",
       uploadedFileName: "",
       uploadedFilePath: "",
     });
   }
 
+  // Valeur actuelle d'un lien repris d'ailleurs (QR_LINK_SOURCES).
+  function getLinkedSourceUrl(source) {
+    const base = PUBLIC_SITE_URL;
+    switch (source) {
+      case "results":
+        return String(currentEdition?.resultsUrl || "").trim();
+      case "photos":
+        return String(linksPage?.photos?.currentUrl || "").trim();
+      case "emagazine":
+        return `${base}/e-magazine`;
+      case "athleteRoadbook":
+        return `${base}/roadbook`;
+      case "links":
+        return `${base}/links`;
+      default:
+        return "";
+    }
+  }
+
   function getAccreditationResourceTargetUrl(resource) {
     if (!resource) return "";
+    if (resource.source) return getLinkedSourceUrl(resource.source);
 
     if (resource.targetType === "document") {
       return getDocumentReferenceUrl(documentsById.get(resource.documentId) || null);
@@ -512,6 +542,11 @@ function AccreditationsPage(props) {
 
   function getQrResourceTargetSummary(resource) {
     if (!resource) return "Cible indisponible";
+    if (resource.source) {
+      const source = QR_LINK_SOURCES.find((item) => item.key === resource.source);
+      const url = getLinkedSourceUrl(resource.source);
+      return `Repris de ${source?.where || "MyCLIM"} : ${url || "pas encore renseigné"}`;
+    }
 
     if (resource.targetType === "document") {
       const linkedDocument = documentsById.get(resource.documentId) || null;
@@ -544,7 +579,10 @@ function AccreditationsPage(props) {
           }
         }
 
-        if (!src) {
+        // Ancienne image QR figée (2026) : seulement pour une ressource sans lien
+        // repris. Un lien repris pas encore renseigné ne met pas de QR (mieux
+        // qu'un QR qui mène à l'ancienne page).
+        if (!src && !resource.source) {
           src = resource.legacyImageUrl || "";
         }
 
@@ -575,8 +613,15 @@ function AccreditationsPage(props) {
 
     let documentId = "";
     let externalUrl = "";
+    let source = "";
 
-    if (targetMode === "document_existing") {
+    if (targetMode === "linked") {
+      source = QR_LINK_SOURCES.some((item) => item.key === qrResourceForm.source) ? qrResourceForm.source : "";
+      if (!source) {
+        setAccreditationStatus("Choisissez le lien à reprendre.");
+        return;
+      }
+    } else if (targetMode === "document_existing") {
       documentId = String(qrResourceForm.documentId || "").trim();
       if (!documentId) {
         setAccreditationStatus("Sélectionnez un document existant pour cette ressource QR.");
@@ -620,8 +665,9 @@ function AccreditationsPage(props) {
       label: trimmedLabel,
       subtitle: trimmedSubtitle,
       targetType: documentId ? "document" : "url",
+      source,
       documentId,
-      url: documentId ? "" : externalUrl,
+      url: documentId || source ? "" : externalUrl,
       legacyImageUrl: existingResource?.legacyImageUrl || "",
     };
     const nextQrResources = existingResource
@@ -2339,7 +2385,7 @@ function AccreditationsPage(props) {
                           <strong>{resource.label}</strong>
                           {resource.subtitle ? <p className="panel-note">{resource.subtitle}</p> : null}
                         </td>
-                        <td>{resource.targetType === "document" ? "Document" : "Lien externe"}</td>
+                        <td>{resource.source ? "Repris de MyCLIM" : resource.targetType === "document" ? "Document" : "Lien externe"}</td>
                         <td>{getQrResourceTargetSummary(resource)}</td>
                         <td>{usageVisualLabels || "Non utilisée"}</td>
                         <td>
@@ -2401,11 +2447,29 @@ function AccreditationsPage(props) {
                   value={qrResourceForm.targetMode}
                   onChange={handleQrResourceFormChange}
                 >
+                  <option value="linked">Lien déjà saisi dans MyCLIM</option>
                   <option value="document_existing">Document existant</option>
                   <option value="document_upload">Téléverser un document ici</option>
                   <option value="url">Lien externe</option>
                 </select>
               </AuthFormField>
+
+              {qrResourceForm.targetMode === "linked" ? (
+                <label className="field">
+                  <span>Lien repris</span>
+                  <select name="source" value={qrResourceForm.source} onChange={handleQrResourceFormChange}>
+                    {QR_LINK_SOURCES.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.label} ({item.where})
+                      </option>
+                    ))}
+                  </select>
+                  <small className="panel-note">
+                    Lien actuel : {getLinkedSourceUrl(qrResourceForm.source) || "pas encore renseigné à cet endroit"}. Le badge
+                    suit ce lien : changez-le là-bas, pas ici.
+                  </small>
+                </label>
+              ) : null}
 
               {qrResourceForm.targetMode === "document_existing" ? (
                 <AuthFormField label="Document à utiliser">
