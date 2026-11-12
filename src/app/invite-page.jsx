@@ -79,7 +79,14 @@ export function InvitePage() {
               leadTeams: [invitation.leadTeam],
               workflowStatus: "Affecté",
             }
-          : {}),
+          : invitation.memberTeam
+            ? {
+                assignedRole: invitation.memberTeam,
+                assignedTeams: [invitation.memberTeam],
+                teamRole: "Bénévole",
+                workflowStatus: "Affecté",
+              }
+            : {}),
         accountStatus: "active",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

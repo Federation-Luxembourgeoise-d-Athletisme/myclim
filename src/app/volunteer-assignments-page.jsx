@@ -9,6 +9,8 @@ import { useAuth } from "../context/auth-context";
 import { useActiveEdition } from "./edition";
 import { getActiveRoles } from "./navigation";
 import { DirectTeamLeadPanel } from "./team-lead-direct";
+import { MEMBER_ROLE, createDirectMember } from "./direct-assignment";
+import { TeamAddPicker } from "./team-add-picker";
 import {
   buildAddTeamPatch,
   buildMemberRolePatch,
@@ -198,6 +200,37 @@ export function VolunteerAssignmentsPage({
     }
   }
 
+  // Compte MyCLIM sans candidature, choisi dans la recherche d'une carte :
+  // sa fiche bénévole est créée déjà affectée (fonction Bénévole), sans e-mail.
+  async function addAccountToTeam(user, teamName) {
+    setStatus(null);
+    try {
+      await createDirectMember(
+        {
+          firstName: user.firstName || "",
+          lastName: user.lastName || "",
+          email: user.email,
+          teamName,
+          editionId: activeEditionId,
+          canInvite: false,
+          memberRole: MEMBER_ROLE,
+          knownUser: user,
+        },
+        { teams: syncVolunteerAssignmentsToTeamConfiguration, profile: syncVolunteerAssignmentToUserProfile },
+      );
+      setStatus({ tone: "info", text: `${[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email} est ajouté(e) à ${teamName} (fiche créée, aucun e-mail envoyé).` });
+    } catch (addError) {
+      console.error(addError);
+      setStatus({
+        tone: "error",
+        text:
+          addError.message === "already-applied"
+            ? "Cette personne a déjà une fiche bénévole cette année : cherchez-la par son nom."
+            : `L'ajout à ${teamName} n'a pas pu être enregistré${describeError(addError)}.`,
+      });
+    }
+  }
+
   async function removeFromTeam(volunteer, teamName) {
     const patch = buildRemoveTeamPatch(volunteer, teamName);
     if (!patch) return;
@@ -301,7 +334,7 @@ export function VolunteerAssignmentsPage({
         <span className="assign-kpi assign-kpi--warn"><b>{totals.missing}</b> manquants</span>
         <span className="assign-kpi assign-kpi--amber"><b>{toInform.length}</b> à informer</span>
         <button className="button button--secondary assign-bar__lead" type="button" onClick={() => setLeadPanelOpen((open) => !open)}>
-          + Chef d'équipe sans candidature
+          + Personne sans candidature
         </button>
         <button
           className="button button--primary assign-bar__send"
@@ -439,16 +472,13 @@ export function VolunteerAssignmentsPage({
                       </div>
                     );
                   })}
-                  <select aria-label={`Ajouter à ${team.roleName}`} className="assign-team__add" value="" onChange={(event) => addToTeam(event.target.value, team.roleName)}>
-                    <option value="">Ajouter un bénévole…</option>
-                    {sortedActive
-                      .filter((volunteer) => !getAssignedTeams(volunteer).includes(team.roleName))
-                      .map((volunteer) => (
-                        <option key={volunteer.id} value={volunteer.id}>
-                          {fullName(volunteer)}{getAssignedTeams(volunteer).length ? ` (déjà ${getAssignedTeams(volunteer).join(", ")})` : ""}
-                        </option>
-                      ))}
-                  </select>
+                  <TeamAddPicker
+                    getAssignedTeams={getAssignedTeams}
+                    teamName={team.roleName}
+                    volunteers={sortedActive}
+                    onAddAccount={addAccountToTeam}
+                    onAddVolunteer={addToTeam}
+                  />
                 </article>
               );
             })}
