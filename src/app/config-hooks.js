@@ -112,6 +112,8 @@ function useJudgeRoster() {
                 printStatus: String(judge?.printStatus || "Non-imprimé").trim(),
                 lastPrintedAt: judge?.lastPrintedAt || null,
                 destroyedAt: judge?.destroyedAt || null,
+                // Badge remis au guichet (accréditations simplifiées, 12/11/2026).
+                handedOverAt: judge?.handedOverAt || null,
                 createdBy: String(judge?.createdBy || "").trim(),
               }))
               .sort((left, right) =>
