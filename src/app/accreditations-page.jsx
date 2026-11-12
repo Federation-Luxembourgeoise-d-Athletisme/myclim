@@ -155,9 +155,9 @@ function AccreditationsPage(props) {
   const [isSavingAccreditation, setIsSavingAccreditation] = useState(false);
   const [newZoneName, setNewZoneName] = useState("");
   const [newStorageLocationName, setNewStorageLocationName] = useState("");
-  const [selectedRoleId, setSelectedRoleId] = useState("");
   const [volunteerSearch, setVolunteerSearch] = useState("");
   const [peopleFilter, setPeopleFilter] = useState("todo");
+  const [settingsSection, setSettingsSection] = useState("roles");
   // Badges cochés pour l'impression (plus de file : on coche, on imprime).
   const [printSelection, setPrintSelection] = useState(() => new Set());
   const [peopleType, setPeopleType] = useState("volunteers");
@@ -224,9 +224,6 @@ function AccreditationsPage(props) {
     [documents],
   );
   const sortedZones = useMemo(() => sortAccreditationZones(zones), [sortAccreditationZones, zones]);
-  const effectiveSelectedRoleId =
-    roles.some((role) => role.id === selectedRoleId) ? selectedRoleId : roles[0]?.id ?? "";
-  const selectedRole = roles.find((role) => role.id === effectiveSelectedRoleId) ?? roles[0];
   const volunteers = useMemo(
     () => buildAccreditationUsers(users, teamAssignments),
     [buildAccreditationUsers, teamAssignments, users],
@@ -1171,20 +1168,6 @@ function AccreditationsPage(props) {
     );
   }
 
-  function setRoleZoneSelection(roleId, nextZoneIds, successMessage = "Accès par rôle mis à jour.") {
-    persistAccreditationConfiguration(
-      {
-        zones,
-        roleZoneAssignments: {
-          ...roleZoneAssignments,
-          [roleId]: nextZoneIds,
-        },
-        volunteerOverrides,
-        printHistory,
-      },
-      successMessage,
-    );
-  }
 
   function updateVolunteerOverride(volunteer, field, zoneId) {
     const nextOverride = buildUpdatedVolunteerOverride(
@@ -1571,15 +1554,11 @@ function AccreditationsPage(props) {
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
-  const selectedRoleZoneIds = selectedRole ? getRoleZoneIds(selectedRole.id) : [];
   const normalizedRoleSearch = roleSearch.trim().toLowerCase();
   const filteredRoles = useMemo(
     () => roles.filter((role) => role.roleName.toLowerCase().includes(normalizedRoleSearch)),
     [normalizedRoleSearch, roles],
   );
-  const selectedRoleZoneLabels = sortedZones
-    .filter((zone) => selectedRoleZoneIds.includes(zone.id))
-    .map((zone) => formatZoneLabel(zone));
   // Le détail ne montre qu'une personne visible dans la liste (jamais un bénévole masqué).
   const displayableVolunteers = volunteers.filter((volunteer) => shouldDisplayVolunteerAccreditation(volunteer));
   const effectiveSelectedVolunteerId =
@@ -1971,50 +1950,125 @@ function AccreditationsPage(props) {
 
       {canManageAccreditationConfiguration && activeAccreditationTab === "settings" ? (
         <>
-          <Panel
-            title="Boîtes du guichet"
-            subtitle="Les boîtes où sont rangés les badges imprimés, choisies au guichet le jour J."
-          >
-            <div className="accreditation-zone-list">
-              {customStorageLocations.length === 0 ? (
-                <p className="panel-note">Aucune boîte définie. Ajoutez-en une ci-dessous.</p>
-              ) : null}
-              {customStorageLocations.map((loc) => (
-                <div key={loc} className="tracking-location-row">
-                  <span>{loc}</span>
-                  <button
-                    className="button button--ghost-danger button--small"
-                    type="button"
-                    onClick={() => removeCustomStorageLocation(loc)}
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="accreditation-zone-add">
-              <label className="field">
-                <span>Nouvelle boîte</span>
-                <input
-                  placeholder="Ex : Boîte A–F"
-                  value={newStorageLocationName}
-                  onChange={(event) => setNewStorageLocationName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") addCustomStorageLocation();
-                  }}
-                />
-              </label>
+          {/* Réglages en 4 parties, une à la fois (Margot, 12/11/2026 : la page
+              était illisible avec tout empilé). */}
+          <div className="acc-type-switch" role="tablist" aria-label="Réglages">
+            {[
+              ["roles", "Zones par rôle"],
+              ["zones", "Liste des zones"],
+              ["boxes", "Boîtes du guichet"],
+              ["qr", "QR sur les badges"],
+            ].map(([id, label]) => (
               <button
-                className="button button--secondary"
+                key={id}
                 type="button"
-                onClick={addCustomStorageLocation}
-                disabled={!newStorageLocationName.trim()}
+                role="tab"
+                aria-selected={settingsSection === id}
+                className={`acc-type-switch__item${settingsSection === id ? " is-active" : ""}`}
+                onClick={() => setSettingsSection(id)}
               >
-                Ajouter
+                {label}
               </button>
-            </div>
-          </Panel>
+            ))}
+          </div>
 
+          {settingsSection === "roles" ? (
+          <>
+          <Panel
+            title="Zones par rôle"
+            subtitle="Chaque rôle donne ses zones à toute personne affectée. Cliquez une case pour donner ou retirer une zone ; la couleur de la bande se choisit par rôle."
+          >
+            <div className="acc-matrix-toolbar">
+              <input
+                className="acc-people-search"
+                placeholder="Rechercher un rôle…"
+                type="search"
+                value={roleSearch}
+                onChange={(event) => setRoleSearch(event.target.value)}
+              />
+              <span className="acc-people-muted">
+                {filteredRoles.length} rôle(s) · {sortedZones.length} zones
+              </span>
+            </div>
+            <div className="table-wrap">
+              <table className="acc-matrix">
+                <thead>
+                  <tr>
+                    <th className="acc-matrix__role">Rôle</th>
+                    <th className="acc-matrix__band">Bande du badge</th>
+                    {sortedZones.map((zone) => (
+                      <th key={zone.id} className="acc-matrix__zone" title={zone.name}>
+                        <i>{zone.order}</i>
+                        <span>{zone.name}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRoles.map((role) => {
+                    const roleZoneIds = getRoleZoneIds(role.id);
+                    const categoryKey = roleBadgeCategories[role.id] || DEFAULT_ROLE_BADGE_CATEGORY;
+                    const category = BADGE_CATEGORIES.find((item) => item.key === categoryKey);
+                    return (
+                      <tr key={role.id}>
+                        <td className="acc-matrix__role">
+                          <strong>{role.roleName}</strong>
+                          <small>{roleZoneIds.length} zone{roleZoneIds.length > 1 ? "s" : ""}</small>
+                        </td>
+                        <td className="acc-matrix__band">
+                          <span className="acc-matrix__category">
+                            <i style={{ background: category?.color }} />
+                            <select
+                              aria-label={`Bande du badge pour ${role.roleName}`}
+                              value={categoryKey}
+                              onChange={(event) => setRoleBadgeCategory(role.id, event.target.value)}
+                            >
+                              {BADGE_CATEGORIES.filter((item) => ["volunteer", "organisation", "technical"].includes(item.key)).map((item) => (
+                                <option key={item.key} value={item.key}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          </span>
+                        </td>
+                        {sortedZones.map((zone) => {
+                          const on = roleZoneIds.includes(zone.id);
+                          return (
+                            <td key={zone.id} className="acc-matrix__cell">
+                              <button
+                                aria-label={`${on ? "Retirer" : "Donner"} ${zone.name} à ${role.roleName}`}
+                                aria-pressed={on}
+                                className={`acc-matrix__toggle${on ? " is-on" : ""}`}
+                                style={on ? { background: category?.color } : undefined}
+                                type="button"
+                                onClick={() => toggleRoleZone(role.id, zone.id)}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                  {!filteredRoles.length ? (
+                    <tr>
+                      <td className="acc-people-empty" colSpan={sortedZones.length + 2}>
+                        Aucun rôle ne correspond à la recherche.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <p className="acc-people-muted">
+              Les juges, la presse et les badges sans nom ont leurs zones dans leur propre liste (onglet Badges). Les zones
+              ajoutées ou retirées à une personne se règlent dans sa fiche.
+            </p>
+          </Panel>
+          </>
+          ) : null}
+
+          {settingsSection === "zones" ? (
+          <>
           <Panel
             title="Bibliothèque des zones"
             subtitle="Gérez ici les zones d'accréditation : nom, ordre, ajout ou suppression."
@@ -2097,153 +2151,60 @@ function AccreditationsPage(props) {
             )}
           </Panel>
 
-          <section className="admin-split accreditation-role-layout">
-            <Panel title="Rôles" subtitle="Choisissez un rôle pour régler ses accès par défaut.">
-              <div className="admin-split__nav accreditation-role-nav">
-                <label className="field accreditation-role-search">
-                  <span>Rechercher un rôle</span>
-                  <input
-                    placeholder="Ex: VIP, presse, tribune..."
-                    value={roleSearch}
-                    onChange={(event) => setRoleSearch(event.target.value)}
-                  />
-                </label>
-                <div className="accreditation-role-nav__meta">
-                  <span>{filteredRoles.length} rôle(s) visible(s)</span>
-                  <span>{roles.length} au total</span>
+          </>
+          ) : null}
+
+          {settingsSection === "boxes" ? (
+          <>
+          <Panel
+            title="Boîtes du guichet"
+            subtitle="Les boîtes où sont rangés les badges imprimés, choisies au guichet le jour J."
+          >
+            <div className="accreditation-zone-list">
+              {customStorageLocations.length === 0 ? (
+                <p className="panel-note">Aucune boîte définie. Ajoutez-en une ci-dessous.</p>
+              ) : null}
+              {customStorageLocations.map((loc) => (
+                <div key={loc} className="tracking-location-row">
+                  <span>{loc}</span>
+                  <button
+                    className="button button--ghost-danger button--small"
+                    type="button"
+                    onClick={() => removeCustomStorageLocation(loc)}
+                  >
+                    Supprimer
+                  </button>
                 </div>
-                <div className="accreditation-role-list">
-                  {filteredRoles.map((role) => {
-                    const roleZoneCount = getRoleZoneIds(role.id).length;
+              ))}
+            </div>
+            <div className="accreditation-zone-add">
+              <label className="field">
+                <span>Nouvelle boîte</span>
+                <input
+                  placeholder="Ex : Boîte A–F"
+                  value={newStorageLocationName}
+                  onChange={(event) => setNewStorageLocationName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") addCustomStorageLocation();
+                  }}
+                />
+              </label>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={addCustomStorageLocation}
+                disabled={!newStorageLocationName.trim()}
+              >
+                Ajouter
+              </button>
+            </div>
+          </Panel>
 
-                    return (
-                      <button
-                        key={role.id}
-                        className={`role-chip ${effectiveSelectedRoleId === role.id ? "role-chip--active" : ""}`}
-                        type="button"
-                        onClick={() => setSelectedRoleId(role.id)}
-                      >
-                        <span className="accreditation-role-list__label">{role.roleName}</span>
-                        <span className="accreditation-role-list__count">
-                          {roleZoneCount} zone{roleZoneCount > 1 ? "s" : ""}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {!filteredRoles.length ? (
-                    <p className="panel-note">Aucun rôle ne correspond à la recherche.</p>
-                  ) : null}
-                </div>
-              </div>
-            </Panel>
+          </>
+          ) : null}
 
-            {selectedRole ? (
-              <div className="admin-stack">
-                <Panel
-                  title={`Zones par défaut - ${selectedRole.roleName}`}
-                  subtitle="Cochez les accès qui doivent être donnés automatiquement à toute personne affectée à ce rôle."
-                  actions={
-                    <div className="panel-actions accreditation-role-actions">
-                      <button
-                        className="button button--secondary button--small"
-                        type="button"
-                        onClick={() => setRoleZoneSelection(selectedRole.id, sortedZones.map((zone) => zone.id), "Toutes les zones ont été attribuées au rôle.")}
-                      >
-                        Tout cocher
-                      </button>
-                      <button
-                        className="button button--secondary button--small"
-                        type="button"
-                        onClick={() => setRoleZoneSelection(selectedRole.id, [], "Toutes les zones par défaut ont été retirées du rôle.")}
-                      >
-                        Vider
-                      </button>
-                    </div>
-                  }
-                >
-                  <div className="accreditation-person-summary">
-                    <div className="team-summary-pill">
-                      <strong>{selectedRoleZoneIds.length}</strong>
-                      <span>Zone(s) attribuée(s)</span>
-                    </div>
-                    <div className="team-summary-pill">
-                      <strong>{sortedZones.length - selectedRoleZoneIds.length}</strong>
-                      <span>Zone(s) non attribuée(s)</span>
-                    </div>
-                    <div className="team-summary-pill">
-                      <strong>{roles.findIndex((role) => role.id === selectedRole.id) + 1}</strong>
-                      <span>Position dans la liste des rôles</span>
-                    </div>
-                  </div>
-                  <label className="accreditation-role-category">
-                    <span>Catégorie du badge</span>
-                    <select
-                      value={roleBadgeCategories[selectedRole.id] || DEFAULT_ROLE_BADGE_CATEGORY}
-                      onChange={(event) => setRoleBadgeCategory(selectedRole.id, event.target.value)}
-                    >
-                      {BADGE_CATEGORIES.filter((category) => ["volunteer", "organisation", "technical"].includes(category.key)).map((category) => (
-                        <option key={category.key} value={category.key}>{category.label}</option>
-                      ))}
-                    </select>
-                    <i style={{ background: BADGE_CATEGORIES.find((category) => category.key === (roleBadgeCategories[selectedRole.id] || DEFAULT_ROLE_BADGE_CATEGORY))?.color }} />
-                    <small>Couleur de la bande sur le badge ; le nom du rôle s'écrit dessous.</small>
-                  </label>
-                  <div className="choice-grid choice-grid--2">
-                    {sortedZones.map((zone) => (
-                      <label key={zone.id} className="selection-card selection-card--compact accreditation-zone-option">
-                        <input
-                          type="checkbox"
-                          checked={selectedRoleZoneIds.includes(zone.id)}
-                          onChange={() => toggleRoleZone(selectedRole.id, zone.id)}
-                        />
-                        <div>
-                          <div className="accreditation-zone-option__top">
-                            <strong>{formatZoneLabel(zone)}</strong>
-                            <span className={`accreditation-tag ${selectedRoleZoneIds.includes(zone.id) ? "accreditation-tag--active" : ""}`}>
-                              {selectedRoleZoneIds.includes(zone.id) ? "Attribuée" : "Inactive"}
-                            </span>
-                          </div>
-                          <p>Accès hérité automatiquement pour toute personne affectée à ce rôle.</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </Panel>
-
-                <Panel title="Résumé du rôle" subtitle="Vue rapide de la configuration actuellement enregistrée.">
-                  <div className="accreditation-role-summary">
-                    <div className="accreditation-inline-panel">
-                      <strong>Rôle sélectionné</strong>
-                      <div className="accreditation-role-summary__stats">
-                        <div>
-                          <span>Nom</span>
-                          <strong>{selectedRole.roleName}</strong>
-                        </div>
-                        <div>
-                          <span>Zones actives</span>
-                          <strong>{selectedRoleZoneIds.length}</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="accreditation-inline-panel">
-                      <strong>Zones attribuées</strong>
-                      {selectedRoleZoneLabels.length ? (
-                        <div className="accreditation-tag-list">
-                          {selectedRoleZoneLabels.map((label) => (
-                            <span key={label} className="accreditation-tag accreditation-tag--active">
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="panel-note accreditation-role-summary__empty">Aucune zone par défaut définie pour ce rôle.</p>
-                      )}
-                    </div>
-                  </div>
-                </Panel>
-              </div>
-            ) : null}
-          </section>
+          {settingsSection === "qr" ? (
+          <>
         <section className="admin-stack">
           <Panel
             title="Affectation des QR par visuel"
@@ -2525,6 +2486,8 @@ function AccreditationsPage(props) {
             </div>
           </Panel>
         </section>
+          </>
+          ) : null}
         </>
       ) : canOperatePrinting && activeAccreditationTab === "people" ? (
         <section className="admin-stack">
