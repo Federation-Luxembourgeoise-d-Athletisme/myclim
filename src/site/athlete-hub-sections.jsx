@@ -41,8 +41,7 @@ const HUB_COPY = {
     saving: "Saving…",
     saved: "Guests saved.",
     used: (used, max) => `${used} of ${max} places used`,
-    identifyFirst: "Identify yourself once (name + year of birth) to add your guests.",
-    identifyCta: "Identify me ↑",
+    guestsOf: "Guests of",
     errors: {
       "not-found": "No athlete found with this name and year of birth. Check the spelling or ask the athlete desk.",
       "resource-exhausted": "This slot was just taken. Pick another one.",
@@ -84,8 +83,7 @@ const HUB_COPY = {
     saving: "Enregistrement…",
     saved: "Invités enregistrés.",
     used: (used, max) => `${used} place${used > 1 ? "s" : ""} utilisée${used > 1 ? "s" : ""} sur ${max}`,
-    identifyFirst: "Identifie-toi une fois (nom + année de naissance) pour ajouter tes invités.",
-    identifyCta: "M'identifier ↑",
+    guestsOf: "Invités de",
     errors: {
       "not-found": "Aucun athlète trouvé avec ce nom et cette année de naissance. Vérifie l'orthographe ou demande à l'accueil athlètes.",
       "resource-exhausted": "Ce créneau vient d'être pris. Choisis-en un autre.",
@@ -438,6 +436,9 @@ function AthleteHubSections({ language, indexOffset, overrides = {} }) {
         <p className="rb-muted">{copy.ticketsText}</p>
         {activePass && hubIsCurrent ? (
           <form className="rb-hub-guests" onSubmit={saveGuests}>
+            <div className="rb-hub-guests__for">
+              {copy.guestsOf} <b>{activePass.athlete.firstName} {activePass.athlete.lastName}</b>
+            </div>
             {guests.map((guest, index) => {
               const update = (field) => (event) =>
                 setGuests((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: event.target.value } : item)));
@@ -459,13 +460,10 @@ function AthleteHubSections({ language, indexOffset, overrides = {} }) {
               </button>
             </div>
           </form>
-        ) : activePass && !addingAthlete ? (
+        ) : activePass ? (
           <p className="rb-muted">{copy.loading}</p>
         ) : (
-          <div className="rb-hub-guests rb-hub-guests--locked">
-            <span>{copy.identifyFirst}</span>
-            <a className="rb-btn rb-btn--sm" href="#physio">{copy.identifyCta}</a>
-          </div>
+          <IdentifyForm copy={copy} onIdentified={handleIdentified} />
         )}
       </section>
     </>

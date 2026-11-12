@@ -1189,18 +1189,11 @@ ul.rb-lead {
   margin-left: auto;
 }
 
-.rb-hub-guests--locked {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 12px;
+.rb-hub-guests__for {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rb-line);
+  font-size: 12px;
   color: var(--rb-slate);
-}
-
-.rb-hub-guests--locked .rb-btn {
-  margin-left: auto;
-  text-decoration: none;
 }
 
 .rb-btn--sm {
