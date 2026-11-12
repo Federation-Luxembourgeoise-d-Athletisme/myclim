@@ -111,8 +111,8 @@ const ACCREDITATION_BADGE_VISUALS = [
 const ACCREDITATION_QR_RESOURCE_SEED = [
   {
     id: "results-live",
-    label: "Résultats live",
-    subtitle: "Suivi des performances",
+    label: "Live results",
+    subtitle: "Follow the results",
     source: "results",
     targetType: "url",
     url: "",
@@ -122,7 +122,7 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   {
     id: "volunteer-roadbook",
     label: "Volunteer roadbook",
-    subtitle: "Infos utiles bénévoles",
+    subtitle: "Useful info for volunteers",
     targetType: "url",
     url: "",
     documentId: "",
@@ -130,8 +130,8 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   },
   {
     id: "photos-live",
-    label: "Photos live",
-    subtitle: "Album événement",
+    label: "Photos",
+    subtitle: "Event album",
     source: "photos",
     targetType: "url",
     url: "",
@@ -140,8 +140,8 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   },
   {
     id: "athlete-roadbook",
-    label: "Roadbook athlete",
-    subtitle: "Informations utiles meeting",
+    label: "Athlete roadbook",
+    subtitle: "Useful meeting info",
     source: "athleteRoadbook",
     targetType: "url",
     url: "",
@@ -151,7 +151,7 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   {
     id: "emagazine-athlete",
     label: "E-magazine",
-    subtitle: "Contenus meeting",
+    subtitle: "Meeting stories",
     source: "emagazine",
     targetType: "url",
     url: "",
