@@ -1629,8 +1629,6 @@ function AccreditationsPage(props) {
         ),
       )
     : [];
-  const removableInheritedZones = sortedZones.filter((zone) => inheritedZoneIds.includes(zone.id));
-  const addableZones = sortedZones.filter((zone) => !inheritedZoneIds.includes(zone.id));
   const queuedVolunteers = volunteers.filter(
     (volunteer) => getVolunteerOverride(volunteer.id).printStatus === "Dans la file",
   );
@@ -2703,138 +2701,79 @@ function AccreditationsPage(props) {
                 </div>
               ) : null}
 
-              <div className="accreditation-person-summary">
-                <div className="team-summary-pill">
-                  <strong>{getRoleTableLabel(selectedVolunteer)}</strong>
-                  <span>Rôle affiché</span>
+              {/* Fiche compacte (Margot, 12/11/2026 : plus de gros blocs) : une ligne
+                  de résumé, les deux réglages côte à côte, puis une grille de zones
+                  où un clic ajoute une zone ou retire une zone héritée du rôle. */}
+              <div className="acc-person">
+                <div className="acc-person__summary">
+                  <span>{getRoleTableLabel(selectedVolunteer)}</span>
+                  <span className="acc-person__dot" aria-hidden="true">·</span>
+                  <span>{selectedVolunteerOverride.printStatus}</span>
+                  <span className="acc-person__dot" aria-hidden="true">·</span>
+                  <span>
+                    <strong>{getFinalZoneIds(selectedVolunteer).length}</strong> / {sortedZones.length} zones
+                  </span>
                 </div>
-                <div className="team-summary-pill">
-                  <strong>{selectedVolunteerOverride.printStatus}</strong>
-                  <span>Statut impression</span>
+
+                <div className="acc-person__fields">
+                  <label className="acc-person__field">
+                    <span>Texte sur le badge</span>
+                    <input
+                      value={selectedVolunteerOverride.badgeLabel}
+                      placeholder={buildAccreditationRoleLabel(selectedVolunteer.assignedRoles)}
+                      onChange={(event) => updateVolunteerBadgeLabel(selectedVolunteer, event.target.value)}
+                    />
+                  </label>
+                  <label className="acc-person__field">
+                    <span>Statut d'impression</span>
+                    <select
+                      value={selectedVolunteerOverride.printStatus}
+                      onChange={(event) => updateVolunteerPrintStatus(selectedVolunteer, event.target.value)}
+                    >
+                      {ACCREDITATION_PRINT_STATUS_OPTIONS.map((status) => (
+                        <option key={status}>{status}</option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-                <div className="team-summary-pill">
-                  <strong>{getFinalZoneIds(selectedVolunteer).length}</strong>
-                  <span>Zones finales</span>
+
+                <div className="acc-person__zones-head">
+                  <span>Zones</span>
+                  <small>Cliquer ajoute une zone pour cette personne, ou retire une zone donnée par son rôle.</small>
+                </div>
+                <div className="acc-person__zones">
+                  {sortedZones.map((zone) => {
+                    const inherited = inheritedZoneIds.includes(zone.id);
+                    const added = selectedVolunteerOverride.addZoneIds.includes(zone.id);
+                    const removed = selectedVolunteerOverride.removeZoneIds.includes(zone.id);
+                    const active = (inherited && !removed) || added;
+                    const state = removed ? "removed" : added ? "added" : inherited ? "inherited" : "off";
+                    const tag = { removed: "− retirée", added: "+ ajoutée", inherited: "rôle", off: "" }[state];
+                    return (
+                      <button
+                        key={zone.id}
+                        aria-pressed={active}
+                        className={`acc-zone acc-zone--${state}`}
+                        title={
+                          inherited
+                            ? removed
+                              ? "Zone du rôle retirée pour cette personne : cliquer pour la rendre"
+                              : "Zone donnée par son rôle : cliquer pour la retirer à cette personne"
+                            : added
+                              ? "Zone ajoutée pour cette personne : cliquer pour l'enlever"
+                              : "Cliquer pour ajouter cette zone à cette personne"
+                        }
+                        type="button"
+                        onClick={() => updateVolunteerOverride(selectedVolunteer, inherited ? "removeZoneIds" : "addZoneIds", zone.id)}
+                      >
+                        <i>{zone.order ?? ""}</i>
+                        <span>{zone.name}</span>
+                        {tag ? <small>{tag}</small> : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div className="field-grid">
-                <AuthFormField label="Texte affiché sur l'accréditation">
-                  <input
-                    value={selectedVolunteerOverride.badgeLabel}
-                    placeholder={buildAccreditationRoleLabel(selectedVolunteer.assignedRoles)}
-                    onChange={(event) => updateVolunteerBadgeLabel(selectedVolunteer, event.target.value)}
-                  />
-                </AuthFormField>
-                <AuthFormField label="Statut d'impression">
-                  <select
-                    value={selectedVolunteerOverride.printStatus}
-                    onChange={(event) => updateVolunteerPrintStatus(selectedVolunteer, event.target.value)}
-                  >
-                    {ACCREDITATION_PRINT_STATUS_OPTIONS.map((status) => (
-                      <option key={status}>{status}</option>
-                    ))}
-                  </select>
-                </AuthFormField>
-              </div>
-
-              <div className="field-grid">
-                <div className="accreditation-inline-panel">
-                  <strong>Zones héritées</strong>
-                  <div className="accreditation-tag-list">
-                    {inheritedZoneIds.length ? (
-                      sortedZones
-                        .filter((zone) => inheritedZoneIds.includes(zone.id))
-                        .map((zone) => <span key={zone.id} className="accreditation-tag">{formatZoneLabel(zone)}</span>)
-                    ) : (
-                      <p className="panel-note">Aucune zone héritée.</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="accreditation-inline-panel">
-                  <strong>Zones ajoutées</strong>
-                  <div className="accreditation-tag-list">
-                    {selectedVolunteerOverride.addZoneIds.length ? (
-                      sortedZones
-                        .filter((zone) => selectedVolunteerOverride.addZoneIds.includes(zone.id))
-                        .map((zone) => (
-                          <span key={zone.id} className="accreditation-tag accreditation-tag--active">
-                            {formatZoneLabel(zone)}
-                          </span>
-                        ))
-                    ) : (
-                      <p className="panel-note">Aucun ajout manuel.</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="accreditation-inline-panel">
-                  <strong>Zones retirées</strong>
-                  <div className="accreditation-tag-list">
-                    {selectedVolunteerOverride.removeZoneIds.length ? (
-                      sortedZones
-                        .filter((zone) => selectedVolunteerOverride.removeZoneIds.includes(zone.id))
-                        .map((zone) => <span key={zone.id} className="accreditation-tag">{formatZoneLabel(zone)}</span>)
-                    ) : (
-                      <p className="panel-note">Aucun retrait manuel.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <Panel
-                title="Ajustements individuels"
-                subtitle="Ajoutez des accès supplémentaires ou retirez des accès hérités pour cette personne seulement."
-              >
-                <div className="field-grid">
-                  <div className="field">
-                    <span>Zones à ajouter</span>
-                    <div className="choice-grid choice-grid--2">
-                      {addableZones.length ? (
-                        addableZones.map((zone) => (
-                          <label key={zone.id} className="selection-card selection-card--compact">
-                            <input
-                              type="checkbox"
-                              checked={selectedVolunteerOverride.addZoneIds.includes(zone.id)}
-                              onChange={() => updateVolunteerOverride(selectedVolunteer, "addZoneIds", zone.id)}
-                            />
-                            <div>
-                              <strong>{formatZoneLabel(zone)}</strong>
-                              <p>Ajout manuel pour cette personne</p>
-                            </div>
-                          </label>
-                        ))
-                      ) : (
-                        <p className="panel-note">Toutes les zones existantes sont déjà héritées par ce rôle.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="field">
-                    <span>Zones à retirer</span>
-                    <div className="choice-grid choice-grid--2">
-                      {removableInheritedZones.length ? (
-                        removableInheritedZones.map((zone) => (
-                          <label key={zone.id} className="selection-card selection-card--compact">
-                            <input
-                              type="checkbox"
-                              checked={selectedVolunteerOverride.removeZoneIds.includes(zone.id)}
-                              onChange={() => updateVolunteerOverride(selectedVolunteer, "removeZoneIds", zone.id)}
-                            />
-                            <div>
-                              <strong>{formatZoneLabel(zone)}</strong>
-                              <p>Retrait manuel de l'héritage du rôle</p>
-                            </div>
-                          </label>
-                        ))
-                      ) : (
-                        <p className="panel-note">Aucune zone héritée à retirer pour cette personne.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Panel>
             </Panel>
           ) : null}
           </>

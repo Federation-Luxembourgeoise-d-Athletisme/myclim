@@ -11993,3 +11993,32 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-page .panel-grid--2 .data-table {
   min-width: 0;
 }
+
+/* Accréditations · fiche d'une personne, compacte (12/11/2026). */
+.accreditation-page .acc-person { display: grid; gap: 12px; }
+.accreditation-page .acc-person__summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 13px; color: var(--acc-muted); }
+.accreditation-page .acc-person__summary span:first-child { color: var(--acc-ink); font-weight: 600; }
+.accreditation-page .acc-person__summary strong { color: var(--acc-ink); }
+.accreditation-page .acc-person__dot { color: #b8c4ce; }
+.accreditation-page .acc-person__fields { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; }
+.accreditation-page .acc-person__field { display: grid; gap: 4px; min-width: 0; }
+.accreditation-page .acc-person__field span,
+.accreditation-page .acc-person__zones-head span { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--acc-muted); }
+.accreditation-page .acc-person__field input,
+.accreditation-page .acc-person__field select { height: 32px; min-width: 0; padding: 0 9px; border: 1px solid #cfd9e3; border-radius: 7px; background: #fff; font-size: 13px; box-shadow: none; }
+.accreditation-page .acc-person__zones-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.accreditation-page .acc-person__zones-head small { font-size: 12px; color: var(--acc-muted); }
+.accreditation-page .acc-person__zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.accreditation-page .acc-zone { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 8px; border: 1px solid var(--acc-line); border-radius: 8px; background: #fff; color: var(--acc-ink); font-size: 12.5px; text-align: left; cursor: pointer; }
+.accreditation-page .acc-zone:hover { border-color: #b9c9d9; background: var(--acc-soft); }
+.accreditation-page .acc-zone:focus-visible { outline: 2px solid #1a4aa1; outline-offset: 1px; }
+.accreditation-page .acc-zone i { flex: none; width: 20px; height: 20px; border-radius: 5px; background: #eef2f5; color: #b8c4ce; font: 700 11px/20px system-ui, sans-serif; font-style: normal; text-align: center; }
+.accreditation-page .acc-zone span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accreditation-page .acc-zone small { margin-left: auto; flex: none; font-size: 10.5px; color: var(--acc-muted); }
+.accreditation-page .acc-zone--inherited i,
+.accreditation-page .acc-zone--added i { background: var(--acc-ink); color: #fff; }
+.accreditation-page .acc-zone--added { border-color: #b9c9e6; }
+.accreditation-page .acc-zone--added small { color: #1a4aa1; font-weight: 700; }
+.accreditation-page .acc-zone--removed span { text-decoration: line-through; color: #95a5b3; }
+.accreditation-page .acc-zone--removed small { color: #b26a00; font-weight: 700; }
+@media (max-width: 640px) { .accreditation-page .acc-person__fields { grid-template-columns: 1fr; } }
