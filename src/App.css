@@ -12111,3 +12111,25 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-page .acc-matrix thead th.acc-matrix__role { z-index: 3; }
 .accreditation-page .acc-matrix tbody tr:hover td.acc-matrix__role { background: var(--acc-soft); }
 .accreditation-page .acc-matrix__group td { position: sticky; left: 0; background: #f8fafc !important; }
+
+/* Réglages › QR sur les badges : tableau QR × type de badge (12/11/2026). */
+.accreditation-page .acc-qr-table .acc-matrix__role { min-width: 190px; }
+.accreditation-page .acc-qr-table__link { min-width: 170px; max-width: 260px; }
+.accreditation-page .acc-qr-table td.acc-qr-table__link { display: table-cell; }
+.accreditation-page .acc-qr-kind { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--acc-muted); }
+.accreditation-page .acc-qr-url { display: block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #1a4aa1; }
+.accreditation-page .acc-qr-table__visual { width: 78px; }
+.accreditation-page .acc-qr-table__visual span { max-width: 78px; white-space: normal; line-height: 1.2; }
+.accreditation-page .acc-qr-on { background: var(--acc-ink); color: #fff; font: 700 9.5px/24px system-ui, sans-serif; letter-spacing: .04em; }
+.accreditation-page .acc-qr-table tr.is-editing td { background: #eef4fd; }
+.accreditation-page .acc-qr-table .acc-people-actions { white-space: nowrap; }
+.accreditation-page .acc-qr-table .acc-people-actions .acc-link-button { margin-left: 10px; }
+.accreditation-page .acc-qr-form { display: grid; gap: 10px; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--acc-line); border-radius: 10px; background: var(--acc-soft); }
+.accreditation-page .acc-qr-form__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.accreditation-page .acc-qr-form__head span { font-size: 12px; color: var(--acc-muted); }
+.accreditation-page .acc-qr-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.accreditation-page .acc-qr-form__target { display: grid; gap: 8px; }
+.accreditation-page .acc-qr-form__target .field > span, .accreditation-page .acc-qr-form__target label > span { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--acc-muted); }
+.accreditation-page .acc-qr-form__target select, .accreditation-page .acc-qr-form__target input { height: 32px; min-height: 0; padding: 0 9px; border: 1px solid #cfd9e3; border-radius: 7px; background: #fff; font-size: 13px; box-shadow: none; }
+.accreditation-page .acc-qr-form__actions { display: flex; gap: 8px; }
+@media (max-width: 700px) { .accreditation-page .acc-qr-form__grid { grid-template-columns: 1fr; } }

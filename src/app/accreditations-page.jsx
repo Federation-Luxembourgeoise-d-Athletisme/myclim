@@ -153,8 +153,9 @@ function AccreditationsPage(props) {
   const { userProfile } = useAuth();
   const tr = useTr();
   const getVisualLabel = (visual) => (visual ? tr(visual.label, BADGE_VISUAL_EN[visual.id]?.label || visual.label) : "");
-  const getVisualDescription = (visual) =>
-    visual ? tr(visual.description, BADGE_VISUAL_EN[visual.id]?.description || visual.description) : "";
+  // Titres courts des colonnes du tableau des QR.
+  const VISUAL_SHORT = { volunteer: ["Bénévole", "Volunteer"], athlete: ["Athlète", "Athlete"], coach: ["Coach", "Coach"], judge: ["Juge", "Judge"], press: ["Presse", "Press"], vip: ["VIP", "VIP"] };
+  const getVisualShortLabel = (visual) => (VISUAL_SHORT[visual.id] ? tr(...VISUAL_SHORT[visual.id]) : getVisualLabel(visual));
   const getLinkSourceLabel = (item) => (item ? tr(item.label, QR_LINK_SOURCES_EN[item.key]?.label || item.label) : "");
   const getLinkSourceWhere = (item) => (item ? tr(item.where, QR_LINK_SOURCES_EN[item.key]?.where || item.where) : "");
   const location = useLocation();
@@ -206,6 +207,7 @@ function AccreditationsPage(props) {
   const [volunteerSearch, setVolunteerSearch] = useState("");
   const [peopleFilter, setPeopleFilter] = useState("todo");
   const [settingsSection, setSettingsSection] = useState("roles");
+  const [isQrFormOpen, setIsQrFormOpen] = useState(false);
   // Courses nationales : athlètes retenus (badge nominatif).
   const [nationalAthletes, setNationalAthletes] = useState([]);
   // Badges cochés pour l'impression (plus de file : on coche, on imprime).
@@ -232,7 +234,6 @@ function AccreditationsPage(props) {
   const [pressSearch, setPressSearch] = useState("");
   const [roleSearch, setRoleSearch] = useState("");
   const [visibleListCountByKey, setVisibleListCountByKey] = useState({});
-  const [selectedQrVisualId, setSelectedQrVisualId] = useState(ACCREDITATION_BADGE_VISUALS[0]?.id ?? "volunteer");
   const [editingQrResourceId, setEditingQrResourceId] = useState("");
   const [qrResourceForm, setQrResourceForm] = useState(EMPTY_QR_RESOURCE_FORM);
   const zones = Array.isArray(storedZones) ? storedZones : [];
@@ -518,24 +519,6 @@ function AccreditationsPage(props) {
     ],
   );
 
-  const qrResourceUsageById = useMemo(
-    () =>
-      qrResources.reduce((accumulator, resource) => {
-        accumulator[resource.id] = ACCREDITATION_BADGE_VISUALS
-          .filter((visual) => (qrVisualAssignments[visual.id] ?? []).includes(resource.id))
-          .map((visual) => visual.id);
-        return accumulator;
-      }, {}),
-    [qrResources, qrVisualAssignments],
-  );
-  const effectiveSelectedQrVisualId = ACCREDITATION_BADGE_VISUALS.some((visual) => visual.id === selectedQrVisualId)
-    ? selectedQrVisualId
-    : ACCREDITATION_BADGE_VISUALS[0]?.id ?? "volunteer";
-  const selectedQrVisual =
-    ACCREDITATION_BADGE_VISUALS.find((visual) => visual.id === effectiveSelectedQrVisualId) ??
-    ACCREDITATION_BADGE_VISUALS[0] ??
-    null;
-  const selectedQrVisualResourceIds = qrVisualAssignments[effectiveSelectedQrVisualId] ?? [];
 
   function resetQrResourceForm() {
     setEditingQrResourceId("");
@@ -594,25 +577,6 @@ function AccreditationsPage(props) {
     return String(resource.url || "").trim();
   }
 
-  function getQrResourceTargetSummary(resource) {
-    if (!resource) return tr("Cible indisponible", "Target unavailable");
-    if (resource.source) {
-      const source = QR_LINK_SOURCES.find((item) => item.key === resource.source);
-      const url = getLinkedSourceUrl(resource.source);
-      return tr(
-        `Repris de ${source?.where || "MyCLIM"} : ${url || "pas encore renseigné"}`,
-        `Taken from ${getLinkSourceWhere(source) || "MyCLIM"}: ${url || "not set yet"}`,
-      );
-    }
-
-    if (resource.targetType === "document") {
-      const linkedDocument = documentsById.get(resource.documentId) || null;
-      if (!linkedDocument) return tr("Document introuvable", "Document not found");
-      return linkedDocument.title || linkedDocument.fileName || tr("Document lié", "Linked document");
-    }
-
-    return resource.url ? resource.url : tr("Lien à configurer", "Link to set up");
-  }
 
   async function buildResourceCardsForVisual(visualId) {
     const resourceIds = qrVisualAssignments[visualId] ?? [];
@@ -2583,322 +2547,244 @@ function AccreditationsPage(props) {
 
           {settingsSection === "qr" ? (
           <>
-        <section className="admin-stack">
           <Panel
-            title={tr("Affectation des QR par visuel", "QR codes by badge design")}
+            title={tr("QR sur les badges", "QR codes on badges")}
             subtitle={tr(
-              "Choisissez quelles ressources QR doivent apparaître sur chaque type d'accréditation.",
-              "Choose which QR resources appear on each badge type.",
+              "Une ligne par QR, une colonne par type de badge : cliquez une case pour l'afficher ou non. L'app fabrique le QR à partir du lien au moment d'imprimer ; un QR sans lien ne s'imprime pas.",
+              "One row per QR code, one column per badge type: click a cell to show it or not. The app makes the QR code from the link when printing; a QR code without a link is not printed.",
             )}
-          >
-            <div className="admin-split accreditation-role-layout">
-              <div className="admin-split__nav accreditation-role-nav">
-                <div className="accreditation-role-nav__meta">
-                  <span>{tr(`${ACCREDITATION_BADGE_VISUALS.length} visuel(x)`, `${ACCREDITATION_BADGE_VISUALS.length} design(s)`)}</span>
-                  <span>{tr(`${qrResources.length} ressource(s) réutilisable(s)`, `${qrResources.length} reusable resource(s)`)}</span>
-                </div>
-                <div className="accreditation-role-list">
-                  {ACCREDITATION_BADGE_VISUALS.map((visual) => (
-                    <button
-                      key={visual.id}
-                      className={`role-chip ${effectiveSelectedQrVisualId === visual.id ? "role-chip--active" : ""}`}
-                      type="button"
-                      onClick={() => setSelectedQrVisualId(visual.id)}
-                    >
-                      <span className="accreditation-role-list__label">{getVisualLabel(visual)}</span>
-                      <span className="accreditation-role-list__count">
-                        {(qrVisualAssignments[visual.id] ?? []).length} QR
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {selectedQrVisual ? (
-                <div className="admin-stack">
-                  <Panel
-                    title={getVisualLabel(selectedQrVisual)}
-                    subtitle={getVisualDescription(selectedQrVisual)}
-                    actions={
-                      <button
-                        className="button button--secondary button--small"
-                        type="button"
-                        onClick={() =>
-                          persistAccreditationConfiguration(
-                            buildCurrentConfiguration({
-                              qrVisualAssignments: {
-                                ...qrVisualAssignments,
-                                [selectedQrVisual.id]: [],
-                              },
-                            }),
-                            tr("Toutes les ressources QR ont été retirées de ce visuel.", "All QR resources were removed from this design."),
-                          )
-                        }
-                      >
-                        {tr("Vider ce visuel", "Clear this design")}
-                      </button>
-                    }
-                  >
-                    <div className="choice-grid choice-grid--2">
-                      {qrResources.map((resource) => {
-                        const isAssigned = selectedQrVisualResourceIds.includes(resource.id);
-                        const usageVisualLabels = (qrResourceUsageById[resource.id] ?? [])
-                          .map(
-                            (visualId) =>
-                              getVisualLabel(ACCREDITATION_BADGE_VISUALS.find((visual) => visual.id === visualId)) || visualId,
-                          );
-
-                        return (
-                          <label
-                            key={`visual-${selectedQrVisual.id}-${resource.id}`}
-                            className="selection-card selection-card--compact accreditation-zone-option"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isAssigned}
-                              onChange={() => toggleQrResourceAssignment(selectedQrVisual.id, resource.id)}
-                            />
-                            <div>
-                              <div className="accreditation-zone-option__top">
-                                <strong>{resource.label}</strong>
-                                <span className={`accreditation-tag ${isAssigned ? "accreditation-tag--active" : ""}`}>
-                                  {isAssigned ? tr("Affiché", "Shown") : tr("Masqué", "Hidden")}
-                                </span>
-                              </div>
-                              <p>{resource.subtitle || tr("Aucun sous-titre renseigné.", "No subtitle.")}</p>
-                              <p className="panel-note">{getQrResourceTargetSummary(resource)}</p>
-                              {usageVisualLabels.length ? (
-                                <div className="accreditation-tag-list">
-                                  {usageVisualLabels.map((label) => (
-                                    <span key={`${resource.id}-${label}`} className="accreditation-tag">
-                                      {label}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </Panel>
-                </div>
-              ) : null}
-            </div>
-          </Panel>
-
-          <Panel
-            title={tr("Bibliothèque des ressources QR", "QR resource library")}
-            subtitle={tr(
-              "Créez ici les ressources QR réutilisables : document existant, nouveau document uploadé ou lien externe.",
-              "Create reusable QR resources here: existing document, newly uploaded document or external link.",
-            )}
+            actions={
+              <button
+                className="button button--secondary button--small"
+                type="button"
+                onClick={() => {
+                  resetQrResourceForm();
+                  setIsQrFormOpen(true);
+                }}
+              >
+                {tr("+ Ajouter un QR", "+ Add a QR code")}
+              </button>
+            }
           >
             {documentsLoading ? <p className="panel-note">{tr("Chargement des documents...", "Loading documents...")}</p> : null}
             {documentsError ? <p className="panel-note">{documentsError}</p> : null}
-
             <div className="table-wrap">
-              <table className="data-table data-table--admin">
+              <table className="acc-matrix acc-qr-table">
                 <thead>
                   <tr>
-                    <th>{tr("Ressource", "Resource")}</th>
-                    <th>Type</th>
-                    <th>{tr("Cible", "Target")}</th>
-                    <th>{tr("Utilisée sur", "Used on")}</th>
-                    <th>Actions</th>
+                    <th className="acc-matrix__role">{tr("QR", "QR code")}</th>
+                    <th className="acc-qr-table__link">{tr("Lien", "Link")}</th>
+                    {ACCREDITATION_BADGE_VISUALS.map((visual) => (
+                      <th key={visual.id} className="acc-matrix__zone acc-qr-table__visual" title={getVisualLabel(visual)}>
+                        <span>{getVisualShortLabel(visual)}</span>
+                      </th>
+                    ))}
+                    <th aria-label={tr("Actions", "Actions")} />
                   </tr>
                 </thead>
                 <tbody>
                   {qrResources.map((resource) => {
-                    const usageVisualLabels = (qrResourceUsageById[resource.id] ?? [])
-                      .map(
-                        (visualId) =>
-                          getVisualLabel(ACCREDITATION_BADGE_VISUALS.find((visual) => visual.id === visualId)) || visualId,
-                      )
-                      .join(", ");
-
+                    const url = getAccreditationResourceTargetUrl(resource);
+                    const kind = resource.source
+                      ? tr("Repris de MyCLIM", "From MyCLIM")
+                      : resource.targetType === "document"
+                        ? tr("Document", "Document")
+                        : tr("Lien externe", "External link");
                     return (
-                      <tr key={resource.id}>
-                        <td>
+                      <tr key={resource.id} className={editingQrResourceId === resource.id ? "is-editing" : ""}>
+                        <td className="acc-matrix__role">
                           <strong>{resource.label}</strong>
-                          {resource.subtitle ? <p className="panel-note">{resource.subtitle}</p> : null}
+                          <small>{resource.subtitle || "—"}</small>
                         </td>
-                        <td>
-                          {resource.source
-                            ? tr("Repris de MyCLIM", "Taken from MyCLIM")
-                            : resource.targetType === "document"
-                              ? "Document"
-                              : tr("Lien externe", "External link")}
+                        <td className="acc-qr-table__link">
+                          <span className="acc-qr-kind">{kind}</span>
+                          {url ? (
+                            <span className="acc-qr-url" title={url}>
+                              {url.replace(/^https?:\/\//, "")}
+                            </span>
+                          ) : (
+                            <span className="acc-step acc-step--attn">{tr("pas encore de lien", "no link yet")}</span>
+                          )}
                         </td>
-                        <td>{getQrResourceTargetSummary(resource)}</td>
-                        <td>{usageVisualLabels || tr("Non utilisée", "Not used")}</td>
-                        <td>
-                          <div className="panel-actions">
-                            <button
-                              className="button button--secondary button--small"
-                              type="button"
-                              onClick={() => editQrResource(resource)}
-                            >
-                              {tr("Modifier", "Edit")}
-                            </button>
-                            <button
-                              className="button button--ghost-danger button--small"
-                              type="button"
-                              onClick={() => removeQrResource(resource.id)}
-                            >
-                              {tr("Supprimer", "Delete")}
-                            </button>
-                          </div>
+                        {ACCREDITATION_BADGE_VISUALS.map((visual) => {
+                          const on = (qrVisualAssignments[visual.id] ?? []).includes(resource.id);
+                          return (
+                            <td key={visual.id} className="acc-matrix__cell">
+                              <button
+                                aria-label={tr(
+                                  `${on ? "Retirer" : "Afficher"} « ${resource.label} » sur ${getVisualLabel(visual)}`,
+                                  `${on ? "Remove" : "Show"} "${resource.label}" on ${getVisualLabel(visual)}`,
+                                )}
+                                aria-pressed={on}
+                                className={`acc-matrix__toggle${on ? " is-on acc-qr-on" : ""}`}
+                                type="button"
+                                onClick={() => toggleQrResourceAssignment(visual.id, resource.id)}
+                              >
+                                {on ? "QR" : ""}
+                              </button>
+                            </td>
+                          );
+                        })}
+                        <td className="acc-people-actions">
+                          <button
+                            className="acc-link-button"
+                            type="button"
+                            onClick={() => {
+                              editQrResource(resource);
+                              setIsQrFormOpen(true);
+                            }}
+                          >
+                            {tr("Modifier", "Edit")}
+                          </button>
+                          <button className="acc-link-button acc-link-button--danger" type="button" onClick={() => removeQrResource(resource.id)}>
+                            {tr("Supprimer", "Delete")}
+                          </button>
                         </td>
                       </tr>
                     );
                   })}
                   {!qrResources.length ? (
                     <tr>
-                      <td colSpan="5">{tr("Aucune ressource QR configurée pour le moment.", "No QR resource set up yet.")}</td>
+                      <td className="acc-people-empty" colSpan={ACCREDITATION_BADGE_VISUALS.length + 3}>
+                        {tr("Aucun QR pour le moment.", "No QR code yet.")}
+                      </td>
                     </tr>
                   ) : null}
                 </tbody>
               </table>
             </div>
 
-            <div className="admin-stack" style={{ marginTop: "1rem" }}>
-              <div className="form-section-head">
-                <p className="eyebrow">{tr("Ressource QR", "QR resource")}</p>
-                <h3>{editingQrResourceId ? tr("Modifier une ressource", "Edit a resource") : tr("Ajouter une ressource", "Add a resource")}</h3>
-              </div>
-              <div className="field-grid">
-                <AuthFormField label={tr("Libellé", "Label")}>
-                  <input
-                    name="label"
-                    placeholder={tr("Ex: Roadbook athlètes", "E.g. Athlete roadbook")}
-                    value={qrResourceForm.label}
-                    onChange={handleQrResourceFormChange}
-                  />
-                </AuthFormField>
-                <AuthFormField label={tr("Sous-titre", "Subtitle")}>
-                  <input
-                    name="subtitle"
-                    placeholder={tr("Ex: Informations utiles meeting", "E.g. Useful meeting info")}
-                    value={qrResourceForm.subtitle}
-                    onChange={handleQrResourceFormChange}
-                  />
-                </AuthFormField>
-              </div>
-              <AuthFormField label={tr("Type de cible", "Target type")}>
-                <select
-                  name="targetMode"
-                  value={qrResourceForm.targetMode}
-                  onChange={handleQrResourceFormChange}
-                >
-                  <option value="linked">{tr("Lien déjà saisi dans MyCLIM", "Link already set in MyCLIM")}</option>
-                  <option value="document_existing">{tr("Document existant", "Existing document")}</option>
-                  <option value="document_upload">{tr("Téléverser un document ici", "Upload a document here")}</option>
-                  <option value="url">{tr("Lien externe", "External link")}</option>
-                </select>
-              </AuthFormField>
-
-              {qrResourceForm.targetMode === "linked" ? (
-                <label className="field">
-                  <span>{tr("Lien repris", "Linked source")}</span>
-                  <select name="source" value={qrResourceForm.source} onChange={handleQrResourceFormChange}>
-                    {QR_LINK_SOURCES.map((item) => (
-                      <option key={item.key} value={item.key}>
-                        {getLinkSourceLabel(item)} ({getLinkSourceWhere(item)})
-                      </option>
-                    ))}
-                  </select>
-                  <small className="panel-note">
-                    {tr(
-                      `Lien actuel : ${getLinkedSourceUrl(qrResourceForm.source) || "pas encore renseigné à cet endroit"}. Le badge suit ce lien : changez-le là-bas, pas ici.`,
-                      `Current link: ${getLinkedSourceUrl(qrResourceForm.source) || "not set there yet"}. The badge follows this link: change it there, not here.`,
-                    )}
-                  </small>
-                </label>
-              ) : null}
-
-              {qrResourceForm.targetMode === "document_existing" ? (
-                <AuthFormField label={tr("Document à utiliser", "Document to use")}>
-                  <select
-                    name="documentId"
-                    value={qrResourceForm.documentId}
-                    onChange={handleQrResourceFormChange}
-                  >
-                    <option value="">{tr("Sélectionner un document", "Select a document")}</option>
-                    {documents.map((documentItem) => (
-                      <option key={documentItem.id} value={documentItem.id}>
-                        {documentItem.title}
-                      </option>
-                    ))}
-                  </select>
-                </AuthFormField>
-              ) : null}
-
-              {qrResourceForm.targetMode === "document_upload" ? (
-                <div className="admin-stack">
-                  <FileUpload
-                    value={qrResourceForm.uploadedFileUrl}
-                    onChange={(url) =>
-                      setQrResourceForm((current) => ({
-                        ...current,
-                        uploadedFileUrl: url,
-                      }))
-                    }
-                    onUploadComplete={(uploadMeta) =>
-                      setQrResourceForm((current) => ({
-                        ...current,
-                        uploadedFileUrl: uploadMeta.url,
-                        uploadedFileName: uploadMeta.fileName || "",
-                        uploadedFilePath: uploadMeta.filePath || "",
-                      }))
-                    }
-                    accept=".pdf,image/*"
-                    storagePath="accreditations/documents"
-                    label={tr("Document à téléverser", "Document to upload")}
-                    helperText={tr(
-                      "PDF ou image · sera aussi enregistré dans la bibliothèque Documents",
-                      "PDF or image · also saved in the Documents library",
-                    )}
-                  />
-                  {qrResourceForm.uploadedFileName ? (
-                    <p className="panel-note">{tr("Fichier prêt", "File ready")}: {qrResourceForm.uploadedFileName}</p>
-                  ) : null}
+            {isQrFormOpen ? (
+              <div className="acc-qr-form">
+                <div className="acc-qr-form__head">
+                  <strong>{editingQrResourceId ? tr("Modifier le QR", "Edit the QR code") : tr("Nouveau QR", "New QR code")}</strong>
+                  <span>{tr("Titre et sous-titre s'impriment sous le QR, en anglais comme le badge.", "Title and subtitle are printed under the QR code, in English like the badge.")}</span>
                 </div>
-              ) : null}
-
-              {qrResourceForm.targetMode === "url" ? (
-                <AuthFormField label="URL">
-                  <input
-                    name="url"
-                    type="url"
-                    placeholder="https://..."
-                    value={qrResourceForm.url}
+                <div className="acc-qr-form__grid">
+                  <label className="acc-person__field">
+                    <span>{tr("Titre", "Title")}</span>
+                    <input name="label" placeholder="Live results" value={qrResourceForm.label} onChange={handleQrResourceFormChange} />
+                  </label>
+                  <label className="acc-person__field">
+                    <span>{tr("Sous-titre", "Subtitle")}</span>
+                    <input name="subtitle" placeholder="Follow the results" value={qrResourceForm.subtitle} onChange={handleQrResourceFormChange} />
+                  </label>
+                </div>
+                <div className="acc-qr-form__target">
+                <AuthFormField label={tr("Type de cible", "Target type")}>
+                  <select
+                    name="targetMode"
+                    value={qrResourceForm.targetMode}
                     onChange={handleQrResourceFormChange}
-                  />
-                </AuthFormField>
-              ) : null}
-
-              <div className="panel-actions">
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={saveQrResource}
-                >
-                  {editingQrResourceId ? tr("Enregistrer la ressource", "Save the resource") : tr("Ajouter la ressource", "Add the resource")}
-                </button>
-                {editingQrResourceId ? (
-                  <button
-                    className="button button--secondary"
-                    type="button"
-                    onClick={resetQrResourceForm}
                   >
-                    {tr("Annuler", "Cancel")}
-                  </button>
+                    <option value="linked">{tr("Lien déjà saisi dans MyCLIM", "Link already set in MyCLIM")}</option>
+                    <option value="document_existing">{tr("Document existant", "Existing document")}</option>
+                    <option value="document_upload">{tr("Téléverser un document ici", "Upload a document here")}</option>
+                    <option value="url">{tr("Lien externe", "External link")}</option>
+                  </select>
+                </AuthFormField>
+  
+                {qrResourceForm.targetMode === "linked" ? (
+                  <label className="field">
+                    <span>{tr("Lien repris", "Linked source")}</span>
+                    <select name="source" value={qrResourceForm.source} onChange={handleQrResourceFormChange}>
+                      {QR_LINK_SOURCES.map((item) => (
+                        <option key={item.key} value={item.key}>
+                          {getLinkSourceLabel(item)} ({getLinkSourceWhere(item)})
+                        </option>
+                      ))}
+                    </select>
+                    <small className="panel-note">
+                      {tr(
+                        `Lien actuel : ${getLinkedSourceUrl(qrResourceForm.source) || "pas encore renseigné à cet endroit"}. Le badge suit ce lien : changez-le là-bas, pas ici.`,
+                        `Current link: ${getLinkedSourceUrl(qrResourceForm.source) || "not set there yet"}. The badge follows this link: change it there, not here.`,
+                      )}
+                    </small>
+                  </label>
                 ) : null}
+  
+                {qrResourceForm.targetMode === "document_existing" ? (
+                  <AuthFormField label={tr("Document à utiliser", "Document to use")}>
+                    <select
+                      name="documentId"
+                      value={qrResourceForm.documentId}
+                      onChange={handleQrResourceFormChange}
+                    >
+                      <option value="">{tr("Sélectionner un document", "Select a document")}</option>
+                      {documents.map((documentItem) => (
+                        <option key={documentItem.id} value={documentItem.id}>
+                          {documentItem.title}
+                        </option>
+                      ))}
+                    </select>
+                  </AuthFormField>
+                ) : null}
+  
+                {qrResourceForm.targetMode === "document_upload" ? (
+                  <div className="admin-stack">
+                    <FileUpload
+                      value={qrResourceForm.uploadedFileUrl}
+                      onChange={(url) =>
+                        setQrResourceForm((current) => ({
+                          ...current,
+                          uploadedFileUrl: url,
+                        }))
+                      }
+                      onUploadComplete={(uploadMeta) =>
+                        setQrResourceForm((current) => ({
+                          ...current,
+                          uploadedFileUrl: uploadMeta.url,
+                          uploadedFileName: uploadMeta.fileName || "",
+                          uploadedFilePath: uploadMeta.filePath || "",
+                        }))
+                      }
+                      accept=".pdf,image/*"
+                      storagePath="accreditations/documents"
+                      label={tr("Document à téléverser", "Document to upload")}
+                      helperText={tr(
+                        "PDF ou image · sera aussi enregistré dans la bibliothèque Documents",
+                        "PDF or image · also saved in the Documents library",
+                      )}
+                    />
+                    {qrResourceForm.uploadedFileName ? (
+                      <p className="panel-note">{tr("Fichier prêt", "File ready")}: {qrResourceForm.uploadedFileName}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+  
+                {qrResourceForm.targetMode === "url" ? (
+                  <AuthFormField label="URL">
+                    <input
+                      name="url"
+                      type="url"
+                      placeholder="https://..."
+                      value={qrResourceForm.url}
+                      onChange={handleQrResourceFormChange}
+                    />
+                  </AuthFormField>
+                ) : null}
+  
+                  </div>
+                <div className="acc-qr-form__actions">
+                  <button className="button button--primary button--small" type="button" onClick={async () => {
+                    await saveQrResource();
+                  }}>
+                    {editingQrResourceId ? tr("Enregistrer", "Save") : tr("Ajouter le QR", "Add the QR code")}
+                  </button>
+                  <button
+                    className="button button--ghost button--small"
+                    type="button"
+                    onClick={() => {
+                      resetQrResourceForm();
+                      setIsQrFormOpen(false);
+                    }}
+                  >
+                    {tr("Fermer", "Close")}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
           </Panel>
-        </section>
           </>
           ) : null}
         </>
