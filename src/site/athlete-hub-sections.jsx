@@ -32,7 +32,7 @@ const HUB_COPY = {
     yourBooking: "Your booking",
     oneByDay: "One booking per day. You can cancel at any time to free the slot for another athlete.",
     alreadyToday: "You already have a slot that day",
-    ticketsText: "You can invite up to 2 people. Their names will be on the guest list at the public entrance: they just give their name, no ticket to print.",
+    ticketsText: "Up to 2 guests, free. They give their name at the public entrance — nothing to print.",
     firstName: "First name",
     guestLastName: "Last name",
     email: "Email (optional)",
@@ -41,7 +41,7 @@ const HUB_COPY = {
     saving: "Saving…",
     saved: "Guests saved.",
     used: (used, max) => `${used} of ${max} places used`,
-    identifyFirst: "Identify yourself in the physio section above to invite your guests.",
+    guestsOf: "Guests of",
     errors: {
       "not-found": "No athlete found with this name and year of birth. Check the spelling or ask the athlete desk.",
       "resource-exhausted": "This slot was just taken. Pick another one.",
@@ -74,7 +74,7 @@ const HUB_COPY = {
     yourBooking: "Ta réservation",
     oneByDay: "Une réservation par jour. Tu peux annuler à tout moment pour libérer le créneau.",
     alreadyToday: "Tu as déjà un créneau ce jour-là",
-    ticketsText: "Tu peux inviter jusqu'à 2 personnes. Leurs noms seront sur la liste des invités à l'entrée public : elles donnent simplement leur nom, aucun billet à imprimer.",
+    ticketsText: "Jusqu'à 2 invités, gratuitement. Ils donnent leur nom à l'entrée public — rien à imprimer.",
     firstName: "Prénom",
     guestLastName: "Nom",
     email: "E-mail (facultatif)",
@@ -83,7 +83,7 @@ const HUB_COPY = {
     saving: "Enregistrement…",
     saved: "Invités enregistrés.",
     used: (used, max) => `${used} place${used > 1 ? "s" : ""} utilisée${used > 1 ? "s" : ""} sur ${max}`,
-    identifyFirst: "Identifie-toi dans la partie kiné ci-dessus pour inviter tes proches.",
+    guestsOf: "Invités de",
     errors: {
       "not-found": "Aucun athlète trouvé avec ce nom et cette année de naissance. Vérifie l'orthographe ou demande à l'accueil athlètes.",
       "resource-exhausted": "Ce créneau vient d'être pris. Choisis-en un autre.",
@@ -436,44 +436,34 @@ function AthleteHubSections({ language, indexOffset, overrides = {} }) {
         <p className="rb-muted">{copy.ticketsText}</p>
         {activePass && hubIsCurrent ? (
           <form className="rb-hub-guests" onSubmit={saveGuests}>
-            {guests.map((guest, index) => (
-              <div key={index} className="rb-hub-guest">
-                <span className="rb-hub-guest__n">{index + 1}</span>
-                <input
-                  aria-label={`${copy.firstName} ${index + 1}`}
-                  placeholder={copy.firstName}
-                  value={guest.firstName}
-                  disabled={guest.admitted}
-                  onChange={(event) => setGuests((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, firstName: event.target.value } : item)))}
-                />
-                <input
-                  aria-label={`${copy.guestLastName} ${index + 1}`}
-                  placeholder={copy.guestLastName}
-                  value={guest.lastName}
-                  disabled={guest.admitted}
-                  onChange={(event) => setGuests((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, lastName: event.target.value } : item)))}
-                />
-                <input
-                  aria-label={`${copy.email} ${index + 1}`}
-                  type="email"
-                  placeholder={copy.email}
-                  value={guest.email}
-                  disabled={guest.admitted}
-                  onChange={(event) => setGuests((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, email: event.target.value } : item)))}
-                />
-                {guest.admitted ? <span className="rb-hub-guest__admitted">✅ {copy.admitted}</span> : null}
-              </div>
-            ))}
+            <div className="rb-hub-guests__for">
+              {copy.guestsOf} <b>{activePass.athlete.firstName} {activePass.athlete.lastName}</b>
+            </div>
+            {guests.map((guest, index) => {
+              const update = (field) => (event) =>
+                setGuests((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: event.target.value } : item)));
+              return (
+                <div key={index} className={`rb-hub-guest${guest.admitted ? " rb-hub-guest--admitted" : ""}`}>
+                  <span className="rb-hub-guest__n">{index + 1}</span>
+                  <input aria-label={`${copy.firstName} ${index + 1}`} placeholder={copy.firstName} value={guest.firstName} disabled={guest.admitted} onChange={update("firstName")} />
+                  <input aria-label={`${copy.guestLastName} ${index + 1}`} placeholder={copy.guestLastName} value={guest.lastName} disabled={guest.admitted} onChange={update("lastName")} />
+                  <input aria-label={`${copy.email} ${index + 1}`} type="email" placeholder={copy.email} value={guest.email} disabled={guest.admitted} onChange={update("email")} />
+                  {guest.admitted ? <span className="rb-hub-guest__admitted">✓ {copy.admitted}</span> : null}
+                </div>
+              );
+            })}
             <div className="rb-hub-guests__row">
-              <button className="rb-btn" type="submit" disabled={busy === "guests"}>
+              <span className="rb-muted">{copy.used(usedPlaces, guests.length)}</span>
+              {guestMessage ? <span className={guestMessage.type === "ok" ? "rb-hub-ok" : "rb-hub-error"}>{guestMessage.text}</span> : null}
+              <button className="rb-btn rb-btn--sm" type="submit" disabled={busy === "guests"}>
                 {busy === "guests" ? copy.saving : copy.save}
               </button>
-              <span className="rb-muted">{copy.used(usedPlaces, guests.length)}</span>
             </div>
-            {guestMessage ? <p className={guestMessage.type === "ok" ? "rb-hub-ok" : "rb-hub-error"}>{guestMessage.text}</p> : null}
           </form>
+        ) : activePass ? (
+          <p className="rb-muted">{copy.loading}</p>
         ) : (
-          <p className="rb-muted">{copy.identifyFirst}</p>
+          <IdentifyForm copy={copy} onIdentified={handleIdentified} />
         )}
       </section>
     </>
