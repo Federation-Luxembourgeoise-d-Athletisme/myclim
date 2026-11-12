@@ -22,6 +22,8 @@
 // des colonnes au même titre que les équipes bénévoles ; une activité peut
 // porter un effectif / des personnes (« LUNEX (2) ») et être « toute la journée ».
 
+import { editionDateYmd } from "./meeting-edition-utils.js";
+
 const PROGRAMME_START = 8 * 60;
 const PROGRAMME_END = 20 * 60;
 const PROGRAMME_STEP = 15;
@@ -44,9 +46,10 @@ function getPlanningDay(key) {
   return PLANNING_DAYS.find((day) => day.key === key) || PLANNING_DAYS.find((day) => day.key === "sunday");
 }
 
-// Date du jour à partir de la date du meeting (« 2027-01-17 »), ou null.
+// Date du jour à partir de la date du meeting (« 2027-01-17 » ou Timestamp
+// Firestore, tel qu'enregistré par Site web › Édition), ou null.
 function getPlanningDayDate(meetingDate, dayKey) {
-  const match = String(meetingDate || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const match = editionDateYmd(meetingDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return null;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   date.setDate(date.getDate() + getPlanningDay(dayKey).offset);

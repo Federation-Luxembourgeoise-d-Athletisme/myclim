@@ -107,3 +107,14 @@ test('last year import maps teams, entrance sub-roles, free columns and general'
   ]);
   assert.equal(programme.activities[1].category, 'briefing');
 });
+
+test('getPlanningDayDate accepts the Firestore Timestamp saved by Site web › Édition', async () => {
+  const { getPlanningDayDate } = await import('../src/app/meeting-day-programme.js');
+  const { editionDateYmd } = await import('../src/app/meeting-edition-utils.js');
+  const timestamp = { toDate: () => new Date(2027, 0, 17, 12) };
+  assert.equal(editionDateYmd(timestamp), '2027-01-17');
+  assert.equal(editionDateYmd('2027-01-17'), '2027-01-17');
+  assert.equal(editionDateYmd(null), '');
+  const friday = getPlanningDayDate(timestamp, 'friday');
+  assert.equal(friday.getDate(), 15);
+});

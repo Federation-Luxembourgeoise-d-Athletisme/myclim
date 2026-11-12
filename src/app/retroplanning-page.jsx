@@ -8,6 +8,7 @@ import { getActiveRoles } from "./navigation";
 import { MEETING_TASKS, useMeetingTasks, useMyOrganisationTeams, useOrganisationTeams } from "./organisation-hooks";
 import { findOrganisationTeam, getPerimeterEmails, getPerimeterNames } from "./organisation-teams";
 import legacyPlanning2026 from "./planning-2026-legacy.json";
+import { editionDateYmd } from "./meeting-edition-utils";
 import {
   TASK_STATUSES,
   daysFromMeeting,
@@ -47,7 +48,7 @@ export function RetroplanningPage() {
   const { editions } = useMeetingEditions();
   const year = Number(siteEditionYear || editions[0]?.year) || null;
   const edition = editions.find((item) => Number(item.year || item.id) === year) || null;
-  const meetingDate = String(edition?.date || "").slice(0, 10);
+  const meetingDate = editionDateYmd(edition?.date);
   const { teams: orgTeams } = useOrganisationTeams(isManager);
   const { tasks, loading, error } = useMeetingTasks({ year, isManager, email: currentUser?.email });
   // Un gestionnaire membre d'équipes (étudiants LUNEX) voit d'abord les tâches
@@ -182,6 +183,7 @@ export function RetroplanningPage() {
         {!orgTeams.length ? (
           <p className="mdp-muted">Astuce : créez d'abord les équipes de l'organisation (Équipes & affectations) pour retrouver les périmètres.</p>
         ) : null}
+        {message ? <p className="mdp-status">{message}</p> : null}
         <div className="mdp-empty__actions">
           <button className="button button--primary" disabled={!meetingDate || busy} type="button" onClick={importLastYear}>
             Importer les tâches de l'an dernier

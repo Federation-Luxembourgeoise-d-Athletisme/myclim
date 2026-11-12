@@ -35,3 +35,14 @@ export function inferEditionDisplayNumber(edition, knownEditions = []) {
 
   return previous ? previous.number + (year - previous.year) : null;
 }
+
+// Date d'une édition (Timestamp Firestore, Date ou « AAAA-MM-JJ ») → « AAAA-MM-JJ »
+// ou "". Site web › Édition l'enregistre comme Timestamp (midi, heure locale).
+export function editionDateYmd(value) {
+  if (!value) return "";
+  if (typeof value === "string") return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : "";
+  const date = typeof value.toDate === "function" ? value.toDate() : value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
