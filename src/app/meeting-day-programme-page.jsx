@@ -167,6 +167,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   const [collapsedFor, setCollapsedFor] = useState(() => (readPanelCollapsed() ? { selectedId: null, sidePanel: "activity" } : null));
   const [newColumnName, setNewColumnName] = useState("");
   const [saveState, setSaveState] = useState("");
+  const [undo, setUndo] = useState(null);
   const saveTimer = useRef(null);
   const saveVersion = useRef(0);
 
@@ -203,6 +204,8 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
   function update(mutator) {
+    // Toute autre modification rend l'annulation du rattachement caduque.
+    setUndo(null);
     const next = normalizeProgramme(mutator(structuredClone(programme)), dayKey);
     setDraft(next);
     setSaveState("Enregistrement…");
@@ -329,17 +332,22 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
     return matchByExtraId.get(column.id) || { key: "", strong: false };
   }
 
+  // Rattacher s'applique tout de suite, avec « Annuler » à côté de
+  // l'enregistrement (pas de window.confirm : le navigateur intégré de
+  // l'app ferme ces fenêtres tout seul, ce qui annulait le rattachement).
   function mergeColumn(column, targetKey) {
     const target = targetByKey.get(targetKey);
     const used = programme.activities.filter((activity) => activity.columns.includes(`extra:${column.id}`)).length;
-    if (!window.confirm(`Rattacher « ${column.name} » à « ${target?.label} » ? ${used} activité(s) y passent.`)) return;
+    const previous = structuredClone(programme);
     update((current) => mergeExtraColumn(current, column.id, targetKey));
+    setUndo({ previous, label: `« ${column.name} » → ${target?.label} (${used} activité${used > 1 ? "s" : ""})` });
   }
 
   function mergeAllSuggestions() {
-    const lines = suggestedMatches.map(({ column, key }) => `• ${column.name} → ${targetByKey.get(key)?.label}`).join("\n");
-    if (!window.confirm(`Rattacher ces colonnes libres à leur équipe ?\n\n${lines}`)) return;
+    const previous = structuredClone(programme);
+    const count = suggestedMatches.length;
     update((current) => suggestedMatches.reduce((next, { column, key }) => mergeExtraColumn(next, column.id, key), current));
+    setUndo({ previous, label: `${count} colonnes rattachées à leur équipe` });
   }
 
   function toggleSet(field, id, on) {
@@ -446,6 +454,21 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
           ))}
         </div>
         <span className="mdp-bar__save">{saveState}</span>
+        {undo ? (
+          <span className="mdp-undo">
+            {undo.label}
+            <button
+              className="mdp-linkbtn"
+              type="button"
+              onClick={() => {
+                const { previous } = undo;
+                update(() => previous);
+              }}
+            >
+              Annuler
+            </button>
+          </span>
+        ) : null}
         <button className="mdp-btn" type="button" onClick={() => setSidePanel(sidePanel === "columns" ? "activity" : "columns")}>
           Colonnes
         </button>
