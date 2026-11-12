@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTr } from "./use-tr";
 import { NavLink } from "react-router-dom";
 import {
   collection,
@@ -1697,6 +1698,10 @@ function PresencePage(props) {
   const { Panel, formatDateTimeForDisplay, getTimestampMs } = props;
   const { signatoryName, signatoryTitle, signatureImageUrl } = useCertificateConfiguration();
   const { currentUser, userProfile } = useAuth();
+  // Page aussi utilisée par les chefs d'équipe : elle suit la langue de l'app.
+  const tr = useTr();
+  const teamRoleLabel = (value) => tr(value, { "Chef d'équipe": "Team leader", "Bénévole": "Volunteer", "Remplaçant": "Substitute" }[value] || value);
+  const notChecked = () => tr("Non pointé", "Not checked in");
   const activeRoles = getActiveRoles(userProfile);
   const canManageAllTeams = activeRoles.includes("admin") || activeRoles.includes("gestionnaire");
   const { roles, teamAssignments, loading: teamsLoading, error: teamsError } = useTeamConfiguration();
@@ -1759,7 +1764,7 @@ function PresencePage(props) {
         () => {
           setUsers([]);
           setUsersLoading(false);
-          setUsersError("Impossible de charger les présences pour le moment.");
+          setUsersError(tr("Impossible de charger les présences pour le moment.", "Attendance could not be loaded right now."));
         },
       );
     }
@@ -1986,7 +1991,7 @@ function PresencePage(props) {
       setStatusMessage(successMessage);
     } catch (error) {
       console.error("Impossible de mettre à jour la présence.", error);
-      setStatusMessage("La mise à jour de présence a échoué.");
+      setStatusMessage(tr("La mise à jour de présence a échoué.", "The attendance update failed."));
     } finally {
       setIsSaving(false);
     }
@@ -2003,7 +2008,7 @@ function PresencePage(props) {
         checkedInAt: currentPresence.checkedInAt || now,
         checkedInBy: currentPresence.checkedInAt ? currentPresence.checkedInBy : actorId,
       },
-      `${volunteer.firstName} ${volunteer.lastName}`.trim() + " marqué(e) présent(e).",
+      tr(`${volunteer.firstName} ${volunteer.lastName}`.trim() + " : présent·e.", `${volunteer.firstName} ${volunteer.lastName}`.trim() + " checked in."),
     );
   }
 
@@ -2053,8 +2058,8 @@ function PresencePage(props) {
         tshirtDeliveredBy: nextHandedOver ? actorId : "",
       },
       nextHandedOver
-        ? `Welcome pack remis à ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`
-        : `Welcome pack retiré pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`,
+        ? tr(`Welcome pack remis à ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`, `Welcome pack given to ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`)
+        : tr(`Welcome pack retiré pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`, `Welcome pack removed for ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`),
     );
   }
 
@@ -2082,7 +2087,7 @@ function PresencePage(props) {
         departureRecordedAt: null,
         departureRecordedBy: "",
       },
-      `${volunteer.firstName} ${volunteer.lastName}`.trim() + " repassé(e) absent(e).",
+      tr(`${volunteer.firstName} ${volunteer.lastName}`.trim() + " : de nouveau absent·e.", `${volunteer.firstName} ${volunteer.lastName}`.trim() + " marked absent again."),
     );
   }
 
@@ -2124,8 +2129,8 @@ function PresencePage(props) {
         departureRecordedBy: nextValue ? actorId : "",
       },
       nextValue
-        ? `Horaire de départ enregistré pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`
-        : `Horaire de départ supprimé pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`,
+        ? tr(`Horaire de départ enregistré pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`, `Departure time saved for ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`)
+        : tr(`Horaire de départ supprimé pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`, `Departure time removed for ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`),
     );
   }
 
@@ -2158,8 +2163,8 @@ function PresencePage(props) {
         checkedInBy: nextCheckedInAt ? actorId : "",
       },
       nextCheckedInAt
-        ? `Horaire d'arrivée enregistré pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`
-        : `Horaire d'arrivée supprimé pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`,
+        ? tr(`Horaire d'arrivée enregistré pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`, `Arrival time saved for ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`)
+        : tr(`Horaire d'arrivée supprimé pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`, `Arrival time removed for ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`),
     );
   }
 
@@ -2173,7 +2178,10 @@ function PresencePage(props) {
         missionCompletedAt: new Date().toISOString(),
         missionCompletedBy: actorId,
       },
-      `Mission terminée pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}. La fiche est maintenant verrouillée.`,
+      tr(
+        `Mission terminée pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}. La fiche est maintenant verrouillée.`,
+        `Mission completed for ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}. The record is now locked.`,
+      ),
     );
   }
 
@@ -2182,7 +2190,7 @@ function PresencePage(props) {
 
     const roundedHours = getRoundedParticipationHours(volunteer.presence, getTimestampMs);
     if (!roundedHours) {
-      setStatusMessage("Le certificat nécessite une arrivée et un horaire de départ cohérents.");
+      setStatusMessage(tr("Le certificat nécessite une arrivée et un horaire de départ cohérents.", "The certificate needs a consistent arrival and departure time."));
       return;
     }
 
@@ -2208,54 +2216,54 @@ function PresencePage(props) {
     <div className="page">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Jour J</p>
-          <h1>Présences</h1>
-          <p>Vue opérationnelle pour l'accueil, les sandwichs et les départs d'équipe.</p>
-          {teamsLoading || usersLoading ? <p className="panel-note">Chargement des présences...</p> : null}
+          <p className="eyebrow">{tr("Jour J", "Meeting day")}</p>
+          <h1>{tr("Présences", "Attendance")}</h1>
+          <p>{tr("Vue opérationnelle pour l'accueil, les sandwichs et les départs d'équipe.", "Check-in, sandwiches and team departures on the day.")}</p>
+          {teamsLoading || usersLoading ? <p className="panel-note">{tr("Chargement des présences...", "Loading attendance...")}</p> : null}
           {teamsError || usersError ? <p className="panel-note">{teamsError || usersError}</p> : null}
           {statusMessage ? <p className="panel-note">{statusMessage}</p> : null}
-          {isSaving ? <p className="panel-note">Sauvegarde en cours...</p> : null}
+          {isSaving ? <p className="panel-note">{tr("Sauvegarde en cours...", "Saving...")}</p> : null}
         </div>
       </section>
 
       <section className="metric-grid metric-grid--3">
         <article className="metric-card metric-card--accent">
-          <span>Bénévoles visibles</span>
+          <span>{tr("Bénévoles visibles", "Visible volunteers")}</span>
           <strong>{volunteersWithTeams.length}</strong>
         </article>
         <article className="metric-card metric-card--warn">
-          <span>Présents</span>
+          <span>{tr("Présents", "Present")}</span>
           <strong>{presentCount}</strong>
         </article>
         <article className="metric-card">
-          <span>Sandwichs récupérés</span>
+          <span>{tr("Sandwichs récupérés", "Sandwiches collected")}</span>
           <strong>{lunchCount}</strong>
         </article>
       </section>
 
       <Panel
-        title="Filtrer et rechercher"
+        title={tr("Filtrer et rechercher", "Filter and search")}
         subtitle={
           canManageAllTeams
-            ? "Les gestionnaires et administrateurs voient toutes les équipes."
-            : "En tant que chef d'équipe, tu ne vois que les équipes dont tu es responsable."
+            ? tr("Les gestionnaires et administrateurs voient toutes les équipes.", "Managers and administrators see every team.")
+            : tr("En tant que chef d'équipe, vous ne voyez que les équipes que vous dirigez.", "As a team leader, you only see the teams you lead.")
         }
       >
         <div className="presence-toolbar">
           <div className="presence-toolbar__filters">
             <label className="field">
-              <span>Recherche</span>
+              <span>{tr("Recherche", "Search")}</span>
               <input
                 type="search"
-                placeholder="Nom, prénom, email..."
+                placeholder={tr("Nom, prénom, e-mail...", "Name, e-mail...")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
             <label className="field">
-              <span>Équipe</span>
+              <span>{tr("Équipe", "Team")}</span>
               <select value={effectiveSelectedRoleId} onChange={(event) => setSelectedRoleId(event.target.value)}>
-                {canManageAllTeams ? <option value="">Toutes les équipes</option> : null}
+                {canManageAllTeams ? <option value="">{tr("Toutes les équipes", "All teams")}</option> : null}
                 {availableRoles.map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.roleName}
@@ -2267,61 +2275,61 @@ function PresencePage(props) {
           <div className="team-selection-summary" aria-live="polite">
             <div className="team-summary-pill">
               <strong>{filteredVolunteers.length}</strong>
-              <span>Résultats</span>
+              <span>{tr("Résultats", "Results")}</span>
             </div>
             <div className="team-summary-pill">
               <strong>{selectedTeamPresentCount}</strong>
-              <span>Présents</span>
+              <span>{tr("Présents", "Present")}</span>
             </div>
             <div className="team-summary-pill">
               <strong>{lunchVolunteers.filter((volunteer) => volunteer.presence.lunchCollectedAt).length}</strong>
-              <span>Sandwichs pointés</span>
+              <span>{tr("Sandwichs pointés", "Sandwiches checked")}</span>
             </div>
             <div className="team-summary-pill">
               <strong>{departureVolunteers.filter((volunteer) => volunteer.presence.missionCompletedAt).length}</strong>
-              <span>Missions terminées</span>
+              <span>{tr("Missions terminées", "Missions completed")}</span>
             </div>
           </div>
         </div>
       </Panel>
 
       {canManageAllTeams ? (
-        <div className="admin-subtabs" role="tablist" aria-label="Navigation du module Présences">
+        <div className="admin-subtabs" role="tablist" aria-label={tr("Navigation du module Présences", "Attendance sections")}>
           <button
             type="button"
             className={`admin-subtab ${effectivePresenceTab === "welcome" ? "admin-subtab--active" : ""}`}
             onClick={() => setActivePresenceTab("welcome")}
           >
-            Accueil
+            {tr("Accueil", "Check-in")}
           </button>
           <button
             type="button"
             className={`admin-subtab ${effectivePresenceTab === "lunch" ? "admin-subtab--active" : ""}`}
             onClick={() => setActivePresenceTab("lunch")}
           >
-            Sandwichs
+            {tr("Sandwichs", "Sandwiches")}
           </button>
           <button
             type="button"
             className={`admin-subtab ${effectivePresenceTab === "departures" ? "admin-subtab--active" : ""}`}
             onClick={() => setActivePresenceTab("departures")}
           >
-            Départs équipes
+            {tr("Départs équipes", "Team departures")}
           </button>
         </div>
       ) : null}
 
       {canManageAllTeams && effectivePresenceTab === "welcome" ? (
         <section className="panel-grid panel-grid--1">
-          <Panel title="Accueil bénévoles" subtitle="Tableau de check-in et pointage du welcome pack.">
+          <Panel title={tr("Accueil bénévoles", "Volunteer check-in")} subtitle={tr("Tableau de check-in et pointage du welcome pack.", "Check-in and welcome pack tracking.")}>
             <div className="table-wrap">
               <table className="data-table data-table--admin">
                 <thead>
                   <tr>
-                    <th>Bénévole</th>
-                    <th>Équipe</th>
-                    <th>Présence</th>
-                    <th>Arrivée</th>
+                    <th>{tr("Bénévole", "Volunteer")}</th>
+                    <th>{tr("Équipe", "Team")}</th>
+                    <th>{tr("Présence", "Status")}</th>
+                    <th>{tr("Arrivée", "Arrival")}</th>
                     <th>Actions</th>
                     <th>Welcome pack</th>
                   </tr>
@@ -2335,25 +2343,25 @@ function PresencePage(props) {
                           <td>
                             <div className="table-stack">
                               <strong>{`${volunteer.firstName} ${volunteer.lastName}`.trim() || volunteer.email}</strong>
-                              <span>{volunteer.email || volunteer.phone || "Sans contact"}</span>
+                              <span>{volunteer.email || volunteer.phone || tr("Sans contact", "No contact")}</span>
                             </div>
                           </td>
                           <td>
                             <div className="table-stack">
-                              <strong>{volunteer.primaryTeam}</strong>
-                              <span>{volunteer.scopedTeamRole}</span>
+                              <strong>{volunteer.primaryTeam === "En attente" ? tr("En attente", "Pending") : volunteer.primaryTeam}</strong>
+                              <span>{teamRoleLabel(volunteer.scopedTeamRole)}</span>
                             </div>
                           </td>
                           <td>
                             <span className={getPresenceStatusClass(volunteer.presence.status, normalizeComparableValue)}>
-                              {getPresenceStatusLabel(volunteer.presence.status, normalizeComparableValue)}
+                              {tr(getPresenceStatusLabel(volunteer.presence.status, normalizeComparableValue), volunteer.presence.status === "present" ? "Present" : "Absent")}
                             </span>
                           </td>
-                          <td>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : "Non pointé"}</td>
+                          <td>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : notChecked()}</td>
                           <td>
                             <div className="presence-action-grid">
                               <button className="button button--secondary" type="button" disabled={locked} onClick={() => markVolunteerPresent(volunteer)}>
-                                Présent
+                                {tr("Présent", "Present")}
                               </button>
                               <button className="button button--ghost" type="button" disabled={locked} onClick={() => markVolunteerAbsent(volunteer)}>
                                 Absent
@@ -2368,7 +2376,7 @@ function PresencePage(props) {
                               onClick={() => toggleWelcomePack(volunteer)}
                             >
                               {isBadgeHandedOver(volunteer.id) && volunteer.presence.tshirtDeliveredAt
-                                ? "Remis"
+                                ? tr("Remis", "Given")
                                 : "Welcome pack"}
                             </button>
                           </td>
@@ -2377,7 +2385,7 @@ function PresencePage(props) {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="6">{normalizedSearch ? "Aucun bénévole trouvé." : "Aucun bénévole sur ce périmètre."}</td>
+                      <td colSpan="6">{normalizedSearch ? tr("Aucun bénévole trouvé.", "No volunteer found.") : tr("Aucun bénévole sur ce périmètre.", "No volunteers here.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -2390,7 +2398,7 @@ function PresencePage(props) {
                   type="button"
                   onClick={() => showMoreListItems("presence-welcome")}
                 >
-                  Afficher 10 de plus
+                  {tr("Afficher 10 de plus", "Show 10 more")}
                 </button>
               </div>
             ) : null}
@@ -2400,14 +2408,14 @@ function PresencePage(props) {
 
       {canManageAllTeams && effectivePresenceTab === "lunch" ? (
         <section className="panel-grid panel-grid--1">
-          <Panel title="Sandwichs" subtitle="Pointage rapide des sandwichs remis aux bénévoles déjà arrivés.">
+          <Panel title={tr("Sandwichs", "Sandwiches")} subtitle={tr("Pointage rapide des sandwichs remis aux bénévoles déjà arrivés.", "Quick check of sandwiches given to volunteers who have arrived.")}>
             <div className="table-wrap">
               <table className="data-table data-table--admin">
                 <thead>
                   <tr>
-                    <th>Bénévole</th>
-                    <th>Équipe</th>
-                    <th>Arrivée</th>
+                    <th>{tr("Bénévole", "Volunteer")}</th>
+                    <th>{tr("Équipe", "Team")}</th>
+                    <th>{tr("Arrivée", "Arrival")}</th>
                     <th>Sandwich</th>
                     <th>Action</th>
                   </tr>
@@ -2421,12 +2429,12 @@ function PresencePage(props) {
                           <td>
                             <div className="table-stack">
                               <strong>{`${volunteer.firstName} ${volunteer.lastName}`.trim() || volunteer.email}</strong>
-                              <span>{volunteer.scopedTeamRole}</span>
+                              <span>{teamRoleLabel(volunteer.scopedTeamRole)}</span>
                             </div>
                           </td>
-                          <td>{volunteer.primaryTeam}</td>
-                          <td>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : "Non pointé"}</td>
-                          <td>{volunteer.presence.lunchCollectedAt ? formatDateTimeForDisplay(volunteer.presence.lunchCollectedAt) : "Non récupéré"}</td>
+                          <td>{volunteer.primaryTeam === "En attente" ? tr("En attente", "Pending") : volunteer.primaryTeam}</td>
+                          <td>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : notChecked()}</td>
+                          <td>{volunteer.presence.lunchCollectedAt ? formatDateTimeForDisplay(volunteer.presence.lunchCollectedAt) : tr("Non récupéré", "Not collected")}</td>
                           <td>
                             <button
                               className="button button--secondary"
@@ -2436,11 +2444,11 @@ function PresencePage(props) {
                                 togglePresenceStamp(
                                   volunteer,
                                   "lunchCollectedAt",
-                                  `Statut sandwich mis à jour pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`,
+                                  tr(`Statut sandwich mis à jour pour ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`, `Sandwich status updated for ${`${volunteer.firstName} ${volunteer.lastName}`.trim()}.`),
                                 )
                               }
                             >
-                              {volunteer.presence.lunchCollectedAt ? "Annuler" : "Sandwich remis"}
+                              {volunteer.presence.lunchCollectedAt ? tr("Annuler", "Undo") : tr("Sandwich remis", "Sandwich given")}
                             </button>
                           </td>
                         </tr>
@@ -2448,7 +2456,7 @@ function PresencePage(props) {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="5">Aucun bénévole présent à pointer pour les sandwichs.</td>
+                      <td colSpan="5">{tr("Aucun bénévole présent à pointer pour les sandwichs.", "No volunteers present to check for sandwiches.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -2461,7 +2469,7 @@ function PresencePage(props) {
                   type="button"
                   onClick={() => showMoreListItems("presence-lunch")}
                 >
-                  Afficher 10 de plus
+                  {tr("Afficher 10 de plus", "Show 10 more")}
                 </button>
               </div>
             ) : null}
@@ -2470,20 +2478,26 @@ function PresencePage(props) {
       ) : null}
 
       {effectivePresenceTab === "departures" ? (
-      <Panel title="Départs d'équipe" subtitle="Les chefs d'équipe et les gestionnaires enregistrent ici les départs et la fin de mission.">
+      <Panel
+        title={tr("Départs d'équipe", "Team departures")}
+        subtitle={tr(
+          "Les chefs d'équipe et les gestionnaires enregistrent ici les départs et la fin de mission.",
+          "Team leaders and managers record departures and the end of the mission here.",
+        )}
+      >
         {selectedRole || canManageAllTeams ? (
           <>
             <div className="table-wrap">
               <table className="data-table data-table--admin">
                 <thead>
                   <tr>
-                    <th>Bénévole</th>
-                    <th>Équipe</th>
-                    <th>Présence</th>
-                    <th>Arrivée</th>
-                    <th>Départ</th>
+                    <th>{tr("Bénévole", "Volunteer")}</th>
+                    <th>{tr("Équipe", "Team")}</th>
+                    <th>{tr("Présence", "Status")}</th>
+                    <th>{tr("Arrivée", "Arrival")}</th>
+                    <th>{tr("Départ", "Departure")}</th>
                     <th>Mission</th>
-                    <th>Certificat</th>
+                    <th>{tr("Certificat", "Certificate")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2496,21 +2510,21 @@ function PresencePage(props) {
                           <td>
                             <div className="table-stack">
                               <strong>{`${volunteer.firstName} ${volunteer.lastName}`.trim() || volunteer.email}</strong>
-                              <span>{volunteer.email || volunteer.phone || "Sans contact"}</span>
+                              <span>{volunteer.email || volunteer.phone || tr("Sans contact", "No contact")}</span>
                             </div>
                           </td>
                           <td>
                             <div className="table-stack">
-                              <strong>{volunteer.primaryTeam}</strong>
-                              <span>{volunteer.scopedTeamRole}</span>
+                              <strong>{volunteer.primaryTeam === "En attente" ? tr("En attente", "Pending") : volunteer.primaryTeam}</strong>
+                              <span>{teamRoleLabel(volunteer.scopedTeamRole)}</span>
                             </div>
                           </td>
                           <td>
                             <div className="table-stack">
                               <span className={getPresenceStatusClass(volunteer.presence.status, normalizeComparableValue)}>
-                                {getPresenceStatusLabel(volunteer.presence.status, normalizeComparableValue)}
+                                {tr(getPresenceStatusLabel(volunteer.presence.status, normalizeComparableValue), volunteer.presence.status === "present" ? "Present" : "Absent")}
                               </span>
-                              <span>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : "Non pointé"}</span>
+                              <span>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : notChecked()}</span>
                             </div>
                           </td>
                           <td>
@@ -2528,10 +2542,10 @@ function PresencePage(props) {
                                   }
                                   onBlur={(event) => saveArrivalTime(volunteer, event.target.value)}
                                 />
-                                <span>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : "Non pointé"}</span>
+                                <span>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : notChecked()}</span>
                               </div>
                             ) : (
-                              <span>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : "Non pointé"}</span>
+                              <span>{volunteer.presence.checkedInAt ? formatDateTimeForDisplay(volunteer.presence.checkedInAt) : notChecked()}</span>
                             )}
                           </td>
                           <td>
@@ -2553,27 +2567,29 @@ function PresencePage(props) {
                           </td>
                           <td>
                             <div className="table-actions">
-                              <span>{locked ? `Terminée le ${formatDateTimeForDisplay(volunteer.presence.missionCompletedAt)}` : "En cours"}</span>
+                              <span>{locked
+                                  ? tr(`Terminée le ${formatDateTimeForDisplay(volunteer.presence.missionCompletedAt)}`, `Completed on ${formatDateTimeForDisplay(volunteer.presence.missionCompletedAt)}`)
+                                  : tr("En cours", "In progress")}</span>
                               <button
                                 className="button button--primary"
                                 type="button"
                                 disabled={locked}
                                 onClick={() => completeMission(volunteer)}
                               >
-                                Mission terminée
+                                {tr("Mission terminée", "Mission completed")}
                               </button>
                             </div>
                           </td>
                           <td>
                             <div className="table-actions">
-                              <span>{roundedHours ? `${roundedHours} h` : "Non calculable"}</span>
+                              <span>{roundedHours ? `${roundedHours} h` : tr("Non calculable", "Not available")}</span>
                               <button
                                 className="button button--secondary"
                                 type="button"
                                 disabled={!roundedHours}
                                 onClick={() => openCertificate(volunteer)}
                               >
-                                Générer
+                                {tr("Générer", "Generate")}
                               </button>
                             </div>
                           </td>
@@ -2583,7 +2599,9 @@ function PresencePage(props) {
                   ) : (
                     <tr>
                       <td colSpan="7">
-                        {normalizedSearch ? "Aucun bénévole ne correspond à cette recherche." : "Aucun bénévole visible sur ce périmètre."}
+                        {normalizedSearch
+                          ? tr("Aucun bénévole ne correspond à cette recherche.", "No volunteer matches this search.")
+                          : tr("Aucun bénévole visible sur ce périmètre.", "No volunteers here.")}
                       </td>
                     </tr>
                   )}
@@ -2597,7 +2615,7 @@ function PresencePage(props) {
                   type="button"
                   onClick={() => showMoreListItems("presence-departures")}
                 >
-                  Afficher 10 de plus
+                  {tr("Afficher 10 de plus", "Show 10 more")}
                 </button>
               </div>
             ) : null}
@@ -2605,8 +2623,8 @@ function PresencePage(props) {
         ) : (
           <p className="panel-note">
             {canManageAllTeams
-              ? "Aucune équipe n'est configurée pour le moment."
-              : "Aucune équipe chef d'équipe n'est liée à ce profil."}
+              ? tr("Aucune équipe n'est configurée pour le moment.", "No team is set up yet.")
+              : tr("Aucune équipe que vous dirigez n'est liée à ce profil.", "No team you lead is linked to your profile.")}
           </p>
         )}
       </Panel>
