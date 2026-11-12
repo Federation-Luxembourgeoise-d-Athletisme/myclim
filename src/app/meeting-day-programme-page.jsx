@@ -47,6 +47,24 @@ const ROW_PX = 20;
 const SAVE_DELAY_MS = 600;
 const LEGACY = { ...legacyPlanning2026, sunday: legacySunday2026 };
 
+const PANEL_STORAGE_KEY = "myclim.planning.panelCollapsed";
+
+function readPanelCollapsed() {
+  try {
+    return window.localStorage.getItem(PANEL_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writePanelCollapsed(collapsed) {
+  try {
+    window.localStorage.setItem(PANEL_STORAGE_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Stockage indisponible (navigation privée) : le choix vaut pour la page.
+  }
+}
+
 function newId(prefix) {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
 }
@@ -140,6 +158,9 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   const [view, setView] = useState("board");
   const [teamViewKey, setTeamViewKey] = useState("");
   const [sidePanel, setSidePanel] = useState("activity");
+  // Panneau latéral replié (préférence gardée dans ce navigateur). Il se
+  // rouvre de lui-même dès qu'on choisit une autre activité ou « Colonnes ».
+  const [collapsedFor, setCollapsedFor] = useState(() => (readPanelCollapsed() ? { selectedId: null, sidePanel: "activity" } : null));
   const [newColumnName, setNewColumnName] = useState("");
   const [saveState, setSaveState] = useState("");
   const saveTimer = useRef(null);
@@ -167,6 +188,13 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   const selected = programme?.activities.find((activity) => activity.id === selectedId) || null;
   const dayDate = getPlanningDayDate(edition?.date, dayKey);
   const dayTitle = `${isMeetingDay ? "Dimanche" : day.label}${dayDate ? ` ${formatDayDate(dayDate)}` : ""}`;
+
+  const panelCollapsed = Boolean(collapsedFor) && collapsedFor.selectedId === selectedId && collapsedFor.sidePanel === sidePanel;
+
+  function setPanelCollapsed(collapsed) {
+    setCollapsedFor(collapsed ? { selectedId, sidePanel } : null);
+    writePanelCollapsed(collapsed);
+  }
 
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
@@ -393,7 +421,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
           </div>
         </div>
       ) : (
-        <div className="mdp-board">
+        <div className={`mdp-board${panelCollapsed ? " mdp-board--collapsed" : ""}`}>
           {isGrid ? (
             <div className="mdp-gridwrap">
               <div
@@ -565,7 +593,21 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
             </div>
           )}
 
+          {panelCollapsed ? (
+            <button
+              className="mdp-rail"
+              title="Afficher le panneau"
+              type="button"
+              onClick={() => setPanelCollapsed(false)}
+            >
+              <span aria-hidden="true">‹</span>
+              <span className="mdp-rail__label">{sidePanel === "columns" ? "Colonnes" : selected ? "Activité" : "Panneau"}</span>
+            </button>
+          ) : (
           <aside className="mdp-panel">
+            <button className="mdp-panel__collapse" title="Replier le panneau" type="button" onClick={() => setPanelCollapsed(true)}>
+              ›
+            </button>
             {sidePanel === "columns" ? (
               <>
                 <h3>Colonnes du {dayTitle.toLowerCase()}</h3>
@@ -913,6 +955,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
               </>
             )}
           </aside>
+          )}
         </div>
       )}
     </section>
