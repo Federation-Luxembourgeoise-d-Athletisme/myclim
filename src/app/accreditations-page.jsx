@@ -49,6 +49,7 @@ import { AccreditationCheckpoints } from "./accreditation-checkpoints";
 import { AccreditationDesk } from "./accreditation-desk";
 import { saveCoquePlan, useCoquePlan } from "./coque-plan/coque-plan-hooks";
 import { getZonePlacement, syncPlanZones } from "./coque-plan/plan-zone-sync";
+import { useTr } from "./use-tr";
 
 const DEFAULT_LIST_PAGE_SIZE = 10;
 const AUTO_CANCEL_MESSAGE = "Cette accréditation a été annulée car le bénévole n'est plus affecté.";
@@ -56,14 +57,42 @@ const AUTO_DESTROY_MESSAGE = "Attention : ce bénévole n'est plus affecté. Bad
 // Les 3 étapes d'un badge (+ À traiter), qui servent aussi de filtres
 // (accreditation-steps.js ; maquette design/accreditation/maquette-simple.html).
 const PEOPLE_FILTERS = [
-  { id: "todo", label: STEP_LABELS.todo.fr },
-  { id: "done", label: "Imprimés" },
-  { id: "given", label: STEP_LABELS.given.fr },
-  { id: "attn", label: STEP_LABELS.attn.fr },
-  { id: "all", label: "Tous" },
+  { id: "todo", label: STEP_LABELS.todo.fr, labelEn: STEP_LABELS.todo.en },
+  { id: "done", label: "Imprimés", labelEn: "Printed" },
+  { id: "given", label: STEP_LABELS.given.fr, labelEn: STEP_LABELS.given.en },
+  { id: "attn", label: STEP_LABELS.attn.fr, labelEn: STEP_LABELS.attn.en },
+  { id: "all", label: "Tous", labelEn: "All" },
 ];
 const STEP_PILL_CLASS = { todo: "acc-step acc-step--todo", done: "acc-step acc-step--done", given: "acc-step acc-step--given", attn: "acc-step acc-step--attn" };
 const PRESS_REQUEST_TYPE_LABELS = { press: "Presse", photographer: "Photographe" };
+// Affichage seulement (le libellé français reste celui imprimé / enregistré).
+const PRESS_REQUEST_TYPE_LABELS_EN = { press: "Press", photographer: "Photographer" };
+// Libellés anglais des visuels de badge et des liens QR (accreditation-config.js et
+// qr-link-sources.js n'ont que le français) : affichage seulement.
+const BADGE_VISUAL_EN = {
+  volunteer: { label: "Named volunteer", description: "Named badge for assigned volunteers." },
+  athlete: { label: "Athlete without name", description: "Batch of Athlete badges without names." },
+  coach: { label: "Coach without name", description: "Batch of Coach badges without names." },
+  judge: { label: "Named judge", description: "Named badge for judges." },
+  press: { label: "Named press", description: "Named badge for accredited press (journalists, photographers)." },
+  vip: { label: "Named VIP", description: "Named badge for VIP guests, same zones as other badges but its own design." },
+};
+// Messages d'alerte enregistrés en français dans volunteerOverrides : traduits à l'affichage.
+const WARNING_MESSAGE_EN = {
+  [AUTO_CANCEL_MESSAGE]: "This badge was cancelled because the volunteer is no longer assigned.",
+  [AUTO_DESTROY_MESSAGE]: "Warning: this volunteer is no longer assigned. Printed badge to collect or destroy.",
+  "Attention modification : le contenu de cette accréditation a changé depuis la dernière impression.":
+    "Change warning: this badge's content changed since it was last printed.",
+  "Attention modification : les rôles, zones ou le libellé badge ont changé depuis la dernière impression.":
+    "Change warning: the roles, zones or badge label changed since it was last printed.",
+};
+const QR_LINK_SOURCES_EN = {
+  results: { label: "Live results", where: "Website › Edition › Live results" },
+  photos: { label: "Meeting-day photos", where: "Website › Links page › Photos" },
+  emagazine: { label: "E-magazine", where: "public page /e-magazine" },
+  athleteRoadbook: { label: "Athlete roadbook", where: "public page /roadbook" },
+  links: { label: "Links page", where: "public page /links" },
+};
 const ACCREDITATION_TAB_PATHS = {
   people: "/app/accreditations",
   desk: "/app/accreditations/guichet",
@@ -122,6 +151,12 @@ function AccreditationsPage(props) {
     normalizeSubRoles,
   } = props;
   const { userProfile } = useAuth();
+  const tr = useTr();
+  const getVisualLabel = (visual) => (visual ? tr(visual.label, BADGE_VISUAL_EN[visual.id]?.label || visual.label) : "");
+  const getVisualDescription = (visual) =>
+    visual ? tr(visual.description, BADGE_VISUAL_EN[visual.id]?.description || visual.description) : "";
+  const getLinkSourceLabel = (item) => (item ? tr(item.label, QR_LINK_SOURCES_EN[item.key]?.label || item.label) : "");
+  const getLinkSourceWhere = (item) => (item ? tr(item.where, QR_LINK_SOURCES_EN[item.key]?.where || item.where) : "");
   const location = useLocation();
   const navigate = useNavigate();
   const activeRoles = getActiveRoles(userProfile);
@@ -344,6 +379,16 @@ function AccreditationsPage(props) {
     return unsubscribe;
   }, []);
 
+  // Messages traduits calculés au rendu (chaînes stables) pour les hooks plus bas.
+  const saveFailedMessage = tr("La sauvegarde des accréditations a échoué.", "Saving the badge settings failed.");
+  const autoStatusUpdatedMessage = tr(
+    "Statuts d'accréditation mis à jour selon les affectations.",
+    "Badge statuses updated from the assignments.",
+  );
+  const autoResetMessage = tr(
+    "Certaines accréditations imprimées ont été repassées en non-imprimé après modification.",
+    "Some printed badges were set back to not printed after a change.",
+  );
   const persistAccreditationConfiguration = useCallback(
     async (nextConfiguration, successMessage) => {
       setIsSavingAccreditation(true);
@@ -360,12 +405,12 @@ function AccreditationsPage(props) {
         setAccreditationStatus(successMessage);
       } catch (error) {
         console.error("Impossible de sauvegarder la configuration des accréditations.", error);
-        setAccreditationStatus("La sauvegarde des accréditations a échoué.");
+        setAccreditationStatus(saveFailedMessage);
       } finally {
         setIsSavingAccreditation(false);
       }
     },
-    [ACCREDITATION_CONFIGURATION_DOC_PATH],
+    [ACCREDITATION_CONFIGURATION_DOC_PATH, saveFailedMessage],
   );
 
   // Catégorie du badge d'un bénévole : celle de son premier rôle qui n'est pas « Volunteer »
@@ -381,7 +426,7 @@ function AccreditationsPage(props) {
   function setRoleBadgeCategory(roleId, category) {
     persistAccreditationConfiguration(
       buildCurrentConfiguration({ roleBadgeCategories: { ...roleBadgeCategories, [roleId]: category } }),
-      "Catégorie du badge mise à jour.",
+      tr("Catégorie du badge mise à jour.", "Badge category updated."),
     );
   }
 
@@ -444,7 +489,7 @@ function AccreditationsPage(props) {
       return `${confirmedRoleLabel} (${badgeRoleLabel})`;
     }
 
-    return confirmedRoleLabel || (badgeRoleLabel ? `(${badgeRoleLabel})` : "En attente de confirmation");
+    return confirmedRoleLabel || (badgeRoleLabel ? `(${badgeRoleLabel})` : tr("En attente de confirmation", "Awaiting confirmation"));
   }
 
   const buildCurrentConfiguration = useCallback(
@@ -550,20 +595,23 @@ function AccreditationsPage(props) {
   }
 
   function getQrResourceTargetSummary(resource) {
-    if (!resource) return "Cible indisponible";
+    if (!resource) return tr("Cible indisponible", "Target unavailable");
     if (resource.source) {
       const source = QR_LINK_SOURCES.find((item) => item.key === resource.source);
       const url = getLinkedSourceUrl(resource.source);
-      return `Repris de ${source?.where || "MyCLIM"} : ${url || "pas encore renseigné"}`;
+      return tr(
+        `Repris de ${source?.where || "MyCLIM"} : ${url || "pas encore renseigné"}`,
+        `Taken from ${getLinkSourceWhere(source) || "MyCLIM"}: ${url || "not set yet"}`,
+      );
     }
 
     if (resource.targetType === "document") {
       const linkedDocument = documentsById.get(resource.documentId) || null;
-      if (!linkedDocument) return "Document introuvable";
-      return linkedDocument.title || linkedDocument.fileName || "Document lié";
+      if (!linkedDocument) return tr("Document introuvable", "Document not found");
+      return linkedDocument.title || linkedDocument.fileName || tr("Document lié", "Linked document");
     }
 
-    return resource.url ? resource.url : "Lien à configurer";
+    return resource.url ? resource.url : tr("Lien à configurer", "Link to set up");
   }
 
   async function buildResourceCardsForVisual(visualId) {
@@ -613,7 +661,7 @@ function AccreditationsPage(props) {
     const targetMode = qrResourceForm.targetMode;
 
     if (!trimmedLabel) {
-      setAccreditationStatus("Ajoutez un libellé pour la ressource QR.");
+      setAccreditationStatus(tr("Ajoutez un libellé pour la ressource QR.", "Add a label for the QR resource."));
       return;
     }
 
@@ -624,18 +672,18 @@ function AccreditationsPage(props) {
     if (targetMode === "linked") {
       source = QR_LINK_SOURCES.some((item) => item.key === qrResourceForm.source) ? qrResourceForm.source : "";
       if (!source) {
-        setAccreditationStatus("Choisissez le lien à reprendre.");
+        setAccreditationStatus(tr("Choisissez le lien à reprendre.", "Choose the link to use."));
         return;
       }
     } else if (targetMode === "document_existing") {
       documentId = String(qrResourceForm.documentId || "").trim();
       if (!documentId) {
-        setAccreditationStatus("Sélectionnez un document existant pour cette ressource QR.");
+        setAccreditationStatus(tr("Sélectionnez un document existant pour cette ressource QR.", "Select an existing document for this QR resource."));
         return;
       }
     } else if (targetMode === "document_upload") {
       if (!qrResourceForm.uploadedFileUrl) {
-        setAccreditationStatus("Téléversez un document avant d'enregistrer la ressource QR.");
+        setAccreditationStatus(tr("Téléversez un document avant d'enregistrer la ressource QR.", "Upload a document before saving the QR resource."));
         return;
       }
 
@@ -660,7 +708,7 @@ function AccreditationsPage(props) {
     } else {
       externalUrl = String(qrResourceForm.url || "").trim();
       if (!externalUrl) {
-        setAccreditationStatus("Ajoutez une URL pour cette ressource QR.");
+        setAccreditationStatus(tr("Ajoutez une URL pour cette ressource QR.", "Add a URL for this QR resource."));
         return;
       }
     }
@@ -684,7 +732,7 @@ function AccreditationsPage(props) {
       buildCurrentConfiguration({
         qrResources: nextQrResources,
       }),
-      existingResource ? "Ressource QR mise à jour." : "Ressource QR ajoutée.",
+      existingResource ? tr("Ressource QR mise à jour.", "QR resource updated.") : tr("Ressource QR ajoutée.", "QR resource added."),
     );
 
     resetQrResourceForm();
@@ -704,7 +752,7 @@ function AccreditationsPage(props) {
         qrResources: nextQrResources,
         qrVisualAssignments: nextQrVisualAssignments,
       }),
-      "Ressource QR supprimée.",
+      tr("Ressource QR supprimée.", "QR resource deleted."),
     );
 
     if (editingQrResourceId === resourceId) {
@@ -720,7 +768,7 @@ function AccreditationsPage(props) {
           [visualId]: toggleIdInList(qrVisualAssignments[visualId] ?? [], resourceId),
         },
       }),
-      "Affectation QR mise à jour.",
+      tr("Affectation QR mise à jour.", "QR assignment updated."),
     );
   }
 
@@ -777,7 +825,7 @@ function AccreditationsPage(props) {
       setAccreditationStatus(successMessage);
     } catch (error) {
       console.error("Impossible de sauvegarder le roster des juges.", error);
-      setAccreditationStatus("La sauvegarde du roster des juges a échoué.");
+      setAccreditationStatus(tr("La sauvegarde du roster des juges a échoué.", "Saving the judges roster failed."));
     } finally {
       setIsSavingAccreditation(false);
     }
@@ -810,21 +858,21 @@ function AccreditationsPage(props) {
       },
     ];
 
-    persistJudgeRoster(nextJudges, "Juge ajouté au roster.");
+    persistJudgeRoster(nextJudges, tr("Juge ajouté au roster.", "Judge added to the roster."));
     resetJudgeForm();
   }
 
-  function updateJudge(judgeId, patch, successMessage = "Roster des juges mis à jour.") {
+  function updateJudge(judgeId, patch, successMessage = tr("Roster des juges mis à jour.", "Judges roster updated.")) {
     const nextJudges = judges.map((judge) => (judge.id === judgeId ? { ...judge, ...patch } : judge));
     persistJudgeRoster(nextJudges, successMessage);
   }
 
   function removeJudge(judgeId) {
     const nextJudges = judges.filter((judge) => judge.id !== judgeId);
-    persistJudgeRoster(nextJudges, "Juge retiré du roster.");
+    persistJudgeRoster(nextJudges, tr("Juge retiré du roster.", "Judge removed from the roster."));
   }
 
-  function updatePrintHistoryEntry(batchId, entryId, patch, successMessage = "Suivi d'impression mis à jour.") {
+  function updatePrintHistoryEntry(batchId, entryId, patch, successMessage = tr("Suivi d'impression mis à jour.", "Print tracking updated.")) {
     const nextPrintHistory = printHistory.map((batch) => (
       batch.id === batchId
         ? {
@@ -855,7 +903,7 @@ function AccreditationsPage(props) {
     const next = [...customStorageLocations, trimmed];
     persistAccreditationConfiguration(
       buildCurrentConfiguration({ customStorageLocations: next }),
-      "Point de retrait ajouté.",
+      tr("Point de retrait ajouté.", "Pick-up point added."),
     );
     setNewStorageLocationName("");
   }
@@ -864,7 +912,7 @@ function AccreditationsPage(props) {
     const next = customStorageLocations.filter((l) => l !== loc);
     persistAccreditationConfiguration(
       buildCurrentConfiguration({ customStorageLocations: next }),
-      "Point de retrait supprimé.",
+      tr("Point de retrait supprimé.", "Pick-up point deleted."),
     );
   }
 
@@ -892,7 +940,7 @@ function AccreditationsPage(props) {
           [volunteer.id]: nextOverride,
         },
       }),
-      "Badge marqué comme remis.",
+      tr("Badge marqué comme remis.", "Badge marked as handed over."),
     );
   }
 
@@ -911,7 +959,7 @@ function AccreditationsPage(props) {
           [volunteer.id]: nextOverride,
         },
       }),
-      "Badge marqué comme détruit.",
+      tr("Badge marqué comme détruit.", "Badge marked as destroyed."),
     );
   }
 
@@ -928,7 +976,9 @@ function AccreditationsPage(props) {
     return (
       <div className="acc-print-bar">
         <span>
-          {checked.length ? `${checked.length} badge(s) coché(s)` : `${printableItems.length} badge(s) à imprimer dans cette liste`}
+          {checked.length
+            ? tr(`${checked.length} badge(s) coché(s)`, `${checked.length} badge(s) selected`)
+            : tr(`${printableItems.length} badge(s) à imprimer dans cette liste`, `${printableItems.length} badge(s) to print in this list`)}
         </span>
         <button
           className="button button--primary button--small"
@@ -938,14 +988,16 @@ function AccreditationsPage(props) {
             setPrintSelection(new Set());
           }}
         >
-          {checked.length ? `Imprimer les ${checked.length} cochés (PDF)` : `Imprimer les ${target.length} (PDF)`}
+          {checked.length
+            ? tr(`Imprimer les ${checked.length} cochés (PDF)`, `Print the ${checked.length} selected (PDF)`)
+            : tr(`Imprimer les ${target.length} (PDF)`, `Print all ${target.length} (PDF)`)}
         </button>
         {checked.length ? (
           <button className="button button--ghost button--small" type="button" onClick={() => setPrintSelection(new Set())}>
-            Décocher
+            {tr("Décocher", "Clear selection")}
           </button>
         ) : (
-          <span className="acc-print-bar__hint">ou cochez pour n'en imprimer qu'une partie</span>
+          <span className="acc-print-bar__hint">{tr("ou cochez pour n'en imprimer qu'une partie", "or tick some to print only those")}</span>
         )}
       </div>
     );
@@ -968,7 +1020,7 @@ function AccreditationsPage(props) {
     const nextLocations = { ...badgeStorageLocations, [judgeId]: location };
     persistAccreditationConfiguration(
       buildCurrentConfiguration({ badgeStorageLocations: nextLocations }),
-      "Point de retrait juge enregistré.",
+      tr("Point de retrait juge enregistré.", "Judge pick-up point saved."),
     );
     setStoragePickerOpenById((current) => ({ ...current, [judgeId]: false }));
   }
@@ -981,7 +1033,7 @@ function AccreditationsPage(props) {
       {
         destroyedAt: new Date().toISOString(),
       },
-      "Badge juge marqué comme détruit.",
+      tr("Badge juge marqué comme détruit.", "Judge badge marked as destroyed."),
     );
   }
 
@@ -991,20 +1043,20 @@ function AccreditationsPage(props) {
   async function markPressBadgeHandedOver(registration) {
     try {
       await updateDoc(doc(db, "pressRegistrations", registration.id), { handedOverAt: new Date().toISOString() });
-      setAccreditationStatus("Badge presse remis.");
+      setAccreditationStatus(tr("Badge presse remis.", "Press badge handed over."));
     } catch (error) {
       console.error("Impossible de marquer le badge presse comme remis.", error);
-      setAccreditationStatus("Impossible de marquer le badge presse comme remis.");
+      setAccreditationStatus(tr("Impossible de marquer le badge presse comme remis.", "Could not mark the press badge as handed over."));
     }
   }
 
   async function markPressBadgeDestroyed(registration) {
     try {
       await updateDoc(doc(db, "pressRegistrations", registration.id), { destroyedAt: new Date().toISOString() });
-      setAccreditationStatus("Badge presse marqué comme détruit.");
+      setAccreditationStatus(tr("Badge presse marqué comme détruit.", "Press badge marked as destroyed."));
     } catch (error) {
       console.error("Impossible de marquer le badge presse comme détruit.", error);
-      setAccreditationStatus("Impossible de marquer le badge presse comme détruit.");
+      setAccreditationStatus(tr("Impossible de marquer le badge presse comme détruit.", "Could not mark the press badge as destroyed."));
     }
   }
 
@@ -1016,7 +1068,7 @@ function AccreditationsPage(props) {
     const nextLocations = { ...badgeStorageLocations, [registrationId]: location };
     persistAccreditationConfiguration(
       buildCurrentConfiguration({ badgeStorageLocations: nextLocations }),
-      "Point de retrait presse enregistré.",
+      tr("Point de retrait presse enregistré.", "Press pick-up point saved."),
     );
     setStoragePickerOpenById((current) => ({ ...current, [registrationId]: false }));
   }
@@ -1079,7 +1131,7 @@ function AccreditationsPage(props) {
         buildCurrentConfiguration({
           printHistory: [historyBatch, ...printHistory],
         }),
-        "Historique d'impression presse enregistré.",
+        tr("Historique d'impression presse enregistré.", "Press print history saved."),
       ),
     ]);
 
@@ -1091,7 +1143,7 @@ function AccreditationsPage(props) {
     const nextLocations = { ...badgeStorageLocations, [volunteerId]: location };
     persistAccreditationConfiguration(
       buildCurrentConfiguration({ badgeStorageLocations: nextLocations }),
-      "Point de retrait enregistré.",
+      tr("Point de retrait enregistré.", "Pick-up point saved."),
     );
     setStoragePickerOpenById((current) => ({ ...current, [volunteerId]: false }));
   }
@@ -1138,10 +1190,13 @@ function AccreditationsPage(props) {
     if (!changed) return;
     try {
       await saveCoquePlan(synced, getCurrentOperatorLabel(), coquePlan.published, coquePlan.icons);
-      setAccreditationStatus("Nom de zone repris sur le plan de la Coque.");
+      setAccreditationStatus(tr("Nom de zone repris sur le plan de la Coque.", "Zone name updated on the Coque plan."));
     } catch (error) {
       console.error("Impossible de mettre à jour le plan.", error);
-      setAccreditationStatus("La zone est renommée, mais le plan n'a pas pu être mis à jour : enregistrez-le depuis Plans & contrôles.");
+      setAccreditationStatus(tr(
+        "La zone est renommée, mais le plan n'a pas pu être mis à jour : enregistrez-le depuis Plans & contrôles.",
+        "The zone is renamed, but the plan could not be updated: save it from Plans & checks.",
+      ));
     }
   }
 
@@ -1161,7 +1216,7 @@ function AccreditationsPage(props) {
         volunteerOverrides,
         printHistory,
       },
-      "Configuration des zones enregistrée.",
+      tr("Configuration des zones enregistrée.", "Zone settings saved."),
     );
   }
 
@@ -1186,7 +1241,7 @@ function AccreditationsPage(props) {
         volunteerOverrides,
         printHistory,
       },
-      "Nouvelle zone ajoutée.",
+      tr("Nouvelle zone ajoutée.", "New zone added."),
     );
     setNewZoneName("");
   }
@@ -1217,7 +1272,7 @@ function AccreditationsPage(props) {
         volunteerOverrides: nextVolunteerOverrides,
         printHistory,
       },
-      "Zone supprimée.",
+      tr("Zone supprimée.", "Zone deleted."),
     );
   }
 
@@ -1232,7 +1287,7 @@ function AccreditationsPage(props) {
         volunteerOverrides,
         printHistory,
       },
-      "Accès par rôle mis à jour.",
+      tr("Accès par rôle mis à jour.", "Access by role updated."),
     );
   }
 
@@ -1253,7 +1308,7 @@ function AccreditationsPage(props) {
           [volunteer.id]: nextOverride,
         },
       }),
-      "Ajustement individuel enregistré.",
+      tr("Ajustement individuel enregistré.", "Individual adjustment saved."),
     );
   }
 
@@ -1275,7 +1330,7 @@ function AccreditationsPage(props) {
           [volunteer.id]: nextOverride,
         },
       }),
-      "Libellé de l'accréditation mis à jour.",
+      tr("Libellé de l'accréditation mis à jour.", "Badge label updated."),
     );
   }
 
@@ -1301,7 +1356,7 @@ function AccreditationsPage(props) {
           [volunteer.id]: nextOverride,
         },
       }),
-      "Statut d'impression mis à jour.",
+      tr("Statut d'impression mis à jour.", "Print status updated."),
     );
   }
 
@@ -1464,7 +1519,7 @@ function AccreditationsPage(props) {
         volunteerOverrides: nextVolunteerOverrides,
         printHistory: [historyBatch, ...printHistory],
       }),
-      "Lot d'impression généré.",
+      tr("Lot d'impression généré.", "Print batch generated."),
     );
 
     openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
@@ -1517,7 +1572,10 @@ function AccreditationsPage(props) {
       buildCurrentConfiguration({
         printHistory: [historyBatch, ...printHistory],
       }),
-      `${quantity} badge(s) ${selectedNonNominativeTemplate.label.toLowerCase()} non nominatif(s) généré(s).`,
+      tr(
+        `${quantity} badge(s) ${selectedNonNominativeTemplate.label.toLowerCase()} non nominatif(s) généré(s).`,
+        `${quantity} nameless ${selectedNonNominativeTemplate.label.toLowerCase()} badge(s) generated.`,
+      ),
     );
 
     openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
@@ -1538,7 +1596,7 @@ function AccreditationsPage(props) {
       );
     } catch (updateError) {
       console.error("VIP badge status update failed", updateError);
-      setVipPrintError("Le statut des badges VIP n'a pas pu être enregistré.");
+      setVipPrintError(tr("Le statut des badges VIP n'a pas pu être enregistré.", "The VIP badge status could not be saved."));
     }
   }
 
@@ -1609,12 +1667,12 @@ function AccreditationsPage(props) {
     );
 
     await Promise.all([
-      persistJudgeRoster(nextJudges, "Lot d'impression juges généré."),
+      persistJudgeRoster(nextJudges, tr("Lot d'impression juges généré.", "Judges print batch generated.")),
       persistAccreditationConfiguration(
         buildCurrentConfiguration({
           printHistory: [historyBatch, ...printHistory],
         }),
-        "Historique d'impression juges enregistré.",
+        tr("Historique d'impression juges enregistré.", "Judges print history saved."),
       ),
     ]);
 
@@ -1751,9 +1809,18 @@ function AccreditationsPage(props) {
   }, [activeEditionId, canOperatePrinting, editionLoading]);
 
   // Badge d'un athlète de course nationale : suivi dans volunteerOverrides (clé nr-…).
-  function getNationalRaceLabel(request) {
-    const race = getNationalRaceDefinition(request.raceCode)?.label || request.event || "";
-    return isNationalRacePacer(request) ? `${race} · lièvre` : race;
+  // printed : texte imprimé sur le badge (toujours en anglais, comme les badges) ;
+  // sinon dans la langue de l'écran.
+  function getNationalRaceLabel(request, printed = false) {
+    const definition = getNationalRaceDefinition(request.raceCode);
+    const english = printed || tr("fr", "en") === "en";
+    const race = definition
+      ? english
+        ? `${definition.event} ${definition.gender === "femme" ? "Women" : "Men"}`
+        : definition.label
+      : request.event || "";
+    if (!isNationalRacePacer(request)) return race;
+    return `${race} · ${english ? "pacer" : "lièvre"}`;
   }
   const nationalZoneLabels = sortedZones.filter((zone) => nationalBadge.zoneIds.includes(zone.id)).map((zone) => formatZoneLabel(zone));
 
@@ -1768,8 +1835,8 @@ function AccreditationsPage(props) {
       firstName: request.firstName || "",
       lastName: request.lastName || "",
       category: nationalBadge.category,
-      role: [nationalBadge.label, getNationalRaceLabel(request)].filter(Boolean).join(" · "),
-      roleNames: [getNationalRaceLabel(request)],
+      role: [nationalBadge.label, getNationalRaceLabel(request, true)].filter(Boolean).join(" · "),
+      roleNames: [getNationalRaceLabel(request, true)],
       zoneIds: nationalBadge.zoneIds,
       zoneLabels: nationalZoneLabels,
       resourceCards,
@@ -1802,27 +1869,27 @@ function AccreditationsPage(props) {
         volunteerOverrides: nextOverrides,
         printHistory: [{ id: `national-batch-${Date.now()}`, printedAt, generatedBy: getCurrentOperatorLabel(), items: historyEntries }, ...printHistory],
       }),
-      `${list.length} badge(s) course nationale imprimé(s).`,
+      tr(`${list.length} badge(s) course nationale imprimé(s).`, `${list.length} national race badge(s) printed.`),
     );
     openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
     openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
   }
 
   // Réglages des badges sans nom et du badge course nationale (enregistrement partiel, fusionné).
-  function saveNamelessTypes(nextTypes, message = "Badges sans nom enregistrés.") {
+  function saveNamelessTypes(nextTypes, message = tr("Badges sans nom enregistrés.", "Badges without names saved.")) {
     persistAccreditationConfiguration({ namelessBadgeTypes: nextTypes }, message);
   }
   function updateNamelessType(typeId, patch) {
     saveNamelessTypes(namelessBadgeTypes.map((type) => (type.id === typeId ? { ...type, ...patch } : type)));
   }
   function addNamelessType() {
-    saveNamelessTypes([...namelessBadgeTypes, { id: `nameless-${Date.now()}`, label: "Nouveau badge", category: "organisation", zoneIds: [] }], "Type de badge sans nom ajouté.");
+    saveNamelessTypes([...namelessBadgeTypes, { id: `nameless-${Date.now()}`, label: "Nouveau badge", category: "organisation", zoneIds: [] }], tr("Type de badge sans nom ajouté.", "Badge type without name added."));
   }
   function removeNamelessType(typeId) {
-    saveNamelessTypes(namelessBadgeTypes.filter((type) => type.id !== typeId), "Type de badge sans nom supprimé.");
+    saveNamelessTypes(namelessBadgeTypes.filter((type) => type.id !== typeId), tr("Type de badge sans nom supprimé.", "Badge type without name deleted."));
   }
   function updateNationalBadge(patch) {
-    persistAccreditationConfiguration({ nationalBadge: { ...nationalBadge, ...patch } }, "Badge course nationale enregistré.");
+    persistAccreditationConfiguration({ nationalBadge: { ...nationalBadge, ...patch } }, tr("Badge course nationale enregistré.", "National race badge saved."));
   }
 
   // Guichet du jour J : les badges imprimés, à ranger puis à remettre.
@@ -1845,12 +1912,12 @@ function AccreditationsPage(props) {
       step: getBadgeStep(judge).step,
       location: getJudgeStorageLocation(judge.id),
       setLocation: (location) => updateJudgeBadgeStorageLocation(judge.id, location),
-      handOver: () => updateJudge(judge.id, { handedOverAt: new Date().toISOString() }, "Badge juge remis."),
+      handOver: () => updateJudge(judge.id, { handedOverAt: new Date().toISOString() }, tr("Badge juge remis.", "Judge badge handed over.")),
     })),
     ...acceptedPressRegistrations.map((registration) => ({
       key: `p:${registration.id}`,
       name: `${registration.firstName || ""} ${registration.lastName || ""}`.trim() || registration.media || "Presse",
-      role: [registration.requestType === "photographer" ? "Photographe" : "", registration.media].filter(Boolean).join(" · "),
+      role: [registration.requestType === "photographer" ? tr("Photographe", "Photographer") : "", registration.media].filter(Boolean).join(" · "),
       kind: "Presse",
       step: getBadgeStep(registration).step,
       location: getPressStorageLocation(registration.id),
@@ -1963,13 +2030,14 @@ function AccreditationsPage(props) {
             ...Object.fromEntries(invalidVolunteerUpdates.map((entry) => [entry.volunteerId, entry.override])),
           },
         }),
-        "Statuts d'accréditation mis à jour selon les affectations.",
+        autoStatusUpdatedMessage,
       );
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [
     accreditationDataReady,
+    autoStatusUpdatedMessage,
     buildCurrentConfiguration,
     getVolunteerOverride,
     normalizeSubRoles,
@@ -2022,13 +2090,14 @@ function AccreditationsPage(props) {
             ...Object.fromEntries(printedUsersToReset.map((entry) => [entry.volunteerId, entry.override])),
           },
         }),
-        "Certaines accréditations imprimées ont été repassées en non-imprimé après modification.",
+        autoResetMessage,
       );
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [
     accreditationDataReady,
+    autoResetMessage,
     buildCurrentConfiguration,
     getBadgeRoleLabel,
     getFinalZoneIds,
@@ -2047,21 +2116,26 @@ function AccreditationsPage(props) {
           {/* Le guichet a son propre titre : page à part. */}
           {activeAccreditationTab !== "desk" ? (
             <>
-              <p className="eyebrow">Accès &amp; jour J</p>
-              <h1>Accréditations</h1>
-              <p>Un badge passe par 3 étapes : à imprimer, imprimé, remis. On coche, on imprime ; le guichet remet les badges le jour J.</p>
+              <p className="eyebrow">{tr("Accès & jour J", "Access & meeting day")}</p>
+              <h1>{tr("Accréditations", "Accreditations")}</h1>
+              <p>
+                {tr(
+                  "Un badge passe par 3 étapes : à imprimer, imprimé, remis. On coche, on imprime ; le guichet remet les badges le jour J.",
+                  "A badge goes through 3 steps: to print, printed, handed over. Tick, print; the desk hands the badges over on meeting day.",
+                )}
+              </p>
             </>
           ) : null}
-          {teamsLoading || accreditationLoading || usersLoading ? <p className="panel-note">Chargement en cours...</p> : null}
+          {teamsLoading || accreditationLoading || usersLoading ? <p className="panel-note">{tr("Chargement en cours...", "Loading...")}</p> : null}
           {teamsError || accreditationError ? <p className="panel-note">{teamsError || accreditationError}</p> : null}
           {accreditationStatus ? <p className="panel-note">{accreditationStatus}</p> : null}
-          {isSavingAccreditation ? <p className="panel-note">Sauvegarde des accréditations...</p> : null}
+          {isSavingAccreditation ? <p className="panel-note">{tr("Sauvegarde des accréditations...", "Saving...")}</p> : null}
         </div>
         {/* Guichet du jour J : page à part, ouverte seulement depuis ce bouton,
             au niveau de la page et pas dans les onglets (Margot, 12/11/2026). */}
         {canOperatePrinting && activeAccreditationTab !== "desk" ? (
           <button className="acc-desk-button" type="button" onClick={() => openAccreditationTab("desk")}>
-            Ouvrir le guichet jour J ↗
+            {tr("Ouvrir le guichet jour J ↗", "Open the meeting-day desk ↗")}
           </button>
         ) : null}
       </section>
@@ -2081,7 +2155,7 @@ function AccreditationsPage(props) {
               type="button"
               onClick={() => openAccreditationTab("plans")}
             >
-              Plans &amp; contrôles
+              {tr("Plans & contrôles", "Plans & checks")}
             </button>
           </>
         ) : null}
@@ -2091,19 +2165,19 @@ function AccreditationsPage(props) {
             type="button"
             onClick={() => openAccreditationTab("settings")}
           >
-            Réglages
+            {tr("Réglages", "Settings")}
           </button>
         ) : null}
       </div>
       ) : null}
 
       {canOperatePrinting && ["plans", "entrance", "judgesPlan", "controls"].includes(activeAccreditationTab) ? (
-        <div className="acc-type-switch" role="tablist" aria-label="Plans et contrôles">
+        <div className="acc-type-switch" role="tablist" aria-label={tr("Plans et contrôles", "Plans and checks")}>
           {[
-            ["plans", "Plan de la Coque"],
-            ["entrance", "Plan de l'entrée"],
-            ["judgesPlan", "Plan des juges"],
-            ["controls", "Points de contrôle"],
+            ["plans", tr("Plan de la Coque", "Coque plan")],
+            ["entrance", tr("Plan de l'entrée", "Entrance plan")],
+            ["judgesPlan", tr("Plan des juges", "Judges plan")],
+            ["controls", tr("Points de contrôle", "Checkpoints")],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -2123,12 +2197,12 @@ function AccreditationsPage(props) {
         <>
           {/* Réglages en 4 parties, une à la fois (Margot, 12/11/2026 : la page
               était illisible avec tout empilé). */}
-          <div className="acc-type-switch" role="tablist" aria-label="Réglages">
+          <div className="acc-type-switch" role="tablist" aria-label={tr("Réglages", "Settings")}>
             {[
-              ["roles", "Zones par rôle"],
-              ["zones", "Liste des zones"],
-              ["boxes", "Boîtes du guichet"],
-              ["qr", "QR sur les badges"],
+              ["roles", tr("Zones par rôle", "Zones by role")],
+              ["zones", tr("Liste des zones", "Zone list")],
+              ["boxes", tr("Boîtes du guichet", "Desk boxes")],
+              ["qr", tr("QR sur les badges", "QR codes on badges")],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -2146,27 +2220,30 @@ function AccreditationsPage(props) {
           {settingsSection === "roles" ? (
           <>
           <Panel
-            title="Zones par rôle"
-            subtitle="Chaque rôle donne ses zones à toute personne affectée. Cliquez une case pour donner ou retirer une zone ; la couleur de la bande se choisit par rôle."
+            title={tr("Zones par rôle", "Zones by role")}
+            subtitle={tr(
+              "Chaque rôle donne ses zones à toute personne affectée. Cliquez une case pour donner ou retirer une zone ; la couleur de la bande se choisit par rôle.",
+              "Each role gives its zones to everyone assigned to it. Click a cell to give or remove a zone; the band colour is chosen per role.",
+            )}
           >
             <div className="acc-matrix-toolbar">
               <input
                 className="acc-people-search"
-                placeholder="Rechercher un rôle…"
+                placeholder={tr("Rechercher un rôle…", "Search a role…")}
                 type="search"
                 value={roleSearch}
                 onChange={(event) => setRoleSearch(event.target.value)}
               />
               <span className="acc-people-muted">
-                {filteredRoles.length} rôle(s) · {sortedZones.length} zones
+                {tr(`${filteredRoles.length} rôle(s)`, `${filteredRoles.length} role(s)`)} · {sortedZones.length} zones
               </span>
             </div>
             <div className="table-wrap">
               <table className="acc-matrix">
                 <thead>
                   <tr>
-                    <th className="acc-matrix__role">Rôle</th>
-                    <th className="acc-matrix__band">Bande du badge</th>
+                    <th className="acc-matrix__role">{tr("Rôle", "Role")}</th>
+                    <th className="acc-matrix__band">{tr("Bande du badge", "Badge band")}</th>
                     {sortedZones.map((zone) => (
                       <th key={zone.id} className="acc-matrix__zone" title={zone.name}>
                         <i>{zone.order}</i>
@@ -2190,7 +2267,7 @@ function AccreditationsPage(props) {
                           <span className="acc-matrix__category">
                             <i style={{ background: category?.color }} />
                             <select
-                              aria-label={`Bande du badge pour ${role.roleName}`}
+                              aria-label={tr(`Bande du badge pour ${role.roleName}`, `Badge band for ${role.roleName}`)}
                               value={categoryKey}
                               onChange={(event) => setRoleBadgeCategory(role.id, event.target.value)}
                             >
@@ -2207,7 +2284,9 @@ function AccreditationsPage(props) {
                           return (
                             <td key={zone.id} className="acc-matrix__cell">
                               <button
-                                aria-label={`${on ? "Retirer" : "Donner"} ${zone.name} à ${role.roleName}`}
+                                aria-label={on
+                                  ? tr(`Retirer ${zone.name} à ${role.roleName}`, `Remove ${zone.name} from ${role.roleName}`)
+                                  : tr(`Donner ${zone.name} à ${role.roleName}`, `Give ${zone.name} to ${role.roleName}`)}
                                 aria-pressed={on}
                                 className={`acc-matrix__toggle${on ? " is-on" : ""}`}
                                 style={on ? { background: category?.color } : undefined}
@@ -2223,15 +2302,16 @@ function AccreditationsPage(props) {
                   {!filteredRoles.length ? (
                     <tr>
                       <td className="acc-people-empty" colSpan={sortedZones.length + 2}>
-                        Aucun rôle ne correspond à la recherche.
+                        {tr("Aucun rôle ne correspond à la recherche.", "No role matches the search.")}
                       </td>
                     </tr>
                   ) : null}
                   <tr className="acc-matrix__group">
                     <td colSpan={sortedZones.length + 2}>
-                      Badges sans nom <small>imprimés en lot dans Badges › Sans nom</small>
+                      {tr("Badges sans nom", "Badges without names")}{" "}
+                      <small>{tr("imprimés en lot dans Badges › Sans nom", "printed in batches in Badges › Without name")}</small>
                       <button className="acc-link-button" type="button" onClick={addNamelessType}>
-                        + Type sans nom
+                        {tr("+ Type sans nom", "+ Type without name")}
                       </button>
                     </td>
                   </tr>
@@ -2244,17 +2324,17 @@ function AccreditationsPage(props) {
                             <strong>{type.label}</strong>
                           ) : (
                             <input
-                              aria-label="Nom imprimé sur le badge"
+                              aria-label={tr("Nom imprimé sur le badge", "Name printed on the badge")}
                               className="acc-matrix__name"
                               defaultValue={type.label}
                               onBlur={(event) => event.target.value.trim() && event.target.value.trim() !== type.label && updateNamelessType(type.id, { label: event.target.value.trim() })}
                             />
                           )}
                           <small>
-                            sans nom
+                            {tr("sans nom", "without name")}
                             {type.builtIn ? null : (
                               <button className="acc-link-button acc-link-button--danger" type="button" onClick={() => removeNamelessType(type.id)}>
-                                supprimer
+                                {tr("supprimer", "delete")}
                               </button>
                             )}
                           </small>
@@ -2262,7 +2342,7 @@ function AccreditationsPage(props) {
                         <td className="acc-matrix__band">
                           <span className="acc-matrix__category">
                             <i style={{ background: category?.color }} />
-                            <select aria-label={`Bande du badge ${type.label}`} value={type.category} onChange={(event) => updateNamelessType(type.id, { category: event.target.value })}>
+                            <select aria-label={tr(`Bande du badge ${type.label}`, `Badge band ${type.label}`)} value={type.category} onChange={(event) => updateNamelessType(type.id, { category: event.target.value })}>
                               {BADGE_CATEGORIES.map((item) => (
                                 <option key={item.key} value={item.key}>
                                   {item.label}
@@ -2276,7 +2356,9 @@ function AccreditationsPage(props) {
                           return (
                             <td key={zone.id} className="acc-matrix__cell">
                               <button
-                                aria-label={`${on ? "Retirer" : "Donner"} ${zone.name} au badge ${type.label}`}
+                                aria-label={on
+                                  ? tr(`Retirer ${zone.name} au badge ${type.label}`, `Remove ${zone.name} from the ${type.label} badge`)
+                                  : tr(`Donner ${zone.name} au badge ${type.label}`, `Give ${zone.name} to the ${type.label} badge`)}
                                 aria-pressed={on}
                                 className={`acc-matrix__toggle${on ? " is-on" : ""}`}
                                 style={on ? { background: category?.color } : undefined}
@@ -2291,7 +2373,8 @@ function AccreditationsPage(props) {
                   })}
                   <tr className="acc-matrix__group">
                     <td colSpan={sortedZones.length + 2}>
-                      Courses nationales <small>badge nominatif, nom repris des athlètes retenus</small>
+                      {tr("Courses nationales", "National races")}{" "}
+                      <small>{tr("badge nominatif, nom repris des athlètes retenus", "named badge, name taken from the selected athletes")}</small>
                     </td>
                   </tr>
                   {(() => {
@@ -2300,12 +2383,12 @@ function AccreditationsPage(props) {
                       <tr>
                         <td className="acc-matrix__role">
                           <strong>{nationalBadge.label}</strong>
-                          <small>{nationalAthletes.length} athlète(s) retenu(s)</small>
+                          <small>{tr(`${nationalAthletes.length} athlète(s) retenu(s)`, `${nationalAthletes.length} selected athlete(s)`)}</small>
                         </td>
                         <td className="acc-matrix__band">
                           <span className="acc-matrix__category">
                             <i style={{ background: category?.color }} />
-                            <select aria-label="Bande du badge course nationale" value={nationalBadge.category} onChange={(event) => updateNationalBadge({ category: event.target.value })}>
+                            <select aria-label={tr("Bande du badge course nationale", "National race badge band")} value={nationalBadge.category} onChange={(event) => updateNationalBadge({ category: event.target.value })}>
                               {BADGE_CATEGORIES.map((item) => (
                                 <option key={item.key} value={item.key}>
                                   {item.label}
@@ -2319,7 +2402,9 @@ function AccreditationsPage(props) {
                           return (
                             <td key={zone.id} className="acc-matrix__cell">
                               <button
-                                aria-label={`${on ? "Retirer" : "Donner"} ${zone.name} aux courses nationales`}
+                                aria-label={on
+                                  ? tr(`Retirer ${zone.name} aux courses nationales`, `Remove ${zone.name} from national races`)
+                                  : tr(`Donner ${zone.name} aux courses nationales`, `Give ${zone.name} to national races`)}
                                 aria-pressed={on}
                                 className={`acc-matrix__toggle${on ? " is-on" : ""}`}
                                 style={on ? { background: category?.color } : undefined}
@@ -2336,8 +2421,10 @@ function AccreditationsPage(props) {
               </table>
             </div>
             <p className="acc-people-muted">
-              Les juges et la presse ont leurs zones dans leur propre liste (onglet Badges). Les zones ajoutées ou retirées à
-              une personne se règlent dans sa fiche.
+              {tr(
+                "Les juges et la presse ont leurs zones dans leur propre liste (onglet Badges). Les zones ajoutées ou retirées à une personne se règlent dans sa fiche.",
+                "Judges and press have their zones in their own list (Badges tab). Zones added or removed for one person are set in their details.",
+              )}
             </p>
           </Panel>
           </>
@@ -2346,16 +2433,19 @@ function AccreditationsPage(props) {
           {settingsSection === "zones" ? (
           <>
           <Panel
-            title="Liste des zones"
-            subtitle="Le numéro est imprimé au dos du badge et sur le plan de la Coque. Cette liste fait foi : les zones du plan reprennent ces noms."
+            title={tr("Liste des zones", "Zone list")}
+            subtitle={tr(
+              "Le numéro est imprimé au dos du badge et sur le plan de la Coque. Cette liste fait foi : les zones du plan reprennent ces noms.",
+              "The number is printed on the back of the badge and on the Coque plan. This list is the reference: the plan zones use these names.",
+            )}
           >
             <div className="table-wrap">
               <table className="acc-zone-table">
                 <thead>
                   <tr>
-                    <th>N°</th>
-                    <th>Nom</th>
-                    <th>Sur le plan des badges</th>
+                    <th>{tr("N°", "No.")}</th>
+                    <th>{tr("Nom", "Name")}</th>
+                    <th>{tr("Sur le plan des badges", "On the badge plan")}</th>
                     <th aria-label="Actions" />
                   </tr>
                 </thead>
@@ -2366,7 +2456,7 @@ function AccreditationsPage(props) {
                       <tr key={zone.id}>
                         <td>
                           <input
-                            aria-label={`Numéro de ${zone.name}`}
+                            aria-label={tr(`Numéro de ${zone.name}`, `Number of ${zone.name}`)}
                             className="acc-zone-table__num"
                             min="1"
                             type="number"
@@ -2376,7 +2466,7 @@ function AccreditationsPage(props) {
                         </td>
                         <td>
                           <input
-                            aria-label="Nom de la zone"
+                            aria-label={tr("Nom de la zone", "Zone name")}
                             className="acc-zone-table__name"
                             value={zone.name}
                             onChange={(event) => updateZone(zone.id, "name", event.target.value)}
@@ -2385,14 +2475,17 @@ function AccreditationsPage(props) {
                         </td>
                         <td>
                           {placed ? (
-                            <span className="acc-step acc-step--given">✓ placée{placed > 1 ? ` (${placed} repères)` : ""}</span>
+                            <span className="acc-step acc-step--given">
+                              {tr("✓ placée", "✓ placed")}
+                              {placed > 1 ? tr(` (${placed} repères)`, ` (${placed} markers)`) : ""}
+                            </span>
                           ) : (
-                            <span className="acc-step acc-step--attn">pas encore sur le plan</span>
+                            <span className="acc-step acc-step--attn">{tr("pas encore sur le plan", "not on the plan yet")}</span>
                           )}
                         </td>
                         <td className="acc-people-actions">
                           <button className="button button--ghost-danger button--small" type="button" onClick={() => removeZone(zone.id)}>
-                            Supprimer
+                            {tr("Supprimer", "Delete")}
                           </button>
                         </td>
                       </tr>
@@ -2403,15 +2496,21 @@ function AccreditationsPage(props) {
             </div>
             {zonePlacement.orphans.length ? (
               <p className="acc-step-reason">
-                Sur le plan, {zonePlacement.orphans.length > 1 ? "les repères" : "le repère"} n° {zonePlacement.orphans.join(", ")}{" "}
-                {zonePlacement.orphans.length > 1 ? "ne correspondent" : "ne correspond"} à aucune zone de cette liste : à corriger dans Plans
-                &amp; contrôles.
+                {zonePlacement.orphans.length > 1
+                  ? tr(
+                      `Sur le plan, les repères n° ${zonePlacement.orphans.join(", ")} ne correspondent à aucune zone de cette liste : à corriger dans Plans & contrôles.`,
+                      `On the plan, markers no. ${zonePlacement.orphans.join(", ")} match no zone in this list: fix them in Plans & checks.`,
+                    )
+                  : tr(
+                      `Sur le plan, le repère n° ${zonePlacement.orphans.join(", ")} ne correspond à aucune zone de cette liste : à corriger dans Plans & contrôles.`,
+                      `On the plan, marker no. ${zonePlacement.orphans.join(", ")} matches no zone in this list: fix it in Plans & checks.`,
+                    )}
               </p>
             ) : null}
             <div className="acc-zone-add">
               <input
-                aria-label="Nouvelle zone"
-                placeholder="Nouvelle zone, ex. Media lounge"
+                aria-label={tr("Nouvelle zone", "New zone")}
+                placeholder={tr("Nouvelle zone, ex. Media lounge", "New zone, e.g. Media lounge")}
                 value={newZoneName}
                 onChange={(event) => setNewZoneName(event.target.value)}
                 onKeyDown={(event) => {
@@ -2419,9 +2518,11 @@ function AccreditationsPage(props) {
                 }}
               />
               <button className="button button--secondary button--small" type="button" onClick={addZone} disabled={!newZoneName.trim()}>
-                Ajouter
+                {tr("Ajouter", "Add")}
               </button>
-              <span className="acc-people-muted">Placez-la ensuite sur le plan (Plans &amp; contrôles › Plan de la Coque).</span>
+              <span className="acc-people-muted">
+                {tr("Placez-la ensuite sur le plan (Plans & contrôles › Plan de la Coque).", "Then place it on the plan (Plans & checks › Coque plan).")}
+              </span>
             </div>
           </Panel>
 
@@ -2431,12 +2532,15 @@ function AccreditationsPage(props) {
           {settingsSection === "boxes" ? (
           <>
           <Panel
-            title="Boîtes du guichet"
-            subtitle="Les boîtes où sont rangés les badges imprimés, choisies au guichet le jour J."
+            title={tr("Boîtes du guichet", "Desk boxes")}
+            subtitle={tr(
+              "Les boîtes où sont rangés les badges imprimés, choisies au guichet le jour J.",
+              "The boxes where printed badges are stored, picked at the desk on meeting day.",
+            )}
           >
             <div className="accreditation-zone-list">
               {customStorageLocations.length === 0 ? (
-                <p className="panel-note">Aucune boîte définie. Ajoutez-en une ci-dessous.</p>
+                <p className="panel-note">{tr("Aucune boîte définie. Ajoutez-en une ci-dessous.", "No box yet. Add one below.")}</p>
               ) : null}
               {customStorageLocations.map((loc) => (
                 <div key={loc} className="tracking-location-row">
@@ -2446,16 +2550,16 @@ function AccreditationsPage(props) {
                     type="button"
                     onClick={() => removeCustomStorageLocation(loc)}
                   >
-                    Supprimer
+                    {tr("Supprimer", "Delete")}
                   </button>
                 </div>
               ))}
             </div>
             <div className="accreditation-zone-add">
               <label className="field">
-                <span>Nouvelle boîte</span>
+                <span>{tr("Nouvelle boîte", "New box")}</span>
                 <input
-                  placeholder="Ex : Boîte A–F"
+                  placeholder={tr("Ex : Boîte A–F", "E.g. Box A–F")}
                   value={newStorageLocationName}
                   onChange={(event) => setNewStorageLocationName(event.target.value)}
                   onKeyDown={(event) => {
@@ -2469,7 +2573,7 @@ function AccreditationsPage(props) {
                 onClick={addCustomStorageLocation}
                 disabled={!newStorageLocationName.trim()}
               >
-                Ajouter
+                {tr("Ajouter", "Add")}
               </button>
             </div>
           </Panel>
@@ -2481,14 +2585,17 @@ function AccreditationsPage(props) {
           <>
         <section className="admin-stack">
           <Panel
-            title="Affectation des QR par visuel"
-            subtitle="Choisissez quelles ressources QR doivent apparaître sur chaque type d'accréditation."
+            title={tr("Affectation des QR par visuel", "QR codes by badge design")}
+            subtitle={tr(
+              "Choisissez quelles ressources QR doivent apparaître sur chaque type d'accréditation.",
+              "Choose which QR resources appear on each badge type.",
+            )}
           >
             <div className="admin-split accreditation-role-layout">
               <div className="admin-split__nav accreditation-role-nav">
                 <div className="accreditation-role-nav__meta">
-                  <span>{ACCREDITATION_BADGE_VISUALS.length} visuel(x)</span>
-                  <span>{qrResources.length} ressource(s) réutilisable(s)</span>
+                  <span>{tr(`${ACCREDITATION_BADGE_VISUALS.length} visuel(x)`, `${ACCREDITATION_BADGE_VISUALS.length} design(s)`)}</span>
+                  <span>{tr(`${qrResources.length} ressource(s) réutilisable(s)`, `${qrResources.length} reusable resource(s)`)}</span>
                 </div>
                 <div className="accreditation-role-list">
                   {ACCREDITATION_BADGE_VISUALS.map((visual) => (
@@ -2498,7 +2605,7 @@ function AccreditationsPage(props) {
                       type="button"
                       onClick={() => setSelectedQrVisualId(visual.id)}
                     >
-                      <span className="accreditation-role-list__label">{visual.label}</span>
+                      <span className="accreditation-role-list__label">{getVisualLabel(visual)}</span>
                       <span className="accreditation-role-list__count">
                         {(qrVisualAssignments[visual.id] ?? []).length} QR
                       </span>
@@ -2510,8 +2617,8 @@ function AccreditationsPage(props) {
               {selectedQrVisual ? (
                 <div className="admin-stack">
                   <Panel
-                    title={selectedQrVisual.label}
-                    subtitle={selectedQrVisual.description}
+                    title={getVisualLabel(selectedQrVisual)}
+                    subtitle={getVisualDescription(selectedQrVisual)}
                     actions={
                       <button
                         className="button button--secondary button--small"
@@ -2524,11 +2631,11 @@ function AccreditationsPage(props) {
                                 [selectedQrVisual.id]: [],
                               },
                             }),
-                            "Toutes les ressources QR ont été retirées de ce visuel.",
+                            tr("Toutes les ressources QR ont été retirées de ce visuel.", "All QR resources were removed from this design."),
                           )
                         }
                       >
-                        Vider ce visuel
+                        {tr("Vider ce visuel", "Clear this design")}
                       </button>
                     }
                   >
@@ -2538,7 +2645,7 @@ function AccreditationsPage(props) {
                         const usageVisualLabels = (qrResourceUsageById[resource.id] ?? [])
                           .map(
                             (visualId) =>
-                              ACCREDITATION_BADGE_VISUALS.find((visual) => visual.id === visualId)?.label || visualId,
+                              getVisualLabel(ACCREDITATION_BADGE_VISUALS.find((visual) => visual.id === visualId)) || visualId,
                           );
 
                         return (
@@ -2555,10 +2662,10 @@ function AccreditationsPage(props) {
                               <div className="accreditation-zone-option__top">
                                 <strong>{resource.label}</strong>
                                 <span className={`accreditation-tag ${isAssigned ? "accreditation-tag--active" : ""}`}>
-                                  {isAssigned ? "Affiché" : "Masqué"}
+                                  {isAssigned ? tr("Affiché", "Shown") : tr("Masqué", "Hidden")}
                                 </span>
                               </div>
-                              <p>{resource.subtitle || "Aucun sous-titre renseigné."}</p>
+                              <p>{resource.subtitle || tr("Aucun sous-titre renseigné.", "No subtitle.")}</p>
                               <p className="panel-note">{getQrResourceTargetSummary(resource)}</p>
                               {usageVisualLabels.length ? (
                                 <div className="accreditation-tag-list">
@@ -2581,20 +2688,23 @@ function AccreditationsPage(props) {
           </Panel>
 
           <Panel
-            title="Bibliothèque des ressources QR"
-            subtitle="Créez ici les ressources QR réutilisables : document existant, nouveau document uploadé ou lien externe."
+            title={tr("Bibliothèque des ressources QR", "QR resource library")}
+            subtitle={tr(
+              "Créez ici les ressources QR réutilisables : document existant, nouveau document uploadé ou lien externe.",
+              "Create reusable QR resources here: existing document, newly uploaded document or external link.",
+            )}
           >
-            {documentsLoading ? <p className="panel-note">Chargement des documents...</p> : null}
+            {documentsLoading ? <p className="panel-note">{tr("Chargement des documents...", "Loading documents...")}</p> : null}
             {documentsError ? <p className="panel-note">{documentsError}</p> : null}
 
             <div className="table-wrap">
               <table className="data-table data-table--admin">
                 <thead>
                   <tr>
-                    <th>Ressource</th>
+                    <th>{tr("Ressource", "Resource")}</th>
                     <th>Type</th>
-                    <th>Cible</th>
-                    <th>Utilisée sur</th>
+                    <th>{tr("Cible", "Target")}</th>
+                    <th>{tr("Utilisée sur", "Used on")}</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -2603,7 +2713,7 @@ function AccreditationsPage(props) {
                     const usageVisualLabels = (qrResourceUsageById[resource.id] ?? [])
                       .map(
                         (visualId) =>
-                          ACCREDITATION_BADGE_VISUALS.find((visual) => visual.id === visualId)?.label || visualId,
+                          getVisualLabel(ACCREDITATION_BADGE_VISUALS.find((visual) => visual.id === visualId)) || visualId,
                       )
                       .join(", ");
 
@@ -2613,9 +2723,15 @@ function AccreditationsPage(props) {
                           <strong>{resource.label}</strong>
                           {resource.subtitle ? <p className="panel-note">{resource.subtitle}</p> : null}
                         </td>
-                        <td>{resource.source ? "Repris de MyCLIM" : resource.targetType === "document" ? "Document" : "Lien externe"}</td>
+                        <td>
+                          {resource.source
+                            ? tr("Repris de MyCLIM", "Taken from MyCLIM")
+                            : resource.targetType === "document"
+                              ? "Document"
+                              : tr("Lien externe", "External link")}
+                        </td>
                         <td>{getQrResourceTargetSummary(resource)}</td>
-                        <td>{usageVisualLabels || "Non utilisée"}</td>
+                        <td>{usageVisualLabels || tr("Non utilisée", "Not used")}</td>
                         <td>
                           <div className="panel-actions">
                             <button
@@ -2623,14 +2739,14 @@ function AccreditationsPage(props) {
                               type="button"
                               onClick={() => editQrResource(resource)}
                             >
-                              Modifier
+                              {tr("Modifier", "Edit")}
                             </button>
                             <button
                               className="button button--ghost-danger button--small"
                               type="button"
                               onClick={() => removeQrResource(resource.id)}
                             >
-                              Supprimer
+                              {tr("Supprimer", "Delete")}
                             </button>
                           </div>
                         </td>
@@ -2639,7 +2755,7 @@ function AccreditationsPage(props) {
                   })}
                   {!qrResources.length ? (
                     <tr>
-                      <td colSpan="5">Aucune ressource QR configurée pour le moment.</td>
+                      <td colSpan="5">{tr("Aucune ressource QR configurée pour le moment.", "No QR resource set up yet.")}</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -2648,65 +2764,67 @@ function AccreditationsPage(props) {
 
             <div className="admin-stack" style={{ marginTop: "1rem" }}>
               <div className="form-section-head">
-                <p className="eyebrow">Ressource QR</p>
-                <h3>{editingQrResourceId ? "Modifier une ressource" : "Ajouter une ressource"}</h3>
+                <p className="eyebrow">{tr("Ressource QR", "QR resource")}</p>
+                <h3>{editingQrResourceId ? tr("Modifier une ressource", "Edit a resource") : tr("Ajouter une ressource", "Add a resource")}</h3>
               </div>
               <div className="field-grid">
-                <AuthFormField label="Libellé">
+                <AuthFormField label={tr("Libellé", "Label")}>
                   <input
                     name="label"
-                    placeholder="Ex: Roadbook athlètes"
+                    placeholder={tr("Ex: Roadbook athlètes", "E.g. Athlete roadbook")}
                     value={qrResourceForm.label}
                     onChange={handleQrResourceFormChange}
                   />
                 </AuthFormField>
-                <AuthFormField label="Sous-titre">
+                <AuthFormField label={tr("Sous-titre", "Subtitle")}>
                   <input
                     name="subtitle"
-                    placeholder="Ex: Informations utiles meeting"
+                    placeholder={tr("Ex: Informations utiles meeting", "E.g. Useful meeting info")}
                     value={qrResourceForm.subtitle}
                     onChange={handleQrResourceFormChange}
                   />
                 </AuthFormField>
               </div>
-              <AuthFormField label="Type de cible">
+              <AuthFormField label={tr("Type de cible", "Target type")}>
                 <select
                   name="targetMode"
                   value={qrResourceForm.targetMode}
                   onChange={handleQrResourceFormChange}
                 >
-                  <option value="linked">Lien déjà saisi dans MyCLIM</option>
-                  <option value="document_existing">Document existant</option>
-                  <option value="document_upload">Téléverser un document ici</option>
-                  <option value="url">Lien externe</option>
+                  <option value="linked">{tr("Lien déjà saisi dans MyCLIM", "Link already set in MyCLIM")}</option>
+                  <option value="document_existing">{tr("Document existant", "Existing document")}</option>
+                  <option value="document_upload">{tr("Téléverser un document ici", "Upload a document here")}</option>
+                  <option value="url">{tr("Lien externe", "External link")}</option>
                 </select>
               </AuthFormField>
 
               {qrResourceForm.targetMode === "linked" ? (
                 <label className="field">
-                  <span>Lien repris</span>
+                  <span>{tr("Lien repris", "Linked source")}</span>
                   <select name="source" value={qrResourceForm.source} onChange={handleQrResourceFormChange}>
                     {QR_LINK_SOURCES.map((item) => (
                       <option key={item.key} value={item.key}>
-                        {item.label} ({item.where})
+                        {getLinkSourceLabel(item)} ({getLinkSourceWhere(item)})
                       </option>
                     ))}
                   </select>
                   <small className="panel-note">
-                    Lien actuel : {getLinkedSourceUrl(qrResourceForm.source) || "pas encore renseigné à cet endroit"}. Le badge
-                    suit ce lien : changez-le là-bas, pas ici.
+                    {tr(
+                      `Lien actuel : ${getLinkedSourceUrl(qrResourceForm.source) || "pas encore renseigné à cet endroit"}. Le badge suit ce lien : changez-le là-bas, pas ici.`,
+                      `Current link: ${getLinkedSourceUrl(qrResourceForm.source) || "not set there yet"}. The badge follows this link: change it there, not here.`,
+                    )}
                   </small>
                 </label>
               ) : null}
 
               {qrResourceForm.targetMode === "document_existing" ? (
-                <AuthFormField label="Document à utiliser">
+                <AuthFormField label={tr("Document à utiliser", "Document to use")}>
                   <select
                     name="documentId"
                     value={qrResourceForm.documentId}
                     onChange={handleQrResourceFormChange}
                   >
-                    <option value="">Sélectionner un document</option>
+                    <option value="">{tr("Sélectionner un document", "Select a document")}</option>
                     {documents.map((documentItem) => (
                       <option key={documentItem.id} value={documentItem.id}>
                         {documentItem.title}
@@ -2736,11 +2854,14 @@ function AccreditationsPage(props) {
                     }
                     accept=".pdf,image/*"
                     storagePath="accreditations/documents"
-                    label="Document à téléverser"
-                    helperText="PDF ou image · sera aussi enregistré dans la bibliothèque Documents"
+                    label={tr("Document à téléverser", "Document to upload")}
+                    helperText={tr(
+                      "PDF ou image · sera aussi enregistré dans la bibliothèque Documents",
+                      "PDF or image · also saved in the Documents library",
+                    )}
                   />
                   {qrResourceForm.uploadedFileName ? (
-                    <p className="panel-note">Fichier prêt: {qrResourceForm.uploadedFileName}</p>
+                    <p className="panel-note">{tr("Fichier prêt", "File ready")}: {qrResourceForm.uploadedFileName}</p>
                   ) : null}
                 </div>
               ) : null}
@@ -2763,7 +2884,7 @@ function AccreditationsPage(props) {
                   type="button"
                   onClick={saveQrResource}
                 >
-                  {editingQrResourceId ? "Enregistrer la ressource" : "Ajouter la ressource"}
+                  {editingQrResourceId ? tr("Enregistrer la ressource", "Save the resource") : tr("Ajouter la ressource", "Add the resource")}
                 </button>
                 {editingQrResourceId ? (
                   <button
@@ -2771,7 +2892,7 @@ function AccreditationsPage(props) {
                     type="button"
                     onClick={resetQrResourceForm}
                   >
-                    Annuler
+                    {tr("Annuler", "Cancel")}
                   </button>
                 ) : null}
               </div>
@@ -2783,14 +2904,14 @@ function AccreditationsPage(props) {
         </>
       ) : canOperatePrinting && activeAccreditationTab === "people" ? (
         <section className="admin-stack">
-          <div className="acc-type-switch" role="tablist" aria-label="Type d’accréditation">
+          <div className="acc-type-switch" role="tablist" aria-label={tr("Type d’accréditation", "Badge type")}>
             {[
-              { id: "volunteers", label: "Bénévoles & staff", count: printableVolunteers.length },
-              { id: "judges", label: "Juges", count: activeJudges.length },
-              { id: "press", label: "Presse", count: acceptedPressRegistrations.length },
-              { id: "national", label: "Courses nationales", count: nationalAthletes.length },
+              { id: "volunteers", label: tr("Bénévoles & staff", "Volunteers & staff"), count: printableVolunteers.length },
+              { id: "judges", label: tr("Juges", "Judges"), count: activeJudges.length },
+              { id: "press", label: tr("Presse", "Press"), count: acceptedPressRegistrations.length },
+              { id: "national", label: tr("Courses nationales", "National races"), count: nationalAthletes.length },
               { id: "vip", label: "VIP", count: queuedVipBadgeCount },
-              { id: "nominless", label: "Sans nom (athlètes, coachs)", count: null },
+              { id: "nominless", label: tr("Sans nom (athlètes, coachs)", "Without name (athletes, coaches)"), count: null },
             ].map((type) => (
               <button
                 key={type.id}
@@ -2808,27 +2929,30 @@ function AccreditationsPage(props) {
 
           <div className="acc-badges-links">
             <button className="acc-link-button" type="button" onClick={openSampleAccreditation}>
-              Voir un exemple de badge
+              {tr("Voir un exemple de badge", "See a sample badge")}
             </button>
             <button className="acc-link-button" type="button" onClick={() => openAccreditationTab("history")}>
-              Historique des impressions
+              {tr("Historique des impressions", "Print history")}
             </button>
           </div>
 
           {peopleType === "national" ? (
           <Panel
-            title="Courses nationales"
-            subtitle="Badge nominatif des athlètes retenus (pré-programme), lièvres compris. Les zones et la couleur se règlent dans Réglages › Zones par rôle."
+            title={tr("Courses nationales", "National races")}
+            subtitle={tr(
+              "Badge nominatif des athlètes retenus (pré-programme), lièvres compris. Les zones et la couleur se règlent dans Réglages › Zones par rôle.",
+              "Named badge for the selected athletes (pre-programme), pacers included. Zones and colour are set in Settings › Zones by role.",
+            )}
           >
             <div className="table-wrap">
               <table className="data-table data-table--admin acc-people-table">
                 <thead>
                   <tr>
-                    <th className="acc-cb" aria-label="Cocher" />
-                    <th>Athlète</th>
-                    <th>Course</th>
+                    <th className="acc-cb" aria-label={tr("Cocher", "Select")} />
+                    <th>{tr("Athlète", "Athlete")}</th>
+                    <th>{tr("Course", "Race")}</th>
                     <th>Zones</th>
-                    <th>Étape</th>
+                    <th>{tr("Étape", "Step")}</th>
                     <th aria-label="Actions" />
                   </tr>
                 </thead>
@@ -2841,7 +2965,7 @@ function AccreditationsPage(props) {
                         <td className="acc-cb">
                           {canPrintStep(stepInfo) ? (
                             <input
-                              aria-label={`Cocher ${request.firstName} ${request.lastName}`}
+                              aria-label={tr(`Cocher ${request.firstName} ${request.lastName}`, `Select ${request.firstName} ${request.lastName}`)}
                               checked={printSelection.has(key)}
                               type="checkbox"
                               onChange={(event) => togglePrintSelection(key, event.target.checked)}
@@ -2856,16 +2980,16 @@ function AccreditationsPage(props) {
                           {nationalZoneLabels.length ? (
                             <span className="acc-people-zones">{nationalZoneLabels.join(", ")}</span>
                           ) : (
-                            <span className="acc-people-muted">aucune zone</span>
+                            <span className="acc-people-muted">{tr("aucune zone", "no zone")}</span>
                           )}
                         </td>
                         <td>
-                          {stepInfo.step ? <span className={STEP_PILL_CLASS[stepInfo.step]}>{STEP_LABELS[stepInfo.step].fr}</span> : null}
+                          {stepInfo.step ? <span className={STEP_PILL_CLASS[stepInfo.step]}>{tr(STEP_LABELS[stepInfo.step].fr, STEP_LABELS[stepInfo.step].en)}</span> : null}
                         </td>
                         <td className="acc-people-actions">
                           {stepInfo.step === "done" ? (
                             <button className="button button--secondary button--small" type="button" onClick={() => markBadgeHandedOver({ id: key })}>
-                              Remis
+                              {tr("Remis", "Handed over")}
                             </button>
                           ) : null}
                         </td>
@@ -2874,7 +2998,9 @@ function AccreditationsPage(props) {
                   })}
                   {!nationalAthletes.length ? (
                     <tr>
-                      <td colSpan="6" className="acc-people-empty">Aucun athlète retenu pour les courses nationales pour l'instant.</td>
+                      <td colSpan="6" className="acc-people-empty">
+                        {tr("Aucun athlète retenu pour les courses nationales pour l'instant.", "No athlete selected for the national races yet.")}
+                      </td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -2891,7 +3017,10 @@ function AccreditationsPage(props) {
           {peopleType === "vip" ? (
           <Panel
             title="VIP"
-            subtitle="Badge VIP dédié, 8 par A4, +1 pour l’accompagnant nommé. Les invités se mettent en file dans VIP › Inscrits."
+            subtitle={tr(
+              "Badge VIP dédié, 8 par A4, +1 pour l’accompagnant nommé. Les invités se mettent en file dans VIP › Inscrits.",
+              "Dedicated VIP badge, 8 per A4, +1 for the named companion. Guests are queued in VIP › Registered.",
+            )}
           >
             {vipRegistrationsError || vipPrintError ? (
               <p className="form-error">{vipPrintError || vipRegistrationsError}</p>
@@ -2900,9 +3029,9 @@ function AccreditationsPage(props) {
               <table className="data-table data-table--admin">
                 <thead>
                   <tr>
-                    <th>Personne</th>
-                    <th>Entreprise</th>
-                    <th>Accompagnant</th>
+                    <th>{tr("Personne", "Person")}</th>
+                    <th>{tr("Entreprise", "Company")}</th>
+                    <th>{tr("Accompagnant", "Companion")}</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -2920,14 +3049,14 @@ function AccreditationsPage(props) {
                           type="button"
                           onClick={() => updateVipBadgeStatus([registration], "non_imprime")}
                         >
-                          Retirer
+                          {tr("Retirer", "Remove")}
                         </button>
                       </td>
                     </tr>
                   ))}
                   {!queuedVip.length ? (
                     <tr>
-                      <td colSpan="4">Aucun invité VIP n'est actuellement dans la file d'impression.</td>
+                      <td colSpan="4">{tr("Aucun invité VIP n'est actuellement dans la file d'impression.", "No VIP guest in the print queue right now.")}</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -2941,7 +3070,7 @@ function AccreditationsPage(props) {
                 onClick={() => updateVipBadgeStatus(unprintedVip, "en_file")}
                 disabled={!unprintedVip.length}
               >
-                + File : inscrits sans badge ({unprintedVip.length})
+                {tr(`+ File : inscrits sans badge (${unprintedVip.length})`, `+ Queue: registered without badge (${unprintedVip.length})`)}
               </button>
               <button
                 className="button button--primary"
@@ -2949,7 +3078,7 @@ function AccreditationsPage(props) {
                 onClick={finalizeVipPrintQueue}
                 disabled={!queuedVip.length}
               >
-                Générer le PDF ({queuedVipBadgeCount} badge{queuedVipBadgeCount > 1 ? "s" : ""})
+                {tr("Générer le PDF", "Generate the PDF")} ({queuedVipBadgeCount} badge{queuedVipBadgeCount > 1 ? "s" : ""})
               </button>
             </div>
           </Panel>
@@ -2958,8 +3087,11 @@ function AccreditationsPage(props) {
 
           {peopleType === "nominless" ? (
           <Panel
-            title="Badges sans nom"
-            subtitle="Athlètes et coachs : badges sans nom, zones du modèle. Chaque lot est gardé dans l’historique."
+            title={tr("Badges sans nom", "Badges without names")}
+            subtitle={tr(
+              "Athlètes et coachs : badges sans nom, zones du modèle. Chaque lot est gardé dans l’historique.",
+              "Athletes and coaches: badges without names, zones from the template. Each batch is kept in the history.",
+            )}
           >
             <div className="acc-add-form__row acc-add-form__row--end">
               <label className="acc-mini-field">
@@ -2976,7 +3108,7 @@ function AccreditationsPage(props) {
                 </select>
               </label>
               <label className="acc-mini-field acc-mini-field--narrow">
-                <span>Quantité</span>
+                <span>{tr("Quantité", "Quantity")}</span>
                 <input
                   type="number"
                   min="1"
@@ -2991,11 +3123,11 @@ function AccreditationsPage(props) {
                 onClick={generateNonNominativeBadgePdf}
                 disabled={!selectedNonNominativeTemplate}
               >
-                Générer le PDF ({Math.max(1, Number.parseInt(nonNominativeQuantity, 10) || 1)})
+                {tr("Générer le PDF", "Generate the PDF")} ({Math.max(1, Number.parseInt(nonNominativeQuantity, 10) || 1)})
               </button>
             </div>
             <p className="acc-people-muted">
-              Zones : {selectedNonNominativeZoneLabels.join(", ") || "aucune zone pour ce modèle"}
+              {tr("Zones :", "Zones:")} {selectedNonNominativeZoneLabels.join(", ") || tr("aucune zone pour ce modèle", "no zone for this template")}
             </p>
           </Panel>
           ) : null}
@@ -3003,13 +3135,23 @@ function AccreditationsPage(props) {
           {peopleType === "volunteers" ? (
           <>
           <Panel
-            title="Personnes"
-            subtitle="Cliquez sur une ligne pour voir sa fiche (zones, texte du badge, historique). Cochez des badges puis « Imprimer »."
+            title={tr("Personnes", "People")}
+            subtitle={tr(
+              "Cliquez sur une ligne pour voir sa fiche (zones, texte du badge, historique). Cochez des badges puis « Imprimer ».",
+              "Click a row to see the details (zones, badge text, history). Tick badges, then “Print”.",
+            )}
           >
             {unconfirmedVolunteersCount ? (
               <p className="panel-note acc-unconfirmed-note">
-                {unconfirmedVolunteersCount} bénévole{unconfirmedVolunteersCount > 1 ? "s" : ""} affecté{unconfirmedVolunteersCount > 1 ? "s" : ""} mais pas encore
-                confirmé{unconfirmedVolunteersCount > 1 ? "s" : ""} : badge masqué jusqu'à la confirmation du poste.
+                {unconfirmedVolunteersCount > 1
+                  ? tr(
+                      `${unconfirmedVolunteersCount} bénévoles affectés mais pas encore confirmés : badge masqué jusqu'à la confirmation du poste.`,
+                      `${unconfirmedVolunteersCount} volunteers assigned but not confirmed yet: badge hidden until the position is confirmed.`,
+                    )
+                  : tr(
+                      `${unconfirmedVolunteersCount} bénévole affecté mais pas encore confirmé : badge masqué jusqu'à la confirmation du poste.`,
+                      `${unconfirmedVolunteersCount} volunteer assigned but not confirmed yet: badge hidden until the position is confirmed.`,
+                    )}
               </p>
             ) : null}
             <div className="acc-people-toolbar">
@@ -3023,7 +3165,7 @@ function AccreditationsPage(props) {
                     }`}
                     onClick={() => setPeopleFilter(filter.id)}
                   >
-                    {filter.label}
+                    {tr(filter.label, filter.labelEn)}
                     <span className="acc-people-filter__count">{peopleBucketCounts[filter.id] ?? 0}</span>
                   </button>
                 ))}
@@ -3031,7 +3173,7 @@ function AccreditationsPage(props) {
               <input
                 className="acc-people-search"
                 type="search"
-                placeholder="Rechercher nom, email, rôle…"
+                placeholder={tr("Rechercher nom, email, rôle…", "Search name, email, role…")}
                 value={volunteerSearch}
                 onChange={(event) => setVolunteerSearch(event.target.value)}
               />
@@ -3041,11 +3183,11 @@ function AccreditationsPage(props) {
               <table className="data-table data-table--admin accreditation-people-table acc-people-table">
                 <thead>
                   <tr>
-                    <th className="acc-cb" aria-label="Cocher" />
-                    <th>Personne</th>
-                    <th>Rôle badge</th>
+                    <th className="acc-cb" aria-label={tr("Cocher", "Select")} />
+                    <th>{tr("Personne", "Person")}</th>
+                    <th>{tr("Rôle badge", "Badge role")}</th>
                     <th>Zones</th>
-                    <th>Étape</th>
+                    <th>{tr("Étape", "Step")}</th>
                     <th aria-label="Actions" />
                   </tr>
                 </thead>
@@ -3072,7 +3214,7 @@ function AccreditationsPage(props) {
                         <td className="acc-cb" onClick={(event) => event.stopPropagation()}>
                           {printable ? (
                             <input
-                              aria-label={`Cocher ${volunteer.firstName} ${volunteer.lastName}`}
+                              aria-label={tr(`Cocher ${volunteer.firstName} ${volunteer.lastName}`, `Select ${volunteer.firstName} ${volunteer.lastName}`)}
                               checked={printSelection.has(selectionKey)}
                               type="checkbox"
                               onChange={(event) => togglePrintSelection(selectionKey, event.target.checked)}
@@ -3087,8 +3229,8 @@ function AccreditationsPage(props) {
                         <td>
                           {getBadgeRoleLabel(volunteer, override, normalizeComparableValue) || "—"}
                           {!isConfirmed && !isInvalid ? (
-                            <span className="acc-people-tag" title="Affectation pas encore confirmée">
-                              non confirmé
+                            <span className="acc-people-tag" title={tr("Affectation pas encore confirmée", "Assignment not confirmed yet")}>
+                              {tr("non confirmé", "not confirmed")}
                             </span>
                           ) : null}
                         </td>
@@ -3098,15 +3240,15 @@ function AccreditationsPage(props) {
                               {zoneLabels.join(", ")}
                             </span>
                           ) : (
-                            <span className="acc-people-muted" title="Aucune zone liée à ce rôle (Réglages › zones par rôle)">
-                              aucune zone
+                            <span className="acc-people-muted" title={tr("Aucune zone liée à ce rôle (Réglages › zones par rôle)", "No zone linked to this role (Settings › zones by role)")}>
+                              {tr("aucune zone", "no zone")}
                             </span>
                           )}
                         </td>
                         <td>
                           <span className="acc-people-status">
-                            {stepInfo.step ? <span className={STEP_PILL_CLASS[stepInfo.step]}>{STEP_LABELS[stepInfo.step].fr}</span> : null}
-                            {stepInfo.reason ? <small className="acc-step-reason">{REASON_LABELS[stepInfo.reason].fr}</small> : null}
+                            {stepInfo.step ? <span className={STEP_PILL_CLASS[stepInfo.step]}>{tr(STEP_LABELS[stepInfo.step].fr, STEP_LABELS[stepInfo.step].en)}</span> : null}
+                            {stepInfo.reason ? <small className="acc-step-reason">{tr(REASON_LABELS[stepInfo.reason].fr, REASON_LABELS[stepInfo.reason].en)}</small> : null}
                           </span>
                         </td>
                         <td className="acc-people-actions" onClick={(event) => event.stopPropagation()}>
@@ -3114,20 +3256,20 @@ function AccreditationsPage(props) {
                             <button
                               className="button button--ghost-danger button--small"
                               type="button"
-                              title="Le badge imprimé a été récupéré et détruit"
+                              title={tr("Le badge imprimé a été récupéré et détruit", "The printed badge was collected and destroyed")}
                               onClick={() => markBadgeDestroyed(volunteer)}
                             >
-                              Récupéré
+                              {tr("Récupéré", "Collected")}
                             </button>
                           ) : null}
                           {stepInfo.step === "done" ? (
                             <button
                               className="button button--secondary button--small"
                               type="button"
-                              title="Badge donné à la personne"
+                              title={tr("Badge donné à la personne", "Badge given to the person")}
                               onClick={() => markBadgeHandedOver(volunteer)}
                             >
-                              Remis
+                              {tr("Remis", "Handed over")}
                             </button>
                           ) : null}
                         </td>
@@ -3138,8 +3280,8 @@ function AccreditationsPage(props) {
                     <tr>
                       <td colSpan="6" className="acc-people-empty">
                         {printableVolunteers.length
-                          ? "Aucune personne à cette étape."
-                          : "Aucune personne n'a encore été affectée à un rôle."}
+                          ? tr("Aucune personne à cette étape.", "No one at this step.")
+                          : tr("Aucune personne n'a encore été affectée à un rôle.", "No one has been assigned to a role yet.")}
                       </td>
                     </tr>
                   ) : null}
@@ -3162,7 +3304,7 @@ function AccreditationsPage(props) {
                   type="button"
                   onClick={() => showMoreListItems("printable-volunteers")}
                 >
-                  Afficher 10 de plus
+                  {tr("Afficher 10 de plus", "Show 10 more")}
                 </button>
               </div>
             ) : null}
@@ -3171,12 +3313,20 @@ function AccreditationsPage(props) {
           {selectedVolunteer ? (
             <Panel
               title={`${selectedVolunteer.firstName} ${selectedVolunteer.lastName}`}
-              subtitle="Zones héritées, ajustements manuels et libellé utilisé sur l'accréditation."
+              subtitle={tr(
+                "Zones héritées, ajustements manuels et libellé utilisé sur l'accréditation.",
+                "Inherited zones, manual adjustments and the label used on the badge.",
+              )}
             >
               {selectedVolunteerOverride.warningMessage ? (
                 <div className="accreditation-warning-panel">
-                  <strong>Attention modification</strong>
-                  <p>{selectedVolunteerOverride.warningMessage}</p>
+                  <strong>{tr("Attention modification", "Change warning")}</strong>
+                  <p>
+                    {tr(
+                      selectedVolunteerOverride.warningMessage,
+                      WARNING_MESSAGE_EN[selectedVolunteerOverride.warningMessage] || selectedVolunteerOverride.warningMessage,
+                    )}
+                  </p>
                 </div>
               ) : null}
 
@@ -3189,7 +3339,7 @@ function AccreditationsPage(props) {
                   <span className="acc-person__dot" aria-hidden="true">·</span>
                   {(() => {
                     const { step } = getVolunteerStep(selectedVolunteer);
-                    return step ? <span className={STEP_PILL_CLASS[step]}>{STEP_LABELS[step].fr}</span> : null;
+                    return step ? <span className={STEP_PILL_CLASS[step]}>{tr(STEP_LABELS[step].fr, STEP_LABELS[step].en)}</span> : null;
                   })()}
                   <span className="acc-person__dot" aria-hidden="true">·</span>
                   <span>
@@ -3199,7 +3349,7 @@ function AccreditationsPage(props) {
 
                 <div className="acc-person__fields">
                   <label className="acc-person__field">
-                    <span>Texte sur le badge</span>
+                    <span>{tr("Texte sur le badge", "Text on the badge")}</span>
                     <input
                       value={selectedVolunteerOverride.badgeLabel}
                       placeholder={buildAccreditationRoleLabel(selectedVolunteer.assignedRoles)}
@@ -3216,40 +3366,40 @@ function AccreditationsPage(props) {
                           <>
                             {confirmed && canPrintStep(stepInfo) ? (
                               <button className="button button--primary button--small" type="button" onClick={() => finalizePrintQueue([selectedVolunteer])}>
-                                {stepInfo.step === "attn" ? "Réimprimer" : "Imprimer ce badge"}
+                                {stepInfo.step === "attn" ? tr("Réimprimer", "Reprint") : tr("Imprimer ce badge", "Print this badge")}
                               </button>
                             ) : null}
                             {stepInfo.step === "done" ? (
                               <>
                                 <button className="button button--secondary button--small" type="button" onClick={() => markBadgeHandedOver(selectedVolunteer)}>
-                                  Remis
+                                  {tr("Remis", "Handed over")}
                                 </button>
                                 <button
                                   className="button button--ghost button--small"
-                                  title="Imprimé par erreur : le badge redevient « à imprimer »"
+                                  title={tr("Imprimé par erreur : le badge redevient « à imprimer »", "Printed by mistake: the badge goes back to “to print”")}
                                   type="button"
                                   onClick={() => updateVolunteerPrintStatus(selectedVolunteer, "Non-imprimé")}
                                 >
-                                  Annuler l'impression
+                                  {tr("Annuler l'impression", "Undo printing")}
                                 </button>
                               </>
                             ) : null}
                             {stepInfo.step === "given" ? (
                               <button
                                 className="button button--ghost button--small"
-                                title="Badge perdu : il faut en imprimer un nouveau"
+                                title={tr("Badge perdu : il faut en imprimer un nouveau", "Badge lost: a new one must be printed")}
                                 type="button"
                                 onClick={() => updateVolunteerPrintStatus(selectedVolunteer, "Non-imprimé")}
                               >
-                                Badge perdu : réimprimer
+                                {tr("Badge perdu : réimprimer", "Badge lost: reprint")}
                               </button>
                             ) : null}
                             {stepInfo.reason === "recover" ? (
                               <button className="button button--ghost-danger button--small" type="button" onClick={() => markBadgeDestroyed(selectedVolunteer)}>
-                                Récupéré
+                                {tr("Récupéré", "Collected")}
                               </button>
                             ) : null}
-                            {!confirmed && stepInfo.step === "todo" ? <small className="acc-step-reason">Poste pas encore confirmé.</small> : null}
+                            {!confirmed && stepInfo.step === "todo" ? <small className="acc-step-reason">{tr("Poste pas encore confirmé.", "Position not confirmed yet.")}</small> : null}
                           </>
                         );
                       })()}
@@ -3264,13 +3414,23 @@ function AccreditationsPage(props) {
                     .flatMap((batch) => batch.items.filter((item) => item.volunteerId === selectedVolunteer.id))
                     .sort((left, right) => String(right.printedAt).localeCompare(String(left.printedAt)));
                   const events = [
-                    ...(override.handedOverAt ? [{ key: "given", text: `Remis le ${formatDateTimeForDisplay(override.handedOverAt)}` }] : []),
-                    ...printed.map((item) => ({ key: item.id, text: `Imprimé le ${formatDateTimeForDisplay(item.printedAt)}${item.generatedBy ? ` par ${item.generatedBy}` : ""}` })),
-                    ...(override.destroyedAt ? [{ key: "destroyed", text: `Ancien badge détruit le ${formatDateTimeForDisplay(override.destroyedAt)}` }] : []),
+                    ...(override.handedOverAt
+                      ? [{ key: "given", text: tr(`Remis le ${formatDateTimeForDisplay(override.handedOverAt)}`, `Handed over on ${formatDateTimeForDisplay(override.handedOverAt)}`) }]
+                      : []),
+                    ...printed.map((item) => ({
+                      key: item.id,
+                      text: tr(
+                        `Imprimé le ${formatDateTimeForDisplay(item.printedAt)}${item.generatedBy ? ` par ${item.generatedBy}` : ""}`,
+                        `Printed on ${formatDateTimeForDisplay(item.printedAt)}${item.generatedBy ? ` by ${item.generatedBy}` : ""}`,
+                      ),
+                    })),
+                    ...(override.destroyedAt
+                      ? [{ key: "destroyed", text: tr(`Ancien badge détruit le ${formatDateTimeForDisplay(override.destroyedAt)}`, `Old badge destroyed on ${formatDateTimeForDisplay(override.destroyedAt)}`) }]
+                      : []),
                   ];
                   return (
                     <div className="acc-person__history">
-                      <span>Historique</span>
+                      <span>{tr("Historique", "History")}</span>
                       {events.length ? (
                         <ul>
                           {events.map((event) => (
@@ -3278,7 +3438,7 @@ function AccreditationsPage(props) {
                           ))}
                         </ul>
                       ) : (
-                        <small>Pas encore imprimé.</small>
+                        <small>{tr("Pas encore imprimé.", "Not printed yet.")}</small>
                       )}
                     </div>
                   );
@@ -3286,7 +3446,7 @@ function AccreditationsPage(props) {
 
                 <div className="acc-person__zones-head">
                   <span>Zones</span>
-                  <small>Cliquer ajoute une zone pour cette personne, ou retire une zone donnée par son rôle.</small>
+                  <small>{tr("Cliquer ajoute une zone pour cette personne, ou retire une zone donnée par son rôle.", "Click to add a zone for this person, or remove a zone given by their role.")}</small>
                 </div>
                 <div className="acc-person__zones">
                   {sortedZones.map((zone) => {
@@ -3295,7 +3455,12 @@ function AccreditationsPage(props) {
                     const removed = selectedVolunteerOverride.removeZoneIds.includes(zone.id);
                     const active = (inherited && !removed) || added;
                     const state = removed ? "removed" : added ? "added" : inherited ? "inherited" : "off";
-                    const tag = { removed: "− retirée", added: "+ ajoutée", inherited: "rôle", off: "" }[state];
+                    const tag = {
+                      removed: tr("− retirée", "− removed"),
+                      added: tr("+ ajoutée", "+ added"),
+                      inherited: tr("rôle", "role"),
+                      off: "",
+                    }[state];
                     return (
                       <button
                         key={zone.id}
@@ -3304,11 +3469,11 @@ function AccreditationsPage(props) {
                         title={
                           inherited
                             ? removed
-                              ? "Zone du rôle retirée pour cette personne : cliquer pour la rendre"
-                              : "Zone donnée par son rôle : cliquer pour la retirer à cette personne"
+                              ? tr("Zone du rôle retirée pour cette personne : cliquer pour la rendre", "Role zone removed for this person: click to give it back")
+                              : tr("Zone donnée par son rôle : cliquer pour la retirer à cette personne", "Zone given by their role: click to remove it for this person")
                             : added
-                              ? "Zone ajoutée pour cette personne : cliquer pour l'enlever"
-                              : "Cliquer pour ajouter cette zone à cette personne"
+                              ? tr("Zone ajoutée pour cette personne : cliquer pour l'enlever", "Zone added for this person: click to remove it")
+                              : tr("Cliquer pour ajouter cette zone à cette personne", "Click to add this zone for this person")
                         }
                         type="button"
                         onClick={() => updateVolunteerOverride(selectedVolunteer, inherited ? "removeZoneIds" : "addZoneIds", zone.id)}
@@ -3328,24 +3493,27 @@ function AccreditationsPage(props) {
 
           {peopleType === "judges" ? (
           <Panel
-            title="Juges"
-            subtitle="Roster nominatif sans compte utilisateur. Zones et libellé modifiables ligne par ligne."
+            title={tr("Juges", "Judges")}
+            subtitle={tr(
+              "Roster nominatif sans compte utilisateur. Zones et libellé modifiables ligne par ligne.",
+              "Named roster without user accounts. Zones and label can be edited row by row.",
+            )}
           >
-            {judgesLoading ? <p className="panel-note">Chargement des juges...</p> : null}
+            {judgesLoading ? <p className="panel-note">{tr("Chargement des juges...", "Loading judges...")}</p> : null}
             {judgesError ? <p className="panel-note">{judgesError}</p> : null}
 
             <div className="acc-people-toolbar">
               <div className="acc-inline-stats">
-                <span><strong>{activeJudges.length}</strong> juge(s)</span>
-                <span><strong>{countSteps(activeJudges).todo}</strong> à imprimer</span>
-                <span><strong>{countSteps(activeJudges).done}</strong> imprimé(s)</span>
-                <span><strong>{countSteps(activeJudges).given}</strong> remis</span>
+                <span><strong>{activeJudges.length}</strong> {tr("juge(s)", "judge(s)")}</span>
+                <span><strong>{countSteps(activeJudges).todo}</strong> {tr("à imprimer", "to print")}</span>
+                <span><strong>{countSteps(activeJudges).done}</strong> {tr("imprimé(s)", "printed")}</span>
+                <span><strong>{countSteps(activeJudges).given}</strong> {tr("remis", "handed over")}</span>
               </div>
               <div className="acc-toolbar-right">
                 <input
                   className="acc-people-search"
                   type="search"
-                  placeholder="Rechercher un juge…"
+                  placeholder={tr("Rechercher un juge…", "Search a judge…")}
                   value={judgeSearch}
                   onChange={(event) => setJudgeSearch(event.target.value)}
                 />
@@ -3355,7 +3523,7 @@ function AccreditationsPage(props) {
                     type="button"
                     onClick={() => setIsJudgeFormOpen((open) => !open)}
                   >
-                    {isJudgeFormOpen ? "Fermer" : "+ Ajouter un juge"}
+                    {isJudgeFormOpen ? tr("Fermer", "Close") : tr("+ Ajouter un juge", "+ Add a judge")}
                   </button>
                 ) : null}
               </div>
@@ -3365,15 +3533,15 @@ function AccreditationsPage(props) {
               <div className="acc-add-form">
                 <div className="acc-add-form__row">
                   <label className="acc-mini-field">
-                    <span>Prénom</span>
+                    <span>{tr("Prénom", "First name")}</span>
                     <input value={newJudgeFirstName} onChange={(event) => setNewJudgeFirstName(event.target.value)} />
                   </label>
                   <label className="acc-mini-field">
-                    <span>Nom</span>
+                    <span>{tr("Nom", "Last name")}</span>
                     <input value={newJudgeLastName} onChange={(event) => setNewJudgeLastName(event.target.value)} />
                   </label>
                   <label className="acc-mini-field">
-                    <span>Libellé badge</span>
+                    <span>{tr("Libellé badge", "Badge label")}</span>
                     <input
                       value={newJudgeBadgeLabel}
                       placeholder="Judge"
@@ -3404,7 +3572,7 @@ function AccreditationsPage(props) {
                     }}
                     disabled={!newJudgeFirstName.trim() || !newJudgeLastName.trim()}
                   >
-                    Ajouter
+                    {tr("Ajouter", "Add")}
                   </button>
                 </div>
               </div>
@@ -3414,11 +3582,11 @@ function AccreditationsPage(props) {
               <table className="data-table data-table--admin acc-people-table">
                 <thead>
                   <tr>
-                    <th className="acc-cb" aria-label="Cocher" />
-                    <th>Juge</th>
-                    <th>Libellé badge</th>
+                    <th className="acc-cb" aria-label={tr("Cocher", "Select")} />
+                    <th>{tr("Juge", "Judge")}</th>
+                    <th>{tr("Libellé badge", "Badge label")}</th>
                     <th>Zones</th>
-                    <th>Étape</th>
+                    <th>{tr("Étape", "Step")}</th>
                     <th aria-label="Actions" />
                   </tr>
                 </thead>
@@ -3437,7 +3605,7 @@ function AccreditationsPage(props) {
                           <td className="acc-cb">
                             {canPrintStep(judgeStep) ? (
                               <input
-                                aria-label={`Cocher ${judge.firstName} ${judge.lastName}`}
+                                aria-label={tr(`Cocher ${judge.firstName} ${judge.lastName}`, `Select ${judge.firstName} ${judge.lastName}`)}
                                 checked={printSelection.has(judgeKey)}
                                 type="checkbox"
                                 onChange={(event) => togglePrintSelection(judgeKey, event.target.checked)}
@@ -3446,7 +3614,7 @@ function AccreditationsPage(props) {
                           </td>
                           <td>
                             <span className="acc-people-name">
-                              {`${judge.firstName} ${judge.lastName}`.trim() || "Juge sans nom"}
+                              {`${judge.firstName} ${judge.lastName}`.trim() || tr("Juge sans nom", "Judge without name")}
                             </span>
                           </td>
                           <td>
@@ -3455,7 +3623,7 @@ function AccreditationsPage(props) {
                                 className="acc-cell-input"
                                 value={judge.badgeLabel || "Judge"}
                                 onChange={(event) =>
-                                  updateJudge(judge.id, { badgeLabel: event.target.value }, "Libellé badge juge mis à jour.")
+                                  updateJudge(judge.id, { badgeLabel: event.target.value }, tr("Libellé badge juge mis à jour.", "Judge badge label updated."))
                                 }
                               />
                             ) : (
@@ -3468,7 +3636,7 @@ function AccreditationsPage(props) {
                                 {zoneLabels.join(", ")}
                               </span>
                             ) : (
-                              <span className="acc-people-muted">aucune zone</span>
+                              <span className="acc-people-muted">{tr("aucune zone", "no zone")}</span>
                             )}
                             {canManageJudges ? (
                               <button
@@ -3476,14 +3644,14 @@ function AccreditationsPage(props) {
                                 type="button"
                                 onClick={() => setEditingJudgeZonesId(zonesOpen ? "" : judge.id)}
                               >
-                                {zonesOpen ? "fermer" : "modifier"}
+                                {zonesOpen ? tr("fermer", "close") : tr("modifier", "edit")}
                               </button>
                             ) : null}
                           </td>
                           <td>
                             <span className="acc-people-status">
-                              {judgeStep.step ? <span className={STEP_PILL_CLASS[judgeStep.step]}>{STEP_LABELS[judgeStep.step].fr}</span> : null}
-                              {judgeStep.reason ? <small className="acc-step-reason">{REASON_LABELS[judgeStep.reason].fr}</small> : null}
+                              {judgeStep.step ? <span className={STEP_PILL_CLASS[judgeStep.step]}>{tr(STEP_LABELS[judgeStep.step].fr, STEP_LABELS[judgeStep.step].en)}</span> : null}
+                              {judgeStep.reason ? <small className="acc-step-reason">{tr(REASON_LABELS[judgeStep.reason].fr, REASON_LABELS[judgeStep.reason].en)}</small> : null}
                             </span>
                           </td>
                           <td className="acc-people-actions">
@@ -3493,26 +3661,27 @@ function AccreditationsPage(props) {
                                 type="button"
                                 onClick={() => markJudgeBadgeDestroyed(judge)}
                               >
-                                Récupéré
+                                {tr("Récupéré", "Collected")}
                               </button>
                             ) : null}
                             {judgeStep.step === "done" ? (
                               <button
                                 className="button button--secondary button--small"
                                 type="button"
-                                onClick={() => updateJudge(judge.id, { handedOverAt: new Date().toISOString() }, "Badge juge remis.")}
+                                onClick={() => updateJudge(judge.id, { handedOverAt: new Date().toISOString() }, tr("Badge juge remis.", "Judge badge handed over."))}
                               >
-                                Remis
+                                {tr("Remis", "Handed over")}
                               </button>
                             ) : null}
                             {canManageJudges ? (
                               <button
                                 className="acc-icon-button"
                                 type="button"
-                                title="Supprimer ce juge"
-                                aria-label="Supprimer ce juge"
+                                title={tr("Supprimer ce juge", "Delete this judge")}
+                                aria-label={tr("Supprimer ce juge", "Delete this judge")}
                                 onClick={() => {
-                                  if (window.confirm(`Supprimer ${`${judge.firstName} ${judge.lastName}`.trim() || "ce juge"} du roster ?`)) {
+                                  const judgeName = `${judge.firstName} ${judge.lastName}`.trim();
+                                  if (window.confirm(tr(`Supprimer ${judgeName || "ce juge"} du roster ?`, `Remove ${judgeName || "this judge"} from the roster?`))) {
                                     removeJudge(judge.id);
                                   }
                                 }}
@@ -3526,7 +3695,9 @@ function AccreditationsPage(props) {
                           <tr className="acc-expand-row">
                             <td colSpan="6">
                               <div className="acc-zone-chips">
-                                <span className="acc-zone-chips__label">Zones de {judge.firstName || "ce juge"}</span>
+                                <span className="acc-zone-chips__label">
+                                  {tr(`Zones de ${judge.firstName || "ce juge"}`, `Zones for ${judge.firstName || "this judge"}`)}
+                                </span>
                                 {sortedZones.map((zone) => {
                                   const isOn = judge.assignedZones.includes(zone.id);
                                   return (
@@ -3542,7 +3713,7 @@ function AccreditationsPage(props) {
                                               ? judge.assignedZones.filter((zoneId) => zoneId !== zone.id)
                                               : [...judge.assignedZones, zone.id],
                                           },
-                                          "Zones juge mises à jour.",
+                                          tr("Zones juge mises à jour.", "Judge zones updated."),
                                         )
                                       }
                                     >
@@ -3561,8 +3732,8 @@ function AccreditationsPage(props) {
                     <tr>
                       <td colSpan="6" className="acc-people-empty">
                         {canManageJudges
-                          ? "Aucun juge pour le moment. Cliquez sur « + Ajouter un juge »."
-                          : "Aucun juge pour le moment (ajout réservé aux administrateurs)."}
+                          ? tr("Aucun juge pour le moment. Cliquez sur « + Ajouter un juge ».", "No judge yet. Click “+ Add a judge”.")
+                          : tr("Aucun juge pour le moment (ajout réservé aux administrateurs).", "No judge yet (only admins can add one).")}
                       </td>
                     </tr>
                   ) : null}
@@ -3581,7 +3752,7 @@ function AccreditationsPage(props) {
                   type="button"
                   onClick={() => showMoreListItems("active-judges")}
                 >
-                  Afficher 10 de plus
+                  {tr("Afficher 10 de plus", "Show 10 more")}
                 </button>
               </div>
             ) : null}
@@ -3590,27 +3761,30 @@ function AccreditationsPage(props) {
 
           {peopleType === "press" ? (
           <Panel
-            title="Presse"
-            subtitle="Demandes acceptées uniquement. Accepter ou refuser une demande se fait dans le module Presse."
+            title={tr("Presse", "Press")}
+            subtitle={tr(
+              "Demandes acceptées uniquement. Accepter ou refuser une demande se fait dans le module Presse.",
+              "Accepted requests only. Requests are accepted or declined in the Press module.",
+            )}
           >
-            {pressLoading ? <p className="panel-note">Chargement des accréditations presse...</p> : null}
-            {pressError ? <p className="panel-note">{pressError}</p> : null}
+            {pressLoading ? <p className="panel-note">{tr("Chargement des accréditations presse...", "Loading press badges...")}</p> : null}
+            {pressError ? <p className="panel-note">{tr(pressError, "Could not load the press requests.")}</p> : null}
 
             <div className="acc-people-toolbar">
               <div className="acc-inline-stats">
-                <span><strong>{acceptedPressRegistrations.length}</strong> accrédité(s)</span>
-                <span><strong>{countSteps(acceptedPressRegistrations).todo}</strong> à imprimer</span>
+                <span><strong>{acceptedPressRegistrations.length}</strong> {tr("accrédité(s)", "accredited")}</span>
+                <span><strong>{countSteps(acceptedPressRegistrations).todo}</strong> {tr("à imprimer", "to print")}</span>
                 <span>
                   <strong>
                     {acceptedPressRegistrations.filter((r) => r.printStatus === "Imprimé" && !r.destroyedAt).length}
                   </strong>{" "}
-                  imprimé(s)
+                  {tr("imprimé(s)", "printed")}
                 </span>
               </div>
               <input
                 className="acc-people-search"
                 type="search"
-                placeholder="Rechercher nom, média…"
+                placeholder={tr("Rechercher nom, média…", "Search name, media…")}
                 value={pressSearch}
                 onChange={(event) => setPressSearch(event.target.value)}
               />
@@ -3620,11 +3794,11 @@ function AccreditationsPage(props) {
               <table className="data-table data-table--admin acc-people-table">
                 <thead>
                   <tr>
-                    <th className="acc-cb" aria-label="Cocher" />
-                    <th>Personne</th>
-                    <th>Média</th>
+                    <th className="acc-cb" aria-label={tr("Cocher", "Select")} />
+                    <th>{tr("Personne", "Person")}</th>
+                    <th>{tr("Média", "Media")}</th>
                     <th>Zones</th>
-                    <th>Étape</th>
+                    <th>{tr("Étape", "Step")}</th>
                     <th aria-label="Actions" />
                   </tr>
                 </thead>
@@ -3641,7 +3815,10 @@ function AccreditationsPage(props) {
                         <td className="acc-cb">
                           {canPrintStep(pressStep) ? (
                             <input
-                              aria-label={`Cocher ${registration.firstName || ""} ${registration.lastName || ""}`}
+                              aria-label={tr(
+                                `Cocher ${registration.firstName || ""} ${registration.lastName || ""}`,
+                                `Select ${registration.firstName || ""} ${registration.lastName || ""}`,
+                              )}
                               checked={printSelection.has(pressKey)}
                               type="checkbox"
                               onChange={(event) => togglePrintSelection(pressKey, event.target.checked)}
@@ -3656,7 +3833,10 @@ function AccreditationsPage(props) {
                         <td>
                           {registration.media || "—"}
                           <span className="acc-people-tag">
-                            {PRESS_REQUEST_TYPE_LABELS[registration.requestType] || registration.requestType}
+                            {tr(
+                              PRESS_REQUEST_TYPE_LABELS[registration.requestType] || registration.requestType,
+                              PRESS_REQUEST_TYPE_LABELS_EN[registration.requestType] || registration.requestType,
+                            )}
                           </span>
                         </td>
                         <td>
@@ -3665,13 +3845,13 @@ function AccreditationsPage(props) {
                               {zoneLabels.join(", ")}
                             </span>
                           ) : (
-                            <span className="acc-people-muted">aucune zone</span>
+                            <span className="acc-people-muted">{tr("aucune zone", "no zone")}</span>
                           )}
                         </td>
                         <td>
                           <span className="acc-people-status">
-                            {pressStep.step ? <span className={STEP_PILL_CLASS[pressStep.step]}>{STEP_LABELS[pressStep.step].fr}</span> : null}
-                            {pressStep.reason ? <small className="acc-step-reason">{REASON_LABELS[pressStep.reason].fr}</small> : null}
+                            {pressStep.step ? <span className={STEP_PILL_CLASS[pressStep.step]}>{tr(STEP_LABELS[pressStep.step].fr, STEP_LABELS[pressStep.step].en)}</span> : null}
+                            {pressStep.reason ? <small className="acc-step-reason">{tr(REASON_LABELS[pressStep.reason].fr, REASON_LABELS[pressStep.reason].en)}</small> : null}
                           </span>
                         </td>
                         <td className="acc-people-actions">
@@ -3681,7 +3861,7 @@ function AccreditationsPage(props) {
                               type="button"
                               onClick={() => markPressBadgeDestroyed(registration)}
                             >
-                              Récupéré
+                              {tr("Récupéré", "Collected")}
                             </button>
                           ) : null}
                           {pressStep.step === "done" ? (
@@ -3690,7 +3870,7 @@ function AccreditationsPage(props) {
                               type="button"
                               onClick={() => markPressBadgeHandedOver(registration)}
                             >
-                              Remis
+                              {tr("Remis", "Handed over")}
                             </button>
                           ) : null}
                         </td>
@@ -3699,7 +3879,7 @@ function AccreditationsPage(props) {
                   })}
                   {!acceptedPressRegistrations.length ? (
                     <tr>
-                      <td colSpan="6" className="acc-people-empty">Aucune demande presse acceptée pour le moment.</td>
+                      <td colSpan="6" className="acc-people-empty">{tr("Aucune demande presse acceptée pour le moment.", "No accepted press request yet.")}</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -3717,7 +3897,7 @@ function AccreditationsPage(props) {
                   type="button"
                   onClick={() => showMoreListItems("accepted-press")}
                 >
-                  Afficher 10 de plus
+                  {tr("Afficher 10 de plus", "Show 10 more")}
                 </button>
               </div>
             ) : null}
@@ -3736,8 +3916,8 @@ function AccreditationsPage(props) {
         <section className="admin-split">
           <div className="admin-split__nav">
             <Panel
-              title="Batchs d'impression"
-              subtitle="Choisissez un batch pour voir le détail imprimé."
+              title={tr("Batchs d'impression", "Print batches")}
+              subtitle={tr("Choisissez un batch pour voir le détail imprimé.", "Choose a batch to see what was printed.")}
             >
               <div className="accreditation-zone-list">
                 {printHistory.length ? (
@@ -3754,7 +3934,7 @@ function AccreditationsPage(props) {
                     </button>
                   ))
                 ) : (
-                  <p className="panel-note">Aucun batch d'impression enregistré.</p>
+                  <p className="panel-note">{tr("Aucun batch d'impression enregistré.", "No print batch saved.")}</p>
                 )}
               </div>
             </Panel>
@@ -3762,8 +3942,8 @@ function AccreditationsPage(props) {
 
           <div className="admin-stack">
             <Panel
-              title="Résumé du batch"
-              subtitle="Détail du lot imprimé sélectionné."
+              title={tr("Résumé du batch", "Batch summary")}
+              subtitle={tr("Détail du lot imprimé sélectionné.", "Details of the selected print batch.")}
             >
               {selectedPrintHistoryBatch ? (
                 <>
@@ -3774,11 +3954,11 @@ function AccreditationsPage(props) {
                     </div>
                     <div className="team-summary-pill">
                       <strong>{selectedPrintHistoryBatch.printedAt ? formatDateTimeForDisplay(selectedPrintHistoryBatch.printedAt) : "—"}</strong>
-                      <span>Imprimé le</span>
+                      <span>{tr("Imprimé le", "Printed on")}</span>
                     </div>
                     <div className="team-summary-pill">
                       <strong>{selectedPrintHistoryBatch.generatedBy || "—"}</strong>
-                      <span>Généré par</span>
+                      <span>{tr("Généré par", "Generated by")}</span>
                     </div>
                   </div>
 
@@ -3786,8 +3966,8 @@ function AccreditationsPage(props) {
                     <table className="data-table data-table--admin">
                       <thead>
                         <tr>
-                          <th>Personne</th>
-                          <th>Rôle badge</th>
+                          <th>{tr("Personne", "Person")}</th>
+                          <th>{tr("Rôle badge", "Badge role")}</th>
                           <th>Zones</th>
                         </tr>
                       </thead>
@@ -3797,12 +3977,16 @@ function AccreditationsPage(props) {
                             <tr key={entry.id}>
                               <td>{entry.name || "-"}</td>
                               <td>{entry.roleLabel || "-"}</td>
-                              <td>{Array.isArray(entry.zoneLabels) ? (entry.zoneLabels.join(", ") || "Aucune zone") : "Aucune zone"}</td>
+                              <td>
+                                {Array.isArray(entry.zoneLabels)
+                                  ? entry.zoneLabels.join(", ") || tr("Aucune zone", "No zone")
+                                  : tr("Aucune zone", "No zone")}
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="3">Aucun badge détaillé pour ce batch.</td>
+                            <td colSpan="3">{tr("Aucun badge détaillé pour ce batch.", "No badge details for this batch.")}</td>
                           </tr>
                         )}
                       </tbody>
@@ -3810,7 +3994,7 @@ function AccreditationsPage(props) {
                   </div>
                 </>
               ) : (
-                <p className="panel-note">Sélectionnez un batch pour afficher son contenu.</p>
+                <p className="panel-note">{tr("Sélectionnez un batch pour afficher son contenu.", "Select a batch to see its content.")}</p>
               )}
             </Panel>
           </div>
