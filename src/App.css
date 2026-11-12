@@ -9355,6 +9355,8 @@ tr.row--warning > td {
 .mdp-hcell--general { background: #eaf3ee; color: #1d6b3f; }
 .mdp-hcell--extra { color: #6b4f00; }
 .mdp-hcell__team { display: block; font-size: 9.5px; font-weight: 600; color: #1a4aa1; }
+.mdp-hcell__match { display: block; width: 100%; max-width: 100%; margin-top: 3px; padding: 0 2px; height: 18px; font-size: 10px; font-weight: 500; color: #3c6fd1; border: 1px dashed #b9c8de; border-radius: 4px; background: #fff; cursor: pointer; }
+@media print { .mdp-hcell__match { display: none; } }
 .mdp-tcol { position: sticky; left: 0; z-index: 2; background: #fff; border-right: 1px solid #dfe6ee; }
 .mdp-tlabel { height: 20px; line-height: 20px; padding-right: 5px; text-align: right; font-size: 10px; color: #8391a3; }
 .mdp-tlabel--hour { color: #13213a; font-weight: 700; }

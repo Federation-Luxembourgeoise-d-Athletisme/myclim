@@ -292,6 +292,39 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
     }
   }
 
+  // Menu « Rattacher à… » d'une colonne libre ({ id, name }) : dans le
+  // panneau Colonnes et dans l'en-tête de la colonne de la grille.
+  function renderMatchSelect(column, className) {
+    const suggestion = suggestionOf(column);
+    return (
+      <select
+        aria-label={`Rattacher « ${column.name} » à une équipe`}
+        className={className}
+        title="Rattacher toute la colonne à une équipe ou un rôle"
+        value=""
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => event.target.value && mergeColumn(column, event.target.value)}
+      >
+        <option value="">
+          {suggestion.key ? `${suggestion.strong ? "→" : "Peut-être"} ${targetByKey.get(suggestion.key)?.label} ?` : "Rattacher à…"}
+        </option>
+        {suggestion.key ? <option value={suggestion.key}>✓ {targetByKey.get(suggestion.key)?.label} (suggestion)</option> : null}
+        {["Équipes bénévoles", "Sous-rôles", "Équipes de l'organisation"].map((group) => {
+          const options = matchTargets.filter((target) => target.group === group);
+          return options.length ? (
+            <optgroup key={group} label={group}>
+              {options.map((target) => (
+                <option key={target.key} value={target.key}>
+                  {target.label}
+                </option>
+              ))}
+            </optgroup>
+          ) : null;
+        })}
+      </select>
+    );
+  }
+
   function suggestionOf(column) {
     return matchByExtraId.get(column.id) || { key: "", strong: false };
   }
@@ -476,7 +509,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                     {column.name}
                     {column.kind === "general" ? <small>visible par toutes les équipes</small> : null}
                     {column.kind === "org" ? <small>organisation</small> : null}
-                    {column.kind === "extra" ? <small>colonne libre</small> : null}
+                    {column.kind === "extra" ? renderMatchSelect({ id: column.extraId, name: column.name }, "mdp-hcell__match") : null}
                   </div>
                 ))}
 
@@ -722,33 +755,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                 ) : null}
                 {programme.extraColumns.map((column) => (
                   <div key={column.id} className="mdp-extra mdp-extra--match">
-                    <select
-                      aria-label={`Rattacher « ${column.name} » à une équipe`}
-                      className="mdp-extra__match"
-                      value=""
-                      onChange={(event) => event.target.value && mergeColumn(column, event.target.value)}
-                    >
-                      <option value="">
-                        {suggestionOf(column).key
-                          ? `${suggestionOf(column).strong ? "→" : "Peut-être"} ${targetByKey.get(suggestionOf(column).key)?.label} ?`
-                          : "Rattacher à…"}
-                      </option>
-                      {suggestionOf(column).key ? (
-                        <option value={suggestionOf(column).key}>✓ {targetByKey.get(suggestionOf(column).key)?.label} (suggestion)</option>
-                      ) : null}
-                      {["Équipes bénévoles", "Sous-rôles", "Équipes de l'organisation"].map((group) => {
-                        const options = matchTargets.filter((target) => target.group === group);
-                        return options.length ? (
-                          <optgroup key={group} label={group}>
-                            {options.map((target) => (
-                              <option key={target.key} value={target.key}>
-                                {target.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ) : null;
-                      })}
-                    </select>
+                    {renderMatchSelect(column, "mdp-extra__match")}
                     <input
                       aria-label="Nom de la colonne"
                       value={column.name}
