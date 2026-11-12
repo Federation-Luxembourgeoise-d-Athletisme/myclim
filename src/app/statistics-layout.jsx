@@ -23,6 +23,8 @@ const STATISTICS_TABS = [
   { to: `${BASE}/records`, label: "Records", labelEn: "Records", scope: "tous temps", scopeEn: "all time" },
   { to: `${BASE}/hall-of-winners`, label: "Palmarès", labelEn: "Hall of Winners", scope: "tous temps", scopeEn: "all time" },
   { to: `${BASE}/base-athletes`, label: "Athlètes", labelEn: "Athletes" },
+  { to: `${BASE}/niveaux`, label: "Par niveau", labelEn: "By level", scope: "Bronze / Silver", scopeEn: "Bronze / Silver" },
+  { to: `${BASE}/speakers`, label: "Fiches speaker", labelEn: "Speaker sheets" },
 ];
 
 function StatisticsSearch({ editions, onPickYear }) {

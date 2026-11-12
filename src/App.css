@@ -10127,6 +10127,72 @@ button.xc-card:hover { border-color: #9fb3c8; }
 
 .stats-tag--mr { background: #fff3dc; color: #a15c00; }
 .stats-tag--nr { background: #e5f5ec; color: #0f7a4a; }
+.stats-tag--win { background: #fdf0c9; color: #8a5a00; }
+.stats-tag--new { background: #eaf1fb; color: #1a4aa1; }
+.stats-tag--loyal { background: #efe9fb; color: #5b3aa8; }
+.stats-tag--lux { background: #fde7e9; color: #b42318; }
+.stats-tag--muted { background: #eef2f5; color: #627788; }
+.stats-tag:first-child { margin-left: 0; }
+
+/* Statistiques › Par niveau */
+.level-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+.level-badge--none { background: #eef2f5; color: #627788; }
+.level-badge--bronze { background: #f6e3d3; color: #8a4b1c; }
+.level-badge--silver { background: #e6eaee; color: #3d4d5c; box-shadow: inset 0 0 0 1px #c3ccd5; }
+
+.levels-table th[scope="row"] { font-weight: 600; color: #17324a; text-align: left; white-space: nowrap; }
+.levels-table td { font-variant-numeric: tabular-nums; }
+.levels-table tr.is-highlight td { font-weight: 800; color: #17324a; }
+.levels-up { color: #0f7a4a; font-weight: 700; }
+.levels-down { color: #b42318; font-weight: 700; }
+
+/* Statistiques › Fiches speaker */
+.speaker-sheets__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.speaker-sheets__bar p { flex: 1; min-width: 240px; font-size: 0.88rem; }
+.speaker-sheets__bar select { font: inherit; font-size: 0.85rem; padding: 4px 8px; border-radius: 8px; border: 1px solid #c9d4de; }
+.speaker-sheet { margin-bottom: 14px; }
+.speaker-sheet__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-bottom: 10px;
+}
+@media (max-width: 900px) {
+  .speaker-sheet__top { grid-template-columns: 1fr; }
+}
+.speaker-sheet__h {
+  margin: 4px 0 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a4aa1;
+}
+.speaker-sheet__lines { margin: 0 0 8px; padding-left: 18px; font-size: 0.9rem; line-height: 1.45; }
+.speaker-sheet__lines li { margin-bottom: 3px; }
+.speaker-sheet__table td { font-size: 0.85rem; }
+
+@media print {
+  .speaker-sheets__bar select,
+  .speaker-sheets__bar button,
+  .speaker-sheet .stats-copy,
+  .stats-bar,
+  .stats-tabs { display: none !important; }
+  .speaker-sheet { break-inside: avoid; border: 0; padding: 0; }
+}
 
 .stats-bars {
   display: flex;

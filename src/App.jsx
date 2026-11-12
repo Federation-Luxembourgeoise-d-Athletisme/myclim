@@ -108,6 +108,8 @@ const MeetingRecordsPageScreen = lazyNamed(() => import("./app/meeting-history-p
 const MeetingWinnersPageScreen = lazyNamed(() => import("./app/meeting-history-pages"), "MeetingWinnersPage");
 const StatisticsLayout = lazyNamed(() => import("./app/statistics-layout"), "StatisticsLayout");
 const StatisticsOverviewPage = lazyNamed(() => import("./app/statistics-overview-page"), "StatisticsOverviewPage");
+const StatisticsLevelsPage = lazyNamed(() => import("./app/statistics-levels-page"), "StatisticsLevelsPage");
+const SpeakerSheetsPage = lazyNamed(() => import("./app/statistics-levels-page"), "SpeakerSheetsPage");
 const WebsiteNewsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteNewsPage");
 const WebsiteSponsorsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteSponsorsPage");
 const WebsitePressPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsitePressPage");
@@ -780,6 +782,8 @@ export default function App() {
                   <Route path="records" element={<MeetingRecordsPage />} />
                   <Route path="hall-of-winners" element={<MeetingWinnersPage />} />
                   <Route path="base-athletes" element={<AthleteRegistryPage maintenance="hide" />} />
+                  <Route path="niveaux" element={<StatisticsLevelsPage />} />
+                  <Route path="speakers" element={<SpeakerSheetsPage />} />
                 </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>
