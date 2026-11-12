@@ -191,9 +191,9 @@ async function syncVolunteerAssignmentsToTeamConfiguration(volunteer) {
   // The volunteer's application is the source of truth: all of their entries
   // are replaced, so a team they were removed from disappears from the
   // composition too (before, only re-added teams were replaced).
-  const volunteerId = String(volunteer?.uid || volunteer?.id || "");
+  const volunteerIds = new Set([volunteer?.uid, volunteer?.id].map((value) => String(value || "")).filter(Boolean));
   const filteredAssignments = currentConfiguration.teamAssignments.filter(
-    (assignment) => assignment.id !== volunteerId,
+    (assignment) => !volunteerIds.has(assignment.id),
   );
 
   await setDoc(
