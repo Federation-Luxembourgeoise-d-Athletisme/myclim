@@ -124,8 +124,8 @@
       <div class="cell"><span class="where">Site public › <b>formulaire bénévole</b></span>
         <ul><li>La personne remplit la candidature</li><li>Candidatures : on l'accepte</li><li>Affectations : on la met dans une équipe, rôle « Bénévole » ou « Chef d'équipe »</li></ul></div>
       <div class="cell"><span><span class="role">benevole</span> automatique à l'inscription</span>
-        <span><span class="role">chef_equipe</span> à donner à la main</span><span class="where">Utilisateurs & rôles (admin)</span>
-        <span class="tag gap">pas automatique</span></div>
+        <span><span class="role">chef_equipe</span> quand on est « Chef d'équipe » dans Affectations</span>
+        <span class="tag ok">automatique depuis le 12/11</span></div>
       <div class="cell"><ul><li><b>benevole</b> : Mes affectations, Mes documents, Mes décomptes</li><li><b>chef_equipe</b> : + Mon équipe (ses bénévoles), Présences de l'équipe</li></ul></div>
       <div class="cell"><span class="bdg"><i style="background:var(--c-vol)"></i>Volunteer</span>
         <span class="where">Sous-rôle = son équipe (« Hurdles team »). Couleur réglable par rôle bénévole (Volunteer / Organisation / Technical)</span></div>
@@ -180,8 +180,8 @@
         <li>Affectations : tu la mets dans <b>VIP team</b>, rôle « Chef d'équipe ».</li>
         <li class="bad">Utilisateurs & rôles : tu lui ajoutes <span class="role">chef_equipe</span> à la main. Sans ça, elle ne voit pas « Mon équipe ».</li>
       </ol>
-      <div class="sub">À corriger (proposé)</div>
-      <p class="q" style="color:var(--ink)">Dans Équipes bénévoles › VIP team : « <b>Ajouter un chef d'équipe</b> » (prénom, nom, e-mail). MyCLIM crée sa fiche bénévole déjà affectée, lui envoie le lien d'activation, et le rôle chef suit automatiquement l'affectation.</p>
+      <div class="sub">Depuis la correction du 12/11</div>
+      <p class="q" style="color:var(--ink)">Affectations › « <b>+ Chef d'équipe sans candidature</b> » : prénom, nom, e-mail, VIP team. MyCLIM crée sa fiche déjà affectée et envoie le lien d'activation. Le rôle <span class="role">chef_equipe</span> suit l'affectation : plus d'étape à la main.</p>
     </article>
 
     <article class="card case">
@@ -226,9 +226,9 @@
     <h2>Ce qui manque aujourd'hui</h2>
     <p class="lead" style="margin-bottom:10px">Ce sont ces trous qui rendent le parcours difficile à suivre. Trouvés dans le code, pas encore corrigés.</p>
     <div class="gaps">
-      <div class="gaprow"><span class="n">1</span><div><b>Le rôle chef d'équipe ne suit pas l'affectation</b><p>Mettre quelqu'un « Chef d'équipe » dans Affectations ne lui donne pas <span class="role">chef_equipe</span>. Il faut l'ajouter à la main. Seule l'équipe Transport est automatique.</p></div></div>
-      <div class="gaprow"><span class="n">2</span><div><b>Pas de chef d'équipe sans formulaire bénévole</b><p>Affectations ne liste que les candidatures. Un chef invité directement a le menu « Mon équipe » mais aucune équipe dedans.</p></div></div>
-      <div class="gaprow"><span class="n">3</span><div><b>« Présences de l'équipe » probablement bloquée pour un chef</b><p>La page lit tous les profils, ce que les règles réservent aux admins et gestionnaires. Un chef verrait sans doute « Impossible de charger les présences ». Lu dans le code, pas encore testé.</p></div></div>
+      <div class="gaprow"><span class="n">1</span><div><b>Le rôle chef d'équipe ne suit pas l'affectation</b> <span class="tag ok">corrigé le 12/11</span><p>Mettre quelqu'un « Chef d'équipe » dans Affectations ne lui donne pas <span class="role">chef_equipe</span>. Il faut l'ajouter à la main. Seule l'équipe Transport est automatique.</p></div></div>
+      <div class="gaprow"><span class="n">2</span><div><b>Pas de chef d'équipe sans formulaire bénévole</b> <span class="tag ok">corrigé : Affectations › + Chef d'équipe sans candidature</span><p>Affectations ne liste que les candidatures. Un chef invité directement a le menu « Mon équipe » mais aucune équipe dedans.</p></div></div>
+      <div class="gaprow"><span class="n">3</span><div><b>« Présences de l'équipe » probablement bloquée pour un chef</b> <span class="tag ok">corrigé, règles testées</span><p>La page lit tous les profils, ce que les règles réservent aux admins et gestionnaires. Un chef verrait sans doute « Impossible de charger les présences ». Lu dans le code, pas encore testé.</p></div></div>
       <div class="gaprow"><span class="n">4</span><div><b>Les équipes organisation n'ont pas encore de badge</b><p>Le module Accréditations ne connaît que Bénévoles, Juges et Presse. La maquette Organisation / Technical est prête à valider.</p></div></div>
       <div class="gaprow"><span class="n">5</span><div><b>« Mon équipe » vide pour un gestionnaire</b><p>Un gestionnaire voit toutes les équipes ailleurs, mais la page « Mon équipe » n'affiche que les équipes dont il est chef.</p></div></div>
     </div>
