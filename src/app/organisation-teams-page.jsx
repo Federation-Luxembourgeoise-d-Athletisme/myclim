@@ -24,7 +24,7 @@ import {
 // et un e-mail s'il a un compte MyCLIM (il voit alors les tâches de son
 // équipe dans le Rétroplanning).
 // Comptes (Margot, 12/11/2026) : chaque membre a un accès (pas de compte,
-// Organisation ou Staff FLA) ; un admin peut lier un compte existant, lui
+// Organisation, Staff FLA ou LUNEX Student) ; un admin peut lier un compte existant, lui
 // donner le rôle qui va avec, ou envoyer un lien d'activation.
 
 const SAVE_DELAY_MS = 700;
@@ -82,6 +82,10 @@ export function OrganisationTeamsPage() {
   const teams = useMemo(() => draft || remoteTeams, [draft, remoteTeams]);
   const selected = teams.find((team) => team.id === selectedId) || teams[0] || null;
   const accounts = useMemberAccounts((selected?.members || []).map((member) => member.email), { canReadInvitations: isAdmin, refreshKey });
+  // Sans choix : accès Organisation si un e-mail est saisi, LUNEX Student dans
+  // l'équipe des étudiants LUNEX, sinon pas de compte.
+  const newMemberAccess =
+    newMember.access || (!newMember.email.trim() ? "none" : selected?.id === "lunex" ? "lunex" : "organisation");
 
   // Recherche d'un compte existant à lier (au moins 2 lettres).
   useEffect(() => {
@@ -107,7 +111,7 @@ export function OrganisationTeamsPage() {
 
   async function sendLink(member) {
     const option = getAccessOption(member.access);
-    const warning = member.access === "staff" ? "\n\nStaff FLA = gestionnaire : accès à toute la gestion sauf le budget." : "";
+    const warning = option.role === "gestionnaire" ? `\n\n${option.label} = gestionnaire : accès à toute la gestion sauf le budget.` : "";
     if (!window.confirm(`Envoyer un lien d'activation à ${memberDisplayName(member)} (${member.email}), accès « ${option.label} » ?${warning}`)) return;
     setBusyMemberId(member.id);
     try {
@@ -125,7 +129,7 @@ export function OrganisationTeamsPage() {
   async function giveAccess(member) {
     const option = getAccessOption(member.access);
     const user = accounts.usersByEmail[member.email];
-    const warning = member.access === "staff" ? " Staff FLA = gestionnaire : accès à toute la gestion sauf le budget." : "";
+    const warning = option.role === "gestionnaire" ? ` ${option.label} = gestionnaire : accès à toute la gestion sauf le budget.` : "";
     if (!window.confirm(`Ajouter l'accès « ${option.label} » au compte de ${memberDisplayName(member)} ?${warning}`)) return;
     setBusyMemberId(member.id);
     try {
@@ -145,7 +149,7 @@ export function OrganisationTeamsPage() {
       lastName: user.lastName || "",
       email: String(user.email).toLowerCase(),
       phone: user.phone || "",
-      access: "organisation",
+      access: "",
     });
     setAccountSearch("");
     setAccountResults([]);
@@ -192,7 +196,7 @@ export function OrganisationTeamsPage() {
   function addMember(event) {
     event.preventDefault();
     if (!newMember.firstName.trim() && !newMember.lastName.trim()) return;
-    updateTeam(selected.id, { members: [...selected.members, normalizeMember({ ...newMember, id: newId("m") })] });
+    updateTeam(selected.id, { members: [...selected.members, normalizeMember({ ...newMember, access: newMemberAccess, id: newId("m") })] });
     setNewMember(EMPTY_MEMBER);
   }
 
@@ -430,7 +434,7 @@ export function OrganisationTeamsPage() {
             />
             <select
               aria-label="Accès du nouveau membre"
-              value={newMember.access || (newMember.email.trim() ? "organisation" : "none")}
+              value={newMemberAccess}
               onChange={(event) => setNewMember({ ...newMember, access: event.target.value })}
             >
               {ORGANISATION_ACCESS.map((option) => (
@@ -445,7 +449,7 @@ export function OrganisationTeamsPage() {
           </form>
           <p className="orgt-hint">
             Accès <strong>Organisation</strong> : le membre voit son planning, les tâches de son équipe dans le Rétroplanning
-            (et peut en changer le statut) et ses décomptes. <strong>Staff FLA</strong> : rôle gestionnaire, toute la gestion
+            (et peut en changer le statut) et ses décomptes. <strong>Staff FLA</strong> et <strong>LUNEX Student</strong> : rôle gestionnaire, toute la gestion
             sauf le budget.{" "}
             {isAdmin ? "« Envoyer le lien » crée son compte avec ces droits." : "Seul un admin peut envoyer les liens d'activation."}
           </p>

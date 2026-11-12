@@ -14,7 +14,9 @@
 //  - « organisation » : compte MyCLIM limité à Mon planning, Mes échéances
 //                        et Mes décomptes (rôle « organisation ») ;
 //  - « staff »        : Staff FLA, rôle « gestionnaire » (toute la gestion
-//                        sauf le budget ; les étudiants LUNEX l'ont aussi).
+//                        sauf le budget) ;
+//  - « lunex »        : LUNEX Student, même rôle « gestionnaire » (Margot,
+//                        12/11/2026 : les étudiants ne sont pas « Staff FLA »).
 // Règles pures, testées dans tests/organisation-teams.test.js.
 
 function normalizeKey(value) {
@@ -53,6 +55,7 @@ const ORGANISATION_ACCESS = [
   { value: "none", label: "Pas de compte", role: "" },
   { value: "organisation", label: "Organisation", role: "organisation", help: "Son planning, ses échéances et ses décomptes" },
   { value: "staff", label: "Staff FLA", role: "gestionnaire", help: "Gestionnaire : toute la gestion sauf le budget" },
+  { value: "lunex", label: "LUNEX Student", role: "gestionnaire", help: "Gestionnaire : toute la gestion sauf le budget" },
 ];
 
 function getAccessOption(access) {

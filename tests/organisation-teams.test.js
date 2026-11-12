@@ -19,3 +19,10 @@ test('member access defaults and account status', async () => {
   assert.equal(getMemberAccountStatus(orga, { invitation: { status: 'pending', expiresAt: future } }), 'invited');
   assert.equal(getMemberAccountStatus(orga, { invitation: { status: 'pending', expiresAt: past } }), 'none');
 });
+
+test('LUNEX Student access gives the gestionnaire role, like Staff FLA', async () => {
+  const { normalizeMember, getAccessOption, getMemberAccountStatus } = await import('../src/app/organisation-teams.js');
+  assert.equal(normalizeMember({ email: 'a@b.lu', access: 'lunex' }).access, 'lunex');
+  assert.equal(getAccessOption('lunex').role, 'gestionnaire');
+  assert.equal(getMemberAccountStatus({ access: 'lunex' }, { user: { userTypes: ['gestionnaire'] } }), 'active');
+});

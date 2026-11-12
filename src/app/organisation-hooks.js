@@ -214,7 +214,7 @@ async function sendMemberInvitation(member, previousInvitation = null) {
   const option = getAccessOption(member.access);
   if (!option.role || !member.email) throw new Error("Ce membre n'a pas d'accès ou pas d'e-mail.");
   const token = crypto.randomUUID();
-  const roleLabel = option.value === "staff" ? "Staff FLA (gestionnaire)" : "Membre de l'organisation";
+  const roleLabel = option.role === "gestionnaire" ? `${option.label} (gestionnaire)` : "Membre de l'organisation";
   await setDoc(doc(db, "invitations", token), {
     email: member.email.toLowerCase(),
     firstName: member.firstName,
