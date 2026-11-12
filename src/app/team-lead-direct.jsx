@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { searchUserAccounts } from "./organisation-hooks";
 import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { getAppBaseUrl } from "../services/app-url";
@@ -88,6 +89,49 @@ export function DirectTeamLeadPanel({ teams, editionId, isAdmin, syncTeams, sync
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
+  // Compte MyCLIM déjà existant pour l'e-mail saisi : on le relie, sans lien.
+  const [account, setAccount] = useState({ email: "", user: null });
+  const [search, setSearch] = useState("");
+  const [matches, setMatches] = useState([]);
+  const typedEmail = form.email.trim().toLowerCase();
+  const existingUser = account.email === typedEmail ? account.user : null;
+  const checking = /^\S+@\S+\.\S+$/.test(typedEmail) && account.email !== typedEmail;
+
+  useEffect(() => {
+    if (!/^\S+@\S+\.\S+$/.test(typedEmail)) return undefined;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      findActiveUserByEmail(typedEmail)
+        .then((user) => !cancelled && setAccount({ email: typedEmail, user }))
+        .catch(() => !cancelled && setAccount({ email: typedEmail, user: null }));
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [typedEmail]);
+
+  useEffect(() => {
+    if (search.trim().length < 2) return undefined;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchUserAccounts(search)
+        .then((users) => !cancelled && setMatches(users))
+        .catch(() => !cancelled && setMatches([]));
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [search]);
+
+  function pickAccount(user) {
+    const email = String(user.email || "").toLowerCase();
+    setForm({ ...form, firstName: user.firstName || "", lastName: user.lastName || "", email });
+    setAccount({ email, user });
+    setSearch("");
+    setMatches([]);
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -104,7 +148,7 @@ export function DirectTeamLeadPanel({ teams, editionId, isAdmin, syncTeams, sync
       );
       const who = `${form.firstName.trim()} ${form.lastName.trim()}`;
       if (outcome.linked) {
-        setResult({ tone: "success", text: `${who} a déjà un compte : chef d'équipe de ${form.teamName}, avec accès à « Mon équipe ».` });
+        setResult({ tone: "success", text: `${who} est maintenant chef d'équipe de ${form.teamName} (compte existant, aucun e-mail envoyé). « Mon équipe » est disponible à sa prochaine connexion.` });
       } else if (outcome.invited) {
         setResult({
           tone: outcome.mailSent ? "success" : "warning",
@@ -140,6 +184,29 @@ export function DirectTeamLeadPanel({ teams, editionId, isAdmin, syncTeams, sync
           ✕
         </button>
       </div>
+      <div className="assign-lead__search">
+        <input
+          aria-label="Chercher un compte existant"
+          placeholder="Déjà un compte MyCLIM ? Cherchez son nom ou son e-mail…"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            if (event.target.value.trim().length < 2) setMatches([]);
+          }}
+        />
+        {matches.length ? (
+          <ul className="assign-lead__results">
+            {matches.map((user) => (
+              <li key={user.id}>
+                <button type="button" onClick={() => pickAccount(user)}>
+                  <strong>{[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</strong>
+                  <span>{user.email}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
       <div className="assign-lead__fields">
         <input aria-label="Prénom" placeholder="Prénom" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
         <input aria-label="Nom" placeholder="Nom" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
@@ -152,10 +219,19 @@ export function DirectTeamLeadPanel({ teams, editionId, isAdmin, syncTeams, sync
             </option>
           ))}
         </select>
-        <button className="button button--primary" disabled={busy} type="submit">
-          {busy ? "Création…" : isAdmin ? "Créer et envoyer le lien" : "Créer la fiche"}
+        <button className="button button--primary" disabled={busy || checking} type="submit">
+          {busy ? "Enregistrement…" : existingUser ? "Nommer chef d'équipe" : isAdmin ? "Créer et envoyer le lien" : "Créer la fiche"}
         </button>
       </div>
+      {typedEmail && !checking ? (
+        <p className="assign-lead__hint">
+          {existingUser
+            ? `Compte existant (${[existingUser.firstName, existingUser.lastName].filter(Boolean).join(" ") || existingUser.email}) : la personne est nommée chef d'équipe directement, sans lien ni e-mail.`
+            : isAdmin
+              ? "Pas encore de compte avec cet e-mail : un lien d'activation lui sera envoyé."
+              : "Pas encore de compte avec cet e-mail : un admin devra lui envoyer le lien d'activation."}
+        </p>
+      ) : null}
       {result ? (
         <p className={`assign-status assign-status--${result.tone}`}>
           {result.text}
