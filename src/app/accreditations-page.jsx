@@ -579,12 +579,9 @@ function AccreditationsPage(props) {
           }
         }
 
-        // Ancienne image QR figée (2026) : seulement pour une ressource sans lien
-        // repris. Un lien repris pas encore renseigné ne met pas de QR (mieux
-        // qu'un QR qui mène à l'ancienne page).
-        if (!src && !resource.source) {
-          src = resource.legacyImageUrl || "";
-        }
+        // Plus d'anciennes images QR figées (2026) : un badge ne porte un QR que si
+        // son lien existe vraiment (Margot, 12/11/2026). Le roadbook bénévoles,
+        // page à construire plus tard, n'a donc pas de QR pour l'instant.
 
         if (!src) return null;
 
