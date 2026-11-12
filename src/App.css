@@ -12022,3 +12022,4 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-page .acc-zone--removed span { text-decoration: line-through; color: #95a5b3; }
 .accreditation-page .acc-zone--removed small { color: #b26a00; font-weight: 700; }
 @media (max-width: 640px) { .accreditation-page .acc-person__fields { grid-template-columns: 1fr; } }
+.assign-pick__tag--role { background: #fff2d9; color: #8a5a00; }
