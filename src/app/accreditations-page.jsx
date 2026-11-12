@@ -1907,15 +1907,18 @@ function AccreditationsPage(props) {
           {accreditationStatus ? <p className="panel-note">{accreditationStatus}</p> : null}
           {isSavingAccreditation ? <p className="panel-note">Sauvegarde des accréditations...</p> : null}
         </div>
+        {/* Guichet du jour J : page à part, ouverte seulement depuis ce bouton,
+            au niveau de la page et pas dans les onglets (Margot, 12/11/2026). */}
+        {canOperatePrinting && activeAccreditationTab !== "desk" ? (
+          <button className="acc-desk-button" type="button" onClick={() => openAccreditationTab("desk")}>
+            Ouvrir le guichet jour J ↗
+          </button>
+        ) : null}
       </section>
       {activeAccreditationTab !== "desk" ? (
       <div className="admin-subtabs acc-tabs">
         {canOperatePrinting ? (
           <>
-            {/* Guichet du jour J : page à part, ouverte depuis ce bouton seulement. */}
-            <button className="acc-desk-button" type="button" onClick={() => openAccreditationTab("desk")}>
-              Guichet jour J →
-            </button>
             <button
               className={`admin-subtab ${activeAccreditationTab === "people" || activeAccreditationTab === "history" ? "admin-subtab--active" : ""}`}
               type="button"
@@ -2672,7 +2675,7 @@ function AccreditationsPage(props) {
           <>
           <Panel
             title="Personnes"
-            subtitle="Cliquez sur une ligne pour modifier ses zones. « À traiter » : badge modifié (Vu) ou badge imprimé à détruire (Détruit)."
+            subtitle="Cliquez sur une ligne pour voir sa fiche (zones, texte du badge, historique). Cochez des badges puis « Imprimer »."
           >
             {unconfirmedVolunteersCount ? (
               <p className="panel-note acc-unconfirmed-note">

@@ -12027,8 +12027,9 @@ button.xc-card:hover { border-color: #9fb3c8; }
 
 /* Accréditations simplifiées (12/11/2026) : étapes, impression sans file, guichet. */
 .accreditation-page .acc-tabs { align-items: center; }
-.accreditation-page .acc-desk-button { order: -1; margin-right: 10px; padding: 5px 12px; border: 1px solid #17324a; border-radius: 999px; background: #17324a; color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer; }
-.accreditation-page .acc-desk-button:hover { background: #0f2436; }
+.accreditation-page .page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; }
+.accreditation-page .acc-desk-button { flex: none; padding: 7px 14px; border: 1px solid #b9c8de; border-radius: 8px; background: #fff; color: #17324a; font-size: 13px; font-weight: 600; cursor: pointer; }
+.accreditation-page .acc-desk-button:hover { border-color: #17324a; background: #f6f9fc; }
 .accreditation-page .acc-step { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 19px; white-space: nowrap; border: 1px solid transparent; }
 .accreditation-page .acc-step--todo { background: #fff; border-color: #d7e0e8; color: #17324a; }
 .accreditation-page .acc-step--done { background: #e8effc; color: #1a4aa1; }
