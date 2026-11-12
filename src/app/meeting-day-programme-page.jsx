@@ -19,6 +19,9 @@ import {
   activityMatchesColumn,
   buildProgrammeColumns,
   getCategory,
+  getColumnMatchTargets,
+  mergeExtraColumn,
+  suggestColumnMatch,
   getColumnActivities,
   getPlanningDay,
   getPlanningDayDate,
@@ -149,6 +152,15 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
     () => (programme ? buildProgrammeColumns(teams, programme, orgTeams, { all: true }) : []),
     [programme, teams, orgTeams],
   );
+  const matchTargets = useMemo(() => (programme ? getColumnMatchTargets(teams, programme, orgTeams) : []), [programme, teams, orgTeams]);
+  const targetByKey = useMemo(() => new Map(matchTargets.map((target) => [target.key, target])), [matchTargets]);
+  const matchByExtraId = useMemo(
+    () => new Map((programme?.extraColumns || []).map((column) => [column.id, suggestColumnMatch(column.name, matchTargets)])),
+    [programme, matchTargets],
+  );
+  const suggestedMatches = (programme?.extraColumns || [])
+    .filter((column) => matchByExtraId.get(column.id))
+    .map((column) => ({ column, key: matchByExtraId.get(column.id) }));
   const trackEntries = useMemo(() => (isMeetingDay ? getTrackEntries(edition?.timetable) : []), [edition, isMeetingDay]);
   const timeOptions = useMemo(() => getProgrammeTimeOptions(), []);
   const rows = (PROGRAMME_END - PROGRAMME_START) / PROGRAMME_STEP;
@@ -218,6 +230,19 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   function importLastYear() {
     if (exists && !window.confirm(`Remplacer le planning actuel du ${dayTitle.toLowerCase()} par celui de l'an dernier ?`)) return;
     update(() => importLegacyDay(dayKey, LEGACY, teams, orgTeams, findOrganisationTeam));
+  }
+
+  function mergeColumn(column, targetKey) {
+    const target = targetByKey.get(targetKey);
+    const used = programme.activities.filter((activity) => activity.columns.includes(`extra:${column.id}`)).length;
+    if (!window.confirm(`Rattacher « ${column.name} » à « ${target?.label} » ? ${used} activité(s) y passent.`)) return;
+    update((current) => mergeExtraColumn(current, column.id, targetKey));
+  }
+
+  function mergeAllSuggestions() {
+    const lines = suggestedMatches.map(({ column, key }) => `• ${column.name} → ${targetByKey.get(key)?.label}`).join("\n");
+    if (!window.confirm(`Rattacher ces colonnes libres à leur équipe ?\n\n${lines}`)) return;
+    update((current) => suggestedMatches.reduce((next, { column, key }) => mergeExtraColumn(next, column.id, key), current));
   }
 
   function toggleSet(field, id, on) {
@@ -608,9 +633,42 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                   <p className="mdp-muted">Aucune équipe : créez-les dans l'onglet Équipes organisation.</p>
                 )}
                 <h3 className="mdp-panel__sub">Colonnes libres</h3>
-                <p className="mdp-muted">Pour ce qui n'est ni une équipe bénévole ni une équipe de l'organisation.</p>
+                <p className="mdp-muted">
+                  Pour ce qui n'est ni une équipe bénévole ni une équipe de l'organisation. Rattachez une colonne à une
+                  équipe : ses activités y passent et la colonne libre disparaît.
+                </p>
+                {suggestedMatches.length ? (
+                  <button className="mdp-btn mdp-btn--primary mdp-extra__all" type="button" onClick={mergeAllSuggestions}>
+                    Rattacher les {suggestedMatches.length} suggestions
+                  </button>
+                ) : null}
                 {programme.extraColumns.map((column) => (
-                  <div key={column.id} className="mdp-extra">
+                  <div key={column.id} className="mdp-extra mdp-extra--match">
+                    <select
+                      aria-label={`Rattacher « ${column.name} » à une équipe`}
+                      className="mdp-extra__match"
+                      value=""
+                      onChange={(event) => event.target.value && mergeColumn(column, event.target.value)}
+                    >
+                      <option value="">
+                        {matchByExtraId.get(column.id) ? `→ ${targetByKey.get(matchByExtraId.get(column.id))?.label} ?` : "Rattacher à…"}
+                      </option>
+                      {matchByExtraId.get(column.id) ? (
+                        <option value={matchByExtraId.get(column.id)}>✓ {targetByKey.get(matchByExtraId.get(column.id))?.label} (suggestion)</option>
+                      ) : null}
+                      {["Équipes bénévoles", "Sous-rôles", "Équipes de l'organisation"].map((group) => {
+                        const options = matchTargets.filter((target) => target.group === group);
+                        return options.length ? (
+                          <optgroup key={group} label={group}>
+                            {options.map((target) => (
+                              <option key={target.key} value={target.key}>
+                                {target.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null;
+                      })}
+                    </select>
                     <input
                       aria-label="Nom de la colonne"
                       value={column.name}

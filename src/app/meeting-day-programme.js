@@ -457,7 +457,84 @@ function importLegacyDay(dayKey, legacy = {}, teams = [], orgTeams = [], findOrg
   return normalizeProgramme(programme, dayKey);
 }
 
+// ─── Colonnes libres → équipes ──────────────────────────────────────────────
+// L'import de l'an dernier crée une colonne libre pour chaque colonne de
+// l'Excel dont le nom ne correspond pas exactement à une équipe (Patator,
+// Hurdles, Chaperon ALAD…). Margot (12/11/2026) : les rattacher aux colonnes
+// des équipes (bénévoles, sous-rôles, organisation).
+
+// Colonnes d'équipe auxquelles une colonne libre peut être rattachée.
+function getColumnMatchTargets(teams = [], programme = normalizeProgramme(), orgTeams = []) {
+  const targets = [];
+  teams.forEach((team) => {
+    targets.push({ key: teamColumnKey(team.id), label: team.roleName, group: "Équipes bénévoles" });
+    getTeamSubRoleNames(team, programme).forEach((subRole) =>
+      targets.push({ key: subRoleColumnKey(team.id, subRole), label: `${team.roleName} › ${subRole}`, match: subRole, group: "Sous-rôles" }),
+    );
+  });
+  orgTeams.forEach((team) => targets.push({ key: orgColumnKey(team.id), label: team.name, group: "Équipes de l'organisation" }));
+  return targets;
+}
+
+function nameWords(value) {
+  return normalizeText(value)
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length >= 3 && !GENERIC_WORDS.has(word));
+}
+
+// Mots trop courants pour rapprocher deux colonnes à eux seuls.
+const GENERIC_WORDS = new Set(["equipe", "team", "les", "des", "and", "the", "pour", "avec", "staff", "zone"]);
+
+// Meilleure équipe pour une colonne libre, d'après les noms : identique,
+// l'un contient l'autre, puis mots en commun. "" si rien de plausible.
+function suggestColumnMatch(name, targets = []) {
+  const wanted = normalizeText(name);
+  const wantedWords = nameWords(name);
+  if (!wanted) return "";
+  let best = { key: "", score: 0 };
+  targets.forEach((target) => {
+    const candidate = normalizeText(target.match || target.label);
+    let score = 0;
+    if (candidate === wanted) score = 100;
+    else if (candidate.length >= 3 && (candidate.includes(wanted) || wanted.includes(candidate))) score = 50;
+    else {
+      const words = nameWords(target.match || target.label);
+      score = wantedWords.filter((word) => words.some((other) => other.startsWith(word) || word.startsWith(other))).length * 10;
+    }
+    if (score > best.score) best = { key: target.key, score };
+  });
+  return best.key;
+}
+
+// Rattache la colonne libre extraId à la colonne targetKey : ses activités y
+// passent (sans doublon), la colonne libre disparaît et la colonne cible est
+// affichée ce jour-là.
+function mergeExtraColumn(programme, extraId, targetKey) {
+  const next = structuredClone(programme);
+  const fromKey = `extra:${extraId}`;
+  next.extraColumns = next.extraColumns.filter((column) => column.id !== extraId);
+  next.activities = next.activities.map((activity) =>
+    activity.columns.includes(fromKey)
+      ? { ...activity, columns: [...new Set(activity.columns.map((key) => (key === fromKey ? targetKey : key)))] }
+      : activity,
+  );
+  const [kind, id, ...rest] = String(targetKey).split(":");
+  if (kind === "team") next.hiddenTeamIds = next.hiddenTeamIds.filter((item) => item !== id);
+  if (kind === "org" && !next.visibleOrgTeamIds.includes(id)) next.visibleOrgTeamIds = [...next.visibleOrgTeamIds, id];
+  if (kind === "sub") {
+    const subRole = rest.join(":");
+    next.hiddenTeamIds = next.hiddenTeamIds.filter((item) => item !== id);
+    if (!next.splitTeamIds.includes(id)) next.splitTeamIds = [...next.splitTeamIds, id];
+    const current = next.subRoleColumns[id] || [];
+    if (!current.includes(subRole)) next.subRoleColumns = { ...next.subRoleColumns, [id]: [...current, subRole] };
+  }
+  return next;
+}
+
 export {
+  getColumnMatchTargets,
+  mergeExtraColumn,
+  suggestColumnMatch,
   COQUE_PLACES,
   PLANNING_DAYS,
   buildWeekActivities,
