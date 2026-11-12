@@ -12096,3 +12096,9 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-page .acc-zone-table__name { width: 100%; max-width: 260px; height: 30px; min-height: 0; padding: 0 8px; border: 1px solid #cfd9e3; border-radius: 7px; box-shadow: none; }
 .accreditation-page .acc-zone-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
 .accreditation-page .acc-zone-add input { height: 32px; min-width: 0; flex: 0 1 260px; padding: 0 9px; border: 1px solid #cfd9e3; border-radius: 7px; box-shadow: none; }
+.accreditation-page .acc-matrix__group td { padding: 12px 6px 6px; border-bottom: 1px solid var(--acc-line); background: none !important; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--acc-muted); }
+.accreditation-page .acc-matrix__group small { margin-left: 8px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.accreditation-page .acc-matrix__group .acc-link-button { margin-left: 12px; text-transform: none; letter-spacing: 0; }
+.accreditation-page .acc-matrix__name { width: 150px; height: 26px; min-height: 0; padding: 0 6px; border: 1px solid #cfd9e3; border-radius: 6px; font-weight: 600; box-shadow: none; }
+.accreditation-page .acc-link-button--danger { margin-left: 6px; color: #b3261e; }
+.accreditation-page .acc-matrix__category select { min-width: 104px; }

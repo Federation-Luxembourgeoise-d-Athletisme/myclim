@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import {
@@ -20,7 +20,6 @@ import {
   BADGE_STORAGE_LOCATIONS,
   DEFAULT_ROLE_BADGE_CATEGORY,
   QR_LINK_SOURCES,
-  NON_NOMINATIVE_BADGE_TEMPLATES,
 } from "./accreditation-config";
 import { buildAccreditationBadgeMarkup } from "./badge-print";
 import { getDocumentUploadErrorMessage } from "./common-helpers";
@@ -32,6 +31,9 @@ import { useAccreditationConfiguration, useJudgeRoster, useTeamConfiguration } f
 import { normalizeComparableValue } from "./u14-helpers";
 import { enterQueue } from "./accreditation-queue";
 import { REASON_LABELS, STEP_LABELS, canPrintStep, countSteps, getBadgeStep } from "./accreditation-steps";
+import { nationalBadgeKey, toggleZone } from "./extra-badge-types";
+import { getNationalRaceDefinition, isNationalRacePacer, NATIONAL_RACE_REQUESTS_COLLECTION } from "./national-races-helpers";
+import { recordMatchesEdition } from "./edition";
 import { useAuth } from "../context/auth-context";
 import { useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
@@ -150,6 +152,8 @@ function AccreditationsPage(props) {
     customStorageLocations: storedCustomStorageLocations,
     qrResources: storedQrResources,
     qrVisualAssignments: storedQrVisualAssignments,
+    namelessBadgeTypes,
+    nationalBadge,
     loading: accreditationLoading,
     error: accreditationError,
   } = useAccreditationConfiguration(roles);
@@ -167,13 +171,15 @@ function AccreditationsPage(props) {
   const [volunteerSearch, setVolunteerSearch] = useState("");
   const [peopleFilter, setPeopleFilter] = useState("todo");
   const [settingsSection, setSettingsSection] = useState("roles");
+  // Courses nationales : athlètes retenus (badge nominatif).
+  const [nationalAthletes, setNationalAthletes] = useState([]);
   // Badges cochés pour l'impression (plus de file : on coche, on imprime).
   const [printSelection, setPrintSelection] = useState(() => new Set());
   const [peopleType, setPeopleType] = useState("volunteers");
   const [isJudgeFormOpen, setIsJudgeFormOpen] = useState(false);
   const [editingJudgeZonesId, setEditingJudgeZonesId] = useState("");
   const [selectedNonNominativeTemplateId, setSelectedNonNominativeTemplateId] = useState(
-    NON_NOMINATIVE_BADGE_TEMPLATES[0]?.id ?? "",
+    namelessBadgeTypes[0]?.id ?? "",
   );
   const [nonNominativeQuantity, setNonNominativeQuantity] = useState("1");
   const [newJudgeFirstName, setNewJudgeFirstName] = useState("");
@@ -722,12 +728,12 @@ function AccreditationsPage(props) {
     ...BADGE_STORAGE_LOCATIONS,
     ...customStorageLocations.filter((loc) => !BADGE_STORAGE_LOCATIONS.includes(loc)),
   ];
-  const effectiveSelectedNonNominativeTemplateId = NON_NOMINATIVE_BADGE_TEMPLATES.some(
+  const effectiveSelectedNonNominativeTemplateId = namelessBadgeTypes.some(
     (template) => template.id === selectedNonNominativeTemplateId,
   )
     ? selectedNonNominativeTemplateId
-    : NON_NOMINATIVE_BADGE_TEMPLATES[0]?.id ?? "";
-  const selectedNonNominativeTemplate = NON_NOMINATIVE_BADGE_TEMPLATES.find(
+    : namelessBadgeTypes[0]?.id ?? "";
+  const selectedNonNominativeTemplate = namelessBadgeTypes.find(
     (template) => template.id === effectiveSelectedNonNominativeTemplateId,
   );
 
@@ -1471,7 +1477,7 @@ function AccreditationsPage(props) {
     const quantity = Math.max(1, Number.parseInt(nonNominativeQuantity, 10) || 1);
     const printedAt = new Date().toISOString();
     const resourceCards = await buildResourceCardsForVisual(selectedNonNominativeTemplate.id);
-    const zoneIds = selectedNonNominativeTemplate.defaultZoneIds.filter((zoneId) =>
+    const zoneIds = selectedNonNominativeTemplate.zoneIds.filter((zoneId) =>
       sortedZones.some((zone) => zone.id === zoneId),
     );
     const zoneLabels = sortedZones
@@ -1481,9 +1487,9 @@ function AccreditationsPage(props) {
       volunteerId: `non-nominative-${selectedNonNominativeTemplate.id}-${Date.now()}-${index + 1}`,
       name: "Non nominatif",
       nominative: false,
-      category: selectedNonNominativeTemplate.id === "coach" ? "coach" : "athlete",
+      category: selectedNonNominativeTemplate.category,
       role: "Accreditation",
-      roleNames: [selectedNonNominativeTemplate.badgeLabel],
+      roleNames: [selectedNonNominativeTemplate.label],
       zoneIds,
       zoneLabels,
       resourceCards,
@@ -1675,7 +1681,7 @@ function AccreditationsPage(props) {
   const queuedVipBadgeCount = buildVipBadgeItems(queuedVip).length;
   const selectedNonNominativeZoneLabels = selectedNonNominativeTemplate
     ? sortedZones
-        .filter((zone) => selectedNonNominativeTemplate.defaultZoneIds.includes(zone.id))
+        .filter((zone) => selectedNonNominativeTemplate.zoneIds.includes(zone.id))
         .map((zone) => formatZoneLabel(zone))
     : [];
   const printableVolunteers = displayableVolunteers;
@@ -1729,6 +1735,96 @@ function AccreditationsPage(props) {
 
   const accreditationDataReady = !usersLoading && !teamsLoading && !accreditationLoading;
 
+  useEffect(() => {
+    if (!canOperatePrinting || editionLoading) return undefined;
+    return onSnapshot(
+      query(collection(db, NATIONAL_RACE_REQUESTS_COLLECTION), where("status", "==", "selected")),
+      (snapshot) =>
+        setNationalAthletes(
+          snapshot.docs
+            .map((entry) => ({ id: entry.id, ...entry.data() }))
+            .filter((request) => recordMatchesEdition(request, activeEditionId))
+            .sort((left, right) => `${left.lastName} ${left.firstName}`.localeCompare(`${right.lastName} ${right.firstName}`, "fr")),
+        ),
+      () => setNationalAthletes([]),
+    );
+  }, [activeEditionId, canOperatePrinting, editionLoading]);
+
+  // Badge d'un athlète de course nationale : suivi dans volunteerOverrides (clé nr-…).
+  function getNationalRaceLabel(request) {
+    const race = getNationalRaceDefinition(request.raceCode)?.label || request.event || "";
+    return isNationalRacePacer(request) ? `${race} · lièvre` : race;
+  }
+  const nationalZoneLabels = sortedZones.filter((zone) => nationalBadge.zoneIds.includes(zone.id)).map((zone) => formatZoneLabel(zone));
+
+  async function printNationalBadges(requests) {
+    const list = requests.filter((request) => canPrintStep(getBadgeStep(getVolunteerOverride(nationalBadgeKey(request.id)))));
+    if (!list.length) return;
+    const printedAt = new Date().toISOString();
+    const resourceCards = await buildResourceCardsForVisual("athlete");
+    const badgeItems = list.map((request) => ({
+      volunteerId: nationalBadgeKey(request.id),
+      name: `${request.firstName || ""} ${request.lastName || ""}`.trim(),
+      firstName: request.firstName || "",
+      lastName: request.lastName || "",
+      category: nationalBadge.category,
+      role: [nationalBadge.label, getNationalRaceLabel(request)].filter(Boolean).join(" · "),
+      roleNames: [getNationalRaceLabel(request)],
+      zoneIds: nationalBadge.zoneIds,
+      zoneLabels: nationalZoneLabels,
+      resourceCards,
+    }));
+    const historyEntries = badgeItems.map((item, index) => ({
+      id: `${item.volunteerId}-${Date.now()}-${index}`,
+      volunteerId: item.volunteerId,
+      name: item.name,
+      roleLabel: item.role,
+      roleNames: item.roleNames,
+      zoneLabels: item.zoneLabels,
+      printedAt,
+      generatedBy: getCurrentOperatorLabel(),
+      reviewStatus: "",
+      reviewComment: "",
+    }));
+    const nextOverrides = { ...volunteerOverrides };
+    badgeItems.forEach((item) => {
+      nextOverrides[item.volunteerId] = {
+        ...getVolunteerOverride(item.volunteerId),
+        printStatus: "Imprimé",
+        lastPrintedAt: printedAt,
+        handedOverAt: null,
+        warningMessage: "",
+        printedSnapshot: { roleLabel: item.role, roleNames: item.roleNames, zoneIds: item.zoneIds },
+      };
+    });
+    await persistAccreditationConfiguration(
+      buildCurrentConfiguration({
+        volunteerOverrides: nextOverrides,
+        printHistory: [{ id: `national-batch-${Date.now()}`, printedAt, generatedBy: getCurrentOperatorLabel(), items: historyEntries }, ...printHistory],
+      }),
+      `${list.length} badge(s) course nationale imprimé(s).`,
+    );
+    openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
+    openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
+  }
+
+  // Réglages des badges sans nom et du badge course nationale (enregistrement partiel, fusionné).
+  function saveNamelessTypes(nextTypes, message = "Badges sans nom enregistrés.") {
+    persistAccreditationConfiguration({ namelessBadgeTypes: nextTypes }, message);
+  }
+  function updateNamelessType(typeId, patch) {
+    saveNamelessTypes(namelessBadgeTypes.map((type) => (type.id === typeId ? { ...type, ...patch } : type)));
+  }
+  function addNamelessType() {
+    saveNamelessTypes([...namelessBadgeTypes, { id: `nameless-${Date.now()}`, label: "Nouveau badge", category: "organisation", zoneIds: [] }], "Type de badge sans nom ajouté.");
+  }
+  function removeNamelessType(typeId) {
+    saveNamelessTypes(namelessBadgeTypes.filter((type) => type.id !== typeId), "Type de badge sans nom supprimé.");
+  }
+  function updateNationalBadge(patch) {
+    persistAccreditationConfiguration({ nationalBadge: { ...nationalBadge, ...patch } }, "Badge course nationale enregistré.");
+  }
+
   // Guichet du jour J : les badges imprimés, à ranger puis à remettre.
   const deskRows = [
     ...printableVolunteers.map((volunteer) => ({
@@ -1761,6 +1857,19 @@ function AccreditationsPage(props) {
       setLocation: (location) => updatePressBadgeStorageLocation(registration.id, location),
       handOver: () => markPressBadgeHandedOver(registration),
     })),
+    ...nationalAthletes.map((request) => {
+      const key = nationalBadgeKey(request.id);
+      return {
+        key,
+        name: `${request.firstName || ""} ${request.lastName || ""}`.trim(),
+        role: getNationalRaceLabel(request),
+        kind: "Course nationale",
+        step: getBadgeStep(getVolunteerOverride(key)).step,
+        location: getBadgeStorageLocation(key),
+        setLocation: (location) => updateBadgeStorageLocation(key, location),
+        handOver: () => markBadgeHandedOver({ id: key }),
+      };
+    }),
   ].filter((row) => row.step === "done" || row.step === "given");
 
   function openAccreditationTab(tabId) {
@@ -2118,12 +2227,117 @@ function AccreditationsPage(props) {
                       </td>
                     </tr>
                   ) : null}
+                  <tr className="acc-matrix__group">
+                    <td colSpan={sortedZones.length + 2}>
+                      Badges sans nom <small>imprimés en lot dans Badges › Sans nom</small>
+                      <button className="acc-link-button" type="button" onClick={addNamelessType}>
+                        + Type sans nom
+                      </button>
+                    </td>
+                  </tr>
+                  {namelessBadgeTypes.map((type) => {
+                    const category = BADGE_CATEGORIES.find((item) => item.key === type.category);
+                    return (
+                      <tr key={`nameless-${type.id}`}>
+                        <td className="acc-matrix__role">
+                          {type.builtIn ? (
+                            <strong>{type.label}</strong>
+                          ) : (
+                            <input
+                              aria-label="Nom imprimé sur le badge"
+                              className="acc-matrix__name"
+                              defaultValue={type.label}
+                              onBlur={(event) => event.target.value.trim() && event.target.value.trim() !== type.label && updateNamelessType(type.id, { label: event.target.value.trim() })}
+                            />
+                          )}
+                          <small>
+                            sans nom
+                            {type.builtIn ? null : (
+                              <button className="acc-link-button acc-link-button--danger" type="button" onClick={() => removeNamelessType(type.id)}>
+                                supprimer
+                              </button>
+                            )}
+                          </small>
+                        </td>
+                        <td className="acc-matrix__band">
+                          <span className="acc-matrix__category">
+                            <i style={{ background: category?.color }} />
+                            <select aria-label={`Bande du badge ${type.label}`} value={type.category} onChange={(event) => updateNamelessType(type.id, { category: event.target.value })}>
+                              {BADGE_CATEGORIES.map((item) => (
+                                <option key={item.key} value={item.key}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          </span>
+                        </td>
+                        {sortedZones.map((zone) => {
+                          const on = type.zoneIds.includes(zone.id);
+                          return (
+                            <td key={zone.id} className="acc-matrix__cell">
+                              <button
+                                aria-label={`${on ? "Retirer" : "Donner"} ${zone.name} au badge ${type.label}`}
+                                aria-pressed={on}
+                                className={`acc-matrix__toggle${on ? " is-on" : ""}`}
+                                style={on ? { background: category?.color } : undefined}
+                                type="button"
+                                onClick={() => updateNamelessType(type.id, { zoneIds: toggleZone(type.zoneIds, zone.id) })}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                  <tr className="acc-matrix__group">
+                    <td colSpan={sortedZones.length + 2}>
+                      Courses nationales <small>badge nominatif, nom repris des athlètes retenus</small>
+                    </td>
+                  </tr>
+                  {(() => {
+                    const category = BADGE_CATEGORIES.find((item) => item.key === nationalBadge.category);
+                    return (
+                      <tr>
+                        <td className="acc-matrix__role">
+                          <strong>{nationalBadge.label}</strong>
+                          <small>{nationalAthletes.length} athlète(s) retenu(s)</small>
+                        </td>
+                        <td className="acc-matrix__band">
+                          <span className="acc-matrix__category">
+                            <i style={{ background: category?.color }} />
+                            <select aria-label="Bande du badge course nationale" value={nationalBadge.category} onChange={(event) => updateNationalBadge({ category: event.target.value })}>
+                              {BADGE_CATEGORIES.map((item) => (
+                                <option key={item.key} value={item.key}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          </span>
+                        </td>
+                        {sortedZones.map((zone) => {
+                          const on = nationalBadge.zoneIds.includes(zone.id);
+                          return (
+                            <td key={zone.id} className="acc-matrix__cell">
+                              <button
+                                aria-label={`${on ? "Retirer" : "Donner"} ${zone.name} aux courses nationales`}
+                                aria-pressed={on}
+                                className={`acc-matrix__toggle${on ? " is-on" : ""}`}
+                                style={on ? { background: category?.color } : undefined}
+                                type="button"
+                                onClick={() => updateNationalBadge({ zoneIds: toggleZone(nationalBadge.zoneIds, zone.id) })}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>
             <p className="acc-people-muted">
-              Les juges, la presse et les badges sans nom ont leurs zones dans leur propre liste (onglet Badges). Les zones
-              ajoutées ou retirées à une personne se règlent dans sa fiche.
+              Les juges et la presse ont leurs zones dans leur propre liste (onglet Badges). Les zones ajoutées ou retirées à
+              une personne se règlent dans sa fiche.
             </p>
           </Panel>
           </>
@@ -2574,6 +2788,7 @@ function AccreditationsPage(props) {
               { id: "volunteers", label: "Bénévoles & staff", count: printableVolunteers.length },
               { id: "judges", label: "Juges", count: activeJudges.length },
               { id: "press", label: "Presse", count: acceptedPressRegistrations.length },
+              { id: "national", label: "Courses nationales", count: nationalAthletes.length },
               { id: "vip", label: "VIP", count: queuedVipBadgeCount },
               { id: "nominless", label: "Sans nom (athlètes, coachs)", count: null },
             ].map((type) => (
@@ -2599,6 +2814,79 @@ function AccreditationsPage(props) {
               Historique des impressions
             </button>
           </div>
+
+          {peopleType === "national" ? (
+          <Panel
+            title="Courses nationales"
+            subtitle="Badge nominatif des athlètes retenus (pré-programme), lièvres compris. Les zones et la couleur se règlent dans Réglages › Zones par rôle."
+          >
+            <div className="table-wrap">
+              <table className="data-table data-table--admin acc-people-table">
+                <thead>
+                  <tr>
+                    <th className="acc-cb" aria-label="Cocher" />
+                    <th>Athlète</th>
+                    <th>Course</th>
+                    <th>Zones</th>
+                    <th>Étape</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {nationalAthletes.map((request) => {
+                    const key = nationalBadgeKey(request.id);
+                    const stepInfo = getBadgeStep(getVolunteerOverride(key));
+                    return (
+                      <tr key={request.id}>
+                        <td className="acc-cb">
+                          {canPrintStep(stepInfo) ? (
+                            <input
+                              aria-label={`Cocher ${request.firstName} ${request.lastName}`}
+                              checked={printSelection.has(key)}
+                              type="checkbox"
+                              onChange={(event) => togglePrintSelection(key, event.target.checked)}
+                            />
+                          ) : null}
+                        </td>
+                        <td>
+                          <span className="acc-people-name">{`${request.firstName || ""} ${request.lastName || ""}`.trim() || "—"}</span>
+                        </td>
+                        <td>{getNationalRaceLabel(request)}</td>
+                        <td>
+                          {nationalZoneLabels.length ? (
+                            <span className="acc-people-zones">{nationalZoneLabels.join(", ")}</span>
+                          ) : (
+                            <span className="acc-people-muted">aucune zone</span>
+                          )}
+                        </td>
+                        <td>
+                          {stepInfo.step ? <span className={STEP_PILL_CLASS[stepInfo.step]}>{STEP_LABELS[stepInfo.step].fr}</span> : null}
+                        </td>
+                        <td className="acc-people-actions">
+                          {stepInfo.step === "done" ? (
+                            <button className="button button--secondary button--small" type="button" onClick={() => markBadgeHandedOver({ id: key })}>
+                              Remis
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!nationalAthletes.length ? (
+                    <tr>
+                      <td colSpan="6" className="acc-people-empty">Aucun athlète retenu pour les courses nationales pour l'instant.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            {renderPrintBar(
+              nationalAthletes.filter((request) => canPrintStep(getBadgeStep(getVolunteerOverride(nationalBadgeKey(request.id))))),
+              (request) => nationalBadgeKey(request.id),
+              printNationalBadges,
+            )}
+          </Panel>
+          ) : null}
 
           {peopleType === "vip" ? (
           <Panel
@@ -2680,7 +2968,7 @@ function AccreditationsPage(props) {
                   value={effectiveSelectedNonNominativeTemplateId}
                   onChange={(event) => setSelectedNonNominativeTemplateId(event.target.value)}
                 >
-                  {NON_NOMINATIVE_BADGE_TEMPLATES.map((template) => (
+                  {namelessBadgeTypes.map((template) => (
                     <option key={template.id} value={template.id}>
                       {template.label}
                     </option>
