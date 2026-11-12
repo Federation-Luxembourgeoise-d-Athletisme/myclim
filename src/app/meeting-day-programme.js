@@ -485,25 +485,32 @@ function nameWords(value) {
 // Mots trop courants pour rapprocher deux colonnes à eux seuls.
 const GENERIC_WORDS = new Set(["equipe", "team", "les", "des", "and", "the", "pour", "avec", "staff", "zone"]);
 
-// Meilleure équipe pour une colonne libre, d'après les noms : identique,
-// l'un contient l'autre, puis mots en commun. "" si rien de plausible.
-function suggestColumnMatch(name, targets = []) {
+// Meilleure équipe pour une colonne libre, d'après les mots en commun avec
+// « équipe › sous-rôle » (« Entrance – Runner inside » → Entrance › runner
+// plutôt que Entrance ou Transport › runner). strong : nom identique, tous
+// les mots retrouvés ou au moins deux → proposé par « Rattacher les
+// suggestions » ; sinon simple piste dans le menu.
+function getColumnSuggestion(name, targets = []) {
   const wanted = normalizeText(name);
   const wantedWords = nameWords(name);
-  if (!wanted) return "";
-  let best = { key: "", score: 0 };
+  if (!wanted) return { key: "", strong: false };
+  let best = { key: "", score: 0, strong: false };
   targets.forEach((target) => {
-    const candidate = normalizeText(target.match || target.label);
-    let score = 0;
-    if (candidate === wanted) score = 100;
-    else if (candidate.length >= 3 && (candidate.includes(wanted) || wanted.includes(candidate))) score = 50;
-    else {
-      const words = nameWords(target.match || target.label);
-      score = wantedWords.filter((word) => words.some((other) => other.startsWith(word) || word.startsWith(other))).length * 10;
+    const own = normalizeText(target.match || target.label);
+    const words = nameWords(target.label);
+    const shared = wantedWords.filter((word) => words.some((other) => other.startsWith(word) || word.startsWith(other))).length;
+    const exact = own === wanted || normalizeText(target.label) === wanted;
+    const contains = own.length >= 3 && (own.includes(wanted) || wanted.includes(own));
+    const score = exact ? 1000 : shared * 10 + (contains ? 5 : 0);
+    if (score > best.score) {
+      best = { key: target.key, score, strong: exact || (shared > 0 && shared === wantedWords.length) || shared >= 2 };
     }
-    if (score > best.score) best = { key: target.key, score };
   });
-  return best.key;
+  return { key: best.key, strong: best.strong };
+}
+
+function suggestColumnMatch(name, targets = []) {
+  return getColumnSuggestion(name, targets).key;
 }
 
 // Rattache la colonne libre extraId à la colonne targetKey : ses activités y
@@ -533,6 +540,7 @@ function mergeExtraColumn(programme, extraId, targetKey) {
 
 export {
   getColumnMatchTargets,
+  getColumnSuggestion,
   mergeExtraColumn,
   suggestColumnMatch,
   COQUE_PLACES,

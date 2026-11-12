@@ -21,7 +21,7 @@ import {
   getCategory,
   getColumnMatchTargets,
   mergeExtraColumn,
-  suggestColumnMatch,
+  getColumnSuggestion,
   getColumnActivities,
   getPlanningDay,
   getPlanningDayDate,
@@ -176,12 +176,12 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   const matchTargets = useMemo(() => (programme ? getColumnMatchTargets(teams, programme, orgTeams) : []), [programme, teams, orgTeams]);
   const targetByKey = useMemo(() => new Map(matchTargets.map((target) => [target.key, target])), [matchTargets]);
   const matchByExtraId = useMemo(
-    () => new Map((programme?.extraColumns || []).map((column) => [column.id, suggestColumnMatch(column.name, matchTargets)])),
+    () => new Map((programme?.extraColumns || []).map((column) => [column.id, getColumnSuggestion(column.name, matchTargets)])),
     [programme, matchTargets],
   );
   const suggestedMatches = (programme?.extraColumns || [])
-    .filter((column) => matchByExtraId.get(column.id))
-    .map((column) => ({ column, key: matchByExtraId.get(column.id) }));
+    .filter((column) => matchByExtraId.get(column.id)?.strong)
+    .map((column) => ({ column, key: matchByExtraId.get(column.id).key }));
   const trackEntries = useMemo(() => (isMeetingDay ? getTrackEntries(edition?.timetable) : []), [edition, isMeetingDay]);
   const timeOptions = useMemo(() => getProgrammeTimeOptions(), []);
   const rows = (PROGRAMME_END - PROGRAMME_START) / PROGRAMME_STEP;
@@ -258,6 +258,10 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   function importLastYear() {
     if (exists && !window.confirm(`Remplacer le planning actuel du ${dayTitle.toLowerCase()} par celui de l'an dernier ?`)) return;
     update(() => importLegacyDay(dayKey, LEGACY, teams, orgTeams, findOrganisationTeam));
+  }
+
+  function suggestionOf(column) {
+    return matchByExtraId.get(column.id) || { key: "", strong: false };
   }
 
   function mergeColumn(column, targetKey) {
@@ -693,10 +697,12 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                       onChange={(event) => event.target.value && mergeColumn(column, event.target.value)}
                     >
                       <option value="">
-                        {matchByExtraId.get(column.id) ? `→ ${targetByKey.get(matchByExtraId.get(column.id))?.label} ?` : "Rattacher à…"}
+                        {suggestionOf(column).key
+                          ? `${suggestionOf(column).strong ? "→" : "Peut-être"} ${targetByKey.get(suggestionOf(column).key)?.label} ?`
+                          : "Rattacher à…"}
                       </option>
-                      {matchByExtraId.get(column.id) ? (
-                        <option value={matchByExtraId.get(column.id)}>✓ {targetByKey.get(matchByExtraId.get(column.id))?.label} (suggestion)</option>
+                      {suggestionOf(column).key ? (
+                        <option value={suggestionOf(column).key}>✓ {targetByKey.get(suggestionOf(column).key)?.label} (suggestion)</option>
                       ) : null}
                       {["Équipes bénévoles", "Sous-rôles", "Équipes de l'organisation"].map((group) => {
                         const options = matchTargets.filter((target) => target.group === group);

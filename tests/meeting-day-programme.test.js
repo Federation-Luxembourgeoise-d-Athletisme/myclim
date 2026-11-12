@@ -156,3 +156,16 @@ test('mergeExtraColumn moves the activities and shows the target column', async 
   const org = mergeExtraColumn(programme, 'x2', 'org:o1');
   assert.ok(org.visibleOrgTeamIds.includes('o1'));
 });
+
+test('getColumnSuggestion prefers the sub-role sharing most words, and flags weak guesses', async () => {
+  const { getColumnMatchTargets, getColumnSuggestion, normalizeProgramme } = await import('../src/app/meeting-day-programme.js');
+  const teams = [
+    { id: 'tr', roleName: 'Transport', subRoles: ['runner'] },
+    { id: 'en', roleName: 'Entrance', subRoles: ['runner', 'desk'] },
+    { id: 'yr', roleName: 'Young reporter' },
+  ];
+  const targets = getColumnMatchTargets(teams, normalizeProgramme(), []);
+  assert.deepEqual(getColumnSuggestion('Entrance – Runner inside', targets), { key: 'sub:en:runner', strong: true });
+  assert.deepEqual(getColumnSuggestion('Entrance – Billets', targets), { key: 'team:en', strong: false });
+  assert.deepEqual(getColumnSuggestion('Young Volunteer', targets), { key: 'team:yr', strong: false });
+});
