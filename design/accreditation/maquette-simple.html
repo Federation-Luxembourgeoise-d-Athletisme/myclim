@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Accréditations simplifiées</title>
+<style>
+  /* Maquette : module Accréditations simplifié (12/11/2026). Plus de « file
+     d'impression » : une seule liste de badges, 3 étapes (À imprimer → Imprimé
+     → Remis) + « À traiter ». 4 onglets au lieu de 9. Données fictives. */
+  :root {
+    --ink: #17324a; --muted: #627788; --dim: #95a5b3; --line: #e3e9ef; --soft: #f6f9fc; --bg: #f1f4f7;
+    --accent: #1a4aa1; --warn: #b26a00; --warn-bg: #fff4e0; --ok: #1f7a4d; --ok-bg: #e5f5ec; --bad: #b3261e; --bad-bg: #fdecec;
+    --c-org: #d7262e; --c-tech: #4a5056; --c-vol: #27a9e1; --c-judge: #1d2f6f; --c-press: #5b2bb5; --c-ath: #2e9b4f; --c-coach: #f08a1c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", system-ui, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 18px 20px 40px; display: grid; gap: 14px; }
+  h1 { margin: 0; font-size: 22px; }
+  .lead { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 880px; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--line); }
+  .tab { border: 0; background: none; padding: 9px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .view { display: none; } .view.on { display: block; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+
+  /* Les 3 étapes, cliquables : ce sont aussi les filtres. */
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .step { position: relative; display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; text-align: left; }
+  .step:hover { border-color: #b9c9d9; }
+  .step.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .step b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .step span { font-size: 12.5px; color: var(--muted); }
+  .step small { font-size: 11px; color: var(--dim); }
+  .step--todo b { color: var(--ink); } .step--done b { color: var(--accent); } .step--given b { color: var(--ok); } .step--attn b { color: var(--warn); }
+  .step:not(.step--attn):not(:nth-child(3))::after { content: "→"; position: absolute; right: -11px; top: 50%; transform: translateY(-50%); color: var(--dim); font-weight: 700; background: var(--bg); }
+  .step--attn { border-style: dashed; }
+
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .search { margin-left: auto; height: 30px; width: 220px; max-width: 100%; padding: 0 10px; border: 1px solid #cfd9e3; border-radius: 8px; }
+
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+  .tablewrap { min-width: 0; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 7px 10px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 6px 10px; border-bottom: 1px solid #eef2f5; vertical-align: middle; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: #f7fafc; }
+  tbody tr.sel td { background: #e9f1fd; }
+  td.cb, th.cb { width: 32px; padding-right: 0; }
+  .who { display: inline-flex; align-items: center; gap: 9px; }
+  .band { width: 4px; height: 26px; border-radius: 2px; }
+  .sub { font-size: 12px; color: var(--muted); }
+  .zn { display: inline-flex; gap: 3px; }
+  .zn i { width: 18px; height: 18px; border-radius: 5px; font: 700 10.5px/18px system-ui; text-align: center; font-style: normal; background: #eef2f5; color: #b8c4ce; }
+  .zn i.on { color: #fff; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 19px; white-space: nowrap; border: 1px solid transparent; }
+  .p-todo { background: #fff; border-color: #d7e0e8; }
+  .p-done { background: #e8effc; color: var(--accent); }
+  .p-given { background: var(--ok-bg); color: var(--ok); }
+  .p-attn { background: var(--warn-bg); color: var(--warn); border-color: #f0c987; }
+
+  .bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 9px 12px; background: var(--ink); color: #fff; border-radius: 0 0 12px 12px; font-size: 13px; }
+  .bulk[hidden] { display: none; }
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 7px; border: 1px solid #cfd9e3; background: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; color: var(--ink); }
+  .btn:hover { background: var(--soft); }
+  .btn.pri { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .bulk .btn { border-color: #fff; }
+  .bulk .btn.ghost { background: none; color: #c9d5e0; border-color: transparent; }
+
+  .drawer { border-left: 1px solid var(--line); padding: 14px 16px; display: grid; gap: 14px; }
+  .drawer h2 { margin: 0; font-size: 16px; }
+  .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .mini { display: grid; grid-template-columns: 22px 1fr; height: 132px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: #fff; box-shadow: 0 6px 18px rgba(23,50,74,.08); }
+  .mini .vb { color: #fff; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font: 800 10px/22px system-ui; letter-spacing: .14em; text-transform: uppercase; }
+  .mini .bd { padding: 16px 12px 8px; display: grid; align-content: space-between; }
+  .mini .nm { font: 800 15px/1.1 system-ui; }
+  .timeline { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .timeline li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; font-size: 12.5px; }
+  .timeline li::before { content: ""; width: 10px; height: 10px; margin-top: 3px; border-radius: 50%; background: #d7e0e8; }
+  .timeline li.on::before { background: var(--ok); }
+  .timeline li.warn::before { background: var(--warn); }
+  .note { font-size: 12px; color: var(--muted); }
+  .alert { padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 12.5px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .nominless { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--soft); border-radius: 0 0 12px 12px; font-size: 13px; }
+  .nominless select, .nominless input { height: 30px; padding: 0 8px; border: 1px solid #cfd9e3; border-radius: 7px; background: #fff; }
+  .nominless input { width: 64px; }
+
+  .desk { padding: 16px; display: grid; gap: 12px; }
+  .desk input { height: 46px; font-size: 17px; padding: 0 14px; border: 2px solid var(--ink); border-radius: 10px; width: 100%; }
+  .hit { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .hit .where { margin-left: auto; text-align: right; font-size: 12.5px; color: var(--muted); }
+  .hit .where b { display: block; color: var(--ink); font-size: 15px; }
+
+  .simple { padding: 16px; display: grid; gap: 10px; }
+  .simple .group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .simple .group span { padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-weight: 600; }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
+  .compare div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .compare h3 { margin: 0 0 6px; font-size: 13px; }
+  .compare ol { margin: 0; padding-left: 18px; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 9px; font-size: 13px; transition: .2s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: translateX(-50%); }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } .drawer { border-left: 0; border-top: 1px solid var(--line); } .steps { grid-template-columns: 1fr 1fr; } .step::after { display: none; } .compare { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Accréditations</h1>
+    <p class="lead">Maquette « en plus simple ». Plus de file d'impression : on coche, on imprime, c'est fait. Un badge passe par 3 étapes
+      seulement. Tout est cliquable, données fictives.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-view="badges">Badges</button>
+    <button class="tab" data-view="desk">Guichet (jour J)</button>
+    <button class="tab" data-view="plans">Plans &amp; contrôles</button>
+    <button class="tab" data-view="settings">Réglages</button>
+    <button class="tab" data-view="why">Avant / après</button>
+  </div>
+
+  <!-- BADGES -->
+  <section class="view on" id="view-badges">
+    <div class="steps" id="steps"></div>
+    <div class="card" style="margin-top:10px">
+      <div class="bar" id="cats"></div>
+      <div class="split">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="cb"><input type="checkbox" id="all" aria-label="Tout cocher" /></th><th>Personne</th><th>Badge</th><th>Zones</th><th>Étape</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <aside class="drawer" id="drawer"></aside>
+      </div>
+      <div class="bulk" id="bulk" hidden></div>
+      <div class="nominless">
+        <b>Badges sans nom</b>
+        <select id="nn-type" aria-label="Type"><option value="ath">Athlete</option><option value="coach">Coach</option></select>
+        <input id="nn-qty" type="number" min="1" value="20" aria-label="Quantité" />
+        <button class="btn" id="nn-print">Imprimer</button>
+        <span class="note">Zones réglées dans Réglages, comme les autres. Le lot va dans l'historique.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- GUICHET -->
+  <section class="view card" id="view-desk">
+    <div class="desk">
+      <input id="desk-search" placeholder="Nom de la personne qui vient chercher son badge…" />
+      <div id="desk-hits"></div>
+      <p class="note">Le guichet ne montre que les badges imprimés. « Remis » termine le parcours du badge.</p>
+    </div>
+  </section>
+
+  <!-- PLANS -->
+  <section class="view card" id="view-plans">
+    <div class="simple">
+      <p class="note">Les plans et les points de contrôle, regroupés dans un seul onglet (aujourd'hui : 4 onglets).</p>
+      <div class="group"><span>Plan de la Coque</span><span>Plan de l'entrée</span><span>Plan des juges</span><span>Points de contrôle A–F</span></div>
+    </div>
+  </section>
+
+  <!-- RÉGLAGES -->
+  <section class="view card" id="view-settings">
+    <div class="simple">
+      <p class="note">Une seule matrice « rôle × zone » pour tous les badges : rôles bénévoles, équipes organisation, Judge, Press,
+        Photographer, Athlete, Coach. Chaque ligne a sa couleur de bande et son sous-rôle imprimé (voir maquette-organisation.html).</p>
+    </div>
+  </section>
+
+  <!-- AVANT / APRÈS -->
+  <section class="view card" id="view-why">
+    <div class="compare">
+      <div><h3>Aujourd'hui (9 onglets)</h3><ol>
+        <li>Personnes : choisir le type (Bénévoles / Juges / Presse)</li>
+        <li>« + File » sur chaque ligne</li>
+        <li>Onglet Impression : « Générer les 2 PDF » (un par type)</li>
+        <li>Onglet Retrait &amp; suivi : ranger, remettre</li>
+        <li>Onglet Historique pour savoir ce qui a été imprimé</li>
+        <li>Athlètes / coachs : en bas de l'onglet Impression</li>
+      </ol></div>
+      <div><h3>Proposé (4 onglets)</h3><ol>
+        <li>Badges : tout le monde dans une liste, filtrée par étape et par catégorie</li>
+        <li>Cocher → « Imprimer » : le PDF sort, les badges passent « Imprimé »</li>
+        <li>Guichet : chercher le nom → « Remis »</li>
+        <li>L'historique est dans la fiche de chaque personne</li>
+        <li>Badges sans nom : dans le même écran</li>
+        <li>« À traiter » regroupe ce qui demande une action (réimprimer, récupérer)</li>
+      </ol></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const ZONES = [1, 2, 3, 4, 5, 6];
+  const ZONE_NAMES = { 1: "Infield", 2: "Warm-up", 3: "Coaching Zone", 4: "Judges Room", 5: "Mixed Zone", 6: "VIP Zone" };
+  const CATS = {
+    vol: { label: "Bénévoles", band: "Volunteer", color: "var(--c-vol)" },
+    org: { label: "Organisation", band: "Organisation", color: "var(--c-org)" },
+    tech: { label: "Technical", band: "Technical", color: "var(--c-tech)" },
+    judge: { label: "Juges", band: "Judge", color: "var(--c-judge)" },
+    press: { label: "Presse", band: "Press", color: "var(--c-press)" },
+  };
+  const STEPS = [
+    { id: "todo", label: "À imprimer", help: "pas encore de badge", cls: "p-todo" },
+    { id: "done", label: "Imprimés", help: "badge prêt au guichet", cls: "p-done" },
+    { id: "given", label: "Remis", help: "badge donné à la personne", cls: "p-given" },
+    { id: "attn", label: "À traiter", help: "réimprimer ou récupérer", cls: "p-attn" },
+  ];
+  const STEP_LABEL = { todo: "À imprimer", done: "Imprimé", given: "Remis", attn: "À traiter" };
+  // [prénom, nom, catégorie, sous-rôle, zones, étape, motif « à traiter », boîte]
+  const PEOPLE = [
+    ["Claire", "Martin", "org", "Organisation staff", [1, 2, 3, 4, 5, 6], "given", "", "A"],
+    ["Tom", "Schmit", "org", "LUNEX Student", [2, 5, 6], "todo"],
+    ["Ines", "Kremer", "org", "LUNEX Student", [2, 5, 6], "done", "", "B"],
+    ["Paul", "Weber", "org", "VIP hosting", [6, 1], "attn", "Zones changées après impression : réimprimer, détruire l'ancien."],
+    ["Lily", "Christophory", "vol", "Entrance", [], "todo"],
+    ["Cindy", "De Almeida", "vol", "Animation team", [1], "todo"],
+    ["Daniel", "Frank", "vol", "Tribune management", [], "done", "", "C"],
+    ["Myriam", "Pineda", "vol", "Hurdles team", [1], "attn", "N'est plus affectée : récupérer le badge imprimé."],
+    ["Hugo", "Faber", "tech", "Apex", [1, 4], "todo"],
+    ["Nina", "Hansen", "tech", "TV", [1, 5], "done", "", "C"],
+    ["Steffi", "Muller", "judge", "Judge", [1, 4], "todo"],
+    ["Lex", "Wagner", "judge", "Chief judge", [1, 2, 4], "given", "", "A"],
+    ["Ana", "Silva", "press", "Press · RTL", [5], "todo"],
+    ["Marc", "Lenz", "press", "Photographer · Wort", [1, 5], "done", "", "B"],
+  ].map(([firstName, lastName, cat, sub, zones, step, reason = "", box = ""], id) => ({ id, firstName, lastName, cat, sub, zones, step, reason, box, sel: false, history: [] }));
+  PEOPLE.forEach((p) => {
+    if (p.step !== "todo") p.history.push({ text: "Imprimé le 10/11 · lot 3", on: true });
+    if (p.step === "given") p.history.push({ text: "Remis le 12/11 au guichet", on: true });
+    if (p.step === "attn") p.history.push({ text: p.reason, warn: true });
+  });
+
+  const $ = (s) => document.querySelector(s);
+  let step = "todo", cat = "", search = "", selectedId = 1;
+  const visible = () => PEOPLE.filter((p) => p.step === step && (!cat || p.cat === cat) && (!search || `${p.firstName} ${p.lastName} ${p.sub}`.toLowerCase().includes(search)));
+  function toast(text) { const t = $("#toast"); t.textContent = text; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 2000); }
+
+  function render() {
+    const counts = Object.fromEntries(STEPS.map((s) => [s.id, PEOPLE.filter((p) => p.step === s.id && (!cat || p.cat === cat)).length]));
+    $("#steps").innerHTML = STEPS.map((s) => `<button class="step step--${s.id} ${step === s.id ? "on" : ""}" data-step="${s.id}"><b>${counts[s.id]}</b><span>${s.label}</span><small>${s.help}</small></button>`).join("");
+    $("#cats").innerHTML = [["", "Tous"], ...Object.entries(CATS).map(([k, v]) => [k, v.label])]
+      .map(([k, label]) => `<button class="chip ${cat === k ? "on" : ""}" data-cat="${k}">${k ? `<i style="background:${CATS[k].color}"></i>` : ""}${label}</button>`).join("")
+      + `<input class="search" id="search" placeholder="Rechercher…" value="${search}" />`;
+    const list = visible();
+    $("#rows").innerHTML = list.map((p) => {
+      const c = CATS[p.cat];
+      return `<tr data-id="${p.id}" class="${p.id === selectedId ? "sel" : ""}">
+        <td class="cb"><input type="checkbox" data-check="${p.id}" ${p.sel ? "checked" : ""} aria-label="Cocher" /></td>
+        <td><span class="who"><span class="band" style="background:${c.color}"></span><span><b>${p.firstName} ${p.lastName}</b><br><span class="sub">${p.sub}</span></span></span></td>
+        <td><span class="sub" style="color:${c.color};font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.05em">${c.band}</span></td>
+        <td><span class="zn">${ZONES.map((z) => `<i class="${p.zones.includes(z) ? "on" : ""}" style="${p.zones.includes(z) ? `background:${c.color}` : ""}">${z}</i>`).join("")}</span></td>
+        <td><span class="pill ${STEPS.find((s) => s.id === p.step).cls}">${STEP_LABEL[p.step]}</span>${p.step === "attn" ? `<div class="sub">${p.reason}</div>` : ""}</td></tr>`;
+    }).join("") || `<tr><td colspan="5" class="note" style="padding:20px;text-align:center">Rien ici.</td></tr>`;
+    $("#all").checked = list.length > 0 && list.every((p) => p.sel);
+    renderBulk();
+    renderDrawer();
+  }
+
+  function renderBulk() {
+    const sel = PEOPLE.filter((p) => p.sel);
+    const bulk = $("#bulk");
+    if (!sel.length) {
+      // Sans sélection : l'action principale de l'étape, sur toute la liste.
+      if (step === "todo" && visible().length) {
+        bulk.hidden = false;
+        bulk.innerHTML = `<span>${visible().length} badge(s) à imprimer</span><button class="btn pri" style="background:#fff;color:var(--ink)" data-act="print-all">Imprimer les ${visible().length} (PDF)</button><span class="note" style="color:#c9d5e0">ou cochez pour n'en imprimer qu'une partie</span>`;
+      } else bulk.hidden = true;
+      return;
+    }
+    bulk.hidden = false;
+    const canPrint = sel.some((p) => p.step === "todo" || p.step === "attn");
+    const canGive = sel.some((p) => p.step === "done");
+    bulk.innerHTML = `<span>${sel.length} coché(s)</span>
+      ${canPrint ? `<button class="btn" data-act="print">Imprimer ${sel.filter((p) => p.step === "todo" || p.step === "attn").length} badge(s)</button>` : ""}
+      ${canGive ? `<button class="btn" data-act="give">Marquer remis</button>` : ""}
+      <button class="btn ghost" data-act="clear">Décocher</button>`;
+  }
+
+  function renderDrawer() {
+    const p = PEOPLE.find((x) => x.id === selectedId);
+    if (!p) { $("#drawer").innerHTML = `<p class="note">Choisissez une personne.</p>`; return; }
+    const c = CATS[p.cat];
+    const actions = {
+      todo: `<button class="btn pri" data-one="print">Imprimer ce badge</button>`,
+      done: `<button class="btn pri" data-one="give">Marquer remis</button><button class="btn" data-one="undo">Annuler l'impression</button>`,
+      given: `<button class="btn" data-one="lost">Badge perdu : réimprimer</button>`,
+      attn: `<button class="btn pri" data-one="print">Réimprimer</button><button class="btn" data-one="recovered">Ancien badge récupéré</button>`,
+    }[p.step];
+    $("#drawer").innerHTML = `
+      <h2>${p.firstName} ${p.lastName}</h2>
+      ${p.step === "attn" ? `<div class="alert">${p.reason}</div>` : ""}
+      <div class="mini"><div class="vb" style="background:${c.color}">${c.band}</div><div class="bd"><div><div class="nm">${p.firstName}<br>${p.lastName.toUpperCase()}</div><div class="sub">${p.sub}</div></div><div class="sub">Zones ${p.zones.join(" · ") || "aucune"}</div></div></div>
+      <div><div class="lbl">Étape</div><span class="pill ${STEPS.find((s) => s.id === p.step).cls}">${STEP_LABEL[p.step]}</span>${p.box ? ` <span class="note">· boîte ${p.box} au guichet</span>` : ""}</div>
+      <div><div class="lbl">Historique</div><ul class="timeline">${p.history.length ? p.history.map((h) => `<li class="${h.on ? "on" : ""} ${h.warn ? "warn" : ""}">${h.text}</li>`).join("") : `<li>Pas encore imprimé</li>`}</ul></div>
+      <div class="row">${actions}</div>
+      <p class="note">Zones, sous-rôle et texte du badge se modifient ici aussi (fiche compacte actuelle).</p>`;
+  }
+
+  function printPeople(list) {
+    if (!list.length) return;
+    list.forEach((p) => { p.step = "done"; p.sel = false; p.reason = ""; p.box = p.box || "B"; p.history.push({ text: "Imprimé aujourd'hui · lot 4", on: true }); });
+    toast(`PDF de ${list.length} badge(s) ouvert · ils passent dans « Imprimés »`);
+    render();
+  }
+
+  document.addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab");
+    if (tab) {
+      document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t === tab));
+      document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === `view-${tab.dataset.view}`));
+      if (tab.dataset.view === "desk") renderDesk();
+      return;
+    }
+    const st = e.target.closest("[data-step]"); if (st) { step = st.dataset.step; render(); return; }
+    const ch = e.target.closest("[data-cat]"); if (ch) { cat = ch.dataset.cat; render(); return; }
+    const cb = e.target.closest("[data-check]");
+    if (cb) { const p = PEOPLE[Number(cb.dataset.check)]; p.sel = cb.checked; renderBulk(); return; }
+    if (e.target.id === "all") { visible().forEach((p) => (p.sel = e.target.checked)); render(); return; }
+    const act = e.target.closest("[data-act]");
+    if (act) {
+      const a = act.dataset.act, sel = PEOPLE.filter((p) => p.sel);
+      if (a === "print-all") printPeople(visible());
+      if (a === "print") printPeople(sel.filter((p) => p.step === "todo" || p.step === "attn"));
+      if (a === "give") { sel.filter((p) => p.step === "done").forEach((p) => { p.step = "given"; p.sel = false; p.history.push({ text: "Remis aujourd'hui", on: true }); }); toast("Badges marqués remis"); render(); }
+      if (a === "clear") { PEOPLE.forEach((p) => (p.sel = false)); render(); }
+      return;
+    }
+    const one = e.target.closest("[data-one]");
+    if (one) {
+      const p = PEOPLE[selectedId], a = one.dataset.one;
+      if (a === "print") printPeople([p]);
+      if (a === "give") { p.step = "given"; p.history.push({ text: "Remis aujourd'hui", on: true }); toast("Remis"); }
+      if (a === "undo") { p.step = "todo"; p.history.push({ text: "Impression annulée (erreur)", warn: true }); toast("Impression annulée : de nouveau « À imprimer »"); }
+      if (a === "lost") { p.step = "attn"; p.reason = "Badge perdu : réimprimer."; p.history.push({ text: "Déclaré perdu", warn: true }); }
+      if (a === "recovered") {
+        // Plus affectée : le badge est récupéré, la personne sort de la liste.
+        // Badge modifié : l'ancien est détruit, le nouveau reste à imprimer.
+        const left = p.reason.includes("plus affectée");
+        p.history.push({ text: "Ancien badge récupéré et détruit", on: true });
+        p.reason = "";
+        if (left) { PEOPLE.splice(PEOPLE.indexOf(p), 1); PEOPLE.forEach((x, i) => (x.id = i)); selectedId = 0; toast("Badge récupéré : la personne sort de la liste"); }
+        else { p.step = "todo"; toast("Ancien badge détruit : le nouveau est « À imprimer »"); }
+      }
+      render();
+      return;
+    }
+    const row = e.target.closest("#rows tr[data-id]");
+    if (row) { selectedId = Number(row.dataset.id); render(); return; }
+    const give = e.target.closest("[data-desk-give]");
+    if (give) { const p = PEOPLE[Number(give.dataset.deskGive)]; p.step = "given"; p.history.push({ text: "Remis au guichet", on: true }); toast(`${p.firstName} ${p.lastName} : remis`); renderDesk(); }
+  });
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "search") { search = e.target.value.toLowerCase(); render(); const s = $("#search"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+    if (e.target.id === "desk-search") renderDesk();
+  });
+  $("#nn-print").addEventListener("click", () => toast(`PDF de ${$("#nn-qty").value} badge(s) ${$("#nn-type").selectedOptions[0].text} sans nom · gardé dans l'historique`));
+
+  function renderDesk() {
+    const q = ($("#desk-search").value || "").toLowerCase();
+    const hits = PEOPLE.filter((p) => (p.step === "done" || p.step === "given") && (!q || `${p.firstName} ${p.lastName}`.toLowerCase().includes(q)));
+    $("#desk-hits").innerHTML = hits.map((p) => `<div class="hit"><span class="who"><span class="band" style="background:${CATS[p.cat].color}"></span><span><b>${p.firstName} ${p.lastName}</b><br><span class="sub">${p.sub}</span></span></span>
+      <span class="where"><b>Boîte ${p.box || "–"}</b>${p.step === "given" ? "déjà remis" : "à remettre"}</span>
+      ${p.step === "done" ? `<button class="btn pri" data-desk-give="${p.id}">Remis</button>` : `<span class="pill p-given">Remis</span>`}</div>`).join("") || `<p class="note">Aucun badge imprimé à ce nom.</p>`;
+  }
+  render();
+</script>
+</body>
+</html>

@@ -112,57 +112,79 @@ export async function enqueueTransactionalMail(payload) {
 
 // ─── Invitation admin ────────────────────────────────────────────────────────
 
+// Invitation : on ne connaît pas la langue de la personne invitée, le message
+// est donc en français puis en anglais (Margot, 12/11/2026 : les bénévoles et
+// chefs d'équipe ne parlent pas tous français).
+const INVITATION_ROLE_EN = [
+  ["Chef d'équipe", "Team leader"],
+  ["Bénévole", "Volunteer"],
+  ["Membre de l'organisation", "Organisation member"],
+  ["Gestionnaire", "Manager"],
+];
+
+function invitationRolesInEnglish(text) {
+  return INVITATION_ROLE_EN.reduce((value, [fr, en]) => value.split(fr).join(en), text);
+}
+
 export function buildInvitationMail({ email, firstName, roles, activationUrl }) {
-  const displayName = String(firstName || "").trim() || "bonjour";
-  const roleLabels = Array.isArray(roles) && roles.length
-    ? roles.join(", ")
-    : "Accès plateforme";
+  const name = String(firstName || "").trim();
+  const roleLabels = Array.isArray(roles) && roles.length ? roles.join(", ") : "Accès plateforme";
+  const roleLabelsEn = Array.isArray(roles) && roles.length ? invitationRolesInEnglish(roles.join(", ")) : "Platform access";
+  const paragraph = 'style="margin:0 0 14px 0;font-size:16px;line-height:1.7;"';
+  const rolesBox = (text) => `
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px 0;border-collapse:collapse;">
+          <tr>
+            <td style="padding:14px 18px;background:#f6f9fc;border:1px solid #dbe4f0;border-radius:12px;font-size:15px;line-height:1.6;">
+              ${text}
+            </td>
+          </tr>
+        </table>`;
 
   return {
     type: "admin-invitation",
     to: email,
     subject: "Votre invitation MyCLIM / Your MyCLIM invitation",
-    body: `Bonjour ${displayName},
+    body: `Bonjour${name ? ` ${name}` : ""},
 
-Un administrateur de la plateforme MyCLIM vous a créé un compte avec les accès suivants : ${roleLabels}.
-
-Cliquez sur le lien ci-dessous pour activer votre compte et choisir votre mot de passe :
+Un compte MyCLIM a été créé pour vous avec les accès suivants : ${roleLabels}.
+Cliquez sur le lien ci-dessous pour activer votre compte et choisir votre mot de passe (valable 7 jours) :
 ${activationUrl}
 
-Ce lien est valable 7 jours.
+---
 
-À bientôt,
-L'équipe CMCM Luxembourg Indoor Meeting`,
+Hello${name ? ` ${name}` : ""},
+
+A MyCLIM account has been created for you with the following access: ${roleLabelsEn}.
+Click the link below to activate your account and choose your password (valid for 7 days):
+${activationUrl}
+
+À bientôt / See you soon,
+L'équipe CMCM Luxembourg Indoor Meeting / The CMCM Luxembourg Indoor Meeting team`,
     html: buildBrandedEmailShell({
-      title: "Votre invitation MyCLIM",
+      title: "Votre invitation MyCLIM / Your MyCLIM invitation",
       preheader: "Activez votre compte MyCLIM / Activate your MyCLIM account.",
       content: `
-        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">Bonjour ${displayName},</p>
-        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">
-          Un administrateur vous a créé un compte sur <strong>MyCLIM</strong> avec les accès suivants&nbsp;:
-        </p>
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 28px 0;border-collapse:collapse;">
-          <tr>
-            <td style="padding:16px 20px;background:#f6f9fc;border:1px solid #dbe4f0;border-radius:12px;font-size:15px;line-height:1.6;">
-              ${roleLabels}
-            </td>
-          </tr>
-        </table>
-        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.7;">
-          Cliquez sur le bouton ci-dessous pour activer votre compte et choisir votre mot de passe. Ce lien est valable <strong>7 jours</strong>.
-        </p>
-        <p style="margin:0 0 28px 0;">
+        <p ${paragraph}>Bonjour${name ? ` ${name}` : ""},</p>
+        <p ${paragraph}>Un compte <strong>MyCLIM</strong> a été créé pour vous avec les accès suivants&nbsp;:</p>
+        ${rolesBox(roleLabels)}
+        <p ${paragraph}>Activez votre compte et choisissez votre mot de passe avec le bouton ci-dessous. Ce lien est valable <strong>7 jours</strong>.</p>
+        <hr style="border:0;border-top:1px solid #e3e9ef;margin:22px 0;" />
+        <p ${paragraph}>Hello${name ? ` ${name}` : ""},</p>
+        <p ${paragraph}>A <strong>MyCLIM</strong> account has been created for you with the following access:</p>
+        ${rolesBox(roleLabelsEn)}
+        <p ${paragraph}>Activate your account and choose your password with the button below. This link is valid for <strong>7 days</strong>.</p>
+        <p style="margin:10px 0 28px 0;">
           <a href="${activationUrl}" style="display:inline-block;background:#e30d25;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:700;font-size:15px;">
-            Activer mon compte →
+            Activer mon compte / Activate my account →
           </a>
         </p>
         <p style="margin:0 0 8px 0;font-size:13px;color:#5d6b82;">
-          Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br />
+          Si le bouton ne fonctionne pas, copiez ce lien / If the button does not work, copy this link:<br />
           <a href="${activationUrl}" style="color:#0f5f9c;word-break:break-all;">${activationUrl}</a>
         </p>
         <p style="margin:24px 0 0 0;font-size:15px;line-height:1.7;">
-          À bientôt,<br />
-          <strong>L'équipe CMCM Luxembourg Indoor Meeting</strong>
+          À bientôt / See you soon,<br />
+          <strong>L'équipe CMCM Luxembourg Indoor Meeting / The CMCM Luxembourg Indoor Meeting team</strong>
         </p>
       `,
     }),

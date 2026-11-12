@@ -1,4 +1,6 @@
 import { defaultTeamRoles } from "./team-config";
+import { QR_LINK_SOURCES, pickQrSource } from "./qr-link-sources.js";
+import { normalizeNamelessBadgeTypes, normalizeNationalBadge } from "./extra-badge-types.js";
 import accreditationQrEmagazineAthleteUrl from "../assets/accreditation-qr-emagazine-athlete.png";
 import accreditationQrPhotosUrl from "../assets/accreditation-qr-photos.png";
 import accreditationQrResultsLiveAthleteUrl from "../assets/accreditation-qr-results-live-athlete.png";
@@ -109,8 +111,9 @@ const ACCREDITATION_BADGE_VISUALS = [
 const ACCREDITATION_QR_RESOURCE_SEED = [
   {
     id: "results-live",
-    label: "Résultats live",
-    subtitle: "Suivi des performances",
+    label: "Live results",
+    subtitle: "Follow the results",
+    source: "results",
     targetType: "url",
     url: "",
     documentId: "",
@@ -119,7 +122,7 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   {
     id: "volunteer-roadbook",
     label: "Volunteer roadbook",
-    subtitle: "Infos utiles bénévoles",
+    subtitle: "Useful info for volunteers",
     targetType: "url",
     url: "",
     documentId: "",
@@ -127,8 +130,9 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   },
   {
     id: "photos-live",
-    label: "Photos live",
-    subtitle: "Album événement",
+    label: "Photos",
+    subtitle: "Event album",
+    source: "photos",
     targetType: "url",
     url: "",
     documentId: "",
@@ -136,8 +140,9 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   },
   {
     id: "athlete-roadbook",
-    label: "Roadbook athlete",
-    subtitle: "Informations utiles meeting",
+    label: "Athlete roadbook",
+    subtitle: "Useful meeting info",
+    source: "athleteRoadbook",
     targetType: "url",
     url: "",
     documentId: "",
@@ -146,7 +151,8 @@ const ACCREDITATION_QR_RESOURCE_SEED = [
   {
     id: "emagazine-athlete",
     label: "E-magazine",
-    subtitle: "Contenus meeting",
+    subtitle: "Meeting stories",
+    source: "emagazine",
     targetType: "url",
     url: "",
     documentId: "",
@@ -205,6 +211,12 @@ function normalizeAccreditationOverride(override = {}, availableZoneIds = new Se
     badgeLabel: String(override?.badgeLabel || "").trim(),
     warningMessage: String(override?.warningMessage || "").trim(),
     lastQueuedAt: override?.lastQueuedAt || null,
+    // Statut et alerte d'avant l'entrée dans la file (accreditation-queue.js).
+    queuedFrom:
+      ACCREDITATION_PRINT_STATUS_OPTIONS.includes(String(override?.queuedFrom || "")) && override.queuedFrom !== "Dans la file"
+        ? override.queuedFrom
+        : "",
+    queuedWarning: String(override?.queuedWarning || "").trim(),
     lastPrintedAt: override?.lastPrintedAt || null,
     destroyedAt: override?.destroyedAt || null,
     // Distinct from "Rangé" (badge printed and put in a pickup box, not yet in the
@@ -253,7 +265,10 @@ function normalizePrintHistoryBatch(batch = {}, index = 0) {
 }
 
 function normalizeAccreditationQrResource(resource = {}, index = 0) {
-  const fallback = ACCREDITATION_QR_RESOURCE_SEED[index] ?? {};
+  const fallback =
+    ACCREDITATION_QR_RESOURCE_SEED.find((seed) => seed.id === resource?.id) ?? ACCREDITATION_QR_RESOURCE_SEED[index] ?? {};
+  // Ressource sans lien ni document saisis : elle reprend la source prévue.
+  const source = pickQrSource(resource || {}, fallback.source);
   const normalizedTargetType = String(resource?.targetType || fallback.targetType || "url").trim() === "document"
     ? "document"
     : "url";
@@ -263,6 +278,7 @@ function normalizeAccreditationQrResource(resource = {}, index = 0) {
     label: String(resource?.label || fallback.label || `Ressource QR ${index + 1}`).trim(),
     subtitle: String(resource?.subtitle || fallback.subtitle || "").trim(),
     targetType: normalizedTargetType,
+    source,
     documentId: String(resource?.documentId || fallback.documentId || "").trim(),
     url: String(resource?.url || fallback.url || "").trim(),
     legacyImageUrl: String(resource?.legacyImageUrl || fallback.legacyImageUrl || "").trim(),
@@ -377,10 +393,14 @@ function normalizeAccreditationConfigurationPayload(data, roles = defaultTeamRol
     customStorageLocations,
     qrResources,
     qrVisualAssignments,
+    // Badges sans nom et badge des courses nationales (extra-badge-types.js).
+    namelessBadgeTypes: normalizeNamelessBadgeTypes(data?.namelessBadgeTypes, availableZoneIds),
+    nationalBadge: normalizeNationalBadge(data?.nationalBadge, availableZoneIds),
   };
 }
 
 export {
+  QR_LINK_SOURCES,
   BADGE_CATEGORIES,
   DEFAULT_ROLE_BADGE_CATEGORY,
   ACCREDITATION_BADGE_VISUALS,
