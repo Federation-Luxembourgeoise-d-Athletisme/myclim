@@ -9617,6 +9617,25 @@ tr.row--warning > td {
 .orgt-input:focus { border-color: #9fb3c8 !important; background: #fff; outline: none; }
 .orgt-add { display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 6px; padding: 8px 10px; border-top: 1px solid #e8edf2; background: #fafbfd; }
 .orgt-add input { height: 28px; min-width: 0; padding: 0 8px; font-size: 12.5px; border: 1px solid #d9e0e7; border-radius: 6px; }
+.orgt-add { grid-template-columns: 1fr 1fr 1.4fr 0.9fr auto; }
+.orgt-add select { height: 28px; min-width: 0; padding: 0 6px; font-size: 12.5px; border: 1px solid #d9e0e7; border-radius: 6px; background: #fff; }
+.orgt-access { min-width: 108px; }
+.orgt-account { white-space: nowrap; font-size: 12px; }
+.orgt-account .ath-link { margin-left: 6px; font-size: 12px; }
+.orgt-status { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; background: #eef2f7; color: #4a5a6d; }
+.orgt-status--active { background: #e2f4e8; color: #1f7a45; }
+.orgt-status--missing-role { background: #fff2d9; color: #8a5a00; }
+.orgt-status--invited { background: #e3edfb; color: #2c5bb8; }
+.orgt-status--no-access { background: none; color: #9aa7b6; }
+.orgt-invite { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; padding: 8px 10px; border: 1px solid #b8e0c6; border-radius: 8px; background: #f1faf4; font-size: 12.5px; }
+.orgt-invite--warn { border-color: #f0d38a; background: #fffaeb; }
+.orgt-invite code { flex: 1 1 260px; min-width: 0; word-break: break-all; font-size: 11.5px; color: #1066cc; }
+.orgt-link { position: relative; padding: 8px 10px 0; border-top: 1px solid #e8edf2; background: #fafbfd; }
+.orgt-link input { width: 100%; height: 28px; padding: 0 8px; font-size: 12.5px; border: 1px dashed #b9c8de; border-radius: 6px; background: #fff; box-sizing: border-box; }
+.orgt-link__results { position: absolute; z-index: 5; left: 10px; right: 10px; top: 38px; margin: 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid #d9e0e7; border-radius: 8px; box-shadow: 0 8px 24px rgba(20, 40, 70, .12); }
+.orgt-link__results button { display: flex; gap: 8px; width: 100%; padding: 5px 10px; border: 0; background: none; text-align: left; font-size: 12.5px; cursor: pointer; }
+.orgt-link__results button:hover { background: #f1f5fa; }
+.orgt-link__results span { color: #6b7a8c; }
 .orgt-hint { margin: 0; padding: 6px 12px 10px; font-size: 11.5px; color: #6b7a89; }
 @media (max-width: 900px) { .orgt { grid-template-columns: 1fr; } .orgt-detail__form, .orgt-add { grid-template-columns: 1fr; } }
 

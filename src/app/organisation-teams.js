@@ -6,7 +6,15 @@
 // Rétroplanning.
 //
 // Document Firestore : appSettings/organisationTeams
-//   { teams: [{ id, name, description, members: [{ id, firstName, lastName, email, phone, lead }] }] }
+//   { teams: [{ id, name, description, members: [{ id, firstName, lastName, email, phone, lead, access }] }] }
+//
+// Accès d'un membre (Margot, 12/11/2026 : lier des comptes avec les droits
+// qui vont bien, et leur envoyer un lien d'activation) :
+//  - « none »         : pas de compte (juste un nom dans l'équipe) ;
+//  - « organisation » : compte MyCLIM limité à Mon planning, Mes échéances
+//                        et Mes décomptes (rôle « organisation ») ;
+//  - « staff »        : Staff FLA, rôle « gestionnaire » (toute la gestion
+//                        sauf le budget ; les étudiants LUNEX l'ont aussi).
 // Règles pures, testées dans tests/organisation-teams.test.js.
 
 function normalizeKey(value) {
@@ -41,14 +49,45 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+const ORGANISATION_ACCESS = [
+  { value: "none", label: "Pas de compte", role: "" },
+  { value: "organisation", label: "Organisation", role: "organisation", help: "Son planning, ses échéances et ses décomptes" },
+  { value: "staff", label: "Staff FLA", role: "gestionnaire", help: "Gestionnaire : toute la gestion sauf le budget" },
+];
+
+function getAccessOption(access) {
+  return ORGANISATION_ACCESS.find((option) => option.value === access) || ORGANISATION_ACCESS[0];
+}
+
+// Où en est le compte d'un membre : « active » (compte qui a déjà le bon
+// rôle), « missing-role » (compte existant sans ce rôle), « invited »
+// (invitation en attente), « none » (rien encore) ou « no-access ».
+function getMemberAccountStatus(member = {}, { user = null, invitation = null } = {}) {
+  const option = getAccessOption(member.access);
+  if (!option.role) return "no-access";
+  if (user) {
+    const roles = Array.isArray(user.userTypes) ? user.userTypes : [];
+    const covered = roles.includes(option.role) || roles.includes("admin") || (option.role === "organisation" && roles.includes("gestionnaire"));
+    return covered ? "active" : "missing-role";
+  }
+  if (invitation && invitation.status === "pending") {
+    const expiresAt = invitation.expiresAt?.toDate ? invitation.expiresAt.toDate() : invitation.expiresAt ? new Date(invitation.expiresAt) : null;
+    if (!expiresAt || expiresAt > new Date()) return "invited";
+  }
+  return "none";
+}
+
 function normalizeMember(member = {}) {
+  const email = cleanText(member.email).toLowerCase();
   return {
     id: cleanText(member.id) || `m-${Math.random().toString(36).slice(2, 10)}`,
     firstName: cleanText(member.firstName),
     lastName: cleanText(member.lastName),
-    email: cleanText(member.email).toLowerCase(),
+    email,
     phone: cleanText(member.phone),
     lead: Boolean(member.lead),
+    // Sans choix explicite : un membre avec e-mail a un accès Organisation.
+    access: ORGANISATION_ACCESS.some((option) => option.value === member.access) ? member.access : email ? "organisation" : "none",
   };
 }
 
@@ -118,6 +157,9 @@ function buildMembershipByEmail(teams = []) {
 }
 
 export {
+  ORGANISATION_ACCESS,
+  getAccessOption,
+  getMemberAccountStatus,
   DEFAULT_ORGANISATION_TEAMS,
   buildMembershipByEmail,
   getPerimeterNames,
