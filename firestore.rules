@@ -80,6 +80,11 @@ service cloud.firestore {
       return isSignedIn() && "kine" in userTypes();
     }
 
+    // Speaker (compte externe) : lit les engagés pour ses fiches, rien d'autre.
+    function isSpeaker() {
+      return isSignedIn() && "speaker" in userTypes();
+    }
+
     function isAthleteTransportVolunteer() {
       return isSignedIn() && "benevole_transport_athletes" in userTypes();
     }
@@ -307,7 +312,7 @@ service cloud.firestore {
     // et un appSettings/athletePortalSettings.accessRoles qui leur donnent
     // explicitement accès à ce module.
     match /athletes/{athleteId} {
-      allow read: if canReadAthletePortal();
+      allow read: if canReadAthletePortal() || isSpeaker();
       allow write: if canManageAthletePortal();
     }
 

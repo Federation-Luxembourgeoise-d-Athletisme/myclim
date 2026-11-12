@@ -497,6 +497,7 @@ function getRoleDescription(role) {
     parent_u14: "Inscription et suivi des enfants pré-programme",
     athlete_preprogram: "Suivi de son inscription aux courses nationales du pré-programme",
     commission_athletes: "Sélection des courses nationales et envoi des décisions aux athlètes",
+    speaker: "Fiches speaker : engagés, records et phrases pour le micro",
   };
   return descriptions[role] || "";
 }

@@ -78,6 +78,7 @@ const VIEW_AS_ROLES = {
   athlete_preprogram: ["athlete_preprogram"],
   commission_athletes: ["commission_athletes"],
   kine: ["kine"],
+  speaker: ["speaker"],
   chef_transport_athletes: ["chef_transport_athletes"],
   benevole_transport_athletes: ["benevole_transport_athletes"],
   gestionnaire_site: ["gestionnaire_site"],
@@ -440,9 +441,14 @@ function DashboardHome(props) {
   const isCommissionOnly =
     activeRole === "commission_athletes" ||
     (roles.includes("commission_athletes") && !roles.some((role) => ["admin", "gestionnaire", "benevole", "chef_equipe"].includes(role)));
+  // Pareil pour un speaker (compte externe) : directement ses fiches.
+  const isSpeakerOnly =
+    activeRole === "speaker" ||
+    (roles.includes("speaker") && !roles.some((role) => ["admin", "gestionnaire", "meeting_director", "benevole", "chef_equipe", "commission_athletes"].includes(role)));
   useEffect(() => {
     if (isCommissionOnly) navigateHome(APP_ROUTES.nationalRaces, { replace: true });
-  }, [isCommissionOnly, navigateHome]);
+    else if (isSpeakerOnly) navigateHome(APP_ROUTES.speakerSheets, { replace: true });
+  }, [isCommissionOnly, isSpeakerOnly, navigateHome]);
   const { application: volunteerApplication } = useVolunteerApplication(currentUser?.uid);
   const { roles: teamRoles, teamAssignments, loading: teamsLoading } = useTeamConfiguration();
   const { applications: volunteerApplications, loading: volunteerApplicationsLoading } = useVolunteerApplicationsList(

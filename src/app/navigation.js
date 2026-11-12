@@ -14,6 +14,7 @@ const APP_ROUTES = {
   roadbook: "/app/roadbook",
   physio: "/app/kine",
   results: "/app/resultats",
+  speakerSheets: "/app/fiches-speaker",
   u14: "/app/u14",
   nationalRaces: "/app/courses-nationales",
   accreditations: "/app/accreditations",
@@ -125,6 +126,7 @@ function getDefaultRouteByRoles(roles = []) {
   if (roles.includes("benevole_transport_athletes")) return APP_ROUTES.myTransports;
   if (roles.includes("kine")) return APP_ROUTES.physio;
   if (roles.includes("commission_athletes")) return APP_ROUTES.nationalRaces;
+  if (roles.includes("speaker")) return APP_ROUTES.speakerSheets;
   if (roles.includes("benevole")) return APP_ROUTES.myAssignments;
   if (roles.includes("parent_u14")) return APP_ROUTES.myChildren;
   if (roles.includes("athlete_preprogram")) return APP_ROUTES.myNationalRace;
@@ -146,6 +148,7 @@ const LINKS = {
   roadbook: () => makeLink(APP_ROUTES.roadbook, "navRoadbook", "Roadbook", "folder"),
   physio: () => makeLink(APP_ROUTES.physio, "navPhysio", "Kiné", "users"),
   results: () => makeLink(APP_ROUTES.results, "navResultsRecords", "Statistiques", "trophy"),
+  speakerSheets: () => makeLink(APP_ROUTES.speakerSheets, "navSpeakerSheets", "Fiches speaker", "trophy"),
   u14: () => makeLink(APP_ROUTES.u14, "navPreprogramU12U14", "U12 / U14", "child"),
   nationalRaces: () => makeLink(APP_ROUTES.nationalRaces, "navNationalRaces", "Courses nationales", "spark"),
   accreditations: () => makeLink(APP_ROUTES.accreditations, "navAccreditations", "Accréditations", "ticket"),
@@ -287,6 +290,8 @@ function buildNavigationFromRoles(roles, options = {}) {
       has("chef_transport_athletes") && "transport",
       has("kine") && "physio",
       canSeeStatistics && "results",
+      // Speakers : seulement leurs fiches (les autres les ont dans Statistiques).
+      has("speaker") && !canSeeStatistics && "speakerSheets",
     ]),
     section("preprogram", [has("commission_athletes") && "nationalRaces"]),
     section("communication", has("gestionnaire_site") ? ["partners", "pressReleases"] : []),

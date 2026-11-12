@@ -46,6 +46,7 @@ const ROLE_LABEL_KEYS = {
   benevole_transport_athletes: "roleLabelAthleteTransportVolunteer",
   meeting_director: "roleLabelMeetingDirector",
   kine: "roleLabelPhysio",
+  speaker: "roleLabelSpeaker",
 };
 
 function formatRoleLabel(role, t) {

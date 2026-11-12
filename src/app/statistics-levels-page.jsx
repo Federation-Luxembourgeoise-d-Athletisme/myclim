@@ -274,7 +274,28 @@ function SpeakerSheet({ sheet, year }) {
   );
 }
 
-function SpeakerSheetsPage() {
+function SpeakerSheetsPage({ standalone = false }) {
+  if (!standalone) return <SpeakerSheetsContent />;
+  return <StandaloneSpeakerSheets />;
+}
+
+// Page « Fiches speaker » hors du module Statistiques (rôle speaker).
+function StandaloneSpeakerSheets() {
+  const tr = useTr();
+  return (
+    <div className="page">
+      <section className="page-header">
+        <div>
+          <p className="eyebrow">{tr("Athlètes", "Athletes")}</p>
+          <h1>{tr("Fiches speaker", "Speaker sheets")}</h1>
+        </div>
+      </section>
+      <SpeakerSheetsContent />
+    </div>
+  );
+}
+
+function SpeakerSheetsContent() {
   const tr = useTr();
   const { language } = useLanguage();
   const { edition } = useStatisticsEdition();

@@ -774,6 +774,10 @@ export default function App() {
               <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
                 <Route path="mes-transports" element={<AthleteTransportVolunteerPage />} />
               </Route>
+              {/* Fiches speaker seules, pour le rôle speaker (compte externe, rien d'autre). */}
+              <Route element={<RequireRouteAccess allowedRoles={[...STATISTICS_ACCESS_ROLES, "speaker"]} />}>
+                <Route path="fiches-speaker" element={<SpeakerSheetsPage standalone />} />
+              </Route>
               <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
                 {/* Statistiques : barre commune (édition partagée + recherche), voir statistics-layout.jsx. */}
                 <Route path="resultats" element={<StatisticsLayout />}>
