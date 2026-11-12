@@ -538,7 +538,38 @@ function mergeExtraColumn(programme, extraId, targetKey) {
   return next;
 }
 
+// Déplace une activité d'un jour à un autre (Margot, 12/11/2026 : changer
+// le jour depuis le panneau). Elle garde son id et ses colonnes ; les colonnes
+// libres qu'elle utilise sont recopiées dans le jour cible et ses équipes y
+// sont affichées.
+function moveActivityToDay(source, target, activityId) {
+  const activity = source.activities.find((item) => item.id === activityId);
+  if (!activity) return { source, target };
+  const nextSource = structuredClone(source);
+  nextSource.activities = nextSource.activities.filter((item) => item.id !== activityId);
+  const nextTarget = structuredClone(target);
+  nextTarget.activities = [...nextTarget.activities.filter((item) => item.id !== activityId), structuredClone(activity)];
+  activity.columns.forEach((key) => {
+    const [kind, id, ...rest] = key.split(":");
+    if (kind === "extra") {
+      const column = source.extraColumns.find((item) => item.id === id);
+      if (column && !nextTarget.extraColumns.some((item) => item.id === id)) nextTarget.extraColumns.push({ ...column });
+    }
+    if (kind === "team" || kind === "sub") nextTarget.hiddenTeamIds = nextTarget.hiddenTeamIds.filter((item) => item !== id);
+    if (kind === "org" && !nextTarget.visibleOrgTeamIds.includes(id)) nextTarget.visibleOrgTeamIds.push(id);
+    if (kind === "sub") {
+      const subRole = rest.join(":");
+      if (!nextTarget.splitTeamIds.includes(id)) nextTarget.splitTeamIds.push(id);
+      const sourceExtra = source.subRoleColumns[id] || [];
+      const current = nextTarget.subRoleColumns[id] || [];
+      if (sourceExtra.includes(subRole) && !current.includes(subRole)) nextTarget.subRoleColumns[id] = [...current, subRole];
+    }
+  });
+  return { source: nextSource, target: nextTarget };
+}
+
 export {
+  moveActivityToDay,
   getColumnMatchTargets,
   getColumnSuggestion,
   mergeExtraColumn,

@@ -169,3 +169,25 @@ test('getColumnSuggestion prefers the sub-role sharing most words, and flags wea
   assert.deepEqual(getColumnSuggestion('Entrance – Billets', targets), { key: 'team:en', strong: false });
   assert.deepEqual(getColumnSuggestion('Young Volunteer', targets), { key: 'team:yr', strong: false });
 });
+
+test('moveActivityToDay moves the activity with its free column and shows its teams', async () => {
+  const { moveActivityToDay, normalizeProgramme } = await import('../src/app/meeting-day-programme.js');
+  const source = normalizeProgramme({
+    subRoleColumns: { t2: ['Billets'] },
+    extraColumns: [{ id: 'x1', name: 'Briefings' }],
+    activities: [
+      { id: 'a1', title: 'Briefing', start: '09:00', end: '09:30', columns: ['extra:x1', 'sub:t2:Billets', 'org:o1'] },
+      { id: 'a2', title: 'Repas', start: '12:00', end: '13:00', columns: ['general'] },
+    ],
+  }, 'sunday');
+  const target = normalizeProgramme({ hiddenTeamIds: ['t2'] }, 'saturday');
+  const moved = moveActivityToDay(source, target, 'a1');
+  assert.deepEqual(moved.source.activities.map((a) => a.id), ['a2']);
+  assert.deepEqual(moved.target.activities.map((a) => a.id), ['a1']);
+  assert.deepEqual(moved.target.extraColumns, [{ id: 'x1', name: 'Briefings' }]);
+  assert.ok(!moved.target.hiddenTeamIds.includes('t2'));
+  assert.ok(moved.target.splitTeamIds.includes('t2'));
+  assert.deepEqual(moved.target.subRoleColumns.t2, ['Billets']);
+  assert.ok(moved.target.visibleOrgTeamIds.includes('o1'));
+  assert.equal(moved.source.extraColumns.length, 1);
+});

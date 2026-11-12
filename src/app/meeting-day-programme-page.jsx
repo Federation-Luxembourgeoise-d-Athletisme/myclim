@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { serverTimestamp, setDoc } from "firebase/firestore";
+import { runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "../services/firebase";
 import { useTeamConfiguration } from "./config-hooks";
 import { useSiteEditionYear } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
@@ -21,6 +22,7 @@ import {
   getCategory,
   getColumnMatchTargets,
   mergeExtraColumn,
+  moveActivityToDay,
   getColumnSuggestion,
   getColumnActivities,
   getPlanningDay,
@@ -46,6 +48,8 @@ import {
 const ROW_PX = 20;
 const SAVE_DELAY_MS = 600;
 const LEGACY = { ...legacyPlanning2026, sunday: legacySunday2026 };
+
+const OTHER_PLACE = "__other__";
 
 const PANEL_STORAGE_KEY = "myclim.planning.panelCollapsed";
 
@@ -258,6 +262,34 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   function importLastYear() {
     if (exists && !window.confirm(`Remplacer le planning actuel du ${dayTitle.toLowerCase()} par celui de l'an dernier ?`)) return;
     update(() => importLegacyDay(dayKey, LEGACY, teams, orgTeams, findOrganisationTeam));
+  }
+
+  // Change l'activité sélectionnée de jour : retirée d'ici, ajoutée au jour
+  // choisi, en une seule transaction (pas de doublon ni de perte).
+  async function moveSelectedToDay(targetDayKey) {
+    if (!selected || targetDayKey === dayKey) return;
+    const targetDay = getPlanningDay(targetDayKey);
+    const targetDate = getPlanningDayDate(edition?.date, targetDayKey);
+    const targetTitle = `${targetDay.label}${targetDate ? ` ${formatDayDate(targetDate)}` : ""}`;
+    window.clearTimeout(saveTimer.current);
+    saveVersion.current += 1;
+    setSaveState("Déplacement…");
+    try {
+      await runTransaction(db, async (transaction) => {
+        const targetRef = programmeDocRef(year, targetDayKey);
+        const snapshot = await transaction.get(targetRef);
+        const target = normalizeProgramme(snapshot.exists() ? snapshot.data() : {}, targetDayKey);
+        const moved = moveActivityToDay(programme, target, selected.id);
+        transaction.set(targetRef, { ...moved.target, updatedAt: serverTimestamp() });
+        transaction.set(programmeDocRef(year, dayKey), { ...moved.source, updatedAt: serverTimestamp() });
+      });
+      setDraft(null);
+      setSelectedId(null);
+      setSaveState(`« ${selected.title} » déplacée au ${targetTitle.toLowerCase()}.`);
+    } catch (moveError) {
+      console.error("Impossible de déplacer l'activité.", moveError);
+      setSaveState("Le déplacement a échoué. Réessayez dans un instant.");
+    }
   }
 
   function suggestionOf(column) {
@@ -781,6 +813,20 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                   <span>Titre</span>
                   <input value={selected.title} onChange={(event) => updateSelected({ title: event.target.value })} />
                 </label>
+                <label className="mdp-field">
+                  <span>Jour</span>
+                  <select value={dayKey} onChange={(event) => moveSelectedToDay(event.target.value)}>
+                    {PLANNING_DAYS.map((planningDay) => {
+                      const date = getPlanningDayDate(edition?.date, planningDay.key);
+                      return (
+                        <option key={planningDay.key} value={planningDay.key}>
+                          {planningDay.label}
+                          {date ? ` ${formatDayDate(date)}` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
                 <label className="mdp-check">
                   <input checked={selected.allDay} type="checkbox" onChange={(event) => updateSelected({ allDay: event.target.checked })} />
                   Toute la journée (poste, sans horaire précis)
@@ -825,13 +871,32 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                 </label>
                 <div className="mdp-field-row">
                   <label className="mdp-field">
-                    <span>Lieu (liste ou texte)</span>
-                    <input list="mdp-places" value={selected.place} onChange={(event) => updateSelected({ place: event.target.value })} />
-                    <datalist id="mdp-places">
+                    <span>Lieu</span>
+                    {/* Une liste déroulante plutôt qu'un datalist : la fenêtre de
+                        suggestions du navigateur s'ouvrait loin du champ. */}
+                    <select
+                      value={!selected.place ? "" : COQUE_PLACES.includes(selected.place) ? selected.place : OTHER_PLACE}
+                      onChange={(event) =>
+                        updateSelected({ place: event.target.value === OTHER_PLACE ? selected.place || " " : event.target.value })
+                      }
+                    >
+                      <option value="">—</option>
                       {COQUE_PLACES.map((place) => (
-                        <option key={place} value={place} />
+                        <option key={place} value={place}>
+                          {place}
+                        </option>
                       ))}
-                    </datalist>
+                      <option value={OTHER_PLACE}>Autre…</option>
+                    </select>
+                    {selected.place && !COQUE_PLACES.includes(selected.place) ? (
+                      <input
+                        aria-label="Autre lieu"
+                        autoFocus={selected.place === " "}
+                        placeholder="Lieu"
+                        value={selected.place.trim()}
+                        onChange={(event) => updateSelected({ place: event.target.value || " " })}
+                      />
+                    ) : null}
                   </label>
                   <label className="mdp-field">
                     <span>Responsable</span>
