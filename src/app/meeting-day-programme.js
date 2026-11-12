@@ -457,7 +457,123 @@ function importLegacyDay(dayKey, legacy = {}, teams = [], orgTeams = [], findOrg
   return normalizeProgramme(programme, dayKey);
 }
 
+// ─── Colonnes libres → équipes ──────────────────────────────────────────────
+// L'import de l'an dernier crée une colonne libre pour chaque colonne de
+// l'Excel dont le nom ne correspond pas exactement à une équipe (Patator,
+// Hurdles, Chaperon ALAD…). Margot (12/11/2026) : les rattacher aux colonnes
+// des équipes (bénévoles, sous-rôles, organisation).
+
+// Colonnes d'équipe auxquelles une colonne libre peut être rattachée.
+function getColumnMatchTargets(teams = [], programme = normalizeProgramme(), orgTeams = []) {
+  const targets = [];
+  teams.forEach((team) => {
+    targets.push({ key: teamColumnKey(team.id), label: team.roleName, group: "Équipes bénévoles" });
+    getTeamSubRoleNames(team, programme).forEach((subRole) =>
+      targets.push({ key: subRoleColumnKey(team.id, subRole), label: `${team.roleName} › ${subRole}`, match: subRole, group: "Sous-rôles" }),
+    );
+  });
+  orgTeams.forEach((team) => targets.push({ key: orgColumnKey(team.id), label: team.name, group: "Équipes de l'organisation" }));
+  return targets;
+}
+
+function nameWords(value) {
+  return normalizeText(value)
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length >= 3 && !GENERIC_WORDS.has(word));
+}
+
+// Mots trop courants pour rapprocher deux colonnes à eux seuls.
+const GENERIC_WORDS = new Set(["equipe", "team", "les", "des", "and", "the", "pour", "avec", "staff", "zone"]);
+
+// Meilleure équipe pour une colonne libre, d'après les mots en commun avec
+// « équipe › sous-rôle » (« Entrance – Runner inside » → Entrance › runner
+// plutôt que Entrance ou Transport › runner). strong : nom identique, tous
+// les mots retrouvés ou au moins deux → proposé par « Rattacher les
+// suggestions » ; sinon simple piste dans le menu.
+function getColumnSuggestion(name, targets = []) {
+  const wanted = normalizeText(name);
+  const wantedWords = nameWords(name);
+  if (!wanted) return { key: "", strong: false };
+  let best = { key: "", score: 0, strong: false };
+  targets.forEach((target) => {
+    const own = normalizeText(target.match || target.label);
+    const words = nameWords(target.label);
+    const shared = wantedWords.filter((word) => words.some((other) => other.startsWith(word) || word.startsWith(other))).length;
+    const exact = own === wanted || normalizeText(target.label) === wanted;
+    const contains = own.length >= 3 && (own.includes(wanted) || wanted.includes(own));
+    const score = exact ? 1000 : shared * 10 + (contains ? 5 : 0);
+    if (score > best.score) {
+      best = { key: target.key, score, strong: exact || (shared > 0 && shared === wantedWords.length) || shared >= 2 };
+    }
+  });
+  return { key: best.key, strong: best.strong };
+}
+
+function suggestColumnMatch(name, targets = []) {
+  return getColumnSuggestion(name, targets).key;
+}
+
+// Rattache la colonne libre extraId à la colonne targetKey : ses activités y
+// passent (sans doublon), la colonne libre disparaît et la colonne cible est
+// affichée ce jour-là.
+function mergeExtraColumn(programme, extraId, targetKey) {
+  const next = structuredClone(programme);
+  const fromKey = `extra:${extraId}`;
+  next.extraColumns = next.extraColumns.filter((column) => column.id !== extraId);
+  next.activities = next.activities.map((activity) =>
+    activity.columns.includes(fromKey)
+      ? { ...activity, columns: [...new Set(activity.columns.map((key) => (key === fromKey ? targetKey : key)))] }
+      : activity,
+  );
+  const [kind, id, ...rest] = String(targetKey).split(":");
+  if (kind === "team") next.hiddenTeamIds = next.hiddenTeamIds.filter((item) => item !== id);
+  if (kind === "org" && !next.visibleOrgTeamIds.includes(id)) next.visibleOrgTeamIds = [...next.visibleOrgTeamIds, id];
+  if (kind === "sub") {
+    const subRole = rest.join(":");
+    next.hiddenTeamIds = next.hiddenTeamIds.filter((item) => item !== id);
+    if (!next.splitTeamIds.includes(id)) next.splitTeamIds = [...next.splitTeamIds, id];
+    const current = next.subRoleColumns[id] || [];
+    if (!current.includes(subRole)) next.subRoleColumns = { ...next.subRoleColumns, [id]: [...current, subRole] };
+  }
+  return next;
+}
+
+// Déplace une activité d'un jour à un autre (Margot, 12/11/2026 : changer
+// le jour depuis le panneau). Elle garde son id et ses colonnes ; les colonnes
+// libres qu'elle utilise sont recopiées dans le jour cible et ses équipes y
+// sont affichées.
+function moveActivityToDay(source, target, activityId) {
+  const activity = source.activities.find((item) => item.id === activityId);
+  if (!activity) return { source, target };
+  const nextSource = structuredClone(source);
+  nextSource.activities = nextSource.activities.filter((item) => item.id !== activityId);
+  const nextTarget = structuredClone(target);
+  nextTarget.activities = [...nextTarget.activities.filter((item) => item.id !== activityId), structuredClone(activity)];
+  activity.columns.forEach((key) => {
+    const [kind, id, ...rest] = key.split(":");
+    if (kind === "extra") {
+      const column = source.extraColumns.find((item) => item.id === id);
+      if (column && !nextTarget.extraColumns.some((item) => item.id === id)) nextTarget.extraColumns.push({ ...column });
+    }
+    if (kind === "team" || kind === "sub") nextTarget.hiddenTeamIds = nextTarget.hiddenTeamIds.filter((item) => item !== id);
+    if (kind === "org" && !nextTarget.visibleOrgTeamIds.includes(id)) nextTarget.visibleOrgTeamIds.push(id);
+    if (kind === "sub") {
+      const subRole = rest.join(":");
+      if (!nextTarget.splitTeamIds.includes(id)) nextTarget.splitTeamIds.push(id);
+      const sourceExtra = source.subRoleColumns[id] || [];
+      const current = nextTarget.subRoleColumns[id] || [];
+      if (sourceExtra.includes(subRole) && !current.includes(subRole)) nextTarget.subRoleColumns[id] = [...current, subRole];
+    }
+  });
+  return { source: nextSource, target: nextTarget };
+}
+
 export {
+  moveActivityToDay,
+  getColumnMatchTargets,
+  getColumnSuggestion,
+  mergeExtraColumn,
+  suggestColumnMatch,
   COQUE_PLACES,
   PLANNING_DAYS,
   buildWeekActivities,

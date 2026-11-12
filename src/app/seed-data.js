@@ -217,6 +217,7 @@ const platformRoleOptions = [
   { value: "budget", label: "Module Budget" },
   { value: "gestionnaire", label: "Gestionnaire" },
   { value: "gestionnaire_site", label: "Gestionnaire site" },
+  { value: "organisation", label: "Membre de l'organisation" },
   { value: "chef_equipe", label: "Chef d'équipe" },
   { value: "benevole", label: "Bénévole" },
   { value: "parent_u14", label: "Parent U14" },

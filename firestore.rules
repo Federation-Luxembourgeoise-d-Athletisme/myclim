@@ -41,6 +41,19 @@ service cloud.firestore {
       return isSignedIn() && "chef_equipe" in userTypes();
     }
 
+    // Équipes bénévoles que dirige l'utilisateur connecté : recopiées sur son
+    // profil (leadTeams) par la synchro des affectations, jamais par lui-même.
+    function myLeadTeams() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("leadTeams", []);
+    }
+
+    // Un chef d'équipe voit le profil des bénévoles de ses équipes.
+    function isLeadOfProfile() {
+      return isTeamLead() &&
+        resource.data.get("assignedTeams", []) is list &&
+        resource.data.get("assignedTeams", []).hasAny(myLeadTeams());
+    }
+
     function isBudgetManager() {
       return isSignedIn() && "budget" in userTypes();
     }
@@ -186,7 +199,7 @@ service cloud.firestore {
     // syncVolunteerAssignmentToUserProfile) ajoute ou retire, y compris
     // quand un gestionnaire affecte un bénévole.
     function managerGrantableRoles() {
-      return selfServiceRoles().concat(["benevole_transport_athletes", "chef_transport_athletes"]);
+      return selfServiceRoles().concat(["benevole_transport_athletes", "chef_transport_athletes", "chef_equipe"]);
     }
 
     // Anciens champs que extractUserTypes() convertit encore en rôles côté
@@ -241,7 +254,7 @@ service cloud.firestore {
       // Le chef transport athlètes doit pouvoir lister les bénévoles
       // transport pour les affecter à un lot (VolunteersTab) — restreint à
       // ce même rôle cible pour ne pas exposer tous les profils.
-      allow read: if isOwner(userId) || isAdminOrManager() ||
+      allow read: if isOwner(userId) || isAdminOrManager() || isLeadOfProfile() ||
         (isAthleteTransportChief() &&
          resource.data.userTypes is list &&
          "benevole_transport_athletes" in resource.data.userTypes);
@@ -250,14 +263,24 @@ service cloud.firestore {
       // autres rôles viennent d'un admin (page Rôles), d'une invitation encore
       // valide adressée à son email, ou pour un gestionnaire des seuls rôles
       // transport synchronisés depuis les équipes.
+      // leadTeams (équipes dirigées) : posé par la synchro des affectations,
+      // ou à l'activation d'une invitation de chef d'équipe (son équipe seule).
       allow create: if isAdmin() ||
         (isOwner(userId) &&
          !request.resource.data.keys().hasAny(legacyRoleFlagKeys()) &&
-         (newUserTypes().hasOnly(selfServiceRoles()) || isInvitationRoleGrant()));
+         (newUserTypes().hasOnly(selfServiceRoles()) || isInvitationRoleGrant()) &&
+         (!request.resource.data.keys().hasAny(["leadTeams"]) ||
+          (isInvitationRoleGrant() &&
+           request.resource.data.leadTeams ==
+             [get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.get("leadTeam", "")])));
       allow update: if isAdmin() ||
         (isOwner(userId) &&
          !request.resource.data.diff(resource.data).affectedKeys().hasAny(legacyRoleFlagKeys()) &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(["leadTeams"]) &&
          addedUserTypes().hasOnly(selfServiceRoles())) ||
+        // Présences de l'équipe : le chef ne modifie que la présence.
+        (isLeadOfProfile() &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(["presence", "updatedAt"])) ||
         (isAdminOrManager() &&
          !request.resource.data.diff(resource.data).affectedKeys().hasAny(legacyRoleFlagKeys()) &&
          changedUserTypes().hasOnly(managerGrantableRoles()));
@@ -481,9 +504,18 @@ service cloud.firestore {
     // ── Candidatures bénévoles ───────────────────────────────────────────────
     // Manquait complètement → tombait dans le catch-all (admin/manager only)
     match /volunteerApplications/{docId} {
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      // Un admin / gestionnaire peut créer la fiche d'un chef d'équipe nommé
+      // directement (sans formulaire) : uid vide jusqu'à l'activation.
+      allow create: if (isSignedIn() && request.resource.data.uid == request.auth.uid) || isAdminOrManager();
       allow read:   if isAdminOrManager() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow update: if isAdminOrManager() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdminOrManager() || (isSignedIn() && resource.data.uid == request.auth.uid) ||
+        // À l'activation de son compte, la personne relie la fiche créée pour
+        // elle (même e-mail, encore sans uid) — et ne touche à rien d'autre.
+        (isSignedIn() && request.auth.token.email != null &&
+         resource.data.get("uid", "") == "" &&
+         resource.data.email.lower() == request.auth.token.email.lower() &&
+         request.resource.data.uid == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(["uid", "updatedAt"]));
       allow delete: if isAdmin();
     }
 

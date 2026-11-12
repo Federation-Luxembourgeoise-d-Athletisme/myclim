@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Accréditations organisation</title>
+<style>
+  /* Maquette : les membres des équipes de l'organisation (Équipes & affectations ›
+     Équipes organisation) deviennent un 4e type dans le module Accréditations.
+     Même vocabulaire visuel que maquette-module.html. Données fictives. */
+  :root {
+    --ink: #17324a; --muted: #627788; --dim: #95a5b3; --line: #e3e9ef; --soft: #f6f9fc; --bg: #f1f4f7;
+    --accent: #1a4aa1; --warn: #b26a00; --warn-bg: #fff4e0; --ok: #1f7a4d; --ok-bg: #e5f5ec;
+    --c-org: #d7262e; --c-tech: #4a5056; --c-judge: #1d2f6f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", system-ui, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; display: grid; gap: 14px; }
+  .head h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 900px; }
+
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); align-items: center; }
+  .tab { border: 0; background: none; padding: 9px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-weight: 600; color: var(--muted); cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+  .tab:hover { color: var(--ink); }
+  .tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .tab .n { min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e7ecf1; font-size: 11px; line-height: 17px; text-align: center; }
+  .tab.on .n { background: var(--ink); color: #fff; }
+  .tab .new { font-size: 10px; font-weight: 800; color: var(--c-org); letter-spacing: .04em; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+  .view { display: none; }
+  .view.on { display: block; }
+
+  .types { display: flex; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .chip .n { font-size: 11px; color: var(--dim); }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .chip.on .n { color: #c9d5e0; }
+  .chip.dis { opacity: .45; cursor: default; }
+  .sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
+  .search { margin-left: auto; max-width: 100%; height: 30px; width: 220px; padding: 0 10px; border: 1px solid #cfd9e3; border-radius: 8px; }
+
+  .tablewrap { min-width: 0; overflow-x: auto; }
+  .teamtag { white-space: nowrap; }
+  .tabs { flex-wrap: wrap; }
+  .wrap { overflow-x: hidden; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 370px; align-items: start; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 7px 10px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 6px 10px; border-bottom: 1px solid #eef2f5; vertical-align: middle; }
+  #people tbody tr { cursor: pointer; }
+  #people tbody tr:hover td { background: #f7fafc; }
+  #people tbody tr.sel td { background: #e9f1fd; }
+  #people tbody tr.attn td { background: #fffaf0; }
+  .band { display: inline-block; width: 4px; height: 26px; border-radius: 2px; vertical-align: middle; margin-right: 9px; }
+  .who { display: inline-flex; align-items: center; }
+  .who b { font-weight: 600; }
+  .sub { font-size: 12px; color: var(--muted); }
+  .teamtag { display: inline-block; margin: 1px 3px 1px 0; padding: 0 7px; border-radius: 5px; background: #eef2f5; font-size: 11.5px; line-height: 19px; color: var(--ink); }
+  .cat { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .zn { display: inline-flex; gap: 3px; }
+  .zn i { width: 19px; height: 19px; border-radius: 5px; font: 700 11px/19px system-ui, sans-serif; text-align: center; font-style: normal; background: #eef2f5; color: #b8c4ce; }
+  .zn i.on { color: #fff; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 19px; white-space: nowrap; border: 1px solid transparent; }
+  .p-todo { background: #fff; border-color: #d7e0e8; }
+  .p-queue { background: #e8effc; color: var(--accent); }
+  .p-done { background: var(--ok-bg); color: var(--ok); }
+  .p-warn { background: var(--warn-bg); color: var(--warn); border-color: #f0c987; }
+  .p-none { background: none; color: var(--dim); }
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 7px; border: 1px solid #cfd9e3; background: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--soft); }
+  .btn.pri { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  .drawer { border-left: 1px solid var(--line); padding: 14px 16px; display: grid; gap: 14px; }
+  .drawer h2 { margin: 0; font-size: 16px; }
+  .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; gap: 8px; }
+  .lbl span { text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .badges { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mini { border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: #fff; height: 168px; box-shadow: 0 6px 18px rgba(23,50,74,.08); display: grid; grid-template-columns: 22px 1fr; }
+  .mini .vband { color: #fff; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font: 800 10px/22px system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+  .mini .body { padding: 18px 9px 8px; display: grid; align-content: space-between; }
+  .mini .nm { font: 800 13px/1.1 system-ui, sans-serif; }
+  .mini .rl { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+  .mini .qr { width: 30px; height: 30px; background: repeating-conic-gradient(#17324a 0 25%, #fff 0 50%) 0 0/8px 8px; border: 2px solid #fff; outline: 1px solid #17324a; }
+  .mini .ev { font-size: 8px; color: var(--dim); letter-spacing: .05em; text-transform: uppercase; }
+  .mini.back .body { padding: 12px 9px 8px; align-content: start; gap: 5px; }
+  .mini.back .zl { display: flex; align-items: center; gap: 5px; font-size: 10px; }
+  .mini.back .zl i { width: 15px; height: 15px; border-radius: 4px; color: #fff; font: 700 9px/15px system-ui; text-align: center; font-style: normal; }
+  .mini.back .none { font-size: 10px; color: var(--dim); }
+  .mini.back .plan { margin-top: 4px; height: 46px; border: 1px solid var(--line); border-radius: 3px; background: linear-gradient(#f6f9fc, #f6f9fc) 50% 50%/46% 54% no-repeat, #fff; position: relative; }
+  .field { display: grid; gap: 4px; }
+  .field select, .field input { height: 30px; padding: 0 8px; border: 1px solid #cfd9e3; border-radius: 7px; background: #fff; font-size: 13px; }
+  .zgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .zbtn { display: flex; align-items: center; gap: 7px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; font-size: 12px; text-align: left; }
+  .zbtn i { width: 19px; height: 19px; border-radius: 5px; font: 700 11px/19px system-ui; text-align: center; font-style: normal; background: #eef2f5; color: #b8c4ce; flex: none; }
+  .zbtn.on i { color: #fff; }
+  .zbtn small { margin-left: auto; font-size: 10px; color: var(--dim); }
+  .zbtn.plus small { color: var(--accent); font-weight: 700; }
+  .zbtn.minus span { text-decoration: line-through; color: var(--dim); }
+  .zbtn.minus small { color: var(--warn); font-weight: 700; }
+  .note { font-size: 12px; color: var(--muted); }
+  .alertbox { padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 12.5px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .set { padding: 14px; display: grid; gap: 12px; overflow-x: auto; }
+  .matrix { border-collapse: separate; border-spacing: 0; }
+  .matrix th { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--ink); vertical-align: bottom; }
+  .matrix th.z { text-align: center; width: 70px; padding: 6px 4px; }
+  .matrix th.z i { display: block; margin: 0 auto 4px; width: 22px; height: 22px; border-radius: 6px; background: var(--ink); color: #fff; font: 700 12px/22px system-ui; font-style: normal; }
+  .matrix td { padding: 5px 10px; }
+  .matrix td.c { text-align: center; padding: 3px; cursor: pointer; }
+  .matrix tr.off td { color: var(--dim); }
+  .cell { display: inline-block; width: 30px; height: 24px; border-radius: 7px; border: 1px dashed #d2dbe3; }
+  .cell.on { border: 0; }
+  .catsel { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 8px; background: #fff; font-size: 12px; }
+  .catsel select { border: 0; background: none; font-size: 12px; font-weight: 600; }
+  .catsel .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .subin { width: 150px; height: 26px; padding: 0 7px; border: 1px solid #dbe3ea; border-radius: 6px; font-size: 12.5px; }
+  .judge { font-size: 12px; color: var(--c-judge); font-weight: 600; }
+
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 14px; }
+  .step { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--soft); }
+  .step b { display: block; margin-bottom: 4px; }
+  .step .k { display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: #fff; font: 700 11px/20px system-ui; text-align: center; margin-right: 6px; }
+  .q { padding: 12px 14px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+  .q h3 { margin: 0; font-size: 14px; }
+  .q li { margin: 2px 0; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 9px; font-size: 13px; transition: .2s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: translateX(-50%); }
+  @media (max-width: 980px) { .split { grid-template-columns: 1fr; } .drawer { border-left: 0; border-top: 1px solid var(--line); } .flow { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>Accréditations · équipes de l'organisation</h1>
+    <p>Maquette. Les membres des équipes de l'organisation (Équipes & affectations › Équipes organisation) deviennent un 4e type dans
+      Accréditations, à côté de Bénévoles, Juges et Presse. Bande de couleur = catégorie, sous-rôle imprimé dessous, zones réglées par
+      équipe. Tout est cliquable, données fictives, rien n'est enregistré.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-view="people">Personnes <span class="n" id="n-people"></span></button>
+    <button class="tab" data-view="settings">Réglages · équipes organisation <span class="new">NOUVEAU</span></button>
+    <button class="tab" data-view="flow">Impression &amp; retrait</button>
+  </div>
+
+  <!-- PERSONNES -->
+  <section class="view on card" id="view-people">
+    <div class="types">
+      <span class="chip dis">Bénévoles &amp; staff <span class="n">214</span></span>
+      <span class="chip dis">Juges <span class="n">38</span></span>
+      <span class="chip dis">Presse <span class="n">22</span></span>
+      <span class="chip on">Organisation <span class="n" id="n-org"></span></span>
+      <span class="sep"></span>
+      <span id="status-chips" class="row"></span>
+      <input class="search" id="search" placeholder="Nom, équipe…" />
+    </div>
+    <div class="split">
+      <div class="tablewrap"><table id="people">
+        <thead><tr><th>Personne · sous-rôle imprimé</th><th>Équipes</th><th>Badge</th><th>Zones</th><th>Statut</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <aside class="drawer" id="drawer"></aside>
+    </div>
+  </section>
+
+  <!-- RÉGLAGES -->
+  <section class="view card" id="view-settings">
+    <div class="set">
+      <div class="note">Une ligne par équipe de l'organisation. <b>Badge</b> : la couleur de la bande (Organisation rouge, Technical anthracite) ou
+        « Pas de badge ». <b>Sous-rôle imprimé</b> : par défaut le nom de l'équipe, modifiable (ex. « LUNEX Student »). Cliquez une case pour
+        donner ou retirer une zone à toute l'équipe ; les badges déjà imprimés concernés passent en « À réimprimer ».</div>
+      <table class="matrix" id="matrix"></table>
+    </div>
+  </section>
+
+  <!-- IMPRESSION & RETRAIT -->
+  <section class="view card" id="view-flow">
+    <div class="flow">
+      <div class="step"><b><span class="k">1</span>Équipes organisation</b>On ajoute la personne dans son équipe (prénom + nom suffisent, pas besoin de compte). Elle apparaît ici en « À imprimer ».</div>
+      <div class="step"><b><span class="k">2</span>Réglages</b>Son équipe donne la couleur, le sous-rôle imprimé et les zones. Ajustement possible par personne (+/− une zone, libellé libre).</div>
+      <div class="step"><b><span class="k">3</span>Impression par lot</b>Même file que les autres badges : 4 badges par A4, recto avec nom + sous-rôle, verso avec les zones et le plan de la Coque. Lots groupés par couleur.</div>
+      <div class="step"><b><span class="k">4</span>Retrait</b>Au guichet d'accréditation, comme les bénévoles. Si l'équipe ou les zones changent après impression : « À réimprimer », l'ancien badge est à détruire.</div>
+    </div>
+    <div class="q">
+      <h3>Points à valider</h3>
+      <ul>
+        <li><b>Juges &amp; officiels</b> : ils ont déjà leur badge via l'onglet Juges. L'équipe organisation « Juges & officiels » est donc réglée sur « badge via Juges » pour éviter un doublon.</li>
+        <li><b>Plusieurs équipes</b> : un seul badge. Zones = toutes celles de ses équipes. Sous-rôle = celui de l'équipe où il est chef, sinon la première ; modifiable.</li>
+        <li><b>Technical</b> (Apex, TV, Event presentation, Speakers, Technique & installation) : bande anthracite « Technical » plutôt que rouge ?</li>
+        <li><b>Prestataires sans équipe</b> (ex. traiteur, sécurité) : à créer comme équipe organisation, ou à garder en saisie libre ?</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const ZONES = [
+    { id: 1, name: "Infield" }, { id: 2, name: "Warm-up" }, { id: 3, name: "Coaching Zone" },
+    { id: 4, name: "Judges Room" }, { id: 5, name: "Mixed Zone" }, { id: 6, name: "VIP Zone" },
+  ];
+  const CATS = {
+    org: { label: "Organisation", color: "var(--c-org)" },
+    tech: { label: "Technical", color: "var(--c-tech)" },
+    none: { label: "Pas de badge", color: "#c3ccd5" },
+    judge: { label: "Badge via Juges", color: "var(--c-judge)" },
+  };
+  const TEAMS = [
+    { id: "staff", name: "Staff", cat: "org", sub: "Organisation staff", zones: [1, 2, 3, 4, 5, 6] },
+    { id: "communication", name: "Communication", cat: "org", sub: "Communication", zones: [1, 5] },
+    { id: "vip", name: "VIP", cat: "org", sub: "VIP hosting", zones: [6] },
+    { id: "lunex", name: "Étudiants LUNEX", cat: "org", sub: "LUNEX Student", zones: [2, 5, 6] },
+    { id: "preprogramme", name: "Pré-programme", cat: "org", sub: "Pre-programme", zones: [2] },
+    { id: "benevoles", name: "Coordination bénévoles", cat: "org", sub: "Volunteer coordination", zones: [1, 2, 5, 6] },
+    { id: "durabilite", name: "Durabilité", cat: "none", sub: "Sustainability", zones: [] },
+    { id: "technique", name: "Technique & installation", cat: "tech", sub: "Technical crew", zones: [1] },
+    { id: "apex", name: "Apex", cat: "tech", sub: "Apex", zones: [1, 4] },
+    { id: "tv", name: "TV", cat: "tech", sub: "TV", zones: [1, 5] },
+    { id: "presentation", name: "Event presentation", cat: "tech", sub: "Event presentation", zones: [1] },
+    { id: "speakers", name: "Speakers (Athle.ch)", cat: "tech", sub: "Speaker", zones: [1, 4] },
+    { id: "juges", name: "Juges & officiels", cat: "judge", sub: "", zones: [] },
+  ];
+  const STATUS = {
+    todo: { label: "À imprimer", cls: "p-todo" }, queue: { label: "En file", cls: "p-queue" },
+    done: { label: "Imprimé", cls: "p-done" }, changed: { label: "À réimprimer", cls: "p-warn" }, none: { label: "Pas de badge", cls: "p-none" },
+  };
+  // [prénom, nom, équipes (la 1re = chef si lead), chef de, statut, libellé libre, +zones, -zones]
+  const PEOPLE = [
+    ["Claire", "Martin", ["staff"], "staff", "done"],
+    ["Paul", "Weber", ["staff", "vip"], "", "changed", "", [], []],
+    ["Sofia", "Reuter", ["communication"], "communication", "done"],
+    ["Lena", "Muller", ["communication", "lunex"], "", "todo"],
+    ["Tom", "Schmit", ["lunex"], "", "todo"],
+    ["Ines", "Kremer", ["lunex"], "", "queue"],
+    ["Noah", "Hoffmann", ["lunex"], "", "todo", "", [1], []],
+    ["Eva", "Klein", ["vip"], "vip", "queue"],
+    ["Marc", "Thill", ["preprogramme"], "preprogramme", "todo"],
+    ["Julie", "Wagner", ["benevoles"], "benevoles", "done", "Head of volunteers"],
+    ["Léo", "Becker", ["technique"], "", "todo"],
+    ["Hugo", "Faber", ["apex"], "apex", "todo"],
+    ["Nina", "Hansen", ["tv"], "", "todo", "", [], [5]],
+    ["Yann", "Meyer", ["speakers"], "", "todo"],
+    ["Rita", "Lopes", ["durabilite"], "", "none"],
+  ].map(([firstName, lastName, teams, lead, status, label = "", add = [], remove = []], i) => ({
+    id: i, firstName, lastName, teams, lead, status, label, add, remove,
+  }));
+
+  const $ = (s) => document.querySelector(s);
+  let selectedId = 1, statusFilter = "all", search = "";
+  const team = (id) => TEAMS.find((t) => t.id === id);
+  const badgeTeams = (p) => p.teams.map(team).filter((t) => t.cat === "org" || t.cat === "tech");
+  const hasBadge = (p) => badgeTeams(p).length > 0;
+  const mainTeam = (p) => badgeTeams(p).find((t) => t.id === p.subTeam) || badgeTeams(p).find((t) => t.id === p.lead) || badgeTeams(p)[0];
+  const catOf = (p) => (hasBadge(p) ? (badgeTeams(p).some((t) => t.cat === "org") ? "org" : "tech") : "none");
+  const subOf = (p) => p.label || mainTeam(p)?.sub || "—";
+  const inherited = (p) => [...new Set(badgeTeams(p).flatMap((t) => t.zones))];
+  const zonesOf = (p) => ZONES.map((z) => z.id).filter((id) => !p.remove.includes(id) && (inherited(p).includes(id) || p.add.includes(id)));
+  const statusOf = (p) => (hasBadge(p) ? p.status === "none" ? "todo" : p.status : "none");
+  function toast(text) { const t = $("#toast"); t.textContent = text; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 1800); }
+  function markChanged(p) { if (statusOf(p) === "done") p.status = "changed"; }
+
+  function zoneDots(p) {
+    const on = zonesOf(p), color = CATS[catOf(p)].color;
+    return `<span class="zn">${ZONES.map((z) => `<i class="${on.includes(z.id) ? "on" : ""}" style="${on.includes(z.id) ? `background:${color}` : ""}" title="${z.name}">${z.id}</i>`).join("")}</span>`;
+  }
+
+  function renderPeople() {
+    const counts = { all: PEOPLE.length };
+    PEOPLE.forEach((p) => (counts[statusOf(p)] = (counts[statusOf(p)] || 0) + 1));
+    $("#n-people").textContent = PEOPLE.length;
+    $("#n-org").textContent = PEOPLE.length;
+    $("#status-chips").innerHTML = [["all", "Tous"], ["todo", "À imprimer"], ["queue", "En file"], ["done", "Imprimés"], ["changed", "À réimprimer"]]
+      .map(([id, label]) => `<button class="chip ${statusFilter === id ? "on" : ""}" data-status="${id}">${label} <span class="n">${counts[id] || 0}</span></button>`).join("");
+    const needle = search.trim().toLowerCase();
+    const list = PEOPLE.filter((p) => (statusFilter === "all" || statusOf(p) === statusFilter)
+      && (!needle || `${p.firstName} ${p.lastName} ${p.teams.map((id) => team(id).name).join(" ")} ${subOf(p)}`.toLowerCase().includes(needle)));
+    $("#people tbody").innerHTML = list.map((p) => {
+      const c = CATS[catOf(p)], st = STATUS[statusOf(p)];
+      return `<tr data-id="${p.id}" class="${p.id === selectedId ? "sel" : ""} ${statusOf(p) === "changed" ? "attn" : ""}">
+        <td><span class="who"><span class="band" style="background:${c.color}"></span><span><b>${p.firstName} ${p.lastName}</b><br><span class="sub">${subOf(p)}</span></span></span></td>
+        <td>${p.teams.map((id) => `<span class="teamtag">${team(id).name}${p.lead === id ? " · chef" : ""}</span>`).join("")}</td>
+        <td><span class="cat" style="color:${c.color}">${c.label}</span></td>
+        <td>${hasBadge(p) ? zoneDots(p) : ""}</td>
+        <td><span class="pill ${st.cls}">${st.label}</span></td></tr>`;
+    }).join("") || `<tr><td colspan="5" class="note" style="padding:20px;text-align:center">Personne.</td></tr>`;
+    renderDrawer();
+  }
+
+  function renderDrawer() {
+    const p = PEOPLE.find((x) => x.id === selectedId);
+    if (!p) { $("#drawer").innerHTML = `<p class="note">Choisissez une personne.</p>`; return; }
+    const c = CATS[catOf(p)], on = zonesOf(p), inh = inherited(p);
+    if (!hasBadge(p)) {
+      $("#drawer").innerHTML = `<h2>${p.firstName} ${p.lastName}</h2>
+        <p class="note">Son équipe (${p.teams.map((id) => team(id).name).join(", ")}) est réglée sur « Pas de badge » dans Réglages. Rien à imprimer.</p>`;
+      return;
+    }
+    $("#drawer").innerHTML = `
+      <h2>${p.firstName} ${p.lastName}</h2>
+      ${statusOf(p) === "changed" ? `<div class="alertbox">Équipe ou zones changées depuis l'impression. <button class="btn" data-act="queue">Réimprimer</button></div>` : ""}
+      <div>
+        <div class="lbl">Aperçu du badge <span>recto · verso</span></div>
+        <div class="badges">
+          <div class="mini"><div class="vband" style="background:${c.color}">${c.label}</div>
+            <div class="body"><div><div class="nm">${p.firstName}<br>${p.lastName.toUpperCase()}</div><div class="rl">${subOf(p)}</div></div>
+              <div style="display:flex;justify-content:space-between;align-items:end"><span class="ev">CMCM Indoor Meeting 2027</span><span class="qr"></span></div></div></div>
+          <div class="mini back"><div class="vband" style="background:${c.color}">Access</div>
+            <div class="body">${on.length ? on.map((id) => `<div class="zl"><i style="background:${c.color}">${id}</i>${ZONES.find((z) => z.id === id).name}</div>`).join("") : `<div class="none">No restricted area</div>`}
+              <div class="plan"></div></div></div>
+        </div>
+      </div>
+      <div class="field"><div class="lbl">Sous-rôle imprimé <span>par défaut : ${mainTeam(p).sub}</span></div>
+        <select id="sub-select">
+          ${badgeTeams(p).map((t) => `<option value="team:${t.id}" ${!p.label && mainTeam(p).id === t.id ? "selected" : ""}>${t.sub} (équipe ${t.name})</option>`).join("")}
+          <option value="custom" ${p.label ? "selected" : ""}>Libellé libre…</option>
+        </select>
+        ${p.label ? `<input id="sub-custom" value="${p.label}" placeholder="ex. Meeting Director" />` : ""}
+      </div>
+      <div>
+        <div class="lbl">Zones <span>${on.length} / ${ZONES.length} · héritées de ${badgeTeams(p).map((t) => t.name).join(" + ")}</span></div>
+        <div class="zgrid">${ZONES.map((z) => {
+          const isOn = on.includes(z.id), cls = p.add.includes(z.id) ? "plus" : p.remove.includes(z.id) ? "minus" : "";
+          const tag = p.add.includes(z.id) ? "+ perso" : p.remove.includes(z.id) ? "− perso" : inh.includes(z.id) ? "équipe" : "";
+          return `<button class="zbtn ${isOn ? "on" : ""} ${cls}" data-zone="${z.id}"><i style="${isOn ? `background:${c.color}` : ""}">${z.id}</i><span>${z.name}</span><small>${tag}</small></button>`;
+        }).join("")}</div>
+        <p class="note">Cliquer ajoute ou retire une zone pour cette personne seulement. Les zones de l'équipe se règlent dans Réglages.</p>
+      </div>
+      <div class="row">
+        <button class="btn pri" data-act="queue">${statusOf(p) === "queue" ? "Déjà dans la file" : "Mettre dans la file"}</button>
+        <button class="btn" data-act="done">Marquer imprimé</button>
+      </div>`;
+  }
+
+  function renderMatrix() {
+    $("#matrix").innerHTML = `<thead><tr><th>Équipe</th><th>Badge</th><th>Sous-rôle imprimé</th><th>Membres</th>
+      ${ZONES.map((z) => `<th class="z"><i>${z.id}</i>${z.name}</th>`).join("")}</tr></thead><tbody>
+      ${TEAMS.map((t, ti) => {
+        const c = CATS[t.cat], members = PEOPLE.filter((p) => p.teams.includes(t.id)).length, active = t.cat === "org" || t.cat === "tech";
+        return `<tr class="${active ? "" : "off"}"><td><b>${t.name}</b></td>
+          <td><span class="catsel"><span class="dot" style="background:${c.color}"></span><select data-cat="${ti}">
+            ${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${t.cat === k ? "selected" : ""}>${v.label}</option>`).join("")}</select></span></td>
+          <td>${active ? `<input class="subin" data-sub="${ti}" value="${t.sub}" />` : t.cat === "judge" ? `<span class="judge">onglet Juges</span>` : "—"}</td>
+          <td class="sub">${members}</td>
+          ${ZONES.map((z) => `<td class="c" data-cell="${ti}:${z.id}">${active ? `<span class="cell ${t.zones.includes(z.id) ? "on" : ""}" style="${t.zones.includes(z.id) ? `background:${c.color}` : ""}"></span>` : ""}</td>`).join("")}</tr>`;
+      }).join("")}</tbody>`;
+  }
+
+  document.addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab");
+    if (tab) {
+      document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t === tab));
+      document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === `view-${tab.dataset.view}`));
+      return;
+    }
+    const chip = e.target.closest("[data-status]");
+    if (chip) { statusFilter = chip.dataset.status; renderPeople(); return; }
+    const row = e.target.closest("#people tbody tr[data-id]");
+    if (row) { selectedId = Number(row.dataset.id); renderPeople(); return; }
+    const p = PEOPLE.find((x) => x.id === selectedId);
+    const zb = e.target.closest("[data-zone]");
+    if (zb && p) {
+      const z = Number(zb.dataset.zone), inh = inherited(p).includes(z);
+      if (inh) p.remove = p.remove.includes(z) ? p.remove.filter((x) => x !== z) : [...p.remove, z];
+      else p.add = p.add.includes(z) ? p.add.filter((x) => x !== z) : [...p.add, z];
+      markChanged(p); renderPeople(); return;
+    }
+    const act = e.target.closest("[data-act]");
+    if (act && p) {
+      p.status = act.dataset.act === "queue" ? "queue" : "done";
+      toast(act.dataset.act === "queue" ? `${p.firstName} ${p.lastName} : dans la file d'impression` : `${p.firstName} ${p.lastName} : imprimé`);
+      renderPeople(); return;
+    }
+    const cell = e.target.closest("[data-cell]");
+    if (cell) {
+      const [ti, z] = cell.dataset.cell.split(":").map(Number), t = TEAMS[ti];
+      if (!(t.cat === "org" || t.cat === "tech")) return;
+      t.zones = t.zones.includes(z) ? t.zones.filter((x) => x !== z) : [...t.zones, z].sort();
+      const touched = PEOPLE.filter((x) => x.teams.includes(t.id) && statusOf(x) === "done");
+      touched.forEach(markChanged);
+      toast(touched.length ? `${t.name} : ${touched.length} badge(s) imprimé(s) passent en « À réimprimer »` : `${t.name} : zones mises à jour`);
+      renderMatrix(); renderPeople();
+    }
+  });
+  document.addEventListener("change", (e) => {
+    const p = PEOPLE.find((x) => x.id === selectedId);
+    if (e.target.id === "sub-select" && p) {
+      if (e.target.value === "custom") p.label = p.label || subOf(p);
+      else { p.label = ""; p.subTeam = e.target.value.slice(5); }
+      markChanged(p); renderPeople();
+    }
+    if (e.target.dataset.cat !== undefined) { TEAMS[Number(e.target.dataset.cat)].cat = e.target.value; renderMatrix(); renderPeople(); }
+  });
+  document.addEventListener("input", (e) => {
+    const p = PEOPLE.find((x) => x.id === selectedId);
+    if (e.target.id === "sub-custom" && p) { p.label = e.target.value; markChanged(p); renderPeople(); setTimeout(() => { const i = $("#sub-custom"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }); }
+    if (e.target.dataset.sub !== undefined) { TEAMS[Number(e.target.dataset.sub)].sub = e.target.value; renderPeople(); }
+    if (e.target.id === "search") { search = e.target.value; renderPeople(); }
+  });
+  renderMatrix();
+  renderPeople();
+</script>
+</body>
+</html>

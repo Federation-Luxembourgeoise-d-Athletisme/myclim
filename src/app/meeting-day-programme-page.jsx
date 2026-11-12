@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { serverTimestamp, setDoc } from "firebase/firestore";
+import { runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "../services/firebase";
 import { useTeamConfiguration } from "./config-hooks";
 import { useSiteEditionYear } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
@@ -19,6 +20,10 @@ import {
   activityMatchesColumn,
   buildProgrammeColumns,
   getCategory,
+  getColumnMatchTargets,
+  mergeExtraColumn,
+  moveActivityToDay,
+  getColumnSuggestion,
   getColumnActivities,
   getPlanningDay,
   getPlanningDayDate,
@@ -43,6 +48,26 @@ import {
 const ROW_PX = 20;
 const SAVE_DELAY_MS = 600;
 const LEGACY = { ...legacyPlanning2026, sunday: legacySunday2026 };
+
+const OTHER_PLACE = "__other__";
+
+const PANEL_STORAGE_KEY = "myclim.planning.panelCollapsed";
+
+function readPanelCollapsed() {
+  try {
+    return window.localStorage.getItem(PANEL_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writePanelCollapsed(collapsed) {
+  try {
+    window.localStorage.setItem(PANEL_STORAGE_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Stockage indisponible (navigation privée) : le choix vaut pour la page.
+  }
+}
 
 function newId(prefix) {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
@@ -137,8 +162,12 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   const [view, setView] = useState("board");
   const [teamViewKey, setTeamViewKey] = useState("");
   const [sidePanel, setSidePanel] = useState("activity");
+  // Panneau latéral replié (préférence gardée dans ce navigateur). Il se
+  // rouvre de lui-même dès qu'on choisit une autre activité ou « Colonnes ».
+  const [collapsedFor, setCollapsedFor] = useState(() => (readPanelCollapsed() ? { selectedId: null, sidePanel: "activity" } : null));
   const [newColumnName, setNewColumnName] = useState("");
   const [saveState, setSaveState] = useState("");
+  const [undo, setUndo] = useState(null);
   const saveTimer = useRef(null);
   const saveVersion = useRef(0);
 
@@ -149,6 +178,15 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
     () => (programme ? buildProgrammeColumns(teams, programme, orgTeams, { all: true }) : []),
     [programme, teams, orgTeams],
   );
+  const matchTargets = useMemo(() => (programme ? getColumnMatchTargets(teams, programme, orgTeams) : []), [programme, teams, orgTeams]);
+  const targetByKey = useMemo(() => new Map(matchTargets.map((target) => [target.key, target])), [matchTargets]);
+  const matchByExtraId = useMemo(
+    () => new Map((programme?.extraColumns || []).map((column) => [column.id, getColumnSuggestion(column.name, matchTargets)])),
+    [programme, matchTargets],
+  );
+  const suggestedMatches = (programme?.extraColumns || [])
+    .filter((column) => matchByExtraId.get(column.id)?.strong)
+    .map((column) => ({ column, key: matchByExtraId.get(column.id).key }));
   const trackEntries = useMemo(() => (isMeetingDay ? getTrackEntries(edition?.timetable) : []), [edition, isMeetingDay]);
   const timeOptions = useMemo(() => getProgrammeTimeOptions(), []);
   const rows = (PROGRAMME_END - PROGRAMME_START) / PROGRAMME_STEP;
@@ -156,9 +194,18 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   const dayDate = getPlanningDayDate(edition?.date, dayKey);
   const dayTitle = `${isMeetingDay ? "Dimanche" : day.label}${dayDate ? ` ${formatDayDate(dayDate)}` : ""}`;
 
+  const panelCollapsed = Boolean(collapsedFor) && collapsedFor.selectedId === selectedId && collapsedFor.sidePanel === sidePanel;
+
+  function setPanelCollapsed(collapsed) {
+    setCollapsedFor(collapsed ? { selectedId, sidePanel } : null);
+    writePanelCollapsed(collapsed);
+  }
+
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
   function update(mutator) {
+    // Toute autre modification rend l'annulation du rattachement caduque.
+    setUndo(null);
     const next = normalizeProgramme(mutator(structuredClone(programme)), dayKey);
     setDraft(next);
     setSaveState("Enregistrement…");
@@ -218,6 +265,89 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
   function importLastYear() {
     if (exists && !window.confirm(`Remplacer le planning actuel du ${dayTitle.toLowerCase()} par celui de l'an dernier ?`)) return;
     update(() => importLegacyDay(dayKey, LEGACY, teams, orgTeams, findOrganisationTeam));
+  }
+
+  // Change l'activité sélectionnée de jour : retirée d'ici, ajoutée au jour
+  // choisi, en une seule transaction (pas de doublon ni de perte).
+  async function moveSelectedToDay(targetDayKey) {
+    if (!selected || targetDayKey === dayKey) return;
+    const targetDay = getPlanningDay(targetDayKey);
+    const targetDate = getPlanningDayDate(edition?.date, targetDayKey);
+    const targetTitle = `${targetDay.label}${targetDate ? ` ${formatDayDate(targetDate)}` : ""}`;
+    window.clearTimeout(saveTimer.current);
+    saveVersion.current += 1;
+    setSaveState("Déplacement…");
+    try {
+      await runTransaction(db, async (transaction) => {
+        const targetRef = programmeDocRef(year, targetDayKey);
+        const snapshot = await transaction.get(targetRef);
+        const target = normalizeProgramme(snapshot.exists() ? snapshot.data() : {}, targetDayKey);
+        const moved = moveActivityToDay(programme, target, selected.id);
+        transaction.set(targetRef, { ...moved.target, updatedAt: serverTimestamp() });
+        transaction.set(programmeDocRef(year, dayKey), { ...moved.source, updatedAt: serverTimestamp() });
+      });
+      setDraft(null);
+      setSelectedId(null);
+      setSaveState(`« ${selected.title} » déplacée au ${targetTitle.toLowerCase()}.`);
+    } catch (moveError) {
+      console.error("Impossible de déplacer l'activité.", moveError);
+      setSaveState("Le déplacement a échoué. Réessayez dans un instant.");
+    }
+  }
+
+  // Menu « Rattacher à… » d'une colonne libre ({ id, name }) : dans le
+  // panneau Colonnes et dans l'en-tête de la colonne de la grille.
+  function renderMatchSelect(column, className) {
+    const suggestion = suggestionOf(column);
+    return (
+      <select
+        aria-label={`Rattacher « ${column.name} » à une équipe`}
+        className={className}
+        title="Rattacher toute la colonne à une équipe ou un rôle"
+        value=""
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => event.target.value && mergeColumn(column, event.target.value)}
+      >
+        <option value="">
+          {suggestion.key ? `${suggestion.strong ? "→" : "Peut-être"} ${targetByKey.get(suggestion.key)?.label} ?` : "Rattacher à…"}
+        </option>
+        {suggestion.key ? <option value={suggestion.key}>✓ {targetByKey.get(suggestion.key)?.label} (suggestion)</option> : null}
+        {["Équipes bénévoles", "Sous-rôles", "Équipes de l'organisation"].map((group) => {
+          const options = matchTargets.filter((target) => target.group === group);
+          return options.length ? (
+            <optgroup key={group} label={group}>
+              {options.map((target) => (
+                <option key={target.key} value={target.key}>
+                  {target.label}
+                </option>
+              ))}
+            </optgroup>
+          ) : null;
+        })}
+      </select>
+    );
+  }
+
+  function suggestionOf(column) {
+    return matchByExtraId.get(column.id) || { key: "", strong: false };
+  }
+
+  // Rattacher s'applique tout de suite, avec « Annuler » à côté de
+  // l'enregistrement (pas de window.confirm : le navigateur intégré de
+  // l'app ferme ces fenêtres tout seul, ce qui annulait le rattachement).
+  function mergeColumn(column, targetKey) {
+    const target = targetByKey.get(targetKey);
+    const used = programme.activities.filter((activity) => activity.columns.includes(`extra:${column.id}`)).length;
+    const previous = structuredClone(programme);
+    update((current) => mergeExtraColumn(current, column.id, targetKey));
+    setUndo({ previous, label: `« ${column.name} » → ${target?.label} (${used} activité${used > 1 ? "s" : ""})` });
+  }
+
+  function mergeAllSuggestions() {
+    const previous = structuredClone(programme);
+    const count = suggestedMatches.length;
+    update((current) => suggestedMatches.reduce((next, { column, key }) => mergeExtraColumn(next, column.id, key), current));
+    setUndo({ previous, label: `${count} colonnes rattachées à leur équipe` });
   }
 
   function toggleSet(field, id, on) {
@@ -324,6 +454,21 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
           ))}
         </div>
         <span className="mdp-bar__save">{saveState}</span>
+        {undo ? (
+          <span className="mdp-undo">
+            {undo.label}
+            <button
+              className="mdp-linkbtn"
+              type="button"
+              onClick={() => {
+                const { previous } = undo;
+                update(() => previous);
+              }}
+            >
+              Annuler
+            </button>
+          </span>
+        ) : null}
         <button className="mdp-btn" type="button" onClick={() => setSidePanel(sidePanel === "columns" ? "activity" : "columns")}>
           Colonnes
         </button>
@@ -368,7 +513,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
           </div>
         </div>
       ) : (
-        <div className="mdp-board">
+        <div className={`mdp-board${panelCollapsed ? " mdp-board--collapsed" : ""}`}>
           {isGrid ? (
             <div className="mdp-gridwrap">
               <div
@@ -387,7 +532,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                     {column.name}
                     {column.kind === "general" ? <small>visible par toutes les équipes</small> : null}
                     {column.kind === "org" ? <small>organisation</small> : null}
-                    {column.kind === "extra" ? <small>colonne libre</small> : null}
+                    {column.kind === "extra" ? renderMatchSelect({ id: column.extraId, name: column.name }, "mdp-hcell__match") : null}
                   </div>
                 ))}
 
@@ -540,7 +685,21 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
             </div>
           )}
 
+          {panelCollapsed ? (
+            <button
+              className="mdp-rail"
+              title="Afficher le panneau"
+              type="button"
+              onClick={() => setPanelCollapsed(false)}
+            >
+              <span aria-hidden="true">‹</span>
+              <span className="mdp-rail__label">{sidePanel === "columns" ? "Colonnes" : selected ? "Activité" : "Panneau"}</span>
+            </button>
+          ) : (
           <aside className="mdp-panel">
+            <button className="mdp-panel__collapse" title="Replier le panneau" type="button" onClick={() => setPanelCollapsed(true)}>
+              ›
+            </button>
             {sidePanel === "columns" ? (
               <>
                 <h3>Colonnes du {dayTitle.toLowerCase()}</h3>
@@ -608,9 +767,18 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                   <p className="mdp-muted">Aucune équipe : créez-les dans l'onglet Équipes organisation.</p>
                 )}
                 <h3 className="mdp-panel__sub">Colonnes libres</h3>
-                <p className="mdp-muted">Pour ce qui n'est ni une équipe bénévole ni une équipe de l'organisation.</p>
+                <p className="mdp-muted">
+                  Pour ce qui n'est ni une équipe bénévole ni une équipe de l'organisation. Rattachez une colonne à une
+                  équipe : ses activités y passent et la colonne libre disparaît.
+                </p>
+                {suggestedMatches.length ? (
+                  <button className="mdp-btn mdp-btn--primary mdp-extra__all" type="button" onClick={mergeAllSuggestions}>
+                    Rattacher les {suggestedMatches.length} suggestions
+                  </button>
+                ) : null}
                 {programme.extraColumns.map((column) => (
-                  <div key={column.id} className="mdp-extra">
+                  <div key={column.id} className="mdp-extra mdp-extra--match">
+                    {renderMatchSelect(column, "mdp-extra__match")}
                     <input
                       aria-label="Nom de la colonne"
                       value={column.name}
@@ -675,6 +843,20 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                   <span>Titre</span>
                   <input value={selected.title} onChange={(event) => updateSelected({ title: event.target.value })} />
                 </label>
+                <label className="mdp-field">
+                  <span>Jour</span>
+                  <select value={dayKey} onChange={(event) => moveSelectedToDay(event.target.value)}>
+                    {PLANNING_DAYS.map((planningDay) => {
+                      const date = getPlanningDayDate(edition?.date, planningDay.key);
+                      return (
+                        <option key={planningDay.key} value={planningDay.key}>
+                          {planningDay.label}
+                          {date ? ` ${formatDayDate(date)}` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
                 <label className="mdp-check">
                   <input checked={selected.allDay} type="checkbox" onChange={(event) => updateSelected({ allDay: event.target.checked })} />
                   Toute la journée (poste, sans horaire précis)
@@ -719,13 +901,32 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
                 </label>
                 <div className="mdp-field-row">
                   <label className="mdp-field">
-                    <span>Lieu (liste ou texte)</span>
-                    <input list="mdp-places" value={selected.place} onChange={(event) => updateSelected({ place: event.target.value })} />
-                    <datalist id="mdp-places">
+                    <span>Lieu</span>
+                    {/* Une liste déroulante plutôt qu'un datalist : la fenêtre de
+                        suggestions du navigateur s'ouvrait loin du champ. */}
+                    <select
+                      value={!selected.place ? "" : COQUE_PLACES.includes(selected.place) ? selected.place : OTHER_PLACE}
+                      onChange={(event) =>
+                        updateSelected({ place: event.target.value === OTHER_PLACE ? selected.place || " " : event.target.value })
+                      }
+                    >
+                      <option value="">—</option>
                       {COQUE_PLACES.map((place) => (
-                        <option key={place} value={place} />
+                        <option key={place} value={place}>
+                          {place}
+                        </option>
                       ))}
-                    </datalist>
+                      <option value={OTHER_PLACE}>Autre…</option>
+                    </select>
+                    {selected.place && !COQUE_PLACES.includes(selected.place) ? (
+                      <input
+                        aria-label="Autre lieu"
+                        autoFocus={selected.place === " "}
+                        placeholder="Lieu"
+                        value={selected.place.trim()}
+                        onChange={(event) => updateSelected({ place: event.target.value || " " })}
+                      />
+                    ) : null}
                   </label>
                   <label className="mdp-field">
                     <span>Responsable</span>
@@ -855,6 +1056,7 @@ function PlanningDayEditor({ year, dayKey, edition, teams, orgTeams }) {
               </>
             )}
           </aside>
+          )}
         </div>
       )}
     </section>

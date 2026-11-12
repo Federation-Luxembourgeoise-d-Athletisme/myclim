@@ -431,30 +431,28 @@ function AthleteRoadbookPage() {
             {head(section, index)}
             {timetable.length && edition?.timetableNote ? <p className="rb-muted">{edition.timetableNote}</p> : null}
             {timetable.length ? (
-              <table className="rb-table rb-timetable">
-                <tbody>
-                  {timetable.map((row) =>
-                    row.type === "header" ? (
-                      <tr key={row.id} className="rb-table__head">
-                        {row.time ? <td>{row.time}</td> : null}
-                        <td colSpan={row.time ? 2 : 3}>{row.label}</td>
-                      </tr>
-                    ) : (
-                      <tr key={row.id}>
-                        <td className="rb-timetable__time">{row.time || "—"}</td>
-                        <td className="rb-timetable__gender">
-                          {row.gender === "WOMEN" ? copy.women : row.gender === "MEN" ? copy.men : row.gender || ""}
-                        </td>
-                        <td>
-                          {row.type === "info" ? <i>{row.label}</i> : row.isField ? <b>{row.event}</b> : row.event}
-                          {row.round ? ` ${row.round}` : ""}
-                          {row.isField ? <span className="rb-tag">{copy.field}</span> : null}
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
+              <ol className="rb-tt">
+                {timetable.map((row) =>
+                  row.type === "header" ? (
+                    <li key={row.id} className="rb-tt__head">
+                      {row.time ? <span className="rb-tt__time">{row.time}</span> : null}
+                      <span>{row.label}</span>
+                    </li>
+                  ) : (
+                    <li key={row.id} className={row.type === "info" ? "rb-tt__info" : undefined}>
+                      <span className="rb-tt__time">{row.time || "—"}</span>
+                      <span className={`rb-tt__gender${row.gender === "WOMEN" ? " rb-tt__gender--w" : row.gender === "MEN" ? " rb-tt__gender--m" : ""}`}>
+                        {row.gender === "WOMEN" ? copy.women : row.gender === "MEN" ? copy.men : row.gender || ""}
+                      </span>
+                      <span className="rb-tt__event">
+                        {row.type === "info" ? row.label : row.isField ? <b>{row.event}</b> : row.event}
+                        {row.round ? ` ${row.round}` : ""}
+                        {row.isField ? <span className="rb-tag">{copy.field}</span> : null}
+                      </span>
+                    </li>
+                  ),
+                )}
+              </ol>
             ) : (
               <p className="rb-muted">{labels.timetableEmpty}</p>
             )}

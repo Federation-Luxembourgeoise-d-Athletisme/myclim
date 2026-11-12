@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Carte des rôles MyCLIM</title>
+<style>
+  /* Carte des rôles : trois familles de personnes (lignes), et pour chacune
+     comment elle arrive, son rôle plateforme, ce qu'elle voit et son badge
+     (colonnes). Puis les rôles un par un, les cas concrets et ce qui manque.
+     Palette MyCLIM (encre bleu nuit) + couleurs des badges d'accréditation. */
+  :root {
+    --ink: #17324a; --muted: #5d7183; --dim: #93a3b1; --line: #e1e8ee; --soft: #f5f8fb; --bg: #eef2f6; --card: #fff;
+    --accent: #1a4aa1; --warn: #a35f00; --warn-bg: #fff3df; --ok: #1f7a4d; --ok-bg: #e4f4eb; --bad: #a8241c; --bad-bg: #fdeceb;
+    --c-org: #d7262e; --c-tech: #4a5056; --c-vol: #1f9bd4; --c-judge: #1d2f6f; --c-press: #5b2bb5; --c-ath: #2e9b4f; --c-vip: #b8901c;
+    --f-ui: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 var(--f-ui); color: var(--ink); background: var(--bg); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-block: 22px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+  h1 { margin: 0; font-size: 24px; letter-spacing: -.01em; text-wrap: balance; }
+  h2 { margin: 0 0 4px; font-size: 17px; text-wrap: balance; }
+  .lead { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a { padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 600; }
+  nav.toc a:hover { border-color: var(--ink); }
+
+  /* La carte : 3 familles × 4 étapes */
+  .map { overflow-x: auto; }
+  .lanes { display: grid; grid-template-columns: 170px repeat(4, minmax(170px, 1fr)); gap: 8px; min-width: 900px; }
+  .colhead { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 4px 2px; }
+  .colhead span { display: block; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--dim); }
+  .fam { border-radius: 10px; padding: 12px; color: #fff; display: grid; align-content: start; gap: 4px; }
+  .fam b { font-size: 15px; }
+  .fam small { opacity: .85; font-size: 12px; line-height: 1.35; }
+  .fam.org { background: var(--c-org); } .fam.vol { background: var(--c-vol); } .fam.ext { background: #56677a; }
+  .cell { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; font-size: 12.5px; position: relative; display: grid; gap: 5px; align-content: start; }
+  .cell:not(:last-child)::after { content: "→"; position: absolute; right: -9px; top: 12px; color: var(--dim); font-weight: 700; background: var(--bg); line-height: 1; }
+  .cell ul { margin: 0; padding-left: 16px; }
+  .cell li { margin: 1px 0; }
+  .where { font-size: 11.5px; color: var(--muted); }
+  .role { display: inline-block; padding: 0 7px; border-radius: 5px; background: var(--ink); color: #fff; font: 600 11.5px/19px ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: nowrap; }
+  .role.light { background: #dfe7ef; color: var(--ink); }
+  .bdg { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+  .bdg i { width: 5px; height: 16px; border-radius: 2px; }
+  .tag { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 18px; }
+  .tag.gap { background: var(--bad-bg); color: var(--bad); }
+  .tag.todo { background: var(--warn-bg); color: var(--warn); }
+  .tag.ok { background: var(--ok-bg); color: var(--ok); }
+
+  /* Rôles */
+  .roles { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  th { text-align: left; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 7px 10px; border-bottom: 1px solid #edf1f5; vertical-align: top; font-size: 13px; }
+  tr.grp td { background: var(--soft); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-top: 9px; }
+  td .where { display: block; }
+
+  /* Cas */
+  .cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  .case { display: grid; gap: 10px; align-content: start; }
+  .case h3 { margin: 0; font-size: 15px; }
+  .case .q { color: var(--muted); font-size: 13px; margin: 0; }
+  .steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13px; }
+  .steps li::before { content: counter(s); width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font: 700 11px/22px var(--f-ui); text-align: center; }
+  .steps li.bad::before { background: var(--bad); }
+  .answer { border-left: 3px solid var(--accent); padding: 6px 10px; background: #eef4fd; border-radius: 0 8px 8px 0; font-size: 13px; }
+  .sub { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+
+  /* Choisir Organisation / Technical */
+  .choose { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .opt { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 6px; align-content: start; }
+  .opt .bdg { font-size: 12px; }
+  .opt p { margin: 0; font-size: 13px; }
+
+  /* Ce qui manque */
+  .gaps { display: grid; gap: 8px; }
+  .gaprow { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .gaprow .n { width: 26px; height: 26px; border-radius: 7px; background: var(--bad-bg); color: var(--bad); font-weight: 800; text-align: center; line-height: 26px; }
+  .gaprow p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+  .gaprow b { font-size: 14px; }
+  footer { color: var(--dim); font-size: 12px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">MyCLIM · CMCM Luxembourg Indoor Meeting 2027</div>
+    <h1>Carte des rôles : qui est qui, qui voit quoi, quel badge</h1>
+    <p class="lead">Trois familles de personnes travaillent sur le meeting. Pour chacune : comment elle entre dans MyCLIM, quel rôle la
+      plateforme lui donne, ce qu'elle voit, et quel badge elle porte le jour J. État au 12/11/2026, d'après le code.</p>
+  </header>
+
+  <nav class="toc" aria-label="Sommaire">
+    <a href="#carte">La carte</a><a href="#roles">Les rôles un par un</a><a href="#cas">Tes 3 cas</a><a href="#badge">Organisation ou Technical ?</a><a href="#manque">Ce qui manque</a>
+  </nav>
+
+  <!-- 1. LA CARTE -->
+  <section class="card map" id="carte">
+    <h2>La carte</h2>
+    <p class="lead" style="margin-bottom:12px">Lire chaque ligne de gauche à droite. Une même personne peut être dans deux familles : ses rôles s'additionnent, elle garde un seul badge.</p>
+    <div class="lanes">
+      <div></div>
+      <div class="colhead">Comment elle arrive<span>où on la saisit</span></div>
+      <div class="colhead">Rôle plateforme<span>ses droits dans MyCLIM</span></div>
+      <div class="colhead">Ce qu'elle voit<span>son menu</span></div>
+      <div class="colhead">Badge jour J<span>bande de couleur · sous-rôle</span></div>
+
+      <div class="fam org"><b>Organisation</b><small>FLA, étudiants LUNEX, et les équipes extérieures (TV, Apex, speakers…)</small></div>
+      <div class="cell"><span class="where">Équipes & affectations › <b>Équipes organisation</b></span>
+        <ul><li>Ajoutée dans son équipe (prénom + nom)</li><li>Accès choisi par personne</li><li>Admin : « Envoyer le lien » d'activation</li></ul></div>
+      <div class="cell"><span><span class="role">gestionnaire</span> Staff FLA, LUNEX Student</span>
+        <span><span class="role">organisation</span> Organisation</span>
+        <span class="where">ou « Pas de compte » (TV, Apex… souvent)</span></div>
+      <div class="cell"><ul><li><b>gestionnaire</b> : toute la gestion sauf le budget, dont toutes les équipes bénévoles</li><li><b>organisation</b> : Mon planning, Mes échéances, Mes décomptes</li></ul></div>
+      <div class="cell"><span class="bdg"><i style="background:var(--c-org)"></i>Organisation</span><span class="bdg"><i style="background:var(--c-tech)"></i>Technical</span>
+        <span class="where">Sous-rôle = son équipe (« LUNEX Student », « TV »)</span><span class="tag todo">maquette, pas encore dans l'app</span></div>
+
+      <div class="fam vol"><b>Bénévoles</b><small>Les équipes bénévoles (Entrance, VIP team, Hurdles…) et leurs chefs</small></div>
+      <div class="cell"><span class="where">Site public › <b>formulaire bénévole</b></span>
+        <ul><li>La personne remplit la candidature</li><li>Candidatures : on l'accepte</li><li>Affectations : on la met dans une équipe, rôle « Bénévole » ou « Chef d'équipe »</li></ul></div>
+      <div class="cell"><span><span class="role">benevole</span> automatique à l'inscription</span>
+        <span><span class="role">chef_equipe</span> quand on est « Chef d'équipe » dans Affectations</span>
+        <span class="tag ok">automatique depuis le 12/11</span></div>
+      <div class="cell"><ul><li><b>benevole</b> : Mes affectations, Mes documents, Mes décomptes</li><li><b>chef_equipe</b> : + Mon équipe (ses bénévoles), Présences de l'équipe</li></ul></div>
+      <div class="cell"><span class="bdg"><i style="background:var(--c-vol)"></i>Volunteer</span>
+        <span class="where">Sous-rôle = son équipe (« Hurdles team »). Couleur réglable par rôle bénévole (Volunteer / Organisation / Technical)</span></div>
+
+      <div class="fam ext"><b>Ponctuels</b><small>Juges, presse, athlètes, VIP, parents U12/U14, athlètes des courses nationales</small></div>
+      <div class="cell"><span class="where">Chacun son module</span><ul><li>Juges : liste des juges</li><li>Presse : demande d'accréditation</li><li>VIP : module VIP</li><li>Parents, courses nationales : formulaires publics</li></ul></div>
+      <div class="cell"><span><span class="role light">pas de compte</span> juges, presse, VIP, athlètes</span>
+        <span><span class="role">parent_u14</span> <span class="role">athlete_preprogram</span></span></div>
+      <div class="cell"><ul><li>Juges, presse, VIP : rien (pas de compte)</li><li>Parents : Mes enfants</li><li>Courses nationales : Ma course</li></ul></div>
+      <div class="cell"><span class="bdg"><i style="background:var(--c-judge)"></i>Judge</span><span class="bdg"><i style="background:var(--c-press)"></i>Press · Photographer</span>
+        <span class="bdg"><i style="background:var(--c-ath)"></i>Athlete · Coach</span><span class="bdg"><i style="background:var(--c-vip)"></i>VIP</span></div>
+    </div>
+  </section>
+
+  <!-- 2. RÔLES -->
+  <section class="card roles" id="roles">
+    <h2>Les rôles un par un</h2>
+    <p class="lead" style="margin-bottom:10px">Un compte peut avoir plusieurs rôles : ses menus s'additionnent.</p>
+    <table>
+      <thead><tr><th>Rôle</th><th>Pour qui</th><th>Ce qu'il voit</th><th>Comment on l'obtient</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="4">Pilotage</td></tr>
+        <tr><td><span class="role">admin</span></td><td>Toi</td><td>Tout, y compris Utilisateurs & rôles, Réglages, envoi des liens</td><td>Admin uniquement</td></tr>
+        <tr><td><span class="role">gestionnaire</span></td><td>Staff FLA, LUNEX Student</td><td>Toute la gestion sauf le budget : bénévoles, athlètes, accréditations, caisse, communication, Planning, Rétroplanning</td><td>Équipes organisation (accès Staff FLA / LUNEX Student) ou invitation</td></tr>
+        <tr><td><span class="role">budget</span></td><td>Qui gère l'argent</td><td>Budget, décomptes de tous</td><td>Admin, en plus d'un autre rôle</td></tr>
+        <tr><td><span class="role">meeting_director</span></td><td>Directeur du meeting</td><td>Engagés (avec import), statistiques</td><td>Admin</td></tr>
+        <tr><td><span class="role">gestionnaire_site</span></td><td>Qui gère le site</td><td>Édition, actualités, e-magazine, page liens</td><td>Admin</td></tr>
+        <tr class="grp"><td colspan="4">Organisation</td></tr>
+        <tr><td><span class="role">organisation</span></td><td>Membre d'une équipe organisation sans gestion</td><td>Mon planning, Mes échéances (tâches de son équipe), Mes décomptes</td><td>Équipes organisation (accès Organisation) <span class="tag ok">nouveau</span></td></tr>
+        <tr class="grp"><td colspan="4">Bénévoles</td></tr>
+        <tr><td><span class="role">benevole</span></td><td>Tout bénévole</td><td>Mes affectations, Mes documents, Mes décomptes</td><td>Automatique en remplissant le formulaire bénévole</td></tr>
+        <tr><td><span class="role">chef_equipe</span></td><td>Chef d'une équipe bénévole</td><td>Mon équipe (ses bénévoles et leurs documents), Présences de l'équipe</td><td>À la main (Utilisateurs & rôles) <b>et</b> être « Chef d'équipe » dans Affectations</td></tr>
+        <tr><td><span class="role">chef_transport_athletes</span> <span class="role">benevole_transport_athletes</span></td><td>Équipe Transport</td><td>Transport des athlètes / Mes transports</td><td>Automatique quand on est affecté à l'équipe Transport</td></tr>
+        <tr class="grp"><td colspan="4">Rôles métier et ponctuels</td></tr>
+        <tr><td><span class="role">kine</span></td><td>Kinés</td><td>Kiné (rendez-vous athlètes)</td><td>Admin</td></tr>
+        <tr><td><span class="role">commission_athletes</span></td><td>Commission des athlètes</td><td>Sélection des courses nationales</td><td>Admin</td></tr>
+        <tr><td><span class="role">parent_u14</span></td><td>Parents U12/U14</td><td>Mes enfants</td><td>Automatique (inscription U12/U14)</td></tr>
+        <tr><td><span class="role">athlete_preprogram</span></td><td>Athlètes des courses nationales</td><td>Ma course nationale</td><td>Automatique (pré-programme)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 3. CAS -->
+  <section id="cas" class="cases">
+    <article class="card case">
+      <h3>Jane Doe, cheffe de la VIP team</h3>
+      <p class="q">Je l'invite comme bénévole ou comme organisation ?</p>
+      <div class="answer"><b>Comme bénévole cheffe d'équipe.</b> C'est ce qui lui donne ses bénévoles (« Mon équipe »). L'accès Organisation ne montre que son planning et ses échéances, pas ses volontaires.</div>
+      <div class="sub">Aujourd'hui, il faut 3 étapes</div>
+      <ol class="steps">
+        <li>Elle remplit le <b>formulaire bénévole</b>, même si tu sais déjà où elle va.</li>
+        <li>Affectations : tu la mets dans <b>VIP team</b>, rôle « Chef d'équipe ».</li>
+        <li class="bad">Utilisateurs & rôles : tu lui ajoutes <span class="role">chef_equipe</span> à la main. Sans ça, elle ne voit pas « Mon équipe ».</li>
+      </ol>
+      <div class="sub">Depuis la correction du 12/11</div>
+      <p class="q" style="color:var(--ink)">Affectations › « <b>+ Chef d'équipe sans candidature</b> » : prénom, nom, e-mail, VIP team. MyCLIM crée sa fiche déjà affectée et envoie le lien d'activation. Le rôle <span class="role">chef_equipe</span> suit l'affectation : plus d'étape à la main.</p>
+    </article>
+
+    <article class="card case">
+      <h3>Les équipes extérieures (TV, Apex…)</h3>
+      <p class="q">Je leur donne des zones par sous-équipe ? Organisation ou Technical ?</p>
+      <div class="answer"><b>Oui, par équipe.</b> Une équipe organisation par prestataire (TV, Apex, Speakers…). Dans Accréditations › Réglages, chaque équipe a sa couleur, son sous-rôle imprimé et ses zones. Tous ses membres en héritent.</div>
+      <div class="sub">Comment faire</div>
+      <ol class="steps">
+        <li>Équipes organisation : crée l'équipe « TV », ajoute les noms. Accès « Pas de compte » s'ils n'utilisent pas MyCLIM.</li>
+        <li>Accréditations › Réglages : TV = Technical, sous-rôle « TV », zones 1 et 5.</li>
+        <li>Ajuste une personne si besoin (+ une zone pour le réalisateur, par exemple).</li>
+      </ol>
+      <span class="tag todo">les étapes 2 et 3 sont dans la maquette, pas encore dans l'app</span>
+    </article>
+
+    <article class="card case">
+      <h3>LUNEX Student et cheffe d'une équipe bénévole</h3>
+      <p class="q">Elle est dans les deux familles : comment je fais ?</p>
+      <div class="answer"><b>Les deux, ça s'additionne.</b> LUNEX Student lui donne <span class="role">gestionnaire</span> : elle voit déjà toutes les équipes bénévoles. Pour avoir « Mon équipe » et les présences de SON équipe, elle doit aussi être « Chef d'équipe » dans Affectations.</div>
+      <div class="sub">Aujourd'hui</div>
+      <ol class="steps">
+        <li>Équipes organisation › Étudiants LUNEX : accès LUNEX Student.</li>
+        <li class="bad">Pour être cheffe dans Affectations, il lui faut une fiche bénévole (formulaire). Même blocage que Jane Doe.</li>
+        <li>Badge : <b>un seul</b>. Proposé : bande Organisation, sous-rôle au choix (« LUNEX Student » ou « Team leader · Hurdles »), zones des deux.</li>
+      </ol>
+    </article>
+  </section>
+
+  <!-- 4. ORGANISATION OU TECHNICAL -->
+  <section class="card" id="badge">
+    <h2>Organisation ou Technical ?</h2>
+    <p class="lead" style="margin-bottom:10px">La couleur du badge dit au contrôle d'accès « qui est cette personne », les numéros au dos disent « où elle peut aller ». La couleur ne donne aucun droit : ce sont les zones qui comptent.</p>
+    <div class="choose">
+      <div class="opt"><span class="bdg"><i style="background:var(--c-org)"></i>Organisation</span><p>Ceux qui <b>organisent</b> le meeting et prennent des décisions : staff FLA, LUNEX Students, coordination bénévoles, communication, VIP hosting.</p></div>
+      <div class="opt"><span class="bdg"><i style="background:var(--c-tech)"></i>Technical</span><p>Les <b>prestataires</b> qui font tourner la technique : TV, Apex (intercoms), Seltec (chrono), speakers, event presentation, installation.</p></div>
+      <div class="opt"><span class="bdg"><i style="background:var(--c-vol)"></i>Volunteer</span><p>Les <b>bénévoles</b> et leurs chefs d'équipe. Un rôle bénévole peut être mis en Organisation ou Technical dans les réglages si besoin.</p></div>
+    </div>
+  </section>
+
+  <!-- 5. CE QUI MANQUE -->
+  <section class="card" id="manque">
+    <h2>Ce qui manque aujourd'hui</h2>
+    <p class="lead" style="margin-bottom:10px">Ce sont ces trous qui rendent le parcours difficile à suivre. Trouvés dans le code, pas encore corrigés.</p>
+    <div class="gaps">
+      <div class="gaprow"><span class="n">1</span><div><b>Le rôle chef d'équipe ne suit pas l'affectation</b> <span class="tag ok">corrigé le 12/11</span><p>Mettre quelqu'un « Chef d'équipe » dans Affectations ne lui donne pas <span class="role">chef_equipe</span>. Il faut l'ajouter à la main. Seule l'équipe Transport est automatique.</p></div></div>
+      <div class="gaprow"><span class="n">2</span><div><b>Pas de chef d'équipe sans formulaire bénévole</b> <span class="tag ok">corrigé : Affectations › + Chef d'équipe sans candidature</span><p>Affectations ne liste que les candidatures. Un chef invité directement a le menu « Mon équipe » mais aucune équipe dedans.</p></div></div>
+      <div class="gaprow"><span class="n">3</span><div><b>« Présences de l'équipe » probablement bloquée pour un chef</b> <span class="tag ok">corrigé, règles testées</span><p>La page lit tous les profils, ce que les règles réservent aux admins et gestionnaires. Un chef verrait sans doute « Impossible de charger les présences ». Lu dans le code, pas encore testé.</p></div></div>
+      <div class="gaprow"><span class="n">4</span><div><b>Les équipes organisation n'ont pas encore de badge</b><p>Le module Accréditations ne connaît que Bénévoles, Juges et Presse. La maquette Organisation / Technical est prête à valider.</p></div></div>
+      <div class="gaprow"><span class="n">5</span><div><b>« Mon équipe » vide pour un gestionnaire</b><p>Un gestionnaire voit toutes les équipes ailleurs, mais la page « Mon équipe » n'affiche que les équipes dont il est chef.</p></div></div>
+    </div>
+  </section>
+
+  <footer>Document de travail · vérifié dans le code de MyCLIM le 12/11/2026 (navigation, règles Firestore, Affectations, invitations).</footer>
+</div>
+</body>
+</html>

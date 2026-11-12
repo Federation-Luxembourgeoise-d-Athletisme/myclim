@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Module accréditations — maquette</title>
+<style>
+  /* Maquette : refonte complète du module Accréditations (Personnes, Impression, Retrait, Réglages). */
+  :root {
+    --ink: #17324a; --muted: #627788; --dim: #95a5b3; --line: #e3e9ef; --soft: #f6f9fc; --bg: #f1f4f7;
+    --accent: #1a4aa1; --warn: #b26a00; --warn-bg: #fff4e0; --ok: #1f7a4d; --ok-bg: #e5f5ec; --bad: #b3261e; --bad-bg: #fdecec;
+    --c-org: #d7262e; --c-judge: #1d2f6f; --c-vol: #27a9e1; --c-tech: #4a5056; --c-ath: #2e9b4f; --c-coach: #f08a1c;
+    --c-press: #5b2bb5; --c-photo: #9157e6; --c-vip: #c9a227;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", system-ui, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; display: grid; gap: 14px; }
+
+  /* En-tête + KPI */
+  .head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
+  .head h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .kpis { display: flex; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .kpi { padding: 6px 16px; border-left: 1px solid var(--line); cursor: pointer; background: none; border-top: 0; border-bottom: 0; border-right: 0; text-align: left; }
+  .kpi:first-child { border-left: 0; }
+  .kpi:hover { background: var(--soft); }
+  .kpi dt { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .kpi dd { margin: 0; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .kpi.warn dd { color: var(--warn); }
+
+  /* Onglets */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); align-items: center; }
+  .tab { border: 0; background: none; padding: 9px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-weight: 600; color: var(--muted); cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+  .tab:hover { color: var(--ink); }
+  .tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .tab .n { min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e7ecf1; font-size: 11px; line-height: 17px; text-align: center; }
+  .tab.on .n { background: var(--ink); color: #fff; }
+  .tabs .spacer { flex: 1; }
+  .tabs .minor { font-size: 12.5px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 6px 8px; }
+  .tabs .minor:hover { color: var(--accent); }
+
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+  .view { display: none; }
+  .view.on { display: block; }
+
+  /* Barre de filtres */
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .chip:hover { color: var(--ink); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .chip .n { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .chip.on .n { color: #c9d5e0; }
+  .chip.alert:not(.on) { border-color: #f0c987; background: var(--warn-bg); color: var(--warn); }
+  .sep { width: 1px; height: 20px; background: var(--line); }
+  .search { flex: 1 1 200px; max-width: 280px; margin-left: auto; height: 32px; padding: 0 10px; border: 1px solid #cfd9e3; border-radius: 8px; }
+
+  /* Liste maître + tiroir */
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
+  .split.closed { grid-template-columns: minmax(0, 1fr) 0; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 7px 10px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 6px 10px; border-bottom: 1px solid #eef2f5; vertical-align: middle; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: #f7fafc; }
+  tbody tr.sel td { background: #e9f1fd; }
+  tbody tr.attn td { background: #fffaf0; }
+  tbody tr.attn.sel td { background: #fdf0d5; }
+  td.cb, th.cb { width: 30px; padding-right: 0; }
+  .band { display: inline-block; width: 4px; height: 26px; border-radius: 2px; vertical-align: middle; margin-right: 9px; }
+  .who { display: inline-flex; align-items: center; }
+  .who b { font-weight: 600; }
+  .sub { font-size: 12px; color: var(--muted); }
+  .cat { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .zn { display: inline-flex; gap: 3px; }
+  .zn i { width: 19px; height: 19px; border-radius: 5px; font: 700 11px/19px system-ui, sans-serif; text-align: center; font-style: normal; background: #eef2f5; color: #b8c4ce; }
+  .zn i.on { color: #fff; }
+  .zn i.plus { box-shadow: inset 0 0 0 2px #fff; outline: 2px solid var(--ink); outline-offset: -2px; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 19px; white-space: nowrap; border: 1px solid transparent; }
+  .p-todo { background: #fff; border-color: #d7e0e8; color: var(--ink); }
+  .p-queue { background: #e8effc; color: var(--accent); }
+  .p-done { background: var(--ok-bg); color: var(--ok); }
+  .p-given { background: var(--ok); color: #fff; }
+  .p-warn { background: var(--warn-bg); color: var(--warn); border-color: #f0c987; }
+  .p-bad { background: var(--bad-bg); color: var(--bad); }
+  .act { text-align: right; white-space: nowrap; }
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 7px; border: 1px solid #cfd9e3; background: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--soft); }
+  .btn.pri { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .btn.pri:hover { background: #0f2436; }
+  .btn.ghost { border-color: transparent; background: none; color: var(--muted); }
+  .btn.ghost:hover { color: var(--ink); background: var(--soft); }
+  .btn.danger { color: var(--bad); border-color: #f2c4c0; }
+  .btn.big { padding: 9px 16px; font-size: 14px; border-radius: 9px; }
+  .bulk { display: none; align-items: center; gap: 10px; padding: 8px 12px; background: var(--ink); color: #fff; border-radius: 0 0 12px 12px; font-size: 13px; }
+  .bulk.on { display: flex; }
+  .bulk .btn { background: #fff; color: var(--ink); border-color: #fff; }
+  .bulk .btn.ghost { background: none; color: #c9d5e0; border-color: transparent; }
+  .empty { padding: 24px; text-align: center; color: var(--muted); }
+
+  /* Tiroir */
+  .drawer { border-left: 1px solid var(--line); padding: 14px 16px; display: grid; gap: 14px; overflow: hidden; position: sticky; top: 0; }
+  .split.closed .drawer { display: none; }
+  .drawer h2 { margin: 0; font-size: 16px; }
+  .drawer .x { position: absolute; right: 10px; top: 10px; }
+  .mini-badge { display: grid; grid-template-columns: 26px 1fr; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: #fff; height: 150px; box-shadow: 0 6px 18px rgba(23,50,74,.08); }
+  .mini-badge .vband { color: #fff; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font: 800 11px/26px system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+  .mini-badge .body { padding: 14px 14px 10px; display: grid; align-content: space-between; }
+  .mini-badge .nm { font: 800 17px/1.1 system-ui, sans-serif; }
+  .mini-badge .rl { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .zgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .zbtn { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; font-size: 12.5px; text-align: left; }
+  .zbtn i { width: 20px; height: 20px; border-radius: 5px; font: 700 11px/20px system-ui; text-align: center; font-style: normal; background: #eef2f5; color: #b8c4ce; flex: none; }
+  .zbtn.on { border-color: #b9c9d9; }
+  .zbtn.on i { color: #fff; }
+  .zbtn.off span { text-decoration: line-through; color: var(--dim); }
+  .zbtn small { margin-left: auto; font-size: 10.5px; color: var(--dim); }
+  .field { display: grid; gap: 4px; }
+  .field input, .field select { height: 32px; padding: 0 9px; border: 1px solid #cfd9e3; border-radius: 7px; background: #fff; }
+  .note { font-size: 12px; color: var(--muted); }
+  .alertbox { padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 12.5px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* Impression */
+  .print-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
+  .group { border-top: 1px solid var(--line); }
+  .group:first-child { border-top: 0; }
+  .ghead { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--soft); font-weight: 700; font-size: 13px; }
+  .ghead .n { color: var(--muted); font-weight: 600; }
+  .ghead .btn { margin-left: auto; }
+  .qrow { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-top: 1px solid #eef2f5; }
+  .qrow .x { margin-left: auto; }
+  .side { padding: 14px; display: grid; gap: 12px; }
+  .side h3 { margin: 0; font-size: 14px; }
+  .sheets { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sheet { width: 70px; height: 99px; background: #fff; border: 1px solid #d7e0e8; border-radius: 2px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  .sheet span { border-radius: 1px; }
+  .sheet span.empty { background: repeating-linear-gradient(45deg, #f3f5f7, #f3f5f7 3px, #fff 3px, #fff 6px); }
+  .stepper { display: inline-flex; border: 1px solid #cfd9e3; border-radius: 7px; overflow: hidden; }
+  .stepper button { width: 30px; border: 0; background: var(--soft); cursor: pointer; font-weight: 700; }
+  .stepper input { width: 46px; border: 0; text-align: center; height: 30px; }
+  .nn { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .nn button { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: #fff; cursor: pointer; font-weight: 600; font-size: 13px; }
+  .nn button.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .nn .sw { width: 10px; height: 28px; border-radius: 3px; }
+
+  /* Retrait */
+  .desk { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+  .bigsearch { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .bigsearch input { flex: 1; height: 44px; font-size: 17px; padding: 0 14px; border: 2px solid var(--ink); border-radius: 10px; }
+  .hit { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #eef2f5; }
+  .hit .loc { margin-left: auto; text-align: right; }
+  .loc b { display: block; font-size: 15px; }
+  .boxes { padding: 12px; display: grid; gap: 8px; }
+  .box { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; }
+  .box .bar2 { flex: 1; height: 6px; border-radius: 3px; background: #eef2f5; overflow: hidden; }
+  .box .bar2 span { display: block; height: 100%; background: var(--ok); }
+  .box small { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 9px; font-size: 13px; transition: .2s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: translateX(-50%); }
+
+  /* Réglages */
+  .set-nav { display: flex; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .set-pane { display: none; padding: 14px; }
+  .set-pane.on { display: block; }
+  .matrix { border-collapse: separate; border-spacing: 0; }
+  .matrix th { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--ink); vertical-align: bottom; border-bottom: 1px solid var(--line); }
+  .matrix th.z { text-align: center; width: 74px; padding: 6px 4px; }
+  .matrix th.z i { display: block; margin: 0 auto 4px; width: 22px; height: 22px; border-radius: 6px; background: var(--ink); color: #fff; font: 700 12px/22px system-ui; font-style: normal; }
+  .matrix td { padding: 5px 10px; }
+  .matrix td.c { text-align: center; padding: 3px; cursor: pointer; }
+  .cell { display: inline-block; width: 30px; height: 26px; border-radius: 7px; border: 1px dashed #d2dbe3; transition: transform .1s; }
+  .cell.on { border: 0; }
+  td.c:hover .cell { transform: scale(1.12); }
+  .catsel { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 8px; background: #fff; font-size: 12px; }
+  .catsel select { border: 0; background: none; font-size: 12px; font-weight: 600; padding: 2px 0; }
+  .catsel .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .rolecell { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .rolecell .cnt { color: var(--dim); font-size: 12px; }
+  .zones-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .zone-card { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+  .zone-card i { width: 24px; height: 24px; border-radius: 6px; background: var(--ink); color: #fff; font: 700 12px/24px system-ui; font-style: normal; text-align: center; cursor: grab; }
+  .zone-card input { border: 0; width: 120px; font-weight: 600; }
+  .zone-card input:focus { outline: 1px solid #cfd9e3; border-radius: 4px; }
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .qr { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
+  .qr b { font-size: 13px; }
+  .qr .row .chip { font-size: 11px; padding: 1px 8px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+
+  .explain { font-size: 12.5px; color: var(--muted); background: #fff; border: 1px dashed #cfd9e3; border-radius: 10px; padding: 9px 12px; }
+  .explain b { color: var(--ink); }
+
+  @media (max-width: 980px) {
+    .split, .split.closed, .print-grid, .desk { grid-template-columns: 1fr; }
+    .drawer { border-left: 0; border-top: 1px solid var(--line); position: static; }
+    .search { max-width: none; margin-left: 0; }
+    .kpis { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="explain"><b>Maquette — refonte du module Accréditations.</b> Tout est cliquable : filtres, lignes (tiroir à droite), cases à cocher (action groupée), zones, matrice des réglages, guichet de retrait. Données fictives, rien n'est enregistré.</div>
+
+  <div class="head">
+    <div>
+      <h1>Accréditations</h1>
+      <p>Édition 2027 · Coque Center</p>
+    </div>
+    <dl class="kpis" id="kpis"></dl>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-view="people">Personnes <span class="n" id="n-people"></span></button>
+    <button class="tab" data-view="print">Impression <span class="n" id="n-print"></span></button>
+    <button class="tab" data-view="desk">Retrait <span class="n" id="n-desk"></span></button>
+    <button class="tab" data-view="settings">Réglages</button>
+    <span class="spacer"></span>
+    <button class="minor">Historique</button>
+    <button class="minor">Plans</button>
+  </nav>
+
+  <!-- PERSONNES -->
+  <section class="view on card" id="view-people">
+    <div class="bar">
+      <div class="chips" id="type-chips"></div>
+      <span class="sep"></span>
+      <div class="chips" id="status-chips"></div>
+      <input class="search" id="search" type="search" placeholder="Rechercher…" />
+    </div>
+    <div class="split closed" id="split">
+      <div>
+        <table>
+          <thead><tr><th class="cb"><input type="checkbox" id="all" /></th><th>Personne</th><th>Zones</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <aside class="drawer" id="drawer" style="position:relative"></aside>
+    </div>
+    <div class="bulk" id="bulk"><b id="bulk-n"></b> sélectionné(s) <button class="btn" data-bulk="queue">Mettre en file</button><button class="btn" data-bulk="zone">+ Zone…</button><button class="btn ghost" data-bulk="clear">Annuler</button></div>
+  </section>
+
+  <!-- IMPRESSION -->
+  <section class="view" id="view-print">
+    <div class="print-grid">
+      <div class="card" id="queue"></div>
+      <div class="card side">
+        <h3>Lot à imprimer</h3>
+        <div class="sheets" id="sheets"></div>
+        <div class="note" id="sheet-note"></div>
+        <button class="btn pri big" id="print-btn">Imprimer le lot</button>
+        <div class="note">Génère les badges (recto + verso miroir) et la liste de contrôle du lot.</div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:4px 0" />
+        <h3>Badges sans nom</h3>
+        <div class="nn" id="nn"></div>
+        <div class="row" style="align-items:center">
+          <div class="stepper"><button id="nn-minus">−</button><input id="nn-q" value="10" /><button id="nn-plus">+</button></div>
+          <button class="btn" id="nn-add">Ajouter au lot</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RETRAIT -->
+  <section class="view" id="view-desk">
+    <div class="desk">
+      <div class="card">
+        <div class="bigsearch"><input id="desk-q" placeholder="Qui vient chercher son badge ? (nom, prénom…)" /></div>
+        <div id="hits"></div>
+      </div>
+      <div class="card">
+        <div class="bar"><b style="font-size:13px">Points de retrait</b><button class="btn ghost" style="margin-left:auto">+ Ajouter</button></div>
+        <div class="boxes" id="boxes"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RÉGLAGES -->
+  <section class="view card" id="view-settings">
+    <div class="set-nav chips">
+      <button class="chip on" data-pane="matrix">Accès par rôle</button>
+      <button class="chip" data-pane="zones">Zones</button>
+      <button class="chip" data-pane="qr">QR codes au verso</button>
+    </div>
+    <div class="set-pane on" id="pane-matrix">
+      <p class="hint">Cliquez une case pour donner ou retirer l'accès. La couleur = catégorie du badge, choisie à gauche. Les ajustements individuels se font dans le tiroir d'une personne.</p>
+      <div style="overflow-x:auto"><table class="matrix" id="matrix"></table></div>
+    </div>
+    <div class="set-pane" id="pane-zones">
+      <p class="hint">Le numéro est imprimé sur le badge et sur le plan. Glissez pour réordonner, cliquez le nom pour renommer.</p>
+      <div class="zones-list" id="zones-list"></div>
+    </div>
+    <div class="set-pane" id="pane-qr">
+      <p class="hint">Chaque QR peut apparaître au verso d'un ou plusieurs types de badges.</p>
+      <div class="qr-grid" id="qr-grid"></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CATS = {
+  org: { label: "Organisation", color: "var(--c-org)" },
+  vol: { label: "Volunteer", color: "var(--c-vol)" },
+  tech: { label: "Technical", color: "var(--c-tech)" },
+  judge: { label: "Judge", color: "var(--c-judge)" },
+  press: { label: "Press", color: "var(--c-press)" },
+  photo: { label: "Photographer", color: "var(--c-photo)" },
+  vip: { label: "VIP", color: "var(--c-vip)" },
+  ath: { label: "Athlete", color: "var(--c-ath)" },
+  coach: { label: "Coach", color: "var(--c-coach)" },
+};
+const ZONES = [
+  { id: 1, name: "Infield" }, { id: 2, name: "Warm-up" }, { id: 3, name: "Coaching Zone" },
+  { id: 4, name: "Judges Room" }, { id: 5, name: "Mixed Zone" }, { id: 6, name: "VIP Zone" },
+];
+const ROLES = [
+  { name: "Direction meeting", cat: "org", zones: [1, 2, 3, 4, 5, 6] },
+  { name: "Guides VIP", cat: "vol", zones: [6] },
+  { name: "VIP team", cat: "vol", zones: [6] },
+  { name: "Entrance", cat: "vol", zones: [] },
+  { name: "Hurdles team", cat: "vol", zones: [1] },
+  { name: "Call room", cat: "vol", zones: [1, 2] },
+  { name: "Seltec", cat: "tech", zones: [1, 4] },
+  { name: "TV", cat: "tech", zones: [1, 5] },
+];
+const TYPES = [
+  { id: "all", label: "Tous" },
+  { id: "staff", label: "Bénévoles & staff", cats: ["org", "vol", "tech"] },
+  { id: "judge", label: "Juges", cats: ["judge"] },
+  { id: "press", label: "Presse", cats: ["press", "photo"] },
+  { id: "vip", label: "VIP", cats: ["vip"] },
+];
+const STATUSES = [
+  { id: "todo", label: "À imprimer", cls: "p-todo" },
+  { id: "queue", label: "En file", cls: "p-queue" },
+  { id: "done", label: "Imprimé", cls: "p-done" },
+  { id: "given", label: "Remis", cls: "p-given" },
+  { id: "changed", label: "Modifié", cls: "p-warn" },
+  { id: "destroy", label: "À détruire", cls: "p-bad" },
+];
+let people = [
+  ["Margot", "Laporte", "Direction meeting", "org", "todo"],
+  ["Lily", "Christophory", "Entrance", "vol", "todo"],
+  ["Test", "Bénévole", "VIP team", "vol", "queue"],
+  ["Fadil", "Ali", "Hurdles team", "vol", "done", "Boîte A–F"],
+  ["Christine", "Atuhaire", "Call room", "vol", "changed"],
+  ["Klara", "Bouckova", "Guides VIP", "vol", "given", "Boîte A–F"],
+  ["Denis", "Buma", "Seltec", "tech", "done", "Accueil staff"],
+  ["Santiago", "Clavijo", "TV", "tech", "queue"],
+  ["Lex", "Damit", "Hurdles team", "vol", "destroy"],
+  ["Marie", "Muller", "Juge arbitre", "judge", "todo", null, [1, 4]],
+  ["Paul", "Weber", "Juge de départ", "judge", "done", "Salle des juges", [1, 4]],
+  ["Sarah", "Klein", "Luxemburger Wort", "press", "queue", null, [5]],
+  ["Tom", "Reuter", "Photographe RTL", "photo", "todo", null, [1, 5]],
+  ["Anne", "Schmit", "Banque partenaire", "vip", "done", "Accueil VIP", [6]],
+].map(([firstName, lastName, role, cat, status, loc, zones], i) => ({
+  id: i + 1, firstName, lastName, role, cat, status, loc: loc || "",
+  fixedZones: zones || null, add: [], remove: [], label: "", sel: false,
+}));
+let typeFilter = "all", statusFilter = "", query = "", openId = null, nnCat = "ath", nnBatch = [];
+
+const $ = (s) => document.querySelector(s);
+const roleOf = (p) => ROLES.find((r) => r.name === p.role);
+const inherited = (p) => p.fixedZones || roleOf(p)?.zones || [];
+const zonesOf = (p) => ZONES.map((z) => z.id).filter((id) => !p.remove.includes(id) && (inherited(p).includes(id) || p.add.includes(id)));
+const catOf = (p) => (roleOf(p) ? roleOf(p).cat : p.cat);
+const st = (id) => STATUSES.find((s) => s.id === id);
+const typeMatch = (p, t) => t === "all" || TYPES.find((x) => x.id === t).cats.includes(catOf(p));
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), 1800); }
+
+function renderKpis() {
+  const c = (s) => people.filter((p) => p.status === s).length;
+  const k = [
+    ["À imprimer", c("todo") + c("changed"), "todo"], ["En file", c("queue"), "queue"], ["Imprimés", c("done"), "done"],
+    ["Remis", c("given"), "given"], ["À traiter", c("changed") + c("destroy"), "attn"],
+  ];
+  $("#kpis").innerHTML = k.map(([l, n, f]) => `<button class="kpi${f === "attn" && n ? " warn" : ""}" data-f="${f}"><dt>${l}</dt><dd>${n}</dd></button>`).join("");
+  $("#n-people").textContent = people.length;
+  $("#n-print").textContent = c("queue") + nnBatch.reduce((a, b) => a + b.q, 0);
+  $("#n-desk").textContent = c("done");
+}
+
+function renderChips() {
+  $("#type-chips").innerHTML = TYPES.map((t) => {
+    const n = people.filter((p) => typeMatch(p, t.id)).length;
+    const dot = t.cats ? `<span class="dot" style="background:${CATS[t.cats[0]].color}"></span>` : "";
+    return `<button class="chip${typeFilter === t.id ? " on" : ""}" data-type="${t.id}">${dot}${t.label} <span class="n">${n}</span></button>`;
+  }).join("");
+  const scoped = people.filter((p) => typeMatch(p, typeFilter));
+  const groups = [["todo", "À imprimer", ["todo", "changed"]], ["queue", "En file", ["queue"]], ["done", "Imprimés", ["done", "given"]], ["attn", "À traiter", ["changed", "destroy"]]];
+  $("#status-chips").innerHTML = groups.map(([id, l, ss]) => {
+    const n = scoped.filter((p) => ss.includes(p.status)).length;
+    return `<button class="chip${statusFilter === id ? " on" : ""}${id === "attn" && n ? " alert" : ""}" data-status="${id}" data-ss="${ss}">${l} <span class="n">${n}</span></button>`;
+  }).join("");
+}
+
+function visible() {
+  const g = { todo: ["todo", "changed"], queue: ["queue"], done: ["done", "given"], attn: ["changed", "destroy"] };
+  return people.filter((p) => typeMatch(p, typeFilter) && (!statusFilter || g[statusFilter].includes(p.status))
+    && `${p.firstName} ${p.lastName} ${p.role}`.toLowerCase().includes(query));
+}
+
+function zoneDots(p) {
+  const on = zonesOf(p), color = CATS[catOf(p)].color;
+  return `<span class="zn">${ZONES.map((z) => `<i class="${on.includes(z.id) ? "on" : ""}${p.add.includes(z.id) ? " plus" : ""}" style="${on.includes(z.id) ? `background:${color}` : ""}" title="${z.name}">${z.id}</i>`).join("")}</span>`;
+}
+
+function rowAction(p) {
+  if (p.status === "todo" || p.status === "changed") return `<button class="btn" data-act="queue" data-id="${p.id}">+ File</button>`;
+  if (p.status === "queue") return `<button class="btn ghost" data-act="unqueue" data-id="${p.id}">Retirer</button>`;
+  if (p.status === "destroy") return `<button class="btn danger" data-act="destroyed" data-id="${p.id}">Détruit ✓</button>`;
+  if (p.status === "done") return `<span class="sub">${p.loc || "à ranger"}</span>`;
+  return "";
+}
+
+function renderRows() {
+  const list = visible();
+  $("#rows").innerHTML = list.map((p) => {
+    const c = CATS[catOf(p)], s = st(p.status);
+    const attn = p.status === "changed" || p.status === "destroy";
+    return `<tr data-id="${p.id}" class="${openId === p.id ? "sel" : ""}${attn ? " attn" : ""}">
+      <td class="cb"><input type="checkbox" data-cb="${p.id}" ${p.sel ? "checked" : ""}></td>
+      <td><span class="who"><span class="band" style="background:${c.color}"></span><span><b>${p.firstName} ${p.lastName}</b><br><span class="sub">${p.label || p.role} · <span class="cat" style="color:${c.color}">${c.label}</span></span></span></span></td>
+      <td>${zoneDots(p)}</td>
+      <td><span class="pill ${s.cls}">${s.label}</span></td>
+      <td class="act">${rowAction(p)}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">Personne dans ce filtre 🎉</td></tr>`;
+  const n = people.filter((p) => p.sel).length;
+  $("#bulk").classList.toggle("on", n > 0);
+  $("#bulk-n").textContent = n;
+}
+
+function renderDrawer() {
+  const p = people.find((x) => x.id === openId);
+  $("#split").classList.toggle("closed", !p);
+  if (!p) return;
+  const c = CATS[catOf(p)], on = zonesOf(p), inh = inherited(p);
+  $("#drawer").innerHTML = `
+    <button class="btn ghost x" data-close>✕</button>
+    <div><h2>${p.firstName} ${p.lastName}</h2><div class="sub">${p.role} · <span class="pill ${st(p.status).cls}">${st(p.status).label}</span></div></div>
+    ${p.status === "changed" ? `<div class="alertbox">Rôle ou zones changés depuis l'impression. <button class="btn" data-act="queue" data-id="${p.id}">Réimprimer</button></div>` : ""}
+    ${p.status === "destroy" ? `<div class="alertbox" style="background:var(--bad-bg);color:var(--bad)">Plus affecté·e : récupérer le badge. <button class="btn danger" data-act="destroyed" data-id="${p.id}">Détruit ✓</button></div>` : ""}
+    <div class="mini-badge"><div class="vband" style="background:${c.color}">${c.label}</div>
+      <div class="body"><div><div class="nm">${p.firstName}<br>${p.lastName.toUpperCase()}</div><div class="rl">${p.label || p.role}</div></div>${zoneDots(p)}</div></div>
+    <div><div class="lbl"><span>Zones</span><span>${on.length} / ${ZONES.length}</span></div>
+      <div class="zgrid">${ZONES.map((z) => {
+        const isOn = on.includes(z.id), isInh = inh.includes(z.id);
+        const tag = p.add.includes(z.id) ? "ajoutée" : p.remove.includes(z.id) ? "retirée" : isInh ? "rôle" : "";
+        return `<button class="zbtn ${isOn ? "on" : ""} ${p.remove.includes(z.id) ? "off" : ""}" data-z="${z.id}"><i style="${isOn ? `background:${c.color}` : ""}">${z.id}</i><span>${z.name}</span><small>${tag}</small></button>`;
+      }).join("")}</div>
+      <div class="note" style="margin-top:6px">Clic = donner / retirer pour cette personne seulement. « rôle » = vient de Réglages.</div></div>
+    <label class="field"><span class="lbl">Texte sur le badge</span><input id="d-label" value="${p.label}" placeholder="${p.role}"></label>
+    <div class="row">${p.status !== "queue" ? `<button class="btn pri" data-act="queue" data-id="${p.id}">Mettre en file</button>` : `<button class="btn" data-act="unqueue" data-id="${p.id}">Retirer de la file</button>`}<button class="btn ghost">Historique</button></div>`;
+}
+
+function renderPrint() {
+  const q = people.filter((p) => p.status === "queue");
+  const byCat = {};
+  q.forEach((p) => (byCat[catOf(p)] ||= []).push(p));
+  let html = Object.entries(byCat).map(([cat, list]) => `
+    <div class="group"><div class="ghead"><span class="band" style="background:${CATS[cat].color};height:16px"></span>${CATS[cat].label} <span class="n">${list.length}</span></div>
+    ${list.map((p) => `<div class="qrow"><b>${p.firstName} ${p.lastName}</b><span class="sub">${p.label || p.role}</span>${zoneDots(p)}<button class="btn ghost x" data-act="unqueue" data-id="${p.id}">Retirer</button></div>`).join("")}</div>`).join("");
+  html += nnBatch.map((b, i) => `<div class="group"><div class="ghead"><span class="band" style="background:${CATS[b.cat].color};height:16px"></span>${CATS[b.cat].label} sans nom <span class="n">× ${b.q}</span><button class="btn ghost" data-nn-del="${i}">Retirer</button></div></div>`).join("");
+  $("#queue").innerHTML = html || `<div class="empty">La file est vide. Ajoutez des personnes depuis l'onglet Personnes (« + File »).</div>`;
+  const colors = [...q.map((p) => CATS[catOf(p)].color), ...nnBatch.flatMap((b) => Array(b.q).fill(CATS[b.cat].color))];
+  const sheets = Math.ceil(colors.length / 4);
+  $("#sheets").innerHTML = Array.from({ length: Math.min(sheets, 8) }, (_, s) => `<div class="sheet">${[0, 1, 2, 3].map((k) => { const col = colors[s * 4 + k]; return col ? `<span style="background:${col}"></span>` : `<span class="empty"></span>`; }).join("")}</div>`).join("") + (sheets > 8 ? `<span class="note">+${sheets - 8}</span>` : "");
+  $("#sheet-note").textContent = colors.length ? `${colors.length} badge(s) · ${sheets} feuille(s) A4 · 4 par feuille` : "Aucun badge dans le lot.";
+  $("#print-btn").textContent = `Imprimer le lot (${colors.length})`;
+  $("#print-btn").disabled = !colors.length;
+  $("#nn").innerHTML = ["ath", "coach"].map((c) => `<button class="${nnCat === c ? "on" : ""}" data-nn="${c}"><span class="sw" style="background:${CATS[c].color}"></span>${CATS[c].label}</button>`).join("");
+}
+
+function renderDesk() {
+  const q = $("#desk-q").value.trim().toLowerCase();
+  const list = people.filter((p) => ["done", "given", "queue", "todo"].includes(p.status) && (!q || `${p.firstName} ${p.lastName}`.toLowerCase().includes(q)));
+  $("#hits").innerHTML = (q ? list : list.filter((p) => p.status === "done")).map((p) => {
+    const c = CATS[catOf(p)];
+    const right = p.status === "given" ? `<span class="pill p-given">Remis ✓</span>`
+      : p.status === "done" ? `<div class="loc"><span class="sub">Rangé dans</span><b>${p.loc || "— à ranger —"}</b></div><button class="btn pri big" data-act="give" data-id="${p.id}">Remis</button>`
+      : `<span class="pill ${st(p.status).cls}">Pas encore imprimé</span>`;
+    return `<div class="hit"><span class="band" style="background:${c.color};height:34px"></span><div><b style="font-size:15px">${p.firstName} ${p.lastName}</b><div class="sub">${p.role} · ${c.label}</div></div>${right}</div>`;
+  }).join("") || `<div class="empty">Aucun badge trouvé.</div>`;
+  const locs = ["Boîte A–F", "Boîte G–M", "Accueil staff", "Salle des juges", "Accueil VIP"];
+  $("#boxes").innerHTML = locs.map((l) => {
+    const inBox = people.filter((p) => p.loc === l), given = inBox.filter((p) => p.status === "given").length;
+    return `<div class="box"><b style="font-size:13px;min-width:110px">${l}</b><div class="bar2"><span style="width:${inBox.length ? (given / inBox.length) * 100 : 0}%"></span></div><small>${given}/${inBox.length}</small></div>`;
+  }).join("");
+}
+
+function renderSettings() {
+  const catOpts = (sel) => ["org", "vol", "tech"].map((c) => `<option value="${c}" ${c === sel ? "selected" : ""}>${CATS[c].label}</option>`).join("");
+  $("#matrix").innerHTML = `<thead><tr><th>Rôle</th><th>Badge</th>${ZONES.map((z) => `<th class="z"><i>${z.id}</i>${z.name}</th>`).join("")}</tr></thead><tbody>${ROLES.map((r, ri) => `
+    <tr><td><div class="rolecell"><b>${r.name}</b><span class="cnt">${people.filter((p) => p.role === r.name).length} pers.</span></div></td>
+    <td><span class="catsel"><span class="dot" style="background:${CATS[r.cat].color}"></span><select data-rcat="${ri}">${catOpts(r.cat)}</select></span></td>
+    ${ZONES.map((z) => `<td class="c" data-r="${ri}" data-z="${z.id}"><span class="cell ${r.zones.includes(z.id) ? "on" : ""}" style="${r.zones.includes(z.id) ? `background:${CATS[r.cat].color}` : ""}"></span></td>`).join("")}</tr>`).join("")}
+    <tr><td colspan="${ZONES.length + 2}"><button class="btn ghost">+ Rôle (depuis Équipes)</button></td></tr></tbody>`;
+  $("#zones-list").innerHTML = ZONES.map((z) => `<div class="zone-card"><i>${z.id}</i><input value="${z.name}"><button class="btn ghost" title="Supprimer">✕</button></div>`).join("") + `<button class="btn">+ Zone</button>`;
+  const qrs = [["Résultats live", "Lien"], ["Roadbook athlètes", "Document"], ["Photos du meeting", "Lien"], ["Emergency contact", "Lien"]];
+  $("#qr-grid").innerHTML = qrs.map(([n, t], i) => `<div class="qr"><div style="display:flex;justify-content:space-between"><b>${n}</b><span class="sub">${t}</span></div>
+    <div class="row">${["vol", "judge", "press", "vip", "ath"].map((c, k) => `<button class="chip ${(i + k) % 3 ? "on" : ""}" data-qr>${CATS[c].label}</button>`).join("")}</div></div>`).join("") + `<button class="qr btn" style="place-content:center;min-height:80px">+ QR code</button>`;
+}
+
+function renderAll() { renderKpis(); renderChips(); renderRows(); renderDrawer(); renderPrint(); renderDesk(); }
+function setStatus(id, s, msg) {
+  const p = people.find((x) => x.id === id);
+  p.status = s;
+  if (msg) toast(msg);
+  renderAll();
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button, tr, td.c, input[type=checkbox]");
+  if (!t) return;
+  if (t.matches(".tab")) {
+    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b === t));
+    document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === `view-${t.dataset.view}`));
+    return;
+  }
+  if (t.matches(".kpi")) {
+    document.querySelector('.tab[data-view="people"]').click();
+    typeFilter = "all"; statusFilter = t.dataset.f === "given" ? "done" : t.dataset.f; renderAll(); return;
+  }
+  if (t.dataset.type) { typeFilter = t.dataset.type; statusFilter = ""; renderAll(); return; }
+  if (t.dataset.status) { statusFilter = statusFilter === t.dataset.status ? "" : t.dataset.status; renderAll(); return; }
+  if (t.dataset.cb) { const p = people.find((x) => x.id === +t.dataset.cb); p.sel = t.checked; renderRows(); return; }
+  if (t.id === "all") { visible().forEach((p) => (p.sel = t.checked)); renderRows(); return; }
+  if (t.dataset.act) {
+    const id = +t.dataset.id, a = t.dataset.act;
+    if (a === "queue") setStatus(id, "queue", "Ajouté à la file d'impression");
+    if (a === "unqueue") setStatus(id, "todo", "Retiré de la file");
+    if (a === "destroyed") { setStatus(id, "done"); people = people.filter((p) => p.id !== id); openId = null; toast("Badge détruit — ligne retirée"); renderAll(); }
+    if (a === "give") setStatus(id, "given", "Badge remis ✓");
+    return;
+  }
+  if (t.dataset.bulk) {
+    if (t.dataset.bulk === "queue") { const n = people.filter((p) => p.sel).length; people.forEach((p) => { if (p.sel) { p.status = "queue"; p.sel = false; } }); toast(`${n} badge(s) mis en file`); }
+    if (t.dataset.bulk === "clear" || t.dataset.bulk === "zone") people.forEach((p) => (p.sel = false));
+    renderAll(); return;
+  }
+  if (t.dataset.close !== undefined) { openId = null; renderAll(); return; }
+  if (t.dataset.z && t.matches(".zbtn")) {
+    const p = people.find((x) => x.id === openId), z = +t.dataset.z;
+    const isOn = zonesOf(p).includes(z);
+    if (inherited(p).includes(z)) { p.remove = isOn ? [...p.remove, z] : p.remove.filter((x) => x !== z); }
+    else { p.add = isOn ? p.add.filter((x) => x !== z) : [...p.add, z]; }
+    if (p.status === "done") p.status = "changed";
+    renderAll(); return;
+  }
+  if (t.matches("td.c")) {
+    const r = ROLES[+t.dataset.r], z = +t.dataset.z;
+    r.zones = r.zones.includes(z) ? r.zones.filter((x) => x !== z) : [...r.zones, z];
+    renderSettings(); renderRows(); renderDrawer();
+    toast(`${r.name} : ${r.zones.includes(z) ? "accès" : "plus d'accès"} ${ZONES.find((x) => x.id === z).name}`);
+    return;
+  }
+  if (t.dataset.pane) {
+    document.querySelectorAll("[data-pane]").forEach((b) => b.classList.toggle("on", b === t));
+    document.querySelectorAll(".set-pane").forEach((p) => p.classList.toggle("on", p.id === `pane-${t.dataset.pane}`));
+    return;
+  }
+  if (t.dataset.qr !== undefined) { t.classList.toggle("on"); return; }
+  if (t.dataset.nn) { nnCat = t.dataset.nn; renderPrint(); return; }
+  if (t.dataset.nnDel !== undefined) { nnBatch.splice(+t.dataset.nnDel, 1); renderAll(); return; }
+  if (t.id === "nn-minus" || t.id === "nn-plus") { const i = $("#nn-q"); i.value = Math.max(1, (+i.value || 1) + (t.id === "nn-plus" ? 1 : -1)); return; }
+  if (t.id === "nn-add") { nnBatch.push({ cat: nnCat, q: Math.max(1, +$("#nn-q").value || 1) }); toast("Badges sans nom ajoutés au lot"); renderAll(); return; }
+  if (t.id === "print-btn") {
+    people.forEach((p) => { if (p.status === "queue") { p.status = "done"; p.loc = "Boîte A–F"; } });
+    nnBatch = []; toast("Lot imprimé — 2 PDF générés"); renderAll(); return;
+  }
+  if (t.matches("tr[data-id]")) { openId = openId === +t.dataset.id ? null : +t.dataset.id; renderAll(); }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.dataset.rcat) { ROLES[+e.target.dataset.rcat].cat = e.target.value; renderSettings(); renderAll(); }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "search") { query = e.target.value.toLowerCase(); renderRows(); }
+  if (e.target.id === "desk-q") renderDesk();
+  if (e.target.id === "d-label") { const p = people.find((x) => x.id === openId); p.label = e.target.value; renderRows(); document.querySelector(".mini-badge .rl").textContent = p.label || p.role; }
+});
+renderAll(); renderSettings();
+</script>
+</body>
+</html>

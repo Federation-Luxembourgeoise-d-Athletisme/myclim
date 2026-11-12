@@ -5,6 +5,10 @@ import { TEAM_CONFIGURATION_DOC_PATH, VOLUNTEER_ALERT_LOG_DOC_PATH } from "./see
 import { defaultTeamRoles, getAvailableTeamRoles, normalizeTeamConfigurationPayload } from "./team-config";
 import { mapVolunteerApplicationToAdminVolunteer } from "./volunteer-helpers";
 import { useVolunteerApplicationsList } from "./volunteer-hooks";
+import { useAuth } from "../context/auth-context";
+import { useActiveEdition } from "./edition";
+import { getActiveRoles } from "./navigation";
+import { DirectTeamLeadPanel } from "./team-lead-direct";
 import {
   buildAddTeamPatch,
   buildMemberRolePatch,
@@ -60,6 +64,10 @@ export function VolunteerAssignmentsPage({
   syncVolunteerAssignmentsToTeamConfiguration,
 }) {
   const { applications, loading, error } = useVolunteerApplicationsList(true);
+  const { userProfile } = useAuth();
+  const isAdmin = getActiveRoles(userProfile).includes("admin");
+  const { activeEditionId } = useActiveEdition(true);
+  const [leadPanelOpen, setLeadPanelOpen] = useState(false);
   const [teams, setTeams] = useState(defaultTeamRoles);
   const [optimistic, setOptimistic] = useState({});
   const [search, setSearch] = useState("");
@@ -292,6 +300,9 @@ export function VolunteerAssignmentsPage({
         <span className="assign-kpi"><b>{totals.placed}</b> affectés</span>
         <span className="assign-kpi assign-kpi--warn"><b>{totals.missing}</b> manquants</span>
         <span className="assign-kpi assign-kpi--amber"><b>{toInform.length}</b> à informer</span>
+        <button className="button button--secondary assign-bar__lead" type="button" onClick={() => setLeadPanelOpen((open) => !open)}>
+          + Chef d'équipe sans candidature
+        </button>
         <button
           className="button button--primary assign-bar__send"
           disabled={!toInform.length || sending}
@@ -301,6 +312,17 @@ export function VolunteerAssignmentsPage({
           {sending ? "Envoi…" : `Envoyer les e-mails d'affectation (${toInform.length})`}
         </button>
       </div>
+
+      {leadPanelOpen ? (
+        <DirectTeamLeadPanel
+          editionId={activeEditionId}
+          isAdmin={isAdmin}
+          syncProfile={syncVolunteerAssignmentToUserProfile}
+          syncTeams={syncVolunteerAssignmentsToTeamConfiguration}
+          teams={teams}
+          onClose={() => setLeadPanelOpen(false)}
+        />
+      ) : null}
 
       {status ? <p className={`assign-status assign-status--${status.tone}`}>{status.text}</p> : null}
 

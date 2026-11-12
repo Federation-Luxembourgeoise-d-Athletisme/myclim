@@ -69,6 +69,17 @@ export function InvitePage() {
         userTypes: roles.length ? roles : ["benevole"],
         // Les règles Firestore vérifient les rôles accordés contre cette invitation.
         invitationId,
+        // Chef d'équipe nommé directement : son équipe, posée à la création
+        // (les règles n'acceptent que celle de l'invitation).
+        ...(invitation.leadTeam
+          ? {
+              assignedRole: invitation.leadTeam,
+              assignedTeams: [invitation.leadTeam],
+              teamRole: "Chef d'équipe",
+              leadTeams: [invitation.leadTeam],
+              workflowStatus: "Affecté",
+            }
+          : {}),
         accountStatus: "active",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -84,6 +95,15 @@ export function InvitePage() {
         acceptedAt: serverTimestamp(),
         acceptedByUid: uid,
       });
+      // Chef d'équipe nommé directement : sa fiche bénévole (déjà affectée)
+      // est reliée à son nouveau compte.
+      if (invitation.applicationId) {
+        try {
+          await updateDoc(doc(db, "volunteerApplications", invitation.applicationId), { uid, updatedAt: serverTimestamp() });
+        } catch (linkError) {
+          console.error("Unable to link the volunteer application", linkError);
+        }
+      }
       setDone(true);
       setTimeout(() => navigate("/app", { replace: true }), 2000);
     } catch (e) {

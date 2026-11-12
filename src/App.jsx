@@ -56,6 +56,7 @@ import { MyNationalRacePage as MyNationalRacePageScreen } from "./app/my-nationa
 import { NationalRacesPage as NationalRacesPageScreen } from "./app/national-races-page";
 import { ProfilePage as ProfilePageScreen, VolunteerProfilePage as VolunteerProfilePageScreen } from "./app/profile-pages";
 import { TeamPage as TeamPageScreen } from "./app/team-page";
+import { isTeamLeadAssignment } from "./app/common-helpers";
 import {
   normalizeSubRoles,
   syncVolunteerAssignmentsToTeamConfiguration,
@@ -146,6 +147,15 @@ async function syncVolunteerAssignmentToUserProfile(volunteer) {
 
   const isTransport = assignedRoles.some((r) => r.toLowerCase() === "transport");
   const isTransportChief = isTransport && volunteer?.teamRole === "Chef d'équipe";
+  // Chef d'au moins une équipe (rôle d'équipe principal ou par équipe) :
+  // rôle plateforme chef_equipe (Mon équipe, Présences de l'équipe).
+  const teamRoleAssignments =
+    volunteer?.teamRoleAssignments && typeof volunteer.teamRoleAssignments === "object" ? volunteer.teamRoleAssignments : {};
+  const isTeamLead =
+    assignedRoles.length > 0 &&
+    [volunteer?.teamRole, ...assignedRoles.map((team) => teamRoleAssignments[team])].some((teamRole) =>
+      isTeamLeadAssignment({ teamRole }),
+    );
 
   await setDoc(
     doc(db, "users", userId),
@@ -153,6 +163,11 @@ async function syncVolunteerAssignmentToUserProfile(volunteer) {
       assignedRole: assignedRoles[0] || "",
       assignedTeams: assignedRoles,
       teamRole: volunteer?.teamRole || "Bénévole",
+      // Équipes qu'il dirige : les règles Firestore s'en servent pour lui
+      // ouvrir les profils (présences) de ses bénévoles.
+      leadTeams: assignedRoles.filter((team, index) =>
+        isTeamLeadAssignment({ teamRole: teamRoleAssignments[team] || (index === 0 ? volunteer?.teamRole : "") }),
+      ),
       assignmentStatus: volunteer?.assignmentStatus || (assignedRoles.length > 0 ? "Proposé" : "En attente"),
       workflowStatus:
         volunteer?.workflowStatus || (assignedRoles.length > 0 ? "Affecté" : "Candidature reçue"),
@@ -162,11 +177,12 @@ async function syncVolunteerAssignmentToUserProfile(volunteer) {
     { merge: true },
   );
 
-  // Sync transport platform roles based on team assignment. The roles can
+  // Sync team-lead and transport platform roles based on team assignment. The roles can
   // also be given by hand (roles page, invitation — a transport chief rarely
   // fills the volunteer form), so the sync only removes what it added itself,
   // tracked in teamGrantedRoles.
   const dueRoles = [
+    ...(isTeamLead ? ["chef_equipe"] : []),
     ...(isTransport ? ["benevole_transport_athletes"] : []),
     ...(isTransportChief ? ["chef_transport_athletes"] : []),
   ];

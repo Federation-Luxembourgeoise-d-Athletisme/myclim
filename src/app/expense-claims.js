@@ -22,21 +22,40 @@ const DECOMPTE_RECIPIENT = "margot.laporte@fla.lu";
 const MAX_CLAIM_LINES = 18; // lignes 18 à 35 du modèle Excel
 
 const PAYMENT_METHODS = [
-  { value: "to_pay", label: "Pas encore payée — la FLA paie le fournisseur" },
-  { value: "paid_by_fla", label: "Déjà payée par la FLA (carte ou virement)" },
-  { value: "reimbursement", label: "Je l'ai payée moi-même → remboursement (décompte)" },
+  { value: "to_pay", label: "Pas encore payée — la FLA paie le fournisseur", labelEn: "Not paid yet — the FLA pays the supplier" },
+  { value: "paid_by_fla", label: "Déjà payée par la FLA (carte ou virement)", labelEn: "Already paid by the FLA (card or transfer)" },
+  { value: "reimbursement", label: "Je l'ai payée moi-même → remboursement (décompte)", labelEn: "I paid it myself → reimbursement (expense claim)" },
 ];
 
 const CLAIM_STATUSES = [
-  { value: "preset", label: "À compléter", tone: "warn" },
-  { value: "draft", label: "Brouillon", tone: "muted" },
-  { value: "submitted", label: "Envoyé", tone: "info" },
-  { value: "checked", label: "Vérifié", tone: "info" },
+  { value: "preset", label: "À compléter", labelEn: "To complete", tone: "warn" },
+  { value: "draft", label: "Brouillon", labelEn: "Draft", tone: "muted" },
+  { value: "submitted", label: "Envoyé", labelEn: "Sent", tone: "info" },
+  { value: "checked", label: "Vérifié", labelEn: "Checked", tone: "info" },
   // Dernière étape suivie dans MyCLIM (Margot, 10/11/2026) : le paiement
   // lui-même est fait par le secrétariat, on ne le marque pas ici.
-  { value: "sent_secretary", label: "Transmis au secrétariat", tone: "ok" },
-  { value: "rejected", label: "À corriger", tone: "danger" },
+  { value: "sent_secretary", label: "Transmis au secrétariat", labelEn: "Passed to the secretariat", tone: "ok" },
+  { value: "rejected", label: "À corriger", labelEn: "To correct", tone: "danger" },
 ];
+
+// Ce qui manque avant l'envoi : les textes restent en français (tests, logique),
+// traduits à l'affichage.
+const CLAIM_PROBLEMS_EN = {
+  "Prénom et nom": "First and last name",
+  "Domicile": "Home address",
+  "IBAN valide": "A valid IBAN",
+  "Banque et BIC": "Bank and BIC",
+  "Motif des dépenses": "Reason for the expenses",
+  "Au moins une dépense": "At least one expense",
+  "Détail et montant de chaque dépense": "Detail and amount of each expense",
+  "Un montant": "An amount",
+  "Au moins une facture ou un justificatif": "At least one invoice or receipt",
+  "La case « je certifie »": "The “I certify” box",
+};
+
+function claimProblemLabel(problem, tr) {
+  return tr(problem, CLAIM_PROBLEMS_EN[problem] || problem);
+}
 
 // Suite logique des statuts côté organisateur (boutons du suivi).
 const NEXT_STATUS = { submitted: "checked", checked: "sent_secretary" };
@@ -50,8 +69,9 @@ function toAmount(value) {
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
 }
 
-function formatAmount(value) {
-  return `${toAmount(value).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+// language : "fr" (défaut, aussi pour l'Excel/PDF) ou autre → format anglais.
+function formatAmount(value, language = "fr") {
+  return `${toAmount(value).toLocaleString(language === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
 function normalizeIban(value) {
@@ -173,6 +193,7 @@ export {
   PAYMENT_METHODS,
   claimFileName,
   claimOwnerName,
+  claimProblemLabel,
   computeClaimTotals,
   formatAmount,
   formatIban,

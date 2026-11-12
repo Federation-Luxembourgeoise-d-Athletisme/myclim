@@ -1719,28 +1719,91 @@ function PresencePage(props) {
     [buildUserIdentitySet, currentUser, userProfile],
   );
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, "users"),
-      (snapshot) => {
-        setUsers(
-          snapshot.docs.map((userSnapshot) => ({
-            id: userSnapshot.id,
-            ...userSnapshot.data(),
-          })),
-        );
-        setUsersLoading(false);
-        setUsersError("");
-      },
-      () => {
-        setUsers([]);
-        setUsersLoading(false);
-        setUsersError("Impossible de charger les présences pour le moment.");
-      },
+  // Bénévoles des équipes que je dirige (chef d'équipe sans rôle de gestion).
+  const leadMemberIdsKey = useMemo(() => {
+    if (canManageAllTeams) return "";
+    const leadRoleIds = new Set(
+      teamAssignments
+        .filter(
+          (assignment) =>
+            isTeamLeadAssignment(assignment) &&
+            [assignment.id, assignment.email, `${assignment.firstName} ${assignment.lastName}`.trim()]
+              .map((value) => String(value || "").trim().toLowerCase())
+              .some((value) => value && userIdentitySet.has(value)),
+        )
+        .map((assignment) => assignment.assignedRoleId),
     );
+    roles
+      .filter((role) => userIdentitySet.has(String(role.leaderName || "").trim().toLowerCase()))
+      .forEach((role) => leadRoleIds.add(role.id));
+    return [...new Set(teamAssignments.filter((assignment) => leadRoleIds.has(assignment.assignedRoleId)).map((assignment) => assignment.id))]
+      .filter(Boolean)
+      .sort()
+      .join("|");
+  }, [canManageAllTeams, isTeamLeadAssignment, roles, teamAssignments, userIdentitySet]);
 
-    return unsubscribe;
-  }, []);
+  useEffect(() => {
+    if (canManageAllTeams) {
+      return onSnapshot(
+        collection(db, "users"),
+        (snapshot) => {
+          setUsers(
+            snapshot.docs.map((userSnapshot) => ({
+              id: userSnapshot.id,
+              ...userSnapshot.data(),
+            })),
+          );
+          setUsersLoading(false);
+          setUsersError("");
+        },
+        () => {
+          setUsers([]);
+          setUsersLoading(false);
+          setUsersError("Impossible de charger les présences pour le moment.");
+        },
+      );
+    }
+    // Chef d'équipe : un abonnement par bénévole de ses équipes. Un profil
+    // refusé ou inexistant (bénévole sans compte) est simplement ignoré.
+    const ids = leadMemberIdsKey ? leadMemberIdsKey.split("|") : [];
+    const byId = {};
+    let pending = ids.length;
+    const publish = () => setUsers(Object.values(byId));
+    const settle = () => {
+      pending -= 1;
+      if (pending <= 0) setUsersLoading(false);
+    };
+    if (!ids.length) {
+      setUsers([]);
+      setUsersLoading(false);
+      return undefined;
+    }
+    setUsersError("");
+    const unsubscribers = ids.map((id) => {
+      let first = true;
+      return onSnapshot(
+        doc(db, "users", id),
+        (snapshot) => {
+          if (snapshot.exists()) byId[id] = { id: snapshot.id, ...snapshot.data() };
+          else delete byId[id];
+          publish();
+          if (first) {
+            first = false;
+            settle();
+          }
+        },
+        () => {
+          delete byId[id];
+          publish();
+          if (first) {
+            first = false;
+            settle();
+          }
+        },
+      );
+    });
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [canManageAllTeams, leadMemberIdsKey]);
 
   const allVolunteers = useMemo(() => buildAccreditationUsers(users, teamAssignments), [buildAccreditationUsers, teamAssignments, users]);
   const myAssignments = useMemo(

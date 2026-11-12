@@ -128,6 +128,8 @@ function getDefaultRouteByRoles(roles = []) {
   if (roles.includes("benevole")) return APP_ROUTES.myAssignments;
   if (roles.includes("parent_u14")) return APP_ROUTES.myChildren;
   if (roles.includes("athlete_preprogram")) return APP_ROUTES.myNationalRace;
+  // Membre d'une équipe de l'organisation sans rôle de gestion.
+  if (roles.includes("organisation")) return APP_ROUTES.myPlanning;
   return APP_ROUTES.home;
 }
 
