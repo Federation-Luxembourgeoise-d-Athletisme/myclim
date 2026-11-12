@@ -1,57 +1,81 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { signInWithCustomToken, signOut } from "firebase/auth";
-import {
-  Timestamp,
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  runTransaction,
-  serverTimestamp,
-  where,
-} from "firebase/firestore";
+import { Timestamp, collection, doc, onSnapshot, runTransaction, serverTimestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../context/auth-context";
 import { auth, db, functions } from "../services/firebase";
-import { getCashPostIdFromUid } from "../context/technical-sessions";
-import { recordMatchesEdition, useActiveEdition } from "./edition";
+import { isCashDeskUid } from "../context/technical-sessions";
+import { useActiveEdition } from "./edition";
 import { getActiveRoles } from "./navigation";
+import { useTr } from "./use-tr";
+import { useLanguage } from "./language-context";
+import { mapSnapshot, useDoorData } from "./cash-desk-data";
 import {
-  buildDoorEntries,
+  DOOR_ENTRY_KINDS,
   evaluateCheckIn,
   filterDoorEntries,
+  flattenCheckInEvents,
   normalizeCashPostCode,
 } from "./cash-desk-helpers";
+import "./cash-desk.css";
 
 const OPERATOR_STORAGE_KEY = "myclim-cash-operator";
-const MAX_VISIBLE_RESULTS = 40;
-function readStoredOperator() {
+const POST_STORAGE_KEY = "myclim-cash-post";
+const MAX_VISIBLE_RESULTS = 30;
+const RECENT_COUNT = 8;
+
+function readStored(key) {
   try {
-    return window.localStorage.getItem(OPERATOR_STORAGE_KEY) || "";
+    return window.localStorage.getItem(key) || "";
   } catch {
     return "";
   }
 }
 
-function storeOperator(value) {
+function store(key, value) {
   try {
-    window.localStorage.setItem(OPERATOR_STORAGE_KEY, value);
+    if (value) window.localStorage.setItem(key, value);
+    else window.localStorage.removeItem(key);
   } catch {
-    // Stockage indisponible (navigation privée) : le nom reste en mémoire.
+    // Stockage indisponible (navigation privée) : la valeur reste en mémoire.
   }
 }
 
-function mapSnapshot(snapshot) {
-  return snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+function formatTime(value) {
+  const date = value?.toDate?.() || (typeof value === "number" && value ? new Date(value) : null);
+  return date ? date.toLocaleTimeString("fr-LU", { hour: "2-digit", minute: "2-digit" }) : "";
 }
 
-function formatTime(value) {
-  const date = value?.toDate?.() || null;
-  if (!date) return "";
-  return date.toLocaleTimeString("fr-LU", { hour: "2-digit", minute: "2-digit" });
+function LanguageSwitch() {
+  const { language, setLanguage } = useLanguage();
+  return (
+    <div className="desk-lang">
+      {["fr", "en"].map((option) => (
+        <button key={option} type="button" className={language === option ? "is-active" : ""} onClick={() => setLanguage(option)}>
+          {option.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DeskScreen({ title, children }) {
+  return (
+    <div className="desk desk--center">
+      <div className="desk-card">
+        <div className="desk-card__top">
+          <p className="desk-eyebrow">CMCM Luxembourg Indoor Meeting</p>
+          <LanguageSwitch />
+        </div>
+        <h1>{title}</h1>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function CashDeskCodeForm() {
+  const tr = useTr();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -61,21 +85,20 @@ function CashDeskCodeForm() {
     setError("");
     setSubmitting(true);
     try {
-      const openSession = httpsCallable(functions, "openCashPostSession");
-      const response = await openSession({ code: normalizeCashPostCode(code) });
+      const response = await httpsCallable(functions, "openCashPostSession")({ code: normalizeCashPostCode(code) });
       const token = response?.data?.token;
       if (!token) throw new Error("missing-token");
       await signInWithCustomToken(auth, token);
     } catch (accessError) {
-      console.error("Cash post access failed", accessError);
+      console.error("Cash desk access failed", accessError);
       if (accessError?.code === "functions/permission-denied") {
-        setError("Code incorrect.");
+        setError(tr("Code incorrect.", "Wrong code."));
       } else if (accessError?.code === "functions/resource-exhausted") {
-        setError("Trop d'essais. Réessaie dans quelques minutes.");
+        setError(tr("Trop d'essais. Réessaie dans quelques minutes.", "Too many attempts. Try again in a few minutes."));
       } else if (accessError?.code === "functions/failed-precondition") {
-        setError("Ce poste est fermé. Demande à l'organisation de le rouvrir.");
+        setError(tr("La caisse est fermée. Demande à l'organisation de la rouvrir.", "The cash desk is closed. Ask the organisers to reopen it."));
       } else {
-        setError("Connexion impossible. Vérifie la connexion internet puis réessaie.");
+        setError(tr("Connexion impossible. Vérifie internet puis réessaie.", "Unable to connect. Check the internet connection and try again."));
       }
     } finally {
       setSubmitting(false);
@@ -83,13 +106,11 @@ function CashDeskCodeForm() {
   }
 
   return (
-    <div className="cash-desk cash-desk--login">
-      <form className="cash-desk-login" onSubmit={handleSubmit}>
-        <p className="eyebrow">CMCM Luxembourg Indoor Meeting</p>
-        <h1>Caisse d'entrée</h1>
-        <p>Saisis le code du poste fourni par l'organisation.</p>
+    <DeskScreen title={tr("Caisse d'entrée", "Entrance desk")}>
+      <form className="desk-form" onSubmit={handleSubmit}>
+        <p className="desk-muted">{tr("Saisis le code donné par l'organisation.", "Enter the code given by the organisers.")}</p>
         <input
-          className="cash-desk-login__code"
+          className="desk-code"
           autoFocus
           autoComplete="off"
           autoCapitalize="characters"
@@ -98,133 +119,70 @@ function CashDeskCodeForm() {
           value={code}
           onChange={(event) => setCode(event.target.value.toUpperCase())}
         />
-        {error ? <p className="form-error">{error}</p> : null}
-        <button className="button button--primary" type="submit" disabled={submitting || normalizeCashPostCode(code).length < 8}>
-          {submitting ? "Vérification…" : "Ouvrir la caisse"}
+        {error ? <p className="desk-error">{error}</p> : null}
+        <button className="desk-btn desk-btn--primary desk-btn--block" type="submit" disabled={submitting || normalizeCashPostCode(code).length < 8}>
+          {submitting ? tr("Vérification…", "Checking…") : tr("Ouvrir", "Open")}
         </button>
       </form>
-    </div>
-  );
-}
-
-function CashDeskPostPicker({ onPick }) {
-  const [posts, setPosts] = useState([]);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "cashPosts"), (snapshot) => {
-      setPosts(mapSnapshot(snapshot).sort((left, right) => (Number(left.sortOrder) || 0) - (Number(right.sortOrder) || 0)));
-    });
-    return unsubscribe;
-  }, []);
-
-  return (
-    <div className="cash-desk cash-desk--login">
-      <div className="cash-desk-login">
-        <p className="eyebrow">Connecté avec ton compte organisation</p>
-        <h1>Quel poste ouvrir ?</h1>
-        <p>Pour un ordinateur de caisse, déconnecte-toi et utilise le code du poste.</p>
-        <div className="cash-desk-post-picker">
-          {posts.map((post) => (
-            <button key={post.id} className="button button--secondary" type="button" onClick={() => onPick(post.id)}>
-              {post.name}
-            </button>
-          ))}
-          {!posts.length ? <p>Aucun poste. Crée-les dans MyCLIM → Caisse & entrées.</p> : null}
-        </div>
-      </div>
-    </div>
+    </DeskScreen>
   );
 }
 
 function CashDeskPage() {
+  const tr = useTr();
   const { currentUser, userProfile, loading } = useAuth();
-  const [pickedPostId, setPickedPostId] = useState("");
-  const cashPostId = getCashPostIdFromUid(currentUser?.uid);
   const roles = userProfile ? getActiveRoles(userProfile) : [];
   const isManager = roles.includes("admin") || roles.includes("gestionnaire");
 
-  if (loading) {
-    return (
-      <div className="cash-desk cash-desk--login">
-        <div className="cash-desk-login">
-          <h1>Ouverture de la caisse…</h1>
-        </div>
-      </div>
-    );
-  }
-
+  if (loading) return <DeskScreen title={tr("Ouverture…", "Opening…")} />;
   if (!currentUser) return <CashDeskCodeForm />;
-
-  if (cashPostId) return <CashDeskWorkspace postId={cashPostId} isTechnicalSession />;
-
-  if (isManager) {
-    return pickedPostId ? (
-      <CashDeskWorkspace postId={pickedPostId} onLeave={() => setPickedPostId("")} />
-    ) : (
-      <CashDeskPostPicker onPick={setPickedPostId} />
-    );
-  }
+  if (isCashDeskUid(currentUser.uid)) return <CashDeskSession isTechnicalSession />;
+  if (isManager) return <CashDeskSession />;
 
   return (
-    <div className="cash-desk cash-desk--login">
-      <div className="cash-desk-login">
-        <h1>Caisse d'entrée</h1>
-        <p>Ce navigateur est connecté avec un compte personnel. Déconnecte-toi pour saisir le code du poste.</p>
-        <button className="button button--primary" type="button" onClick={() => signOut(auth)}>
-          Se déconnecter
-        </button>
-      </div>
-    </div>
+    <DeskScreen title={tr("Caisse d'entrée", "Entrance desk")}>
+      <p className="desk-muted">
+        {tr("Ce navigateur est connecté avec un compte personnel. Déconnecte-toi pour saisir le code de la caisse.", "This browser is signed in with a personal account. Sign out to enter the cash desk code.")}
+      </p>
+      <button className="desk-btn desk-btn--primary desk-btn--block" type="button" onClick={() => signOut(auth)}>
+        {tr("Se déconnecter", "Sign out")}
+      </button>
+    </DeskScreen>
   );
 }
 
-function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
-  const { activeEditionId, activeEditionLabel, loading: editionLoading } = useActiveEdition(true);
-  const [post, setPost] = useState(null);
-  const [postError, setPostError] = useState("");
-  const [guestLists, setGuestLists] = useState([]);
-  const [guests, setGuests] = useState([]);
-  const [checkIns, setCheckIns] = useState([]);
-  const [nationalRaceAthletes, setNationalRaceAthletes] = useState([]);
-  const [vipAdmin, setVipAdmin] = useState([]);
-  const [vipPublic, setVipPublic] = useState([]);
-  const [vipPortals, setVipPortals] = useState([]);
-  const [vipPortalEntries, setVipPortalEntries] = useState({});
-  const [operator, setOperator] = useState(readStoredOperator);
-  const [loadError, setLoadError] = useState("");
+// Session ouverte : vérifie que la caisse reste ouverte (et, pour un
+// ordinateur de caisse, que le code n'a pas changé), puis fait choisir le
+// poste et le caissier avant d'afficher l'écran d'entrée.
+function CashDeskSession({ isTechnicalSession = false }) {
+  const tr = useTr();
+  const [access, setAccess] = useState(null);
+  const [sessionVersion, setSessionVersion] = useState(null);
+  const [posts, setPosts] = useState(null);
+  const [postId, setPostId] = useState(() => readStored(POST_STORAGE_KEY));
+  const [operator, setOperator] = useState(() => readStored(OPERATOR_STORAGE_KEY));
+  const [setupDone, setSetupDone] = useState(() => Boolean(readStored(POST_STORAGE_KEY) && readStored(OPERATOR_STORAGE_KEY)));
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      doc(db, "cashPosts", postId),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setPost(null);
-          setPostError("Ce poste n'existe plus.");
-          return;
-        }
-        setPost({ id: snapshot.id, ...snapshot.data() });
-        setPostError("");
-      },
-      (snapshotError) => {
-        console.error("Cash post load failed", snapshotError);
-        setPost(null);
-        setPostError("Accès à ce poste coupé (code changé ou poste fermé).");
-      },
-    );
-    return unsubscribe;
-  }, [postId]);
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, "cashDesk", "access"),
+        (snapshot) => setAccess(snapshot.exists() ? snapshot.data() : {}),
+        (snapshotError) => {
+          console.error("Cash desk access load failed", snapshotError);
+          setAccess({ open: false });
+        },
+      ),
+    [],
+  );
 
-  // Une session de poste porte la version d'accès du moment où le code a été
-  // saisi : si l'admin régénère le code ou déconnecte le poste, la version du
-  // poste change et l'écran se ferme (les règles refusent déjà les écritures).
-  const [sessionAccessVersion, setSessionAccessVersion] = useState(null);
   useEffect(() => {
     if (!isTechnicalSession || !auth.currentUser) return undefined;
     let cancelled = false;
     auth.currentUser
       .getIdTokenResult()
       .then((result) => {
-        if (!cancelled) setSessionAccessVersion(Number(result.claims.cashAccessVersion ?? -1));
+        if (!cancelled) setSessionVersion(Number(result.claims.cashAccessVersion ?? -1));
       })
       .catch((tokenError) => console.error("Cash session token read failed", tokenError));
     return () => {
@@ -232,214 +190,145 @@ function CashDeskWorkspace({ postId, isTechnicalSession = false, onLeave }) {
     };
   }, [isTechnicalSession]);
 
-  const sessionRevoked =
-    isTechnicalSession &&
-    Boolean(post) &&
-    sessionAccessVersion !== null &&
-    Number(post.accessVersion || 0) !== sessionAccessVersion;
-
-  const showVipLists = Boolean(post?.showVipLists);
-  const postIsOpen = Boolean(post) && post.active !== false && !sessionRevoked;
+  const revoked = isTechnicalSession && access && sessionVersion !== null && Number(access.accessVersion || 0) !== sessionVersion;
+  const closed = Boolean(access) && access.open === false;
+  const sessionOk = Boolean(access) && !revoked && !closed && (!isTechnicalSession || sessionVersion !== null);
 
   useEffect(() => {
-    if (editionLoading || !postIsOpen) return undefined;
-
-    const fail = (label) => (snapshotError) => {
-      console.error(`Cash desk: unable to load ${label}`, snapshotError);
-      setLoadError(`Impossible de charger ${label}. Vérifie la connexion internet.`);
-    };
-    const byEdition = (name) => query(collection(db, name), where("editionId", "==", activeEditionId));
-
-    const unsubscribers = [
-      onSnapshot(byEdition("doorGuestLists"), (snapshot) => setGuestLists(mapSnapshot(snapshot)), fail("les listes")),
-      onSnapshot(byEdition("doorGuests"), (snapshot) => setGuests(mapSnapshot(snapshot)), fail("les invités")),
-      onSnapshot(byEdition("doorCheckIns"), (snapshot) => setCheckIns(mapSnapshot(snapshot)), fail("les entrées")),
-      // Seules les demandes retenues sont lisibles par un poste de caisse
-      // (firestore.rules) : la requête doit filtrer sur status.
-      onSnapshot(
-        query(collection(db, "nationalRaceRequests"), where("editionId", "==", activeEditionId), where("status", "==", "selected")),
-        (snapshot) => setNationalRaceAthletes(mapSnapshot(snapshot)),
-        fail("les athlètes des courses nationales"),
-      ),
-    ];
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [activeEditionId, editionLoading, postIsOpen]);
-
-  useEffect(() => {
-    if (editionLoading || !postIsOpen || !showVipLists) {
-      setVipAdmin([]);
-      setVipPublic([]);
-      setVipPortals([]);
-      return undefined;
-    }
-
-    const fail = (snapshotError) => {
-      console.error("Cash desk: unable to load VIP lists", snapshotError);
-      setLoadError("Impossible de charger les listes VIP.");
-    };
-    const forEdition = (snapshot) => mapSnapshot(snapshot).filter((record) => recordMatchesEdition(record, activeEditionId));
-
-    const unsubscribers = [
-      onSnapshot(collection(db, "vipAdminRegistrations"), (snapshot) => setVipAdmin(forEdition(snapshot)), fail),
-      onSnapshot(collection(db, "vipPublicRegistrations"), (snapshot) => setVipPublic(forEdition(snapshot)), fail),
-      onSnapshot(collection(db, "vipPartnerPortals"), (snapshot) => setVipPortals(snapshot.docs.map((entry) => entry.id)), fail),
-    ];
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [activeEditionId, editionLoading, postIsOpen, showVipLists]);
-
-  const vipPortalKey = vipPortals.join("|");
-  useEffect(() => {
-    if (!vipPortals.length) {
-      setVipPortalEntries({});
-      return undefined;
-    }
-    const unsubscribers = vipPortals.map((portalId) =>
-      onSnapshot(
-        collection(db, "vipPartnerPortals", portalId, "entries"),
-        (snapshot) => {
-          const entries = mapSnapshot(snapshot)
-            .map((entry) => ({ ...entry, portalId }))
-            .filter((entry) => recordMatchesEdition(entry, activeEditionId));
-          setVipPortalEntries((current) => ({ ...current, [portalId]: entries }));
-        },
-        (snapshotError) => console.error(`Cash desk: unable to load VIP portal ${portalId}`, snapshotError),
-      ),
+    if (!sessionOk) return undefined;
+    return onSnapshot(
+      collection(db, "cashPosts"),
+      (snapshot) =>
+        setPosts(
+          mapSnapshot(snapshot).sort(
+            (left, right) => (Number(left.sortOrder) || 0) - (Number(right.sortOrder) || 0) || String(left.name).localeCompare(String(right.name)),
+          ),
+        ),
+      (snapshotError) => {
+        console.error("Cash posts load failed", snapshotError);
+        setPosts([]);
+      },
     );
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-    // vipPortalKey suit la liste des portails sans recréer les écouteurs à chaque snapshot identique.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vipPortalKey, activeEditionId]);
+  }, [sessionOk]);
 
-  const doorEntries = useMemo(
-    () =>
-      buildDoorEntries({
-        editionId: activeEditionId,
-        post,
-        vipAdminRegistrations: vipAdmin,
-        vipPublicRegistrations: vipPublic,
-        vipPortalEntries: Object.values(vipPortalEntries).flat(),
-        guestLists,
-        guests,
-        nationalRaceAthletes,
-        checkIns,
-      }),
-    [activeEditionId, checkIns, guestLists, guests, nationalRaceAthletes, post, vipAdmin, vipPortalEntries, vipPublic],
-  );
+  const post = posts?.find((item) => item.id === postId) || null;
 
-  const postEntriesCount = checkIns.reduce(
-    (sum, checkIn) =>
-      sum +
-      (Array.isArray(checkIn.history) ? checkIn.history : [])
-        .filter((event) => event.postId === postId)
-        .reduce((eventSum, event) => eventSum + (Number(event.count) || 0), 0),
-    0,
-  );
-
-  function handleOperatorChange(event) {
-    setOperator(event.target.value);
-    storeOperator(event.target.value);
-  }
-
-  async function handleLeave() {
-    if (onLeave) {
-      onLeave();
+  async function handleQuit() {
+    if (!isTechnicalSession) {
+      window.location.assign("/app/caisse");
       return;
     }
-    if (window.confirm("Fermer la caisse sur cet ordinateur ? Il faudra ressaisir le code du poste.")) {
+    if (window.confirm(tr("Fermer la caisse sur cet appareil ? Il faudra ressaisir le code.", "Close the cash desk on this device? You will need the code again."))) {
+      store(POST_STORAGE_KEY, "");
       await signOut(auth);
     }
   }
 
-  if (postError || sessionRevoked || (post && post.active === false)) {
+  if (revoked) {
     return (
-      <div className="cash-desk cash-desk--login">
-        <div className="cash-desk-login">
-          <h1>Caisse fermée</h1>
-          <p>
-            {postError ||
-              (sessionRevoked
-                ? "L'organisation a déconnecté ce poste ou changé son code. Saisis le code du poste pour continuer."
-                : "Ce poste a été fermé par l'organisation.")}
-          </p>
-          <button className="button button--primary" type="button" onClick={() => (isTechnicalSession ? signOut(auth) : onLeave?.())}>
-            {isTechnicalSession ? "Saisir un code" : "Choisir un autre poste"}
-          </button>
-        </div>
-      </div>
+      <DeskScreen title={tr("Code changé", "Code changed")}>
+        <p className="desk-muted">{tr("L'organisation a créé un nouveau code. Saisis-le pour continuer.", "The organisers created a new code. Enter it to continue.")}</p>
+        <button className="desk-btn desk-btn--primary desk-btn--block" type="button" onClick={() => signOut(auth)}>
+          {tr("Saisir le code", "Enter the code")}
+        </button>
+      </DeskScreen>
     );
   }
 
-  if (!post) {
+  if (closed) {
     return (
-      <div className="cash-desk cash-desk--login">
-        <div className="cash-desk-login">
-          <h1>Chargement du poste…</h1>
+      <DeskScreen title={tr("Caisse fermée", "Cash desk closed")}>
+        <p className="desk-muted">{tr("L'organisation a fermé la caisse. L'écran se rouvrira tout seul dès qu'elle sera rouverte.", "The organisers closed the cash desk. This screen reopens by itself as soon as it is reopened.")}</p>
+      </DeskScreen>
+    );
+  }
+
+  if (!sessionOk || posts === null) return <DeskScreen title={tr("Chargement…", "Loading…")} />;
+
+  if (!setupDone || !post) {
+    return (
+      <DeskScreen title={tr("Quel poste ?", "Which post?")}>
+        <div className="desk-posts">
+          {posts.map((item) => (
+            <button key={item.id} type="button" className={`desk-post ${item.id === postId ? "is-active" : ""}`} onClick={() => setPostId(item.id)}>
+              {item.name}
+            </button>
+          ))}
+          {!posts.length ? <p className="desk-muted">{tr("Aucun poste. L'organisation doit les créer dans MyCLIM › Caisse & entrées.", "No posts yet. The organisers must create them in MyCLIM › Cash desk & entries.")}</p> : null}
         </div>
-      </div>
+        <form
+          className="desk-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            store(POST_STORAGE_KEY, postId);
+            store(OPERATOR_STORAGE_KEY, operator.trim());
+            setSetupDone(true);
+          }}
+        >
+          <label className="desk-label">
+            {tr("Ton prénom", "Your first name")}
+            <input value={operator} onChange={(event) => setOperator(event.target.value)} placeholder={tr("Ex. Julie", "E.g. Julie")} />
+          </label>
+          <button className="desk-btn desk-btn--primary desk-btn--block" type="submit" disabled={!post || !operator.trim()}>
+            {tr("Commencer", "Start")}
+          </button>
+        </form>
+      </DeskScreen>
     );
   }
 
   return (
-    <div className="cash-desk">
-      <header className="cash-desk-header">
-        <div>
-          <p className="eyebrow">Contrôle des entrées · {activeEditionLabel}</p>
-          <h1>{post.name}</h1>
-        </div>
-        <div className="cash-desk-header__stats">
-          <span><strong>{doorEntries.length}</strong> invités sur les listes</span>
-          <span><strong>{postEntriesCount}</strong> entrées validées ici</span>
-        </div>
-        <div className="cash-desk-header__operator">
-          <label>
-            Caissier·ère
-            <input value={operator} placeholder="Ton prénom" onChange={handleOperatorChange} />
-          </label>
-          <button className="button button--secondary button--small" type="button" onClick={handleLeave}>
-            {onLeave ? "Changer de poste" : "Fermer la caisse"}
-          </button>
-        </div>
-      </header>
-
-      {loadError ? <p className="form-error cash-desk-banner">{loadError}</p> : null}
-
-      <CashDeskGuests entries={doorEntries} editionId={activeEditionId} post={post} operator={operator} />
-    </div>
+    <CashDeskWorkspace
+      post={post}
+      operator={operator.trim()}
+      onChangeSetup={() => setSetupDone(false)}
+      onQuit={handleQuit}
+      quitLabel={isTechnicalSession ? tr("Fermer", "Close") : tr("Retour admin", "Back to admin")}
+    />
   );
 }
 
-function CashDeskGuests({ entries, editionId, post, operator }) {
+function CashDeskWorkspace({ post, operator, onChangeSetup, onQuit, quitLabel }) {
+  const tr = useTr();
+  const { language } = useLanguage();
+  const { activeEditionId, loading: editionLoading } = useActiveEdition(true);
+  const { entries, checkIns, error: loadError, loaded } = useDoorData({ editionId: activeEditionId, enabled: !editionLoading });
   const [search, setSearch] = useState("");
+  const [highlight, setHighlight] = useState(0);
   const [busyKey, setBusyKey] = useState("");
   const [feedback, setFeedback] = useState(null);
   const searchRef = useRef(null);
 
   const results = useMemo(() => filterDoorEntries(entries, search), [entries, search]);
   const visibleResults = search.trim() ? results.slice(0, MAX_VISIBLE_RESULTS) : [];
+  const entriesByKey = useMemo(() => new Map(entries.map((entry) => [entry.key, entry])), [entries]);
+
+  const postEvents = useMemo(() => flattenCheckInEvents(checkIns).filter((event) => event.postId === post.id), [checkIns, post.id]);
+  const postCount = postEvents.reduce((sum, event) => sum + event.count, 0);
+  const recent = postEvents.filter((event) => event.count > 0).slice(0, RECENT_COUNT);
+  const totalPlaces = entries.reduce((sum, entry) => sum + entry.places, 0);
+  const totalIn = entries.reduce((sum, entry) => sum + entry.admittedCount, 0);
+
+  useEffect(() => setHighlight(0), [search]);
+
+  const kindLabel = (kind) => (DOOR_ENTRY_KINDS[kind] || DOOR_ENTRY_KINDS.free)[language === "fr" ? "fr" : "en"];
+  const nameOf = (entry) => entry.fullName || entry.organization;
 
   async function recordCheckIn(entry, count, { force = false } = {}) {
     setBusyKey(entry.key);
-    setFeedback(null);
     try {
       await runTransaction(db, async (transaction) => {
         const checkInRef = doc(db, "doorCheckIns", entry.key);
         const snapshot = await transaction.get(checkInRef);
         const current = snapshot.exists() ? snapshot.data() : null;
-        const result = evaluateCheckIn({
-          places: entry.places,
-          admittedCount: current?.admittedCount || 0,
-          count,
-          force,
-        });
+        const result = evaluateCheckIn({ places: entry.places, admittedCount: current?.admittedCount || 0, count, force });
         if (!result.ok) {
           const refusal = new Error(result.reason);
           refusal.checkIn = current;
           throw refusal;
         }
-
         transaction.set(checkInRef, {
-          editionId,
+          editionId: activeEditionId,
           sourceType: entry.sourceType,
           sourceId: entry.sourceId,
           displayName: entry.fullName,
@@ -458,127 +347,200 @@ function CashDeskGuests({ entries, editionId, post, operator }) {
         });
       });
 
-      setFeedback({
-        type: "ok",
-        message:
-          count > 0
-            ? `${entry.fullName || entry.organization} : ${count} entrée${count > 1 ? "s" : ""} validée${count > 1 ? "s" : ""}.`
-            : `${entry.fullName || entry.organization} : dernière entrée annulée.`,
-      });
       if (count > 0) {
+        setFeedback({ type: "ok", entry, count, message: `${nameOf(entry)} — ${count} ${count > 1 ? tr("entrées", "entries") : tr("entrée", "entry")}` });
         setSearch("");
-        searchRef.current?.focus();
+      } else {
+        setFeedback({ type: "info", message: tr(`${nameOf(entry)} — entrée annulée`, `${nameOf(entry)} — entry undone`) });
       }
+      searchRef.current?.focus();
     } catch (checkInError) {
       if (checkInError?.message === "overflow") {
         const last = checkInError.checkIn;
         setFeedback({
           type: "warn",
-          message: `Déjà entré${last?.lastPostName ? ` à ${formatTime(last.lastAt)} via ${last.lastPostName}` : ""}. Utilise « Forcer » seulement si l'organisation l'autorise.`,
+          message: tr(
+            `${nameOf(entry)} est déjà entré·e${last?.lastAt ? ` à ${formatTime(last.lastAt)} (${last.lastPostName})` : ""}.`,
+            `${nameOf(entry)} is already in${last?.lastAt ? ` since ${formatTime(last.lastAt)} (${last.lastPostName})` : ""}.`,
+          ),
         });
       } else if (checkInError?.message === "nothing_to_undo") {
-        setFeedback({ type: "warn", message: "Aucune entrée à annuler." });
+        setFeedback({ type: "warn", message: tr("Rien à annuler.", "Nothing to undo.") });
       } else {
         console.error("Check-in failed", checkInError);
-        setFeedback({ type: "error", message: "Enregistrement impossible. Vérifie la connexion puis réessaie." });
+        setFeedback({ type: "error", message: tr("Enregistrement impossible. Vérifie internet et réessaie.", "Could not save. Check the internet connection and try again.") });
       }
     } finally {
       setBusyKey("");
     }
   }
 
+  function admitAnyway(entry) {
+    if (window.confirm(tr(`${nameOf(entry)} a déjà utilisé ses ${entry.places} place(s). Laisser entrer une personne de plus ?`, `${nameOf(entry)} has already used ${entry.places} place(s). Let one more person in?`))) {
+      recordCheckIn(entry, 1, { force: true });
+    }
+  }
+
+  function handleSearchKey(event) {
+    if (event.key === "Escape") {
+      setSearch("");
+      return;
+    }
+    if (!visibleResults.length) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlight((current) => Math.min(visibleResults.length - 1, current + 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlight((current) => Math.max(0, current - 1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const entry = visibleResults[highlight];
+      if (entry && entry.remainingPlaces > 0 && !busyKey) recordCheckIn(entry, 1);
+    }
+  }
+
   return (
-    <section className="cash-desk-panel">
-      <input
-        ref={searchRef}
-        className="cash-desk-search"
-        type="search"
-        autoFocus
-        placeholder="Nom, prénom ou organisation…"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-      />
+    <div className="desk">
+      <header className="desk-bar">
+        <button className="desk-bar__post" type="button" onClick={onChangeSetup} title={tr("Changer de poste ou de caissier", "Change post or operator")}>
+          <strong>{post.name}</strong>
+          <span>{operator} · {tr("changer", "change")}</span>
+        </button>
+        <div className="desk-bar__stats">
+          <span><strong>{postCount}</strong> {tr("entrés ici", "in here")}</span>
+          <span><strong>{totalIn}</strong>/{totalPlaces} {tr("au total", "in total")}</span>
+        </div>
+        <LanguageSwitch />
+        <button className="desk-btn desk-btn--ghost" type="button" onClick={onQuit}>{quitLabel}</button>
+      </header>
 
-      {feedback ? <p className={`cash-desk-feedback cash-desk-feedback--${feedback.type}`}>{feedback.message}</p> : null}
+      {loadError ? <p className="desk-error desk-banner">{tr("Connexion instable : certaines listes ne sont pas à jour.", "Unstable connection: some lists are not up to date.")}</p> : null}
 
-      {!search.trim() ? (
-        <p className="cash-desk-hint">
-          {entries.length} invité(s) sur les listes de ce poste. Tape quelques lettres du nom ou de l'organisation.
-        </p>
-      ) : null}
+      <main className="desk-main">
+        <input
+          ref={searchRef}
+          className="desk-search"
+          type="search"
+          autoFocus
+          autoComplete="off"
+          placeholder={tr("Nom, prénom ou organisation…", "Name or organisation…")}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          onKeyDown={handleSearchKey}
+        />
 
-      {search.trim() && !results.length ? (
-        <p className="cash-desk-hint">Personne ne correspond à « {search} ». Vérifie l'orthographe ou cherche par organisation.</p>
-      ) : null}
+        {feedback ? (
+          <div className={`desk-feedback desk-feedback--${feedback.type}`}>
+            <span>{feedback.type === "ok" ? "✓ " : ""}{feedback.message}</span>
+            {feedback.type === "ok" ? (
+              <button type="button" disabled={Boolean(busyKey)} onClick={() => recordCheckIn(entriesByKey.get(feedback.entry.key) || feedback.entry, -feedback.count)}>
+                {tr("Annuler", "Undo")}
+              </button>
+            ) : null}
+            <button type="button" className="desk-feedback__close" aria-label={tr("Masquer", "Hide")} onClick={() => setFeedback(null)}>✕</button>
+          </div>
+        ) : null}
 
-      <ul className="cash-desk-results">
-        {visibleResults.map((entry) => {
-          const isBusy = busyKey === entry.key;
-          const complete = entry.remainingPlaces === 0;
-          return (
-            <li key={entry.key} className={`cash-desk-guest ${complete ? "cash-desk-guest--done" : ""}`}>
-              <div className="cash-desk-guest__info">
-                <strong>{entry.fullName || entry.organization}</strong>
-                {entry.fullName && entry.organization ? <span>{entry.organization}</span> : null}
-                <span className={`cash-desk-badge ${entry.isVip ? "cash-desk-badge--vip" : ""}`}>{entry.sourceLabel}</span>
-                {entry.companions.length ? <span>Accompagné·e de {entry.companions.join(", ")}</span> : null}
-                {entry.notes ? <span className="cash-desk-guest__notes">{entry.notes}</span> : null}
-              </div>
-              <div className="cash-desk-guest__status">
-                <span>
-                  {entry.admittedCount}/{entry.places} entré{entry.places > 1 ? "s" : ""}
-                </span>
-                {entry.checkIn?.lastAt ? (
-                  <small>
-                    {formatTime(entry.checkIn.lastAt)} · {entry.checkIn.lastPostName}
-                  </small>
-                ) : null}
-              </div>
-              <div className="cash-desk-guest__actions">
-                {!complete ? (
-                  <>
-                    <button className="button button--primary" type="button" disabled={isBusy} onClick={() => recordCheckIn(entry, 1)}>
-                      Entrée ×1
-                    </button>
-                    {entry.remainingPlaces > 1 ? (
-                      <button
-                        className="button button--primary"
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => recordCheckIn(entry, entry.remainingPlaces)}
-                      >
-                        Tout le groupe ×{entry.remainingPlaces}
-                      </button>
-                    ) : null}
-                  </>
-                ) : (
-                  <button
-                    className="button button--danger-soft button--small"
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => {
-                      if (window.confirm(`${entry.fullName || entry.organization} a déjà utilisé toutes ses places. Laisser entrer une personne de plus ?`)) {
-                        recordCheckIn(entry, 1, { force: true });
-                      }
-                    }}
+        {search.trim() ? (
+          <>
+            {!results.length ? (
+              <p className="desk-hint">
+                {tr(`Personne ne correspond à « ${search} ». Essaie le nom de famille seul ou l'organisation.`, `Nobody matches “${search}”. Try the last name only or the organisation.`)}
+              </p>
+            ) : null}
+            <ul className="desk-results">
+              {visibleResults.map((entry, index) => {
+                const isBusy = busyKey === entry.key;
+                const complete = entry.remainingPlaces === 0;
+                return (
+                  <li
+                    key={entry.key}
+                    className={`desk-guest ${complete ? "is-done" : ""} ${index === highlight ? "is-highlight" : ""}`}
+                    onMouseEnter={() => setHighlight(index)}
                   >
-                    Forcer +1
-                  </button>
-                )}
-                {entry.admittedCount > 0 ? (
-                  <button className="button button--secondary button--small" type="button" disabled={isBusy} onClick={() => recordCheckIn(entry, -1)}>
-                    Annuler 1
-                  </button>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      {results.length > MAX_VISIBLE_RESULTS ? (
-        <p className="cash-desk-hint">{results.length - MAX_VISIBLE_RESULTS} autre(s) résultat(s) : affine la recherche.</p>
-      ) : null}
-    </section>
+                    <div className="desk-guest__info">
+                      <div className="desk-guest__name">
+                        <strong>{nameOf(entry)}</strong>
+                        <span className={`cash-badge cash-badge--${entry.kind}`}>{kindLabel(entry.kind)}</span>
+                      </div>
+                      <div className="desk-guest__meta">
+                        {entry.fullName && entry.organization ? <span>{entry.organization}</span> : null}
+                        {entry.kind !== "vip" && entry.kind !== "national_race" && entry.listName ? <span>{entry.listName}</span> : null}
+                        {entry.companions.length ? <span>+ {entry.companions.join(", ")}</span> : null}
+                      </div>
+                      {entry.notes ? <p className="desk-guest__notes">{entry.notes}</p> : null}
+                    </div>
+                    <div className="desk-guest__status">
+                      <span className="desk-places">
+                        {Array.from({ length: Math.min(entry.places, 6) }, (_, dot) => (
+                          <i key={dot} className={dot < entry.admittedCount ? "is-in" : ""} />
+                        ))}
+                      </span>
+                      <small>
+                        {entry.admittedCount}/{entry.places}
+                        {entry.checkIn?.lastAt && entry.admittedCount ? ` · ${formatTime(entry.checkIn.lastAt)} ${entry.checkIn.lastPostName}` : ""}
+                      </small>
+                    </div>
+                    <div className="desk-guest__actions">
+                      {complete ? (
+                        <button className="desk-btn desk-btn--warn" type="button" disabled={isBusy} onClick={() => admitAnyway(entry)}>
+                          {tr("Déjà entré · +1 ?", "Already in · +1?")}
+                        </button>
+                      ) : (
+                        <>
+                          <button className="desk-btn desk-btn--primary" type="button" disabled={isBusy} onClick={() => recordCheckIn(entry, 1)}>
+                            {tr("Entrer", "Admit")}
+                          </button>
+                          {entry.remainingPlaces > 1 ? (
+                            <button className="desk-btn" type="button" disabled={isBusy} onClick={() => recordCheckIn(entry, entry.remainingPlaces)}>
+                              ×{entry.remainingPlaces}
+                            </button>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {results.length > MAX_VISIBLE_RESULTS ? (
+              <p className="desk-hint">{tr(`${results.length - MAX_VISIBLE_RESULTS} autres résultats : précise la recherche.`, `${results.length - MAX_VISIBLE_RESULTS} more results: refine the search.`)}</p>
+            ) : null}
+          </>
+        ) : (
+          <section className="desk-recent">
+            <p className="desk-hint">
+              {loaded
+                ? tr(`${entries.length} invités sur les listes. Tape quelques lettres, puis Entrée pour valider.`, `${entries.length} guests on the lists. Type a few letters, then Enter to admit.`)
+                : tr("Chargement des listes…", "Loading the lists…")}
+            </p>
+            {recent.length ? (
+              <>
+                <h2>{tr("Dernières entrées à ce poste", "Latest entries at this post")}</h2>
+                <ul>
+                  {recent.map((event) => {
+                    const entry = entriesByKey.get(event.checkInId);
+                    return (
+                      <li key={event.id}>
+                        <span className="desk-recent__time">{formatTime(event.time)}</span>
+                        <strong>{event.displayName}</strong>
+                        <span className="desk-muted">{event.count > 1 ? `×${event.count}` : ""} {event.operator}</span>
+                        {entry && entry.admittedCount > 0 ? (
+                          <button type="button" className="desk-link" disabled={busyKey === entry.key} onClick={() => recordCheckIn(entry, -1)}>
+                            {tr("Annuler 1", "Undo 1")}
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : null}
+          </section>
+        )}
+      </main>
+    </div>
   );
 }
 

@@ -2,32 +2,31 @@
 // (/app/caisse) et l'écran des postes d'entrée (/caisse), testée dans
 // tests/cash-desk-helpers.test.js.
 
-const CASH_POST_KINDS = [
-  { value: "public", label: "Entrée public" },
-  { value: "vip", label: "Entrée VIP" },
-];
-
-// Postes créés par le bouton « Créer les postes par défaut » de l'admin.
+// Postes créés par le bouton « Créer les postes par défaut » de l'admin. Un
+// poste n'est qu'un nom : il sert à savoir par quelle porte chacun est entré.
 const DEFAULT_CASH_POSTS = [
-  { id: "public-1", name: "Entrée public 1", kind: "public", showVipLists: false, sortOrder: 1 },
-  { id: "public-2", name: "Entrée public 2", kind: "public", showVipLists: false, sortOrder: 2 },
-  { id: "public-3", name: "Entrée public 3", kind: "public", showVipLists: false, sortOrder: 3 },
-  { id: "vip", name: "Entrée VIP", kind: "vip", showVipLists: true, sortOrder: 4 },
+  { id: "public-1", name: "Entrée public 1", sortOrder: 1 },
+  { id: "public-2", name: "Entrée public 2", sortOrder: 2 },
+  { id: "public-3", name: "Entrée public 3", sortOrder: 3 },
+  { id: "vip", name: "Entrée VIP", sortOrder: 4 },
 ];
 
 const DOOR_GUEST_LIST_CATEGORIES = [
-  { value: "sponsors", label: "Sponsors / partenaires" },
-  { value: "athletes", label: "Athlètes / accompagnants" },
-  { value: "officials", label: "Officiels / fédération" },
-  { value: "free", label: "Liste libre" },
+  { value: "sponsors", label: "Sponsors / partenaires", labelEn: "Sponsors / partners" },
+  { value: "athletes", label: "Athlètes / accompagnants", labelEn: "Athletes / companions" },
+  { value: "officials", label: "Officiels / fédération", labelEn: "Officials / federation" },
+  { value: "free", label: "Liste libre", labelEn: "Other" },
 ];
 
-// Sur quels postes une liste d'invités est consultable.
-const DOOR_GUEST_LIST_SCOPES = [
-  { value: "all", label: "Tous les postes" },
-  { value: "public", label: "Entrées public" },
-  { value: "vip", label: "Entrée VIP" },
-];
+// Badge court affiché à l'entrée, par type d'invité.
+const DOOR_ENTRY_KINDS = {
+  vip: { fr: "VIP", en: "VIP" },
+  sponsors: { fr: "Sponsor", en: "Sponsor" },
+  athletes: { fr: "Athlète", en: "Athlete" },
+  officials: { fr: "Officiel", en: "Official" },
+  national_race: { fr: "Courses nat.", en: "National races" },
+  free: { fr: "Invité", en: "Guest" },
+};
 
 const VIP_SOURCE_LABELS = {
   vip_public: "VIP — formulaire",
@@ -50,12 +49,6 @@ function normalizeSearchValue(value) {
 
 function buildPersonName(firstName, lastName) {
   return [normalizeCashText(firstName), normalizeCashText(lastName)].filter(Boolean).join(" ");
-}
-
-function guestListIsVisibleForPost(list, post) {
-  if (!list || list.active === false) return false;
-  const scope = list.postScope || "all";
-  return scope === "all" || scope === post?.kind;
 }
 
 function buildCheckInKey(editionId, sourceType, sourceId) {
@@ -83,6 +76,7 @@ function mapVipRecordToDoorEntry(record, sourceType, sourceId, editionId) {
     sourceId,
     sourceLabel: VIP_SOURCE_LABELS[sourceType] || "VIP",
     isVip: true,
+    kind: "vip",
     listId: "vip",
     listName: "VIP",
     fullName: buildPersonName(record.firstName, record.lastName),
@@ -93,15 +87,16 @@ function mapVipRecordToDoorEntry(record, sourceType, sourceId, editionId) {
   };
 }
 
-// Regroupe les invités consultables à l'entrée en une seule liste :
-// - VIP (3 sources) si le poste les affiche ; une même personne inscrite via
-//   plusieurs sources (même e-mail, sinon même nom) n'apparaît qu'une fois,
-//   en gardant l'ajout orga, puis le portail partenaire, puis le formulaire ;
-// - invités des listes génériques visibles sur ce poste.
+// Regroupe tous les invités en une seule liste, identique sur tous les postes
+// (et dans l'admin) :
+// - athlètes retenus des courses nationales ;
+// - VIP (3 sources) ; une même personne inscrite via plusieurs sources (même
+//   e-mail, sinon même nom) n'apparaît qu'une fois, en gardant l'ajout orga,
+//   puis le portail partenaire, puis le formulaire ;
+// - invités des listes actives.
 // Les check-ins déjà enregistrés sont rattachés par clé.
 function buildDoorEntries({
   editionId,
-  post,
   vipAdminRegistrations = [],
   vipPortalEntries = [],
   vipPublicRegistrations = [],
@@ -112,9 +107,9 @@ function buildDoorEntries({
 } = {}) {
   const entries = [];
 
-  // Athlètes retenus des courses nationales (sur tous les postes) : l'athlète
-  // entre avec son accréditation par l'entrée athlètes (warm-up) ; la caisse
-  // remet 1 ticket gratuit à l'accompagnateur, qui donne le nom de l'athlète.
+  // Athlètes retenus des courses nationales : l'athlète entre avec son
+  // accréditation par l'entrée athlètes (warm-up) ; la caisse remet 1 ticket
+  // gratuit à l'accompagnateur, qui donne le nom de l'athlète.
   nationalRaceAthletes
     .filter((record) => record.status === "selected" && (!record.editionId || String(record.editionId) === String(editionId)))
     .forEach((record) => {
@@ -125,6 +120,7 @@ function buildDoorEntries({
         sourceId: record.id,
         sourceLabel: `Courses nationales · ${raceLabel}`,
         isVip: false,
+        kind: "national_race",
         listId: "national_races",
         listName: "Courses nationales",
         fullName: buildPersonName(record.firstName, record.lastName),
@@ -135,34 +131,30 @@ function buildDoorEntries({
       });
     });
 
-  if (post?.showVipLists) {
-    const seenVipKeys = new Set();
-    const vipSources = [
-      ...vipAdminRegistrations
-        .filter((record) => record.registrationStatus !== "cancelled")
-        .map((record) => ({ record, sourceType: "vip_admin", sourceId: record.id })),
-      ...vipPortalEntries.map((record) => ({
-        record,
-        sourceType: "vip_portal",
-        sourceId: `${record.portalId || "portail"}-${record.id}`,
-      })),
-      ...vipPublicRegistrations.map((record) => ({ record, sourceType: "vip_public", sourceId: record.id })),
-    ];
+  const seenVipKeys = new Set();
+  const vipSources = [
+    ...vipAdminRegistrations
+      .filter((record) => record.registrationStatus !== "cancelled")
+      .map((record) => ({ record, sourceType: "vip_admin", sourceId: record.id })),
+    ...vipPortalEntries.map((record) => ({
+      record,
+      sourceType: "vip_portal",
+      sourceId: `${record.portalId || "portail"}-${record.id}`,
+    })),
+    ...vipPublicRegistrations.map((record) => ({ record, sourceType: "vip_public", sourceId: record.id })),
+  ];
 
-    vipSources.forEach(({ record, sourceType, sourceId }) => {
-      const dedupKey = getVipDedupKey(record);
-      if (dedupKey && seenVipKeys.has(dedupKey)) return;
-      if (dedupKey) seenVipKeys.add(dedupKey);
-      entries.push(mapVipRecordToDoorEntry(record, sourceType, sourceId, editionId));
-    });
-  }
+  vipSources.forEach(({ record, sourceType, sourceId }) => {
+    const dedupKey = getVipDedupKey(record);
+    if (dedupKey && seenVipKeys.has(dedupKey)) return;
+    if (dedupKey) seenVipKeys.add(dedupKey);
+    entries.push(mapVipRecordToDoorEntry(record, sourceType, sourceId, editionId));
+  });
 
-  const visibleLists = new Map(
-    guestLists.filter((list) => guestListIsVisibleForPost(list, post)).map((list) => [list.id, list]),
-  );
+  const activeLists = new Map(guestLists.filter((list) => list && list.active !== false).map((list) => [list.id, list]));
 
   guests.forEach((guest) => {
-    const list = visibleLists.get(guest.listId);
+    const list = activeLists.get(guest.listId);
     if (!list) return;
     entries.push({
       key: buildCheckInKey(editionId, "door_guest", guest.id),
@@ -170,6 +162,7 @@ function buildDoorEntries({
       sourceId: guest.id,
       sourceLabel: list.name,
       isVip: false,
+      kind: DOOR_ENTRY_KINDS[list.category] ? list.category : "free",
       listId: list.id,
       listName: list.name,
       fullName: buildPersonName(guest.firstName, guest.lastName),
@@ -194,7 +187,9 @@ function buildDoorEntries({
         remainingPlaces: Math.max(0, entry.places - admittedCount),
       };
     })
-    .sort((left, right) => normalizeSearchValue(left.fullName).localeCompare(normalizeSearchValue(right.fullName)));
+    .sort((left, right) =>
+      normalizeSearchValue(left.fullName || left.organization).localeCompare(normalizeSearchValue(right.fullName || right.organization)),
+    );
 }
 
 function filterDoorEntries(entries = [], query = "") {
@@ -207,6 +202,40 @@ function filterDoorEntries(entries = [], query = "") {
     );
     return terms.every((term) => haystack.includes(term));
   });
+}
+
+// Historique à plat de tous les passages (entrées et annulations), du plus
+// récent au plus ancien : journal de l'admin et « Dernières entrées » des postes.
+function flattenCheckInEvents(checkIns = []) {
+  const events = [];
+  checkIns.forEach((checkIn) => {
+    (Array.isArray(checkIn.history) ? checkIn.history : []).forEach((event, index) => {
+      const date = event.at?.toDate?.() || (event.at ? new Date(event.at) : null);
+      events.push({
+        id: `${checkIn.id || checkIn.key}#${index}`,
+        checkInId: checkIn.id || checkIn.key,
+        displayName: checkIn.displayName || checkIn.organization || "",
+        organization: checkIn.organization || "",
+        listName: checkIn.listName || "",
+        postId: event.postId || "",
+        postName: event.postName || event.postId || "",
+        operator: event.operator || "",
+        count: Number(event.count) || 0,
+        forced: Boolean(event.forced),
+        time: date && !Number.isNaN(date.getTime()) ? date.getTime() : 0,
+      });
+    });
+  });
+  return events.sort((left, right) => right.time - left.time);
+}
+
+// Entrées nettes par poste (les annulations sont déduites).
+function countEntriesByPost(events = []) {
+  const counts = new Map();
+  events.forEach((event) => {
+    counts.set(event.postId, (counts.get(event.postId) || 0) + event.count);
+  });
+  return counts;
 }
 
 // Validation d'une entrée (count > 0) ou d'une annulation (count < 0) par
@@ -292,8 +321,8 @@ function parseGuestImportRows(rows = []) {
   return { guests, skipped, columns };
 }
 
-// Code d'accès d'un poste : saisi tel quel ou avec espaces/tirets, comparé en
-// majuscules sans séparateurs (même normalisation côté Cloud Function).
+// Code d'accès de la caisse : saisi tel quel ou avec espaces/tirets, comparé
+// en majuscules sans séparateurs (même normalisation côté Cloud Function).
 function normalizeCashPostCode(value) {
   return String(value || "")
     .toUpperCase()
@@ -301,16 +330,16 @@ function normalizeCashPostCode(value) {
 }
 
 export {
-  CASH_POST_KINDS,
   DEFAULT_CASH_POSTS,
+  DOOR_ENTRY_KINDS,
   DOOR_GUEST_LIST_CATEGORIES,
-  DOOR_GUEST_LIST_SCOPES,
   buildCheckInKey,
   buildDoorEntries,
   buildPersonName,
+  countEntriesByPost,
   evaluateCheckIn,
   filterDoorEntries,
-  guestListIsVisibleForPost,
+  flattenCheckInEvents,
   normalizeCashPostCode,
   normalizeSearchValue,
   parseGuestImportRows,
