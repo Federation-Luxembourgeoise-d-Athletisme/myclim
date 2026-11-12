@@ -30,6 +30,7 @@ import { JUDGE_ROSTER_DOC_PATH } from "./seed-data";
 import { getActiveRoles } from "./navigation";
 import { useAccreditationConfiguration, useJudgeRoster, useTeamConfiguration } from "./config-hooks";
 import { normalizeComparableValue } from "./u14-helpers";
+import { enterQueue, leaveQueue, leaveQueueSimple } from "./accreditation-queue";
 import { useAuth } from "../context/auth-context";
 import { useActiveEdition } from "./edition";
 import { buildVipBadgeItems, buildVipBadgePrintMarkup } from "./vip-badge-print";
@@ -273,8 +274,12 @@ function AccreditationsPage(props) {
 
   function shouldDisplayVolunteerAccreditation(volunteer) {
     const override = getVolunteerOverride(volunteer.id);
-    // Une personne réaffectée réapparaît toujours, même si son ancien badge a été détruit.
-    if (volunteerHasPrintableAssignment(volunteer)) return true;
+    // Une personne réaffectée réapparaît toujours, même si son ancien badge a été détruit,
+    // mais seulement une fois son affectation confirmée (Margot, 12/11/2026 : un badge
+    // pour un poste pas encore confirmé n'a pas de sens).
+    if (volunteerHasPrintableAssignment(volunteer) && getConfirmedAccreditationRoleNames(volunteer, normalizeComparableValue).length > 0) {
+      return true;
+    }
     // Plus affectée : on ne la garde que s'il reste un badge physique à récupérer / détruire.
     // Une accréditation annulée sans badge imprimé est traitée d'office et sort de la liste.
     if (override.destroyedAt) return false;
@@ -968,6 +973,17 @@ function AccreditationsPage(props) {
     }
   }
 
+  // Retirer de la file : un badge presse déjà imprimé reste imprimé (date inchangée).
+  async function removePressFromQueue(registration) {
+    try {
+      await updateDoc(doc(db, "pressRegistrations", registration.id), leaveQueueSimple(registration));
+      setAccreditationStatus("Retiré de la file d'impression.");
+    } catch (error) {
+      console.error("Impossible de retirer le badge presse de la file.", error);
+      setAccreditationStatus("Impossible de retirer le badge presse de la file.");
+    }
+  }
+
   function addPressToPrintQueue(registration) {
     updatePressPrintStatus(registration, "Dans la file");
   }
@@ -1099,12 +1115,13 @@ function AccreditationsPage(props) {
     }
 
     if (patch.printStatus === "Dans la file") {
-      nextOverride.warningMessage = "";
-      nextOverride.lastQueuedAt = new Date().toISOString();
+      return { ...enterQueue({ ...nextOverride, printStatus: existing.printStatus }), printedSnapshot: nextOverride.printedSnapshot };
     }
 
     if (patch.printStatus === "Imprimé") {
       nextOverride.warningMessage = "";
+      nextOverride.queuedFrom = "";
+      nextOverride.queuedWarning = "";
     }
 
     return nextOverride;
@@ -1284,6 +1301,15 @@ function AccreditationsPage(props) {
     );
   }
 
+  function removeVolunteerFromQueue(volunteer) {
+    const override = getVolunteerOverride(volunteer.id);
+    const nextOverride = leaveQueue(override, {
+      zoneIds: getFinalZoneIds(volunteer),
+      roleLabel: getBadgeRoleLabel(volunteer, override, normalizeComparableValue),
+    });
+    persistVolunteerOverride(volunteer, nextOverride, "Retiré de la file d'impression.");
+  }
+
   function addVolunteerToPrintQueue(volunteer) {
     updateVolunteerPrintStatus(volunteer, "Dans la file");
   }
@@ -1372,8 +1398,13 @@ function AccreditationsPage(props) {
   }
 
   async function finalizePrintQueue() {
+    // Seulement les personnes visibles : une affectation pas encore confirmée
+    // restée dans la file n'est pas imprimée.
     const queuedVolunteers = volunteers.filter(
-      (volunteer) => getVolunteerOverride(volunteer.id).printStatus === "Dans la file",
+      (volunteer) =>
+        getVolunteerOverride(volunteer.id).printStatus === "Dans la file" &&
+        shouldDisplayVolunteerAccreditation(volunteer) &&
+        getConfirmedAccreditationRoleNames(volunteer, normalizeComparableValue).length > 0,
     );
     if (!queuedVolunteers.length) return;
 
@@ -1629,8 +1660,11 @@ function AccreditationsPage(props) {
         ),
       )
     : [];
-  const queuedVolunteers = volunteers.filter(
-    (volunteer) => getVolunteerOverride(volunteer.id).printStatus === "Dans la file",
+  // File d'impression : seulement les affectations confirmées.
+  const queuedVolunteers = displayableVolunteers.filter(
+    (volunteer) =>
+      getVolunteerOverride(volunteer.id).printStatus === "Dans la file" &&
+      getConfirmedAccreditationRoleNames(volunteer, normalizeComparableValue).length > 0,
   );
   const normalizedJudgeSearch = judgeSearch.trim().toLowerCase();
   const queuedJudges = judges.filter((judge) => {
@@ -1670,6 +1704,13 @@ function AccreditationsPage(props) {
         .map((zone) => formatZoneLabel(zone))
     : [];
   const printableVolunteers = displayableVolunteers;
+  // Affectés mais pas encore confirmés : pas de badge tant que le poste n'est pas confirmé.
+  const unconfirmedVolunteersCount = volunteers.filter(
+    (volunteer) =>
+      volunteerHasPrintableAssignment(volunteer) &&
+      getConfirmedAccreditationRoleNames(volunteer, normalizeComparableValue).length === 0 &&
+      !displayableVolunteers.includes(volunteer),
+  ).length;
   const peopleBucketCounts = printableVolunteers.reduce(
     (counts, volunteer) => {
       const { buckets } = getPeopleRowState(volunteer);
@@ -2533,6 +2574,12 @@ function AccreditationsPage(props) {
             title="Personnes"
             subtitle="Cliquez sur une ligne pour modifier ses zones. « À traiter » : badge modifié (Vu) ou badge imprimé à détruire (Détruit)."
           >
+            {unconfirmedVolunteersCount ? (
+              <p className="panel-note acc-unconfirmed-note">
+                {unconfirmedVolunteersCount} bénévole{unconfirmedVolunteersCount > 1 ? "s" : ""} affecté{unconfirmedVolunteersCount > 1 ? "s" : ""} mais pas encore
+                confirmé{unconfirmedVolunteersCount > 1 ? "s" : ""} : badge masqué jusqu'à la confirmation du poste.
+              </p>
+            ) : null}
             <div className="acc-people-toolbar">
               <div className="acc-people-filters">
                 {PEOPLE_FILTERS.map((filter) => (
@@ -2576,9 +2623,10 @@ function AccreditationsPage(props) {
                     const isSelected = effectiveSelectedVolunteerId === volunteer.id;
                     const isInvalid = isVolunteerAccreditationInvalid(volunteer);
                     const canDestroyBadge = override.printStatus === "Imprimé à détruire";
-                    const canQueueBadge = !canDestroyBadge && !isInvalid && override.printStatus !== "Dans la file";
                     const isConfirmed =
                       getConfirmedAccreditationRoleNames(volunteer, normalizeComparableValue).length > 0;
+                    // Pas de mise en file tant que le poste n'est pas confirmé.
+                    const canQueueBadge = !canDestroyBadge && !isInvalid && isConfirmed && override.printStatus !== "Dans la file";
                     const zoneLabels = getFinalZoneLabels(volunteer);
                     return (
                       <tr
@@ -2658,7 +2706,17 @@ function AccreditationsPage(props) {
                             </button>
                           ) : null}
                           {override.printStatus === "Dans la file" ? (
-                            <span className="acc-people-muted">en file</span>
+                            <button
+                              className="button button--ghost-danger button--small"
+                              title="Retirer de la file d'impression (revient à l'état d'avant)"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                removeVolunteerFromQueue(volunteer);
+                              }}
+                            >
+                              Retirer de la file
+                            </button>
                           ) : null}
                         </td>
                       </tr>
@@ -2709,6 +2767,11 @@ function AccreditationsPage(props) {
                   <span>{getRoleTableLabel(selectedVolunteer)}</span>
                   <span className="acc-person__dot" aria-hidden="true">·</span>
                   <span>{selectedVolunteerOverride.printStatus}</span>
+                  {selectedVolunteerOverride.printStatus === "Dans la file" ? (
+                    <button className="acc-person__unqueue" type="button" onClick={() => removeVolunteerFromQueue(selectedVolunteer)}>
+                      Retirer de la file
+                    </button>
+                  ) : null}
                   <span className="acc-person__dot" aria-hidden="true">·</span>
                   <span>
                     <strong>{getFinalZoneIds(selectedVolunteer).length}</strong> / {sortedZones.length} zones
@@ -3227,7 +3290,7 @@ function AccreditationsPage(props) {
                         <button
                           className="button button--ghost-danger button--small"
                           type="button"
-                          onClick={() => updateVolunteerPrintStatus(volunteer, "Non-imprimé")}
+                          onClick={() => removeVolunteerFromQueue(volunteer)}
                         >
                           Retirer
                         </button>
@@ -3303,7 +3366,7 @@ function AccreditationsPage(props) {
                         <button
                           className="button button--ghost-danger button--small"
                           type="button"
-                          onClick={() => updateJudgePrintStatus(judge, "Non-imprimé")}
+                          onClick={() => updateJudge(judge.id, leaveQueueSimple(judge), "Juge retiré de la file.")}
                         >
                           Retirer
                         </button>
@@ -3371,7 +3434,7 @@ function AccreditationsPage(props) {
                         <button
                           className="button button--ghost-danger button--small"
                           type="button"
-                          onClick={() => updatePressPrintStatus(registration, "Non-imprimé")}
+                          onClick={() => removePressFromQueue(registration)}
                         >
                           Retirer
                         </button>

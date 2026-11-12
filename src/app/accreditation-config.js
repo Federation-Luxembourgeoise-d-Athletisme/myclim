@@ -205,6 +205,12 @@ function normalizeAccreditationOverride(override = {}, availableZoneIds = new Se
     badgeLabel: String(override?.badgeLabel || "").trim(),
     warningMessage: String(override?.warningMessage || "").trim(),
     lastQueuedAt: override?.lastQueuedAt || null,
+    // Statut et alerte d'avant l'entrée dans la file (accreditation-queue.js).
+    queuedFrom:
+      ACCREDITATION_PRINT_STATUS_OPTIONS.includes(String(override?.queuedFrom || "")) && override.queuedFrom !== "Dans la file"
+        ? override.queuedFrom
+        : "",
+    queuedWarning: String(override?.queuedWarning || "").trim(),
     lastPrintedAt: override?.lastPrintedAt || null,
     destroyedAt: override?.destroyedAt || null,
     // Distinct from "Rangé" (badge printed and put in a pickup box, not yet in the
