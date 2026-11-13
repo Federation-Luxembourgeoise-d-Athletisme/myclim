@@ -478,15 +478,14 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
     if (nations.size >= 3) {
       lines.push(tr(`${nations.size} nations au départ.`, `${nations.size} nations on the start list.`));
     }
-    // Plateau du jour comparé à la perf gagnante moyenne de chaque niveau.
-    const topSb = competitors.map((e) => e.sbValue).filter((v) => v != null).sort((a, b) => (field ? b - a : a - b))[0];
-    const noneLevel = levelBests.find((l) => l.level.key === "none");
-    if (topSb != null && noneLevel?.average != null && currentLevel) {
-      const diff = field ? topSb - noneLevel.average : noneLevel.average - topSb;
-      if (diff > 0) {
+    // Meilleure SB au départ comparée au record du meeting.
+    const topSb = competitors.filter((e) => e.sbValue != null).sort((a, b) => (field ? b.sbValue - a.sbValue : a.sbValue - b.sbValue))[0];
+    if (topSb && recordValue && !threats.length) {
+      const gap = field ? recordValue - topSb.sbValue : topSb.sbValue - recordValue;
+      if (gap > 0) {
         lines.push(tr(
-          `Meilleure perf de la saison au départ : ${formatMark(topSb, field)}, ${formatGap(diff, field, language)} ${betterWord(group.key, language)} que la perf gagnante moyenne d'avant le label (${formatMark(noneLevel.average, field)}).`,
-          `Best season mark on the start list: ${formatMark(topSb, field)}, ${formatGap(diff, field, language)} ${betterWord(group.key, language)} than the average winning mark before the label (${formatMark(noneLevel.average, field)}).`,
+          `Meilleure perf de la saison au départ : ${formatMark(topSb.sbValue, field)} (${formatPersonName(topSb.athlete)}), à ${formatGap(gap, field, language)} du record du meeting.`,
+          `Best season mark on the start list: ${formatMark(topSb.sbValue, field)} (${formatPersonName(topSb.athlete)}), ${formatGap(gap, field, language)} off the meeting record.`,
         ));
       }
     }

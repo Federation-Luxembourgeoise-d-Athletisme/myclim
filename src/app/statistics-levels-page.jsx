@@ -209,13 +209,6 @@ function SpeakerSheet({ sheet, year }) {
             <span>{sheet.record ? `${formatPersonName(sheet.record)} (${sheet.record.noc}) · ${sheet.record.year}` : "—"}</span>
             <span className="stats-row__value">{sheet.record?.mark || ""}</span>
           </div>
-          {sheet.levelBests.map(({ level, best }) => (
-            <div key={level.key} className="stats-row">
-              <span className="stats-row__label" title={tr(`Meilleure performance réalisée au meeting dans cette épreuve pendant les éditions ${level.key === "none" ? "sans label World Athletics" : level.label}`, `Best mark achieved at the meeting in this event during the ${level.key === "none" ? "editions without a World Athletics label" : `${level.labelEn} editions`}`)}>{tr(`Meilleure perf ${levelYears(level)}`, `Best mark ${levelYears(level)}`)}{level.key !== "none" ? ` (${level.label})` : ""}</span>
-              <span>{best ? `${best.name} (${best.noc}) · ${best.year}` : <span className="stats-muted">{tr("pas disputée", "not held")}</span>}</span>
-              <span className="stats-row__value">{best?.mark || ""}</span>
-            </div>
-          ))}
           {sheet.lastWinners.map((w) => (
             <div key={w.id || w.year} className="stats-row">
               <span className="stats-row__label">{tr(`Vainqueur ${w.year}`, `${w.year} winner`)}</span>
