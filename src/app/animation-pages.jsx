@@ -129,7 +129,7 @@ function AnimationEditionPage() {
 
       <div className="stats-cols">
         <section className="stats-box">
-          <header className="stats-box__head"><h2>{tr("À dire au micro", "For the microphone")}</h2></header>
+          <header className="stats-box__head"><h2>{tr("Informations clés", "Key information")}</h2></header>
           {live.facts.map((fact) => (
             <div key={fact.text} className="stats-fact">
               <div>

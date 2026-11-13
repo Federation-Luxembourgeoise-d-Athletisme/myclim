@@ -100,7 +100,7 @@ function StatisticsLevelsPage() {
           </p>
         </section>
         <section className="stats-box">
-          <header className="stats-box__head"><h2>{tr("À dire au micro / dans la com", "For the microphone / communication")}</h2></header>
+          <header className="stats-box__head"><h2>{tr("Informations clés", "Key information")}</h2></header>
           {data.facts.map((fact) => (
             <div key={fact.text} className="stats-fact">
               <div>
@@ -194,13 +194,13 @@ function SpeakerSheet({ sheet, year }) {
 
       <div className="speaker-sheet__top">
         <div>
-          <h3 className="speaker-sheet__h">{tr("À dire au micro", "For the microphone")}</h3>
+          <h3 className="speaker-sheet__h">{tr("Informations clés", "Key information")}</h3>
           {sheet.lines.length ? (
             <ul className="speaker-sheet__lines">
               {sheet.lines.map((line) => <li key={line}>{line}</li>)}
             </ul>
           ) : <p className="stats-muted stats-small">{tr("Rien de marquant trouvé dans l'historique.", "Nothing notable found in the history.")}</p>}
-          {sheet.lines.length ? <CopyButton text={sheet.lines.join("\n")} label={tr("Copier les phrases", "Copy the lines")} /> : null}
+          {sheet.lines.length ? <CopyButton text={sheet.lines.join("\n")} label={tr("Tout copier", "Copy all")} /> : null}
         </div>
         <div>
           <h3 className="speaker-sheet__h">{tr("Repères", "Reference marks")}</h3>
