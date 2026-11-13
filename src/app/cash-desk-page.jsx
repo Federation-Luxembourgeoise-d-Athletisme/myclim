@@ -162,19 +162,26 @@ function CashDeskSession({ isTechnicalSession = false }) {
   const [postId, setPostId] = useState(() => readStored(POST_STORAGE_KEY));
   const [operator, setOperator] = useState(() => readStored(OPERATOR_STORAGE_KEY));
   const [setupDone, setSetupDone] = useState(() => Boolean(readStored(POST_STORAGE_KEY) && readStored(OPERATOR_STORAGE_KEY)));
+  const [accessAttempt, setAccessAttempt] = useState(0);
 
-  useEffect(
-    () =>
-      onSnapshot(
-        doc(db, "cashDesk", "access"),
-        (snapshot) => setAccess(snapshot.exists() ? snapshot.data() : {}),
-        (snapshotError) => {
-          console.error("Cash desk access load failed", snapshotError);
-          setAccess({ open: false });
-        },
-      ),
-    [],
-  );
+  // Juste après la saisie du code, Firestore peut lire avant d'avoir reçu le
+  // nouveau jeton : la lecture est refusée et l'écouteur s'arrête. On réessaie
+  // au lieu de conclure à une caisse fermée ou à un code changé.
+  useEffect(() => {
+    let retryTimer = null;
+    const unsubscribe = onSnapshot(
+      doc(db, "cashDesk", "access"),
+      (snapshot) => setAccess(snapshot.exists() ? snapshot.data() : {}),
+      (snapshotError) => {
+        console.error("Cash desk access load failed", snapshotError);
+        retryTimer = window.setTimeout(() => setAccessAttempt((current) => current + 1), 2000);
+      },
+    );
+    return () => {
+      unsubscribe();
+      if (retryTimer) window.clearTimeout(retryTimer);
+    };
+  }, [accessAttempt]);
 
   useEffect(() => {
     if (!isTechnicalSession || !auth.currentUser) return undefined;
@@ -305,7 +312,10 @@ function CashDeskWorkspace({ post, operator, onChangeSetup, onQuit, quitLabel })
 
   const postEvents = useMemo(() => flattenCheckInEvents(checkIns).filter((event) => event.postId === post.id), [checkIns, post.id]);
   const postCount = postEvents.reduce((sum, event) => sum + event.count, 0);
-  const recent = postEvents.filter((event) => event.count > 0).slice(0, RECENT_COUNT);
+  // Entrées encore valables : une entrée annulée depuis disparaît de la liste.
+  const recent = postEvents
+    .filter((event) => event.count > 0 && (entriesByKey.get(event.checkInId)?.admittedCount ?? 1) > 0)
+    .slice(0, RECENT_COUNT);
   const totalPlaces = entries.reduce((sum, entry) => sum + entry.places, 0);
   const totalIn = entries.reduce((sum, entry) => sum + entry.admittedCount, 0);
 
@@ -396,7 +406,19 @@ function CashDeskWorkspace({ post, operator, onChangeSetup, onQuit, quitLabel })
     } else if (event.key === "Enter") {
       event.preventDefault();
       const entry = visibleResults[highlight];
-      if (entry && entry.remainingPlaces > 0 && !busyKey) recordCheckIn(entry, 1);
+      if (!entry || busyKey) return;
+      if (entry.remainingPlaces > 0) {
+        recordCheckIn(entry, 1);
+      } else {
+        const last = entry.checkIn;
+        setFeedback({
+          type: "warn",
+          message: tr(
+            `${nameOf(entry)} est déjà entré·e${last?.lastAt ? ` à ${formatTime(last.lastAt)} (${last.lastPostName})` : ""}.`,
+            `${nameOf(entry)} is already in${last?.lastAt ? ` since ${formatTime(last.lastAt)} (${last.lastPostName})` : ""}.`,
+          ),
+        });
+      }
     }
   }
 

@@ -353,8 +353,16 @@
 }
 
 .cash-admin td select {
+  width: auto;
   height: 28px;
   font-size: 0.82rem;
+}
+
+.cash-toolbar select,
+.cash-inline-bar select {
+  width: auto;
+  flex: 0 0 auto;
+  max-width: 220px;
 }
 
 .cash-form {

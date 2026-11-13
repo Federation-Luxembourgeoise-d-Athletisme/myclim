@@ -697,7 +697,7 @@ function CashDeskAdminPage() {
                       <span className={entry.admittedCount ? "cash-count is-in" : "cash-count"}>{entry.admittedCount}/{entry.places}</span>
                     </td>
                     <td className="cash-muted">
-                      {entry.checkIn?.lastAt ? `${formatTime(entry.checkIn.lastAt)} · ${entry.checkIn.lastPostName || ""}` : ""}
+                      {entry.admittedCount && entry.checkIn?.lastAt ? `${formatTime(entry.checkIn.lastAt)} · ${entry.checkIn.lastPostName || ""}` : ""}
                     </td>
                     <td className="cash-table__actions">
                       {entry.sourceType === "door_guest" && !entry.admittedCount ? (
