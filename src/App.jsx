@@ -69,7 +69,7 @@ import {
   normalizeComparableValue,
   syncU14RaceAllocations,
 } from "./app/u14-helpers";
-import { LegacyRedirect, RequireAuth, RequireRouteAccess } from "./app/route-guards";
+import { LegacyRedirect, RequireAnimationAccess, RequireAuth, RequireRouteAccess } from "./app/route-guards";
 import { TabbedPage } from "./app/page-tabs";
 import { useActiveEdition } from "./app/edition";
 import { LEGACY_APP_REDIRECTS, STATISTICS_ACCESS_ROLES } from "./app/navigation";
@@ -110,6 +110,8 @@ const StatisticsLayout = lazyNamed(() => import("./app/statistics-layout"), "Sta
 const StatisticsOverviewPage = lazyNamed(() => import("./app/statistics-overview-page"), "StatisticsOverviewPage");
 const StatisticsLevelsPage = lazyNamed(() => import("./app/statistics-levels-page"), "StatisticsLevelsPage");
 const SpeakerSheetsPage = lazyNamed(() => import("./app/statistics-levels-page"), "SpeakerSheetsPage");
+const AnimationLayout = lazyNamed(() => import("./app/animation-pages"), "AnimationLayout");
+const AnimationEditionPage = lazyNamed(() => import("./app/animation-pages"), "AnimationEditionPage");
 const WebsiteNewsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteNewsPage");
 const WebsiteSponsorsPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsiteSponsorsPage");
 const WebsitePressPageScreen = lazyNamed(() => import("./app/website-admin-pages"), "WebsitePressPage");
@@ -774,9 +776,13 @@ export default function App() {
               <Route element={<RequireRouteAccess allowedRoles={["benevole_transport_athletes", "admin", "gestionnaire"]} />}>
                 <Route path="mes-transports" element={<AthleteTransportVolunteerPage />} />
               </Route>
-              {/* Fiches speaker seules, pour le rôle speaker (compte externe, rien d'autre). */}
-              <Route element={<RequireRouteAccess allowedRoles={[...STATISTICS_ACCESS_ROLES, "speaker"]} />}>
-                <Route path="fiches-speaker" element={<SpeakerSheetsPage standalone />} />
+              {/* Animation : speakers et équipes qui ont le module (Équipes organisation). */}
+              <Route element={<RequireAnimationAccess />}>
+                <Route path="animation" element={<AnimationLayout />}>
+                  <Route index element={<AnimationEditionPage />} />
+                  <Route path="fiches" element={<SpeakerSheetsPage />} />
+                  <Route path="niveaux" element={<StatisticsLevelsPage />} />
+                </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={STATISTICS_ACCESS_ROLES} />}>
                 {/* Statistiques : barre commune (édition partagée + recherche), voir statistics-layout.jsx. */}
@@ -787,7 +793,7 @@ export default function App() {
                   <Route path="hall-of-winners" element={<MeetingWinnersPage />} />
                   <Route path="base-athletes" element={<AthleteRegistryPage maintenance="hide" />} />
                   <Route path="niveaux" element={<StatisticsLevelsPage />} />
-                  <Route path="speakers" element={<SpeakerSheetsPage />} />
+                  <Route path="speakers" element={<Navigate replace to="/app/animation/fiches" />} />
                 </Route>
               </Route>
               <Route element={<RequireRouteAccess allowedRoles={["admin", "gestionnaire", "gestionnaire_site"]} />}>

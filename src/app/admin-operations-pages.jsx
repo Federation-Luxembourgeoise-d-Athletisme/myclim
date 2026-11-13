@@ -82,7 +82,6 @@ const ROLE_ACCESS_DESCRIPTIONS = {
   athlete_preprogram: "Accès à \"Mon inscription\" : suivi de sa demande aux courses nationales du pré-programme (60 m / 800 m).",
   chef_transport_athletes: "Responsable du transport : voit arrivées et départs des athlètes avec leur manager, et répartit les bénévoles transport. Inclut tout ce que voit un bénévole transport.",
   benevole_transport_athletes: "Bénévole transport : voit uniquement les arrivées des athlètes qu'il ou elle va chercher (nom, jour, heure, vol, provenance).",
-  speaker: "Accès aux « Fiches speaker » : une fiche par épreuve avec les engagés (PB, SB, passé au meeting), les records et des phrases prêtes à dire au micro. Lecture seule, rien d'autre.",
   kine: "Accès à la page « Réservations kiné » : voir et gérer les créneaux de soins réservés par les athlètes.",
 };
 
@@ -94,7 +93,6 @@ const ROLE_DISPLAY_ORDER = [
   "athlete_preprogram",
   "benevole_transport_athletes",
   "commission_athletes",
-  "speaker",
   "chef_equipe",
   "chef_transport_athletes",
   "kine",

@@ -224,7 +224,6 @@ const platformRoleOptions = [
   { value: "athlete_preprogram", label: "Athlète courses nationales" },
   { value: "commission_athletes", label: "Commission des athlètes" },
   { value: "kine", label: "Kiné" },
-  { value: "speaker", label: "Speaker" },
   { value: "chef_transport_athletes", label: "Chef transport athlètes" },
   { value: "benevole_transport_athletes", label: "Bénévole transport athlètes" },
 ];

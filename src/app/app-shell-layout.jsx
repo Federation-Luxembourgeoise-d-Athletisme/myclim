@@ -78,7 +78,6 @@ const VIEW_AS_ROLES = {
   athlete_preprogram: ["athlete_preprogram"],
   commission_athletes: ["commission_athletes"],
   kine: ["kine"],
-  speaker: ["speaker"],
   chef_transport_athletes: ["chef_transport_athletes"],
   benevole_transport_athletes: ["benevole_transport_athletes"],
   gestionnaire_site: ["gestionnaire_site"],
@@ -129,10 +128,13 @@ function AppShell(props) {
   const isManagerRole = effectiveRoles.includes("admin") || effectiveRoles.includes("gestionnaire");
   const hasOwnMeetingTasks = useHasOwnMeetingTasks(currentUser?.email, !isManagerRole);
   // Membre d'une équipe de l'organisation (y compris gestionnaires) : « Mon planning ».
-  const hasOrganisationTeams = useMyOrganisationTeams(currentUser?.email).teams.length > 0;
+  const myOrganisation = useMyOrganisationTeams(currentUser?.email);
+  const hasOrganisationTeams = myOrganisation.teams.length > 0;
+  // Modules ouverts par ses équipes (Animation…), réglés dans Équipes organisation.
+  const organisationModules = myOrganisation.modules;
   const navigation = useMemo(
-    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess, hasOwnMeetingTasks, hasOrganisationTeams }),
-    [athletePortalAccess, effectiveRoles, hasOwnMeetingTasks, hasOrganisationTeams],
+    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess, hasOwnMeetingTasks, hasOrganisationTeams, organisationModules }),
+    [athletePortalAccess, effectiveRoles, hasOwnMeetingTasks, hasOrganisationTeams, organisationModules],
   );
   const linkLabel = (link) => (t(link.labelKey) || link.label).replace("{edition}", activeEditionId || "");
   const flatNavigation = useMemo(() => flattenNavigationItems(navigation), [navigation]);
@@ -441,14 +443,9 @@ function DashboardHome(props) {
   const isCommissionOnly =
     activeRole === "commission_athletes" ||
     (roles.includes("commission_athletes") && !roles.some((role) => ["admin", "gestionnaire", "benevole", "chef_equipe"].includes(role)));
-  // Pareil pour un speaker (compte externe) : directement ses fiches.
-  const isSpeakerOnly =
-    activeRole === "speaker" ||
-    (roles.includes("speaker") && !roles.some((role) => ["admin", "gestionnaire", "meeting_director", "benevole", "chef_equipe", "commission_athletes"].includes(role)));
   useEffect(() => {
     if (isCommissionOnly) navigateHome(APP_ROUTES.nationalRaces, { replace: true });
-    else if (isSpeakerOnly) navigateHome(APP_ROUTES.speakerSheets, { replace: true });
-  }, [isCommissionOnly, isSpeakerOnly, navigateHome]);
+  }, [isCommissionOnly, navigateHome]);
   const { application: volunteerApplication } = useVolunteerApplication(currentUser?.uid);
   const { roles: teamRoles, teamAssignments, loading: teamsLoading } = useTeamConfiguration();
   const { applications: volunteerApplications, loading: volunteerApplicationsLoading } = useVolunteerApplicationsList(

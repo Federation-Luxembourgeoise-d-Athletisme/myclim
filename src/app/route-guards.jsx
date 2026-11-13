@@ -2,7 +2,8 @@ import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
 import { isCashDeskUid, isTechnicalSessionUid } from "../context/technical-sessions";
 import { useLanguage } from "./language-context";
-import { getActiveRoles, getDefaultRouteByRoles } from "./navigation";
+import { canAccessAnimation, canAccessStatistics, getActiveRoles, getDefaultRouteByRoles } from "./navigation";
+import { useMyOrganisationTeams } from "./organisation-hooks";
 
 function RequireAuth() {
   const { currentUser, loading } = useAuth();
@@ -29,6 +30,18 @@ function RequireAuth() {
     return <Navigate to={isCashDeskUid(currentUser.uid) ? "/caisse" : "/"} replace />;
   }
   return <Outlet />;
+}
+
+// Module Animation : rôles des Statistiques, ou équipe de l'organisation qui
+// a coché le module (Équipes organisation › Modules de l'équipe).
+function RequireAnimationAccess() {
+  const { currentUser, userProfile } = useAuth();
+  const { t } = useLanguage();
+  const roles = getActiveRoles(userProfile);
+  const { modules, loading } = useMyOrganisationTeams(currentUser?.email, !canAccessStatistics(roles));
+  if (canAccessAnimation(roles, modules)) return <Outlet />;
+  if (loading) return null;
+  return <Navigate replace to={getDefaultRouteByRoles(roles)} state={{ accessDeniedMessage: t("accessDeniedMessage") }} />;
 }
 
 function RequireRouteAccess({ allowedRoles }) {
@@ -61,4 +74,4 @@ function LegacyRedirect({ to }) {
   return <Navigate replace to={`${to}${rest}${location.search}${location.hash}`} />;
 }
 
-export { LegacyRedirect, RequireAuth, RequireRouteAccess };
+export { LegacyRedirect, RequireAnimationAccess, RequireAuth, RequireRouteAccess };

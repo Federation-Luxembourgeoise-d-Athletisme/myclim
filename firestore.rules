@@ -80,9 +80,13 @@ service cloud.firestore {
       return isSignedIn() && "kine" in userTypes();
     }
 
-    // Speaker (compte externe) : lit les engagés pour ses fiches, rien d'autre.
-    function isSpeaker() {
-      return isSignedIn() && "speaker" in userTypes();
+    // Module ouvert par une équipe de l'organisation (ex. « animation » pour
+    // les speakers Athle.ch) : recopié dans organisationMembers/{e-mail}.modules
+    // à chaque enregistrement des équipes, retiré quand le membre quitte l'équipe.
+    function hasOrganisationModule(module) {
+      return isSignedIn() && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/organisationMembers/$(request.auth.token.email.lower())) &&
+        module in get(/databases/$(database)/documents/organisationMembers/$(request.auth.token.email.lower())).data.get("modules", []);
     }
 
     function isAthleteTransportVolunteer() {
@@ -307,7 +311,8 @@ service cloud.firestore {
     // et un appSettings/athletePortalSettings.accessRoles qui leur donnent
     // explicitement accès à ce module.
     match /athletes/{athleteId} {
-      allow read: if canReadAthletePortal() || isSpeaker();
+      // Animation : fiches speaker (seuls nom, nation, épreuve, PB/SB sont affichés).
+      allow read: if canReadAthletePortal() || hasOrganisationModule("animation");
       allow write: if canManageAthletePortal();
     }
 

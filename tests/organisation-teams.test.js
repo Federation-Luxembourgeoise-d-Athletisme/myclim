@@ -26,3 +26,21 @@ test('LUNEX Student access gives the gestionnaire role, like Staff FLA', async (
   assert.equal(getAccessOption('lunex').role, 'gestionnaire');
   assert.equal(getMemberAccountStatus({ access: 'lunex' }, { user: { userTypes: ['gestionnaire'] } }), 'active');
 });
+
+test('team modules reach every member with an account, and only them', async () => {
+  const { buildModulesByEmail, normalizeOrganisationTeams, buildDefaultOrganisationTeams } = await import('../src/app/organisation-teams.js');
+  const teams = normalizeOrganisationTeams({
+    teams: [
+      { id: 'speakers', name: 'Speakers (Athle.ch)', modules: ['animation', 'unknown'], members: [
+        { firstName: 'A', email: 'A@athle.ch', access: 'organisation' },
+        { firstName: 'B', access: 'none' },
+        { firstName: 'C', email: 'c@athle.ch', access: 'none' },
+      ] },
+      { id: 'tv', name: 'TV', members: [{ firstName: 'D', email: 'a@athle.ch', access: 'organisation' }] },
+    ],
+  });
+  assert.deepEqual(teams[0].modules, ['animation']);
+  assert.deepEqual(teams[1].modules, []);
+  assert.deepEqual(buildModulesByEmail(teams), { 'a@athle.ch': ['animation'] });
+  assert.deepEqual(buildDefaultOrganisationTeams().find((team) => team.id === 'speakers').modules, ['animation']);
+});

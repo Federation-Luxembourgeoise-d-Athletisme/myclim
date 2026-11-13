@@ -14,7 +14,7 @@ const APP_ROUTES = {
   roadbook: "/app/roadbook",
   physio: "/app/kine",
   results: "/app/resultats",
-  speakerSheets: "/app/fiches-speaker",
+  animation: "/app/animation",
   u14: "/app/u14",
   nationalRaces: "/app/courses-nationales",
   accreditations: "/app/accreditations",
@@ -126,7 +126,6 @@ function getDefaultRouteByRoles(roles = []) {
   if (roles.includes("benevole_transport_athletes")) return APP_ROUTES.myTransports;
   if (roles.includes("kine")) return APP_ROUTES.physio;
   if (roles.includes("commission_athletes")) return APP_ROUTES.nationalRaces;
-  if (roles.includes("speaker")) return APP_ROUTES.speakerSheets;
   if (roles.includes("benevole")) return APP_ROUTES.myAssignments;
   if (roles.includes("parent_u14")) return APP_ROUTES.myChildren;
   if (roles.includes("athlete_preprogram")) return APP_ROUTES.myNationalRace;
@@ -148,7 +147,7 @@ const LINKS = {
   roadbook: () => makeLink(APP_ROUTES.roadbook, "navRoadbook", "Roadbook", "folder"),
   physio: () => makeLink(APP_ROUTES.physio, "navPhysio", "Kiné", "users"),
   results: () => makeLink(APP_ROUTES.results, "navResultsRecords", "Statistiques", "trophy"),
-  speakerSheets: () => makeLink(APP_ROUTES.speakerSheets, "navSpeakerSheets", "Fiches speaker", "trophy"),
+  animation: () => makeLink(APP_ROUTES.animation, "navAnimation", "Animation", "spark"),
   u14: () => makeLink(APP_ROUTES.u14, "navPreprogramU12U14", "U12 / U14", "child"),
   nationalRaces: () => makeLink(APP_ROUTES.nationalRaces, "navNationalRaces", "Courses nationales", "spark"),
   accreditations: () => makeLink(APP_ROUTES.accreditations, "navAccreditations", "Accréditations", "ticket"),
@@ -185,6 +184,7 @@ const SECTION_TITLES = {
   steering: ["navSectionSteering", "Pilotage"],
   volunteers: ["navSectionVolunteers", "Bénévoles"],
   athletes: ["navSectionAthletes", "Athlètes"],
+  animation: ["navSectionAnimation", "Animation"],
   preprogram: ["navSectionPreprogram", "Pré-programme"],
   accessDay: ["navSectionAccessDay", "Accès & jour J"],
   communication: ["navSectionCommunication", "Communication"],
@@ -242,6 +242,7 @@ function buildNavigationFromRoles(roles, options = {}) {
   const canAccessEntries = Boolean(options.athletePortal?.canAccess);
   const has = (role) => roles.includes(role);
   const canSeeStatistics = canAccessStatistics(roles);
+  const canSeeAnimation = canAccessAnimation(roles, options.organisationModules);
 
   if (has("admin")) {
     return [
@@ -250,6 +251,7 @@ function buildNavigationFromRoles(roles, options = {}) {
       section("steering", ["edition", "retroplanning", "budget", "expenseClaims", "documents"]),
       section("volunteers", ["applications", "teams"]),
       section("athletes", ["entries", "transport", "roadbook", "physio", "results"]),
+      section("animation", ["animation"]),
       section("preprogram", ["u14", "nationalRaces"]),
       section("accessDay", ["accreditations", "vip", "cashDesk", "attendance", "emergencyExports"]),
       section("communication", ["calendar", "tasks", "partners", "press"]),
@@ -272,6 +274,7 @@ function buildNavigationFromRoles(roles, options = {}) {
         "physio",
         canSeeStatistics && "results",
       ]),
+      section("animation", ["animation"]),
       section("preprogram", ["u14", has("commission_athletes") && "nationalRaces"]),
       section("accessDay", ["accreditations", "vip", "cashDesk", "attendance", "emergencyExports"]),
       section("communication", ["calendar", "tasks", "partners", "press"]),
@@ -290,9 +293,9 @@ function buildNavigationFromRoles(roles, options = {}) {
       has("chef_transport_athletes") && "transport",
       has("kine") && "physio",
       canSeeStatistics && "results",
-      // Speakers : seulement leurs fiches (les autres les ont dans Statistiques).
-      has("speaker") && !canSeeStatistics && "speakerSheets",
     ]),
+    // Équipe de l'organisation avec le module Animation (speakers Athle.ch…).
+    section("animation", [canSeeAnimation && "animation"]),
     section("preprogram", [has("commission_athletes") && "nationalRaces"]),
     section("communication", has("gestionnaire_site") ? ["partners", "pressReleases"] : []),
     section("website", has("gestionnaire_site") ? ["news", "emagazine", "links"] : []),
@@ -302,6 +305,12 @@ function buildNavigationFromRoles(roles, options = {}) {
 // Module Statistiques (base athlètes, résultats, records, Hall of Winners) :
 // ouvert à tous les gestionnaires, en plus des admins et du meeting director.
 const STATISTICS_ACCESS_ROLES = ["admin", "meeting_director", "gestionnaire"];
+
+// Module Animation (fiches speaker, chiffres de l'édition) : ceux qui ont les
+// Statistiques, plus les membres d'une équipe organisation qui a le module.
+function canAccessAnimation(roles = [], organisationModules = []) {
+  return canAccessStatistics(roles) || (Array.isArray(organisationModules) && organisationModules.includes("animation"));
+}
 
 function canAccessStatistics(roles = []) {
   return STATISTICS_ACCESS_ROLES.some((role) => roles.includes(role));
@@ -313,6 +322,7 @@ export {
   STATISTICS_ACCESS_ROLES,
   buildNavigation,
   buildNavigationFromRoles,
+  canAccessAnimation,
   canAccessStatistics,
   getActiveRoles,
   getDefaultRouteByRoles,

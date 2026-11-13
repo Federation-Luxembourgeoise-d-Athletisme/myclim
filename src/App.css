@@ -9328,9 +9328,13 @@ tr.row--warning > td {
 .orgt-center { text-align: center; width: 48px; }
 .orgt-muted { color: #a3afbb; }
 .data-table--sheet tbody tr.orgt-row--active td { background: #e3edf9; }
-.orgt-detail__form { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(200px, 2fr) auto; gap: 10px; align-items: end; padding: 10px 12px; border-bottom: 1px solid #e8edf2; }
+.orgt-detail__form { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(200px, 2fr) auto auto; gap: 10px; align-items: end; padding: 10px 12px; border-bottom: 1px solid #e8edf2; }
 .orgt-detail__form .mdp-field { margin: 0; }
 .orgt-detail__delete { padding-bottom: 6px; }
+.orgt-modules { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 0 4px; border: 0; font-size: 12.5px; }
+.orgt-modules legend { float: left; margin-right: 8px; padding: 0; font-size: 11px; font-weight: 700; color: #627788; text-transform: uppercase; letter-spacing: 0.04em; }
+.orgt-modules label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
+@media (max-width: 760px) { .orgt-detail__form { grid-template-columns: 1fr; } }
 .orgt-input { width: 100%; min-width: 0; height: 24px; padding: 0 6px !important; font-size: 12.5px; border: 1px solid transparent !important; border-radius: 4px; background: transparent; box-shadow: none !important; }
 .orgt-input:hover { border-color: #dfe6ee !important; }
 .orgt-input:focus { border-color: #9fb3c8 !important; background: #fff; outline: none; }
@@ -9848,6 +9852,9 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .speaker-sheets__bar p { flex: 1; min-width: 240px; font-size: 0.88rem; }
 .speaker-sheets__bar select { font: inherit; font-size: 0.85rem; padding: 4px 8px; border-radius: 8px; border: 1px solid #c9d4de; }
 .speaker-sheet { margin-bottom: 14px; }
+.speaker-sheet__time { margin-right: 8px; padding: 1px 7px; border-radius: 6px; background: #17324a; color: #fff; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.stats-chip--new { background: #e5f5ec; color: #0f7a4a; }
+.animation-layout__note { margin: 0; font-size: 0.82rem; }
 .speaker-sheet__top {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);

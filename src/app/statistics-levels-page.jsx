@@ -1,10 +1,7 @@
 import { useMemo, useState } from "react";
-import { useAllMeetingResults, useAllWinners, useMeetingEditions, useMeetingRecords } from "./meeting-history-hooks";
-import { useAthletes } from "./athlete-portal-hooks";
-import { useActiveEdition } from "./edition";
 import { formatPersonName } from "./statistics-compute";
-import { MEETING_LEVELS, buildSpeakerSheets, computeLevelComparison, formatMark, levelYears } from "./statistics-levels";
-import { useStatisticsEdition } from "./statistics-edition";
+import { MEETING_LEVELS, computeLevelComparison, formatMark, levelYears } from "./statistics-levels";
+import { useHistory, useSpeakerData } from "./statistics-levels-hooks";
 import { useLanguage } from "./language-context";
 import { useTr } from "./use-tr";
 
@@ -38,16 +35,6 @@ function LevelBadge({ level }) {
   const tr = useTr();
   if (!level) return null;
   return <span className={`level-badge level-badge--${level.key}`}>{tr(level.label, level.labelEn)}</span>;
-}
-
-function useHistory() {
-  const { editions, loading: editionsLoading } = useMeetingEditions();
-  const { results, loading: resultsLoading, error } = useAllMeetingResults();
-  const usable = useMemo(() => {
-    const hidden = new Set(editions.filter((e) => e.cancelled).map((e) => Number(e.year)));
-    return results.filter((row) => !hidden.has(Number(row.year)));
-  }, [results, editions]);
-  return { results: usable, loading: editionsLoading || resultsLoading, error };
 }
 
 // ─── Par niveau ─────────────────────────────────────────────────────────────
@@ -190,7 +177,7 @@ function StatisticsLevelsPage() {
 
 // ─── Fiches speaker ─────────────────────────────────────────────────────────
 
-const TAG_CLASS = { mr: "stats-tag--mr", win: "stats-tag--win", new: "stats-tag--new", loyal: "stats-tag--loyal", lux: "stats-tag--lux", muted: "stats-tag--muted" };
+const TAG_CLASS = { mr: "stats-tag--mr", threat: "stats-tag--mr", win: "stats-tag--win", new: "stats-tag--new", loyal: "stats-tag--loyal", lux: "stats-tag--lux", muted: "stats-tag--muted" };
 
 function SpeakerSheet({ sheet, year }) {
   const tr = useTr();
@@ -198,8 +185,11 @@ function SpeakerSheet({ sheet, year }) {
   return (
     <section className="stats-box speaker-sheet" id={`speaker-${sheet.key.replace(/[^a-z0-9]+/gi, "-")}`}>
       <header className="stats-box__head">
-        <h2>{sheet.label}</h2>
-        <span className="stats-box__note">{tr(`${competitors} engagé${competitors > 1 ? "s" : ""}`, `${competitors} entr${competitors > 1 ? "ies" : "y"}`)}</span>
+        <h2>{sheet.slots[0] ? <span className="speaker-sheet__time">{sheet.slots[0].time}</span> : null}{sheet.label}</h2>
+        <span className="stats-box__note">
+          {tr(`${competitors} engagé${competitors > 1 ? "s" : ""}`, `${competitors} entr${competitors > 1 ? "ies" : "y"}`)}
+          {sheet.slots.length ? ` · ${sheet.slots.map((slot) => [slot.time, slot.round].filter(Boolean).join(" ")).join(" · ")}` : ""}
+        </span>
       </header>
 
       <div className="speaker-sheet__top">
@@ -274,45 +264,25 @@ function SpeakerSheet({ sheet, year }) {
   );
 }
 
-function SpeakerSheetsPage({ standalone = false }) {
-  if (!standalone) return <SpeakerSheetsContent />;
-  return <StandaloneSpeakerSheets />;
-}
-
-// Page « Fiches speaker » hors du module Statistiques (rôle speaker).
-function StandaloneSpeakerSheets() {
+function NoEntries({ year }) {
   const tr = useTr();
   return (
-    <div className="page">
-      <section className="page-header">
-        <div>
-          <p className="eyebrow">{tr("Athlètes", "Athletes")}</p>
-          <h1>{tr("Fiches speaker", "Speaker sheets")}</h1>
-        </div>
-      </section>
-      <SpeakerSheetsContent />
+    <div className="notice-card">
+      <strong>{tr(`Pas encore d'engagés pour ${year}`, `No entries yet for ${year}`)}</strong>
+      <p>
+        {tr(
+          "Tout se remplit dès que les engagés sont importés dans Athlètes › Engagés. Pour voir un exemple, choisis une édition passée en haut.",
+          "Everything fills in as soon as the entries are imported in Athletes › Entries. To see an example, pick a past edition at the top.",
+        )}
+      </p>
     </div>
   );
 }
 
-function SpeakerSheetsContent() {
+function SpeakerSheetsPage() {
   const tr = useTr();
-  const { language } = useLanguage();
-  const { edition } = useStatisticsEdition();
-  const { activeEditionId, loading: editionLoading } = useActiveEdition(true);
-  // L'édition choisie dans la barre, sinon l'édition active (celle qu'on prépare).
-  const year = edition || Number(activeEditionId) || new Date().getFullYear();
-  const { athletes, loading: athletesLoading } = useAthletes(!editionLoading, String(year));
-  const { results, loading: resultsLoading, error } = useHistory();
-  const { records, loading: recordsLoading } = useMeetingRecords();
-  const { winners, loading: winnersLoading } = useAllWinners();
+  const { year, data, loading, error } = useSpeakerData();
   const [eventFilter, setEventFilter] = useState("");
-  const loading = editionLoading || athletesLoading || resultsLoading || recordsLoading || winnersLoading;
-
-  const data = useMemo(
-    () => (loading ? null : buildSpeakerSheets({ athletes, results, records, winners, year, language })),
-    [loading, athletes, results, records, winners, year, language],
-  );
   const sheets = data ? data.sheets.filter((s) => !eventFilter || s.key === eventFilter) : [];
 
   return (
@@ -320,16 +290,15 @@ function SpeakerSheetsContent() {
       <div className="speaker-sheets__bar">
         <p className="stats-muted" style={{ margin: 0 }}>
           {tr(`Édition ${year}`, `${year} edition`)} <LevelBadge level={data?.level} /> ·{" "}
-          {tr(
-            "une fiche par épreuve, à partir des engagés (sans les « out ») et de tout l'historique du meeting.",
-            "one sheet per event, built from the entries (without “out”) and the whole meeting history.",
-          )}
+          {data?.hasTimetable
+            ? tr("une fiche par épreuve, dans l'ordre du programme horaire.", "one sheet per event, in timetable order.")
+            : tr("une fiche par épreuve (le programme horaire n'est pas encore saisi : ordre des épreuves).", "one sheet per event (timetable not entered yet: event order).")}
         </p>
         {data?.sheets.length ? (
           <>
             <select value={eventFilter} onChange={(e) => setEventFilter(e.target.value)} aria-label={tr("Épreuve", "Event")}>
               <option value="">{tr("Toutes les épreuves", "All events")}</option>
-              {data.sheets.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+              {data.sheets.map((s) => <option key={s.key} value={s.key}>{s.slots[0] ? `${s.slots[0].time} · ` : ""}{s.label}</option>)}
             </select>
             <button type="button" className="button button--secondary button--small" onClick={() => window.print()}>
               {tr("Imprimer", "Print")}
@@ -339,20 +308,10 @@ function SpeakerSheetsContent() {
       </div>
       {error ? <div className="notice-card notice-card--warn"><strong>{tr("Erreur de chargement", "Loading error")}</strong><p>{error}</p></div> : null}
       {loading ? <p className="panel-note">{tr("Chargement des engagés et de l'historique…", "Loading the entries and the history…")}</p> : null}
-      {data && !data.sheets.length ? (
-        <div className="notice-card">
-          <strong>{tr(`Pas encore d'engagés pour ${year}`, `No entries yet for ${year}`)}</strong>
-          <p>
-            {tr(
-              "Les fiches se remplissent dès que les engagés sont importés dans Athlètes › Engagés. Pour voir un exemple, choisis une édition passée dans la barre en haut.",
-              "The sheets fill in as soon as the entries are imported in Athletes › Entries. To see an example, pick a past edition in the bar at the top.",
-            )}
-          </p>
-        </div>
-      ) : null}
+      {data && !data.sheets.length ? <NoEntries year={year} /> : null}
       {sheets.map((sheet) => <SpeakerSheet key={sheet.key} sheet={sheet} year={year} />)}
     </div>
   );
 }
 
-export { SpeakerSheetsPage, StatisticsLevelsPage };
+export { CopyButton, LevelBadge, NoEntries, SpeakerSheetsPage, StatisticsLevelsPage };

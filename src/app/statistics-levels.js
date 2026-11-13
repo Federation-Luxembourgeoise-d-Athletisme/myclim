@@ -360,7 +360,7 @@ function athleteHistory(rows, key, field, beforeYear) {
  * niveau, derniers vainqueurs, engagés (PB, SB, passé au meeting) et phrases
  * « à dire au micro ».
  */
-export function buildSpeakerSheets({ athletes, results, records, winners, year, language = "fr" }) {
+export function buildSpeakerSheets({ athletes, results, records, winners, year, timetable = [], language = "fr" }) {
   const fr = language === "fr";
   const tr = (a, b) => (fr ? a : b);
 
@@ -420,7 +420,7 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
       if (history.winYears.length) tags.push({ kind: "win", text: tr(`vainqueur ${history.winYears.join(", ")}`, `won ${history.winYears.join(", ")}`) });
       if (!history.years.length) tags.push({ kind: "new", text: tr("1re fois au meeting", "first time here") });
       else if (history.years.length >= 3) tags.push({ kind: "loyal", text: tr(`${history.years.length + 1}e participation`, `${history.years.length + 1}th appearance`) });
-      if (recordValue && pbValue && !isRecordHolder && isBetter(pbValue, recordValue, field)) tags.push({ kind: "mr", text: tr("PB meilleur que le record", "PB beats the record") });
+      if (recordValue && pbValue && !isRecordHolder && isBetter(pbValue, recordValue, field)) tags.push({ kind: "threat", text: tr("PB meilleur que le record", "PB beats the record") });
       if (athlete.nationality === "LUX") tags.push({ kind: "lux", text: "LUX" });
       return { athlete, history, pbValue, sbValue, tags, pacer: isPacer(athlete) };
     }).sort((a, b) => {
@@ -442,7 +442,7 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
         `Meeting record: ${record.mark} by ${formatPersonName(record)} (${record.noc}) in ${record.year}${since >= 5 ? `, standing for ${since} years` : ""}.`,
       ));
     }
-    const threats = competitors.filter((e) => e.tags.some((t) => t.text === tr("PB meilleur que le record", "PB beats the record")));
+    const threats = competitors.filter((e) => e.tags.some((t) => t.kind === "threat"));
     if (threats.length) {
       lines.push(tr(
         `${threats.length === 1 ? "Un athlète a" : `${threats.length} athlètes ont`} un record personnel meilleur que le record du meeting : ${threats.map((e) => formatPersonName(e.athlete)).join(", ")}. Le record peut tomber !`,
@@ -488,6 +488,12 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
       }
     }
 
+    // Passages de l'épreuve au programme horaire (« 16:10 Heat 1 », « 18:30 Final »).
+    const slots = timetable
+      .filter((row) => row?.type === "event" && row.time && eventKey(row.event, timetableGender(row.gender)) === group.key)
+      .map((row) => ({ time: row.time, round: row.round || "" }))
+      .sort((a, b) => a.time.localeCompare(b.time));
+
     return {
       key: group.key,
       label,
@@ -498,8 +504,188 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
       lastWinners,
       entries,
       lines,
+      slots,
     };
-  }).sort((a, b) => eventOrder(a.key.split("|")[0]) - eventOrder(b.key.split("|")[0]) || a.gender.localeCompare(b.gender));
+  }).sort((a, b) => {
+    // Dans l'ordre du programme horaire quand il est publié, sinon par épreuve.
+    const at = a.slots[0]?.time || "99:99";
+    const bt = b.slots[0]?.time || "99:99";
+    return at.localeCompare(bt) || eventOrder(a.key.split("|")[0]) - eventOrder(b.key.split("|")[0]) || a.gender.localeCompare(b.gender);
+  });
 
-  return { level: currentLevel, sheets };
+  return { level: currentLevel, sheets, hasTimetable: sheets.some((sheet) => sheet.slots.length) };
+}
+
+function timetableGender(value) {
+  const token = String(value || "").toUpperCase();
+  if (token.startsWith("W") || token.startsWith("F")) return "W";
+  if (token.startsWith("M") || token.startsWith("H")) return "M";
+  return "";
+}
+
+// ─── L'édition en direct ────────────────────────────────────────────────────
+
+/**
+ * Chiffres de l'édition à venir, calculés sur les engagés au fil de leur
+ * arrivée et comparés à l'historique. sheets : sortie de buildSpeakerSheets.
+ */
+export function computeEditionLive({ sheets, results, year, editionNumber = null, language = "fr" }) {
+  const fr = language === "fr";
+  const tr = (a, b) => (fr ? a : b);
+  const competitors = [];
+  for (const sheet of sheets) {
+    for (const entry of sheet.entries) {
+      if (entry.pacer) continue;
+      competitors.push({ ...entry, sheet });
+    }
+  }
+  const people = new Map();
+  competitors.forEach((entry) => people.set(athleteKey(entry.athlete), entry));
+  const list = [...people.values()];
+
+  const nations = new Map();
+  list.forEach((entry) => {
+    const noc = entry.athlete.nationality;
+    if (noc) nations.set(noc, (nations.get(noc) || 0) + 1);
+  });
+
+  // Historique : nations déjà venues, dernière édition avec résultats.
+  const pastNations = new Set();
+  const pastByYear = new Map();
+  for (const row of results) {
+    const y = Number(row.year);
+    if (!y || y >= Number(year) || String(row.status || "OK").toUpperCase() === "DNS") continue;
+    if (row.noc) pastNations.add(row.noc);
+    if (!pastByYear.has(y)) pastByYear.set(y, { athletes: new Set(), nations: new Set() });
+    pastByYear.get(y).athletes.add(athleteKey(row));
+    if (row.noc) pastByYear.get(y).nations.add(row.noc);
+  }
+  const previousYear = Math.max(0, ...pastByYear.keys()) || null;
+  const previous = previousYear
+    ? { year: previousYear, athletes: pastByYear.get(previousYear).athletes.size, nations: pastByYear.get(previousYear).nations.size }
+    : null;
+  const firstTimeNations = [...nations.keys()].filter((noc) => !pastNations.has(noc)).sort();
+
+  const newcomers = list.filter((entry) => !entry.history.years.length);
+  const returning = list.filter((entry) => entry.history.years.length);
+  const lux = list.filter((entry) => entry.athlete.nationality === "LUX");
+  const champions = competitors.filter((entry) => entry.history.winYears.includes(Number(year) - 1) || (previousYear && entry.history.winYears.includes(previousYear)));
+  const pastWinners = competitors.filter((entry) => entry.history.winYears.length);
+  const threats = competitors.filter((entry) => entry.tags.some((tag) => tag.kind === "threat"));
+  const ranked = list.filter((entry) => Number(entry.athlete.worldRanking) > 0);
+  const top50 = ranked.filter((entry) => Number(entry.athlete.worldRanking) <= 50);
+  const withAge = list.filter((entry) => Number(entry.athlete.birthYear) > 1900);
+  const youngest = withAge.reduce((best, e) => (!best || Number(e.athlete.birthYear) > Number(best.athlete.birthYear) ? e : best), null);
+  const oldest = withAge.reduce((best, e) => (!best || Number(e.athlete.birthYear) < Number(best.athlete.birthYear) ? e : best), null);
+
+  // Épreuve la plus relevée : athlètes dont la SB bat la perf gagnante moyenne Silver (sinon Bronze).
+  const strength = sheets.map((sheet) => {
+    const ref = [...sheet.levelBests].reverse().find((l) => l.average != null);
+    if (!ref) return { sheet, count: 0, ref: null };
+    const count = sheet.entries.filter((e) => !e.pacer && e.sbValue != null && (sheet.field ? e.sbValue >= ref.average : e.sbValue <= ref.average)).length;
+    return { sheet, count, ref };
+  }).sort((a, b) => b.count - a.count);
+  const strongest = strength[0]?.count ? strength[0] : null;
+
+  const name = (entry) => formatPersonName(entry.athlete);
+  const facts = [];
+  if (list.length) {
+    facts.push({
+      category: tr("Plateau", "Field"),
+      text: tr(
+        `${editionNumber ? `${editionNumber}e édition : ` : ""}${list.length} athlètes de ${nations.size} nations sont engagés pour l'instant${previous ? ` (${previous.year} : ${previous.athletes} athlètes, ${previous.nations} nations au final)` : ""}.`,
+        `${editionNumber ? `Edition no. ${editionNumber}: ` : ""}${list.length} athletes from ${nations.size} nations entered so far${previous ? ` (${previous.year}: ${previous.athletes} athletes, ${previous.nations} nations in the end)` : ""}.`,
+      ),
+    });
+  }
+  if (firstTimeNations.length) {
+    facts.push({
+      category: tr("Nouvelles nations", "New nations"),
+      text: tr(
+        `${firstTimeNations.length === 1 ? "Une nation vient" : `${firstTimeNations.length} nations viennent`} pour la première fois au meeting : ${firstTimeNations.join(", ")}.`,
+        `${firstTimeNations.length === 1 ? "One nation is" : `${firstTimeNations.length} nations are`} at the meeting for the first time: ${firstTimeNations.join(", ")}.`,
+      ),
+    });
+  }
+  if (champions.length) {
+    facts.push({
+      category: tr("Tenants du titre", "Defending champions"),
+      text: tr(
+        `${champions.length === 1 ? "Un vainqueur" : `${champions.length} vainqueurs`} de ${previousYear || Number(year) - 1} reviennent défendre leur titre : ${champions.map((e) => `${name(e)} (${e.sheet.label})`).join(", ")}.`,
+        `${champions.length === 1 ? "One" : champions.length} ${previousYear || Number(year) - 1} winner${champions.length > 1 ? "s are" : " is"} back to defend the title: ${champions.map((e) => `${name(e)} (${e.sheet.label})`).join(", ")}.`,
+      ),
+    });
+  }
+  if (threats.length) {
+    facts.push({
+      category: tr("Records menacés", "Records under threat"),
+      text: tr(
+        `${threats.length} athlète${threats.length > 1 ? "s ont" : " a"} un record personnel meilleur que le record du meeting de son épreuve : ${threats.map((e) => `${name(e)} (${e.sheet.label})`).join(", ")}.`,
+        `${threats.length} athlete${threats.length > 1 ? "s have" : " has"} a personal best better than the meeting record of their event: ${threats.map((e) => `${name(e)} (${e.sheet.label})`).join(", ")}.`,
+      ),
+    });
+  }
+  if (strongest) {
+    facts.push({
+      category: tr("Épreuve la plus relevée", "Strongest event"),
+      text: tr(
+        `${strongest.sheet.label} : ${strongest.count} athlète${strongest.count > 1 ? "s ont" : " a"} déjà fait mieux cette saison que la perf gagnante moyenne en ${strongest.ref.level.label} (${formatMark(strongest.ref.average, strongest.sheet.field)}).`,
+        `${strongest.sheet.label}: ${strongest.count} athlete${strongest.count > 1 ? "s have" : " has"} already done better this season than the average ${strongest.ref.level.labelEn} winning mark (${formatMark(strongest.ref.average, strongest.sheet.field)}).`,
+      ),
+    });
+  }
+  if (list.length >= 5) {
+    facts.push({
+      category: tr("Fidélité", "Loyalty"),
+      text: tr(
+        `${newcomers.length} athlètes découvrent le meeting, ${returning.length} y sont déjà venus${pastWinners.length ? `, dont ${pastWinners.length} anciens vainqueurs` : ""}.`,
+        `${newcomers.length} athletes are new to the meeting, ${returning.length} have been here before${pastWinners.length ? `, including ${pastWinners.length} former winners` : ""}.`,
+      ),
+    });
+  }
+  if (lux.length) {
+    facts.push({
+      category: "Luxembourg",
+      text: tr(
+        `${lux.length} athlète${lux.length > 1 ? "s" : ""} luxembourgeois au départ : ${lux.map(name).join(", ")}.`,
+        `${lux.length} Luxembourg athlete${lux.length > 1 ? "s" : ""} on the start lists: ${lux.map(name).join(", ")}.`,
+      ),
+    });
+  }
+  if (top50.length) {
+    facts.push({
+      category: tr("Classement mondial", "World ranking"),
+      text: tr(
+        `${top50.length} athlète${top50.length > 1 ? "s" : ""} du top 50 mondial dans ${top50.length > 1 ? "leur" : "son"} épreuve.`,
+        `${top50.length} athlete${top50.length > 1 ? "s" : ""} ranked in the world top 50 of their event.`,
+      ),
+    });
+  }
+  if (youngest && oldest && youngest !== oldest) {
+    facts.push({
+      category: tr("Âges", "Ages"),
+      text: tr(
+        `Le plus jeune : ${name(youngest)} (né·e en ${youngest.athlete.birthYear}). Le plus expérimenté : ${name(oldest)} (né·e en ${oldest.athlete.birthYear}).`,
+        `Youngest: ${name(youngest)} (born ${youngest.athlete.birthYear}). Most experienced: ${name(oldest)} (born ${oldest.athlete.birthYear}).`,
+      ),
+    });
+  }
+
+  return {
+    athletes: list.length,
+    nations: nations.size,
+    nationCounts: [...nations.entries()].sort((a, b) => b[1] - a[1]),
+    women: list.filter((e) => e.sheet.gender === "W").length,
+    men: list.filter((e) => e.sheet.gender === "M").length,
+    events: sheets.length,
+    previous,
+    firstTimeNations,
+    newcomers: newcomers.length,
+    returning: returning.length,
+    lux: lux.length,
+    champions,
+    threats,
+    top50: top50.length,
+    facts,
+  };
 }
