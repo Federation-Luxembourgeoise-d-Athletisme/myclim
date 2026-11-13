@@ -146,7 +146,7 @@ function AnimationEditionPage() {
             <div key={`c-${e.athlete.id}`} className="stats-row">
               <span className="stats-row__label">{tr("Tenant du titre", "Defending champion")}</span>
               <span>{formatPersonName(e.athlete)} ({e.athlete.nationality}) · {e.sheet.label}</span>
-              <span className="stats-row__value">{e.athlete.sb || e.athlete.pb || ""}</span>
+              <span className="stats-row__value">{e.athlete.pbIndoor || e.athlete.pb || e.athlete.waPbIndoor ? `PB ${e.athlete.pbIndoor || e.athlete.pb || e.athlete.waPbIndoor}` : ""}</span>
             </div>
           ))}
           {live.threats.map((e) => (

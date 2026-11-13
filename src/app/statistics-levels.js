@@ -405,7 +405,7 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
     });
 
     const lastWinners = winners
-      .filter((w) => eventKey(w.discipline, w.gender) === group.key)
+      .filter((w) => eventKey(w.discipline, w.gender) === group.key && Number(w.year) < Number(year))
       .sort((a, b) => Number(b.year) - Number(a.year))
       .slice(0, 3);
 
@@ -428,8 +428,9 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
       return { athlete, history, pbValue, sbValue, tags, pacer: isPacer(athlete) };
     }).sort((a, b) => {
       if (a.pacer !== b.pacer) return a.pacer ? 1 : -1;
-      const av = a.sbValue ?? a.pbValue;
-      const bv = b.sbValue ?? b.pbValue;
+      // Début janvier, peu d'athlètes ont déjà une SB : on classe par PB.
+      const av = a.pbValue ?? a.sbValue;
+      const bv = b.pbValue ?? b.sbValue;
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -478,14 +479,15 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
     if (nations.size >= 3) {
       lines.push(tr(`${nations.size} nations au départ.`, `${nations.size} nations on the start list.`));
     }
-    // Meilleure SB au départ comparée au record du meeting.
-    const topSb = competitors.filter((e) => e.sbValue != null).sort((a, b) => (field ? b.sbValue - a.sbValue : a.sbValue - b.sbValue))[0];
-    if (topSb && recordValue && !threats.length) {
-      const gap = field ? recordValue - topSb.sbValue : topSb.sbValue - recordValue;
+    // Meilleur record personnel au départ comparé au record du meeting
+    // (les SB sont rares début janvier, la saison en salle commence à peine).
+    const topPb = competitors.filter((e) => e.pbValue != null).sort((a, b) => (field ? b.pbValue - a.pbValue : a.pbValue - b.pbValue))[0];
+    if (topPb && recordValue && !threats.length) {
+      const gap = field ? recordValue - topPb.pbValue : topPb.pbValue - recordValue;
       if (gap > 0) {
         lines.push(tr(
-          `Meilleure perf de la saison au départ : ${formatMark(topSb.sbValue, field)} (${formatPersonName(topSb.athlete)}), à ${formatGap(gap, field, language)} du record du meeting.`,
-          `Best season mark on the start list: ${formatMark(topSb.sbValue, field)} (${formatPersonName(topSb.athlete)}), ${formatGap(gap, field, language)} off the meeting record.`,
+          `Meilleur record personnel au départ : ${formatMark(topPb.pbValue, field)} (${formatPersonName(topPb.athlete)}), à ${formatGap(gap, field, language)} du record du meeting.`,
+          `Best personal best on the start list: ${formatMark(topPb.pbValue, field)} (${formatPersonName(topPb.athlete)}), ${formatGap(gap, field, language)} off the meeting record.`,
         ));
       }
     }
@@ -580,12 +582,13 @@ export function computeEditionLive({ sheets, results, year, editionNumber = null
   const youngest = withAge.reduce((best, e) => (!best || Number(e.athlete.birthYear) > Number(best.athlete.birthYear) ? e : best), null);
   const oldest = withAge.reduce((best, e) => (!best || Number(e.athlete.birthYear) < Number(best.athlete.birthYear) ? e : best), null);
 
-  // Épreuve la plus relevée : athlètes dont la SB bat la perf gagnante moyenne Silver (sinon Bronze).
+  // Épreuve la plus relevée : athlètes dont le PB bat la marque du dernier vainqueur.
   const strength = sheets.map((sheet) => {
-    const ref = [...sheet.levelBests].reverse().find((l) => l.average != null);
-    if (!ref) return { sheet, count: 0, ref: null };
-    const count = sheet.entries.filter((e) => !e.pacer && e.sbValue != null && (sheet.field ? e.sbValue >= ref.average : e.sbValue <= ref.average)).length;
-    return { sheet, count, ref };
+    const winner = sheet.lastWinners.find((w) => markValue(w.result || w.mark) != null);
+    if (!winner) return { sheet, count: 0, winner: null };
+    const ref = markValue(winner.result || winner.mark);
+    const count = sheet.entries.filter((e) => !e.pacer && e.pbValue != null && (sheet.field ? e.pbValue > ref : e.pbValue < ref)).length;
+    return { sheet, count, winner };
   }).sort((a, b) => b.count - a.count);
   const strongest = strength[0]?.count ? strength[0] : null;
 
@@ -631,8 +634,8 @@ export function computeEditionLive({ sheets, results, year, editionNumber = null
     facts.push({
       category: tr("Épreuve la plus relevée", "Strongest event"),
       text: tr(
-        `${strongest.sheet.label} : ${strongest.count} athlète${strongest.count > 1 ? "s ont" : " a"} déjà fait mieux cette saison que la perf gagnante moyenne en ${strongest.ref.level.label} (${formatMark(strongest.ref.average, strongest.sheet.field)}).`,
-        `${strongest.sheet.label}: ${strongest.count} athlete${strongest.count > 1 ? "s have" : " has"} already done better this season than the average ${strongest.ref.level.labelEn} winning mark (${formatMark(strongest.ref.average, strongest.sheet.field)}).`,
+        `${strongest.sheet.label} : ${strongest.count} athlète${strongest.count > 1 ? "s ont" : " a"} un record personnel meilleur que la marque du vainqueur ${strongest.winner.year} (${strongest.winner.result || strongest.winner.mark}).`,
+        `${strongest.sheet.label}: ${strongest.count} athlete${strongest.count > 1 ? "s have" : " has"} a personal best better than the ${strongest.winner.year} winning mark (${strongest.winner.result || strongest.winner.mark}).`,
       ),
     });
   }
