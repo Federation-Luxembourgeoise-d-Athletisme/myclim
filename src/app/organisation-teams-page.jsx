@@ -278,7 +278,7 @@ export function OrganisationTeamsPage() {
               />
             </label>
             <fieldset className="orgt-modules">
-              <legend>Modules de l'équipe</legend>
+              <legend>Modules</legend>
               {ORGANISATION_MODULES.map((module) => (
                 <label key={module.value} title={module.help}>
                   <input

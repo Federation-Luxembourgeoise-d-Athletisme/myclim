@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { NavLink, Outlet, useOutletContext } from "react-router-dom";
+import { NavLink, Outlet, useOutletContext, useSearchParams } from "react-router-dom";
 import { useStatisticsEdition } from "./statistics-edition";
 import { formatPersonName } from "./statistics-compute";
 import { CopyButton, LevelBadge, NoEntries } from "./statistics-levels-page";
@@ -21,13 +21,18 @@ const BASE = "/app/animation";
 function AnimationLayout() {
   const tr = useTr();
   const outletContext = useOutletContext();
-  const { edition, setEdition } = useStatisticsEdition();
-  const { year, editions } = useSpeakerData();
+  const { edition } = useStatisticsEdition();
+  const [, setSearchParams] = useSearchParams();
+  const { year, editions, isExample } = useSpeakerData();
   const years = useMemo(
     () => [...new Set(editions.filter((e) => !e.cancelled).map((e) => Number(e.year ?? e.id)).filter(Boolean))].sort((a, b) => b - a),
     [editions],
   );
-  const search = edition ? `?edition=${edition}` : "";
+  const search = isExample ? "?exemple=1" : edition ? `?edition=${edition}` : "";
+
+  function pickEdition(value) {
+    setSearchParams(value === "exemple" ? { exemple: "1" } : value ? { edition: value } : {}, { replace: true });
+  }
   const tabs = [
     { to: BASE, end: true, label: tr(`L'édition ${year}`, `The ${year} edition`) },
     { to: `${BASE}/fiches`, label: tr("Fiches par épreuve", "Event sheets") },
@@ -46,11 +51,12 @@ function AnimationLayout() {
       <div className="stats-bar">
         <div className="stats-edition">
           <select
-            value={edition ?? ""}
-            onChange={(e) => setEdition(e.target.value ? Number(e.target.value) : null)}
+            value={isExample ? "exemple" : edition ?? ""}
+            onChange={(e) => pickEdition(e.target.value)}
             aria-label={tr("Édition", "Edition")}
           >
             <option value="">{tr("Édition en préparation", "Edition in preparation")}</option>
+            <option value="exemple">{tr("Exemple 2026 (engagés de démo)", "Example 2026 (demo entries)")}</option>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>

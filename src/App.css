@@ -9332,7 +9332,7 @@ tr.row--warning > td {
 .orgt-detail__form .mdp-field { margin: 0; }
 .orgt-detail__delete { padding-bottom: 6px; }
 .orgt-modules { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 0 4px; border: 0; font-size: 12.5px; }
-.orgt-modules legend { float: left; margin-right: 8px; padding: 0; font-size: 11px; font-weight: 700; color: #627788; text-transform: uppercase; letter-spacing: 0.04em; }
+.orgt-modules legend { float: left; white-space: nowrap; margin-right: 8px; padding: 0; font-size: 11px; font-weight: 700; color: #627788; text-transform: uppercase; letter-spacing: 0.04em; }
 .orgt-modules label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
 @media (max-width: 760px) { .orgt-detail__form { grid-template-columns: 1fr; } }
 .orgt-input { width: 100%; min-width: 0; height: 24px; padding: 0 6px !important; font-size: 12.5px; border: 1px solid transparent !important; border-radius: 4px; background: transparent; box-shadow: none !important; }
@@ -9835,6 +9835,8 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .level-badge--bronze { background: #f6e3d3; color: #8a4b1c; }
 .level-badge--silver { background: #e6eaee; color: #3d4d5c; box-shadow: inset 0 0 0 1px #c3ccd5; }
 
+.levels-table { min-width: 0; width: 100%; }
+.levels-table--events, .speaker-sheet__table { min-width: 640px; }
 .levels-table th[scope="row"] { font-weight: 600; color: #17324a; text-align: left; white-space: nowrap; }
 .levels-table td { font-variant-numeric: tabular-nums; }
 .levels-table tr.is-highlight td { font-weight: 800; color: #17324a; }
@@ -9850,11 +9852,12 @@ button.xc-card:hover { border-color: #9fb3c8; }
   margin-bottom: 12px;
 }
 .speaker-sheets__bar p { flex: 1; min-width: 240px; font-size: 0.88rem; }
-.speaker-sheets__bar select { font: inherit; font-size: 0.85rem; padding: 4px 8px; border-radius: 8px; border: 1px solid #c9d4de; }
+.speaker-sheets__bar select { width: auto; max-width: 260px; font: inherit; font-size: 0.85rem; padding: 4px 8px; border-radius: 8px; border: 1px solid #c9d4de; }
 .speaker-sheet { margin-bottom: 14px; }
 .speaker-sheet__time { margin-right: 8px; padding: 1px 7px; border-radius: 6px; background: #17324a; color: #fff; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
 .stats-chip--new { background: #e5f5ec; color: #0f7a4a; }
 .animation-layout__note { margin: 0; font-size: 0.82rem; }
+.animation-edition .stats-kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .speaker-sheet__top {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);

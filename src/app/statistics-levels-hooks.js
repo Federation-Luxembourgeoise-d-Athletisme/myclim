@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAllMeetingResults, useAllWinners, useMeetingEditions, useMeetingRecords } from "./meeting-history-hooks";
 import { useAthletes } from "./athlete-portal-hooks";
 import { useActiveEdition } from "./edition";
@@ -22,12 +23,18 @@ function useHistory() {
 
 // Engagés + historique + programme horaire de l'édition affichée
 // (?edition=…, sinon l'édition active) : partagé par les pages Animation.
+// ?exemple=1 : engagés de l'édition d'exemple (« Exemple 2026 », id « test »),
+// pour montrer les fiches avant l'import des vrais engagés.
+const EXAMPLE_EDITION = { id: "test", year: 2026 };
+
 function useSpeakerData() {
   const { language } = useLanguage();
   const { edition } = useStatisticsEdition();
+  const [searchParams] = useSearchParams();
+  const isExample = searchParams.get("exemple") === "1";
   const { activeEditionId, loading: editionLoading } = useActiveEdition(true);
-  const year = edition || Number(activeEditionId) || new Date().getFullYear();
-  const { athletes, loading: athletesLoading } = useAthletes(!editionLoading, String(year));
+  const year = isExample ? EXAMPLE_EDITION.year : edition || Number(activeEditionId) || new Date().getFullYear();
+  const { athletes, loading: athletesLoading } = useAthletes(!editionLoading, isExample ? EXAMPLE_EDITION.id : String(year));
   const { results, loading: resultsLoading, error } = useHistory();
   const { records, loading: recordsLoading } = useMeetingRecords();
   const { winners, loading: winnersLoading } = useAllWinners();
@@ -43,7 +50,7 @@ function useSpeakerData() {
     return { ...speaker, live };
   }, [loading, athletes, results, records, winners, year, editionDoc, language]);
 
-  return { year, data, loading, error, editions };
+  return { year, data, loading, error, editions, isExample };
 }
 
 export { useHistory, useSpeakerData };

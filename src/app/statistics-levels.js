@@ -22,7 +22,7 @@ export function levelOfYear(year) {
 
 export function levelYears(level) {
   if (level.to >= 9999) return `${level.from}+`;
-  if (!level.from) return `≤ ${level.to}`;
+  if (!level.from) return `2003–${level.to}`;
   return `${level.from}–${level.to}`;
 }
 
@@ -412,7 +412,10 @@ export function buildSpeakerSheets({ athletes, results, records, winners, year, 
     const entries = group.athletes.map((athlete) => {
       const history = athleteHistory(resultsByAthlete.get(athleteKey(athlete)) || [], group.key, field, year);
       const pbValue = markValue(athlete.pbIndoor || athlete.pb || athlete.waPbIndoor);
-      const sbValue = markValue(athlete.sb || athlete.waIndoorSbCurrent || athlete.waIndoorSb);
+      // Un SB à plus de 15 % du PB vient d'une autre épreuve (ex. 100 m en
+      // plein air dans la colonne SB d'un 60 m) : on l'ignore pour les calculs.
+      const rawSb = markValue(athlete.sb || athlete.waIndoorSbCurrent || athlete.waIndoorSb);
+      const sbValue = rawSb != null && pbValue != null && Math.abs(rawSb - pbValue) / pbValue > 0.15 ? null : rawSb;
       const isRecordHolder = Boolean(record) && samePerson(formatPersonName(record), formatPersonName(athlete));
       const tags = [];
       if (isPacer(athlete)) tags.push({ kind: "muted", text: tr("lièvre", "pacer") });
