@@ -910,7 +910,7 @@ function VolunteersPage(props) {
                           <button className="sheet-link" type="button" onClick={() => setSelectedVolunteerId(volunteer.id)}>
                             {volunteer.lastName} {volunteer.firstName}
                           </button>
-                          {Number.isFinite(volunteer.age) ? <span className="sheet-muted"> {volunteer.age}</span> : null}
+                          {Number.isFinite(volunteer.age) ? <span className="sheet-muted"> {volunteer.age} {t("ageUnit")}</span> : null}
                         </td>
                         <td className="sheet-nowrap" title={formatVolunteerTimestamp(volunteer.submittedAt) || undefined}>
                           {formatVolunteerRequestAge(volunteer.submittedAt) || <span className="sheet-muted">—</span>}
@@ -1044,7 +1044,7 @@ function VolunteersPage(props) {
                               >
                                 {volunteer.lastName} {volunteer.firstName}
                               </button>
-                              <span>{volunteer.age} ans</span>
+                              <span>{volunteer.age} {t("ageUnit")}</span>
                             </div>
                           </td>
                           <td />
