@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
-import { formatDateForDisplay, getU14RaceLabel } from "./u14-helpers";
+import { formatDateForDisplay, getU14RaceLabel, normalizeComparableValue } from "./u14-helpers";
 import { useU14AdminCopy } from "./u14-admin-copy";
 import {
   U14_PROTECTED_INVITES_COLLECTION,
@@ -9,6 +9,7 @@ import {
   buildU14ProtectedInviteUrl,
   generateU14InviteToken,
   getU14InvitePoolKey,
+  getU14PoolKey,
   getU14ProtectedInviteStatus,
   parseU14ProtectedInvitesPaste,
 } from "./u14-protected";
@@ -31,6 +32,7 @@ function U14ProtectedTab(props) {
     invites,
     loadMailQueueModule,
     mailContext,
+    practicalInfo,
     requestRecords,
     reserveByPool,
     reserveReleased,
@@ -58,6 +60,38 @@ function U14ProtectedTab(props) {
     [invites],
   );
   const validPreview = preview.filter((row) => !row.errors.length);
+  const linkedCount = validPreview.filter((row) => row.existingRequest).length;
+  // Invitations qui occupent déjà la réserve (envoyées ou utilisées).
+  const usedByPool = useMemo(
+    () =>
+      invites
+        .filter((invite) => ["invited", "claimed"].includes(getU14ProtectedInviteStatus(invite, now)))
+        .reduce((accumulator, invite) => {
+          const poolKey = invite.claimedPool || getU14InvitePoolKey(invite);
+          accumulator[poolKey] = (accumulator[poolKey] || 0) + 1;
+          return accumulator;
+        }, {}),
+    [invites, now],
+  );
+
+  // Enfant de la liste déjà inscrit par le formulaire général (même dossard,
+  // même réserve) : la place protégée est rattachée à cette inscription au
+  // lieu d'envoyer un lien qui créerait une seconde demande.
+  function findExistingRequest(row) {
+    const bib = normalizeComparableValue(row.bibNumber).replace(/\s+/g, "");
+    const poolKey = getU14InvitePoolKey(row);
+    if (!bib || !poolKey) return null;
+    return (
+      requestRecords.find(
+        (request) =>
+          request.requestType !== "porte_panier" &&
+          request.raceCode &&
+          !["declined", "cancelled", "rejected"].includes(normalizeComparableValue(request.status)) &&
+          normalizeComparableValue(request.bibNumber).replace(/\s+/g, "") === bib &&
+          getU14PoolKey(request.category, request.gender) === poolKey,
+      ) || null
+    );
+  }
 
   function flash(message) {
     setStatusMessage(message);
@@ -85,11 +119,26 @@ function U14ProtectedTab(props) {
   function handlePreview() {
     const rows = parseU14ProtectedInvitesPaste(pasteText).map((row) => ({
       ...row,
+      existingRequest: findExistingRequest(row),
       errors: knownBibs.has(String(row.bibNumber).trim()) ? [...row.errors, "duplicate"] : row.errors,
     }));
+    const wantedByPool = rows
+      .filter((row) => !row.errors.length)
+      .reduce((accumulator, row) => {
+        const poolKey = getU14InvitePoolKey(row);
+        accumulator[poolKey] = (accumulator[poolKey] || 0) + 1;
+        return accumulator;
+      }, {});
+    const overflow = Object.entries(wantedByPool)
+      .map(([poolKey, count]) => [poolKey, count + (usedByPool[poolKey] || 0) - (settings.pools[poolKey] ?? 0)])
+      .filter(([, extra]) => extra > 0);
     setPreview(rows);
     setStatusMessage("");
-    setErrorMessage(rows.length ? "" : text.noRows);
+    setErrorMessage(
+      !rows.length
+        ? text.noRows
+        : overflow.map(([poolKey, extra]) => fill(text.poolFull, { pool: text.poolLabels[poolKey], count: extra })).join(" "),
+    );
   }
 
   async function sendInviteMail(invite) {
@@ -111,11 +160,26 @@ function U14ProtectedTab(props) {
       setErrorMessage(text.deadlineFirst);
       return;
     }
-    if (!window.confirm(fill(text.createConfirm, { count: validPreview.length }))) return;
+    const inviteCount = validPreview.length - linkedCount;
+    const question = linkedCount
+      ? fill(text.createConfirmMixed, { invites: inviteCount, linked: linkedCount })
+      : fill(text.createConfirm, { count: validPreview.length });
+    if (!window.confirm(question)) return;
     setIsBusy(true);
     const failed = [];
     let created = 0;
+    let linked = 0;
     for (const row of validPreview) {
+      if (row.existingRequest) {
+        try {
+          await linkExistingRequest(row);
+          linked += 1;
+          await sendLinkedConfirmationMail(row);
+        } catch {
+          failed.push(`${row.firstName} ${row.lastName}`);
+        }
+        continue;
+      }
       const token = generateU14InviteToken();
       const invite = {
         id: token,
@@ -143,8 +207,64 @@ function U14ProtectedTab(props) {
     setIsBusy(false);
     setPreview([]);
     setPasteText("");
+    flash([created || !linked ? fill(text.created, { count: created }) : "", linked ? fill(text.linkedDone, { count: linked }) : ""].filter(Boolean).join(" "));
     if (failed.length) setErrorMessage(fill(text.createProblems, { names: failed.join(", ") }));
-    flash(fill(text.created, { count: created }));
+  }
+
+  // Même effet qu'une invitation utilisée (claimU14ProtectedInvite), sans
+  // lien : l'invitation est créée « utilisée » sur la demande existante, qui
+  // passe en place protégée confirmée. La famille reçoit « Merci, tout est ok ».
+  async function linkExistingRequest(row) {
+    const request = row.existingRequest;
+    const token = generateU14InviteToken();
+    await setDoc(doc(db, U14_PROTECTED_INVITES_COLLECTION, token), {
+      editionId: activeEditionId,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      club: row.club,
+      bibNumber: row.bibNumber,
+      birthYear: row.birthYear,
+      gender: row.gender,
+      parentEmail: row.parentEmail,
+      deadline: settings.deadline,
+      status: "claimed",
+      linkedToExistingRequest: true,
+      claimedRequestId: request.id,
+      claimedChildId: request.childId || "",
+      claimedParentUserId: request.parentUserId || "",
+      claimedPool: getU14InvitePoolKey(row),
+      claimedRaceCode: request.raceCode,
+      claimedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
+    await updateDoc(doc(db, "u14Requests", request.id), {
+      protectedInviteToken: token,
+      allocationMode: "protected",
+      status: "confirmed",
+      adminApprovalStatus: "approved",
+      adminApprovedAt: serverTimestamp(),
+      parentDecisionRequired: false,
+      parentDecisionStatus: "confirmed",
+      parentDecisionAt: serverTimestamp(),
+      waitlistPosition: null,
+    });
+  }
+
+  async function sendLinkedConfirmationMail(row) {
+    const request = row.existingRequest;
+    const parentEmail = request.parentEmail || row.parentEmail;
+    if (!parentEmail) return;
+    const { buildU14ParticipationConfirmedMail, enqueueTransactionalMail } = await loadMailQueueModule();
+    await enqueueTransactionalMail(
+      buildU14ParticipationConfirmedMail({
+        ...mailContext,
+        parentEmail,
+        parentFirstName: request.parentFirstName,
+        childName: request.childName || `${row.firstName} ${row.lastName}`,
+        raceLabel: request.raceLabel,
+        practicalInfo,
+      }),
+    );
   }
 
   async function handleResend(invite) {
@@ -262,6 +382,13 @@ function U14ProtectedTab(props) {
                 email: row.parentEmail || "-",
                 check: row.errors.length ? (
                   <span className="status-pill status-pill--danger">{row.errors.map((code) => text.rowErrors[code] || code).join(", ")}</span>
+                ) : row.existingRequest ? (
+                  <div className="table-stack">
+                    <span className="status-pill status-pill--ok">OK</span>
+                    <span className="parent-request-note">
+                      {fill(text.alreadyRegistered, { race: raceLabel(row.existingRequest.raceLabel) })}
+                    </span>
+                  </div>
                 ) : (
                   <span className="status-pill status-pill--ok">OK</span>
                 ),
@@ -269,7 +396,9 @@ function U14ProtectedTab(props) {
             />
             <div className="table-actions table-actions--inline">
               <button className="button button--primary" disabled={isBusy || !validPreview.length} type="button" onClick={handleCreateInvites}>
-                {isBusy ? text.sending : fill(text.createButton, { count: validPreview.length })}
+                {isBusy
+                  ? text.sending
+                  : fill(linkedCount ? text.createButtonMixed : text.createButton, { count: validPreview.length })}
               </button>
               {preview.length !== validPreview.length ? (
                 <span className="parent-request-note">{text.errorsSkipped}</span>
@@ -319,7 +448,14 @@ function U14ProtectedTab(props) {
                         ) : null}
                       </div>
                     ),
-                    race: invite.claimedRaceCode ? raceLabel(getU14RaceLabel(invite.claimedRaceCode)) : "-",
+                    race: invite.claimedRaceCode ? (
+                      <div className="table-stack">
+                        <span>{raceLabel(getU14RaceLabel(invite.claimedRaceCode))}</span>
+                        {invite.linkedToExistingRequest ? <span className="parent-request-note">{text.linkedNote}</span> : null}
+                      </div>
+                    ) : (
+                      "-"
+                    ),
                     actions:
                       status === "invited" ? (
                         <div className="table-actions table-actions--inline">
