@@ -489,7 +489,7 @@ const PORTAL_COPY = {
     offerVip: "accueil réservé, espace VIP et, au choix, visite exclusive à 14h15 de la Coque ou des coulisses du meeting.",
     offerStandard: "entrée au meeting en tribune, sans les prestations VIP ni la visite.",
     introHow:
-      "Ajoutez vos invités un par un ci-dessous (nom et e-mail suffisent). La liste est enregistrée au fur et à mesure : revenez la compléter ou la corriger quand vous voulez avec ce même lien. Besoin de plus de places ? Faites-en la demande en bas du formulaire.",
+      "Ajoutez vos invités un par un ci-dessous (le prénom et le nom suffisent, l'e-mail est facultatif). La liste est enregistrée au fur et à mesure : revenez la compléter ou la corriger quand vous voulez avec ce même lien. Besoin de plus de places ? Faites-en la demande en bas du formulaire.",
     contact: "Votre contact",
     kpiGuests: "Invités",
     kpiCompanions: "Accompagnants",
@@ -573,7 +573,7 @@ const PORTAL_COPY = {
     offerVip: "dedicated welcome, VIP area and, if they wish, an exclusive 2:15 pm tour of the Coque or behind the scenes of the meeting.",
     offerStandard: "entry to the meeting in the stands, without the VIP services or the tour.",
     introHow:
-      "Add your guests one by one below (name and e-mail are enough). The list is saved as you go: come back with this same link to complete or correct it at any time. Need more places? Request them at the bottom of the form.",
+      "Add your guests one by one below (first and last name are enough, the e-mail is optional). The list is saved as you go: come back with this same link to complete or correct it at any time. Need more places? Request them at the bottom of the form.",
     contact: "Your contact",
     kpiGuests: "Guests",
     kpiCompanions: "Companions",
@@ -657,7 +657,7 @@ const PORTAL_COPY = {
     offerVip: "eigener Empfang, VIP-Bereich und auf Wunsch eine exklusive Führung um 14:15 durch die Coque oder hinter die Kulissen des Meetings.",
     offerStandard: "Eintritt zum Meeting auf der Tribüne, ohne VIP-Leistungen und ohne Führung.",
     introHow:
-      "Tragen Sie Ihre Gäste unten einzeln ein (Name und E-Mail genügen). Die Liste wird laufend gespeichert: Mit demselben Link können Sie sie jederzeit ergänzen oder korrigieren. Mehr Plätze nötig? Fragen Sie sie unten im Formular an.",
+      "Tragen Sie Ihre Gäste unten einzeln ein (Vor- und Nachname genügen, die E-Mail ist optional). Die Liste wird laufend gespeichert: Mit demselben Link können Sie sie jederzeit ergänzen oder korrigieren. Mehr Plätze nötig? Fragen Sie sie unten im Formular an.",
     contact: "Ihr Kontakt",
     kpiGuests: "Gäste",
     kpiCompanions: "Begleitpersonen",
@@ -1439,8 +1439,8 @@ function VipPartnerPortalPage() {
                     <input name="lastName" required autoComplete="off" value={formData.lastName} onChange={handleChange} />
                   </label>
                   <label className="vip-portal-field">
-                    <span>{p.email} *</span>
-                    <input name="email" required type="email" autoComplete="off" value={formData.email} onChange={handleChange} />
+                    <span>{p.email}</span>
+                    <input name="email" type="email" autoComplete="off" value={formData.email} onChange={handleChange} />
                   </label>
                   {placeType === "vip" ? (
                   <label className="vip-portal-field">
@@ -1663,7 +1663,7 @@ function VipPartnerPortalPage() {
                                 <div className="vip-portal-grid">
                                   <label className="vip-portal-field"><span>{p.firstName} *</span><input name="firstName" required value={editDraft.firstName} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.lastName} *</span><input name="lastName" required value={editDraft.lastName} onChange={editChange} /></label>
-                                  <label className="vip-portal-field"><span>{p.email} *</span><input name="email" type="email" required value={editDraft.email} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.email}</span><input name="email" type="email" value={editDraft.email} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.phone}</span><input name="phone" type="tel" value={editDraft.phone} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.companionFirstName}</span><input name="guestFirstName" value={editDraft.guestFirstName} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.companionLastName}</span><input name="guestLastName" value={editDraft.guestLastName} onChange={editChange} /></label>
