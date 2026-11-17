@@ -651,6 +651,13 @@ service cloud.firestore {
     match /vipPartnerPortals/{portalId} {
       allow read: if true;
       allow write: if isAdminOrManager();
+      // L'organisation peut mettre à jour ses propres personnes de contact,
+      // et rien d'autre (ni quotas, ni contact meeting, ni mot de passe).
+      allow update: if isSignedIn() && request.auth.token.vipPortalId == portalId &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["contacts", "contactName", "contactEmail", "contactPhone", "updatedAt"]) &&
+        request.resource.data.contacts is list &&
+        request.resource.data.contacts.size() <= 10;
     }
 
     match /vipPartnerPortalSecrets/{portalId} {

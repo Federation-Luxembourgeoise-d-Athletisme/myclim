@@ -71,3 +71,10 @@ test("partner portal places: caps, place types and legacy contacts", async () =>
     { firstName: "Fred", lastName: "Muller", email: "f@x.lu", phone: "" },
   ]);
 });
+
+test("partner portal meeting contact falls back to Margot", async () => {
+  const { getVipPortalMeetingContact } = await import("../src/app/vip-helpers.js");
+  assert.equal(getVipPortalMeetingContact({}).email, "margot.laporte@fla.lu");
+  assert.equal(getVipPortalMeetingContact({ meetingContact: null }).lastName, "Laporte");
+  assert.equal(getVipPortalMeetingContact({ meetingContact: { firstName: "Paul", email: "p@fla.lu" } }).firstName, "Paul");
+});

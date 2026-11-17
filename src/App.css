@@ -10466,6 +10466,11 @@ button.xc-card:hover { border-color: #9fb3c8; }
   font-size: 0.82rem;
 }
 
+.vip-admin .vip-portal-contacts-editor__hint {
+  font-size: 0.76rem;
+  color: var(--vip-muted);
+}
+
 .vip-admin .vip-portal-contact-list {
   display: grid;
   gap: 4px;
@@ -10791,6 +10796,26 @@ button.xc-card:hover { border-color: #9fb3c8; }
 
 .vip-portal-contact__person + .vip-portal-contact__person {
   margin-top: 6px;
+}
+
+.vip-portal-contact__person > span {
+  color: var(--vp-muted);
+}
+
+.vip-portal-contact__edit {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.vip-portal-contacts-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+@media (max-width: 640px) {
+  .vip-portal-contacts-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 }
 
 .vip-portal-kpis dd small {

@@ -714,7 +714,8 @@ const messages = {
 
     vipEditPortalTitle: "Edit a partner portal",
     vipCreatePortalTitle: "Create a partner portal",
-    vipCreatePortalSubtitle: "A dedicated link per organisation, to send by e-mail to the contacts below, with an optional password and place quotas.",
+    vipCreatePortalSubtitle:
+      "One link per partner organisation, where they enter their guests themselves. Send it to the organisation's contact persons (they can update them on the portal). Set their VIP and standard place quotas: beyond that, they send you a request for extra places. 'Their contact at the meeting' is the person from our team shown on their page.",
     vipFieldSlugUrl: "Slug / URL",
     vipFieldSlugUrlHint: "Leave empty to generate it from the organisation.",
     vipSlugPlaceholder: "e.g.: cmcm-partners",
@@ -737,7 +738,9 @@ const messages = {
     vipOpenLocalPreview: "Open local preview",
     vipOpenPublicLink: "Open the public link",
     vipNoPortals: "No partner portal configured yet.",
-    vipFieldContacts: "Contact persons",
+    vipFieldContacts: "Organisation's contact persons",
+    vipFieldMeetingContact: "Their contact at the meeting",
+    vipFieldMeetingContactHint: "Shown on the portal so the organisation knows whom to ask. Empty = Margot Laporte.",
     vipAddContact: "+ Add a contact",
     vipRemoveContact: "Remove this contact",
     vipErrorMissingContact: "Enter at least one contact person (first or last name).",
@@ -1800,7 +1803,8 @@ const messages = {
 
     vipEditPortalTitle: "Modifier un portail partenaire",
     vipCreatePortalTitle: "Créer un portail partenaire",
-    vipCreatePortalSubtitle: "Un lien dédié par organisation, à envoyer par e-mail aux contacts ci-dessous, avec un mot de passe optionnel et des quotas de places.",
+    vipCreatePortalSubtitle:
+      "Un lien par organisation partenaire, où elle saisit elle-même ses invités. Envoyez-le à ses personnes de contact (elle peut les mettre à jour sur le portail). Fixez ses quotas de places VIP et normales : au-delà, elle vous envoie une demande de places supplémentaires. « Leur contact au meeting » est la personne de notre équipe affichée sur sa page.",
     vipFieldSlugUrl: "Slug / URL",
     vipFieldSlugUrlHint: "Laissez vide pour le générer depuis l'organisation.",
     vipSlugPlaceholder: "ex: cmcm-partenaires",
@@ -1823,7 +1827,9 @@ const messages = {
     vipOpenLocalPreview: "Ouvrir l'aperçu local",
     vipOpenPublicLink: "Ouvrir le lien public",
     vipNoPortals: "Aucun portail partenaire configuré.",
-    vipFieldContacts: "Personnes de contact",
+    vipFieldContacts: "Personnes de contact de l'organisation",
+    vipFieldMeetingContact: "Leur contact au meeting",
+    vipFieldMeetingContactHint: "Affiché sur le portail pour que l'organisation sache à qui s'adresser. Vide = Margot Laporte.",
     vipAddContact: "+ Ajouter un contact",
     vipRemoveContact: "Retirer ce contact",
     vipErrorMissingContact: "Renseignez au moins une personne de contact (prénom ou nom).",

@@ -24,8 +24,11 @@ import {
   createEmptyVipFormData,
   getVipEntryPlaceType,
   getVipPartnerPortalLabel,
+  createEmptyVipPortalContact,
   getVipPortalContacts,
+  getVipPortalMeetingContact,
   getVipPortalPlaceTypes,
+  normalizeVipPortalContacts,
 } from "./vip-helpers";
 
 function getVipRgpdDisclaimer(language) {
@@ -518,6 +521,14 @@ const PORTAL_COPY = {
     checking: "Vérification de l'accès…",
     tourShort: { coque: "14h15 · La Coque", coulisses: "14h15 · Les coulisses", none: "Pas de visite" },
     contacts: "Vos contacts",
+    meetingContact: "Votre contact au meeting",
+    orgContacts: "Vos personnes de contact",
+    editContacts: "Modifier",
+    addContacts: "+ Ajouter vos contacts",
+    addContact: "+ Ajouter une personne",
+    contactsIntro: "Les personnes de votre organisation que l'équipe du meeting peut joindre au sujet de cette liste.",
+    contactsRequired: "Indiquez au moins une personne (prénom ou nom).",
+    contactsError: "Impossible d'enregistrer les contacts pour le moment.",
     placeType: "Type de place",
     placeVip: "VIP",
     placeStandard: "Normale",
@@ -584,6 +595,14 @@ const PORTAL_COPY = {
     checking: "Checking access…",
     tourShort: { coque: "2:15 pm · The Coque", coulisses: "2:15 pm · Behind the scenes", none: "No tour" },
     contacts: "Your contacts",
+    meetingContact: "Your contact at the meeting",
+    orgContacts: "Your contact persons",
+    editContacts: "Edit",
+    addContacts: "+ Add your contacts",
+    addContact: "+ Add a person",
+    contactsIntro: "The people in your organisation the meeting team can reach about this list.",
+    contactsRequired: "Enter at least one person (first or last name).",
+    contactsError: "Unable to save the contacts right now.",
     placeType: "Place type",
     placeVip: "VIP",
     placeStandard: "Standard",
@@ -650,6 +669,14 @@ const PORTAL_COPY = {
     checking: "Zugriff wird überprüft…",
     tourShort: { coque: "14:15 · Die Coque", coulisses: "14:15 · Hinter den Kulissen", none: "Keine Führung" },
     contacts: "Ihre Kontakte",
+    meetingContact: "Ihr Kontakt beim Meeting",
+    orgContacts: "Ihre Ansprechpersonen",
+    editContacts: "Bearbeiten",
+    addContacts: "+ Ansprechpersonen hinzufügen",
+    addContact: "+ Person hinzufügen",
+    contactsIntro: "Die Personen Ihrer Organisation, die das Meeting-Team zu dieser Liste erreichen kann.",
+    contactsRequired: "Geben Sie mindestens eine Person an (Vor- oder Nachname).",
+    contactsError: "Die Kontakte konnten derzeit nicht gespeichert werden.",
     placeType: "Platzart",
     placeVip: "VIP",
     placeStandard: "Normal",
@@ -707,6 +734,9 @@ function VipPartnerPortalPage() {
   const [requestForm, setRequestForm] = useState({ placeType: "vip", requestedPlaces: "1", firstName: "", lastName: "", email: "", message: "" });
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestFeedback, setRequestFeedback] = useState("");
+  const [contactsDraft, setContactsDraft] = useState(null);
+  const [contactsSaving, setContactsSaving] = useState(false);
+  const [contactsError, setContactsError] = useState("");
   const firstNameRef = useRef(null);
   const requestFormRef = useRef(null);
 
@@ -1047,6 +1077,46 @@ function VipPartnerPortalPage() {
       )
     : entries;
   const portalContacts = getVipPortalContacts(portalMeta || {});
+  const meetingContact = getVipPortalMeetingContact(portalMeta || {});
+
+  function startContactsEdit() {
+    setContactsError("");
+    setContactsDraft(portalContacts.length ? portalContacts : [createEmptyVipPortalContact()]);
+  }
+
+  function changeContact(index, event) {
+    const { name, value } = event.target;
+    setContactsDraft((current) => current.map((contact, itemIndex) => (itemIndex === index ? { ...contact, [name]: value } : contact)));
+  }
+
+  // L'organisation met à jour ses propres personnes de contact (les règles
+  // Firestore ne lui laissent modifier que ces champs-là du portail).
+  async function saveContacts(event) {
+    event.preventDefault();
+    const contacts = normalizeVipPortalContacts(contactsDraft).slice(0, 10);
+    if (!contacts.some((contact) => contact.firstName || contact.lastName)) {
+      setContactsError(p.contactsRequired);
+      return;
+    }
+    setContactsSaving(true);
+    setContactsError("");
+    try {
+      const mainContact = contacts[0];
+      await updateDoc(doc(db, "vipPartnerPortals", portalId), {
+        contacts,
+        contactName: buildVipFullName(mainContact),
+        contactEmail: mainContact.email,
+        contactPhone: mainContact.phone,
+        updatedAt: serverTimestamp(),
+      });
+      setContactsDraft(null);
+    } catch (saveError) {
+      console.error("VIP portal contacts update failed", saveError);
+      setContactsError(p.contactsError);
+    } finally {
+      setContactsSaving(false);
+    }
+  }
   const showPlaceColumn = placeTypes.length > 1 || entries.some((entry) => getVipEntryPlaceType(entry) === "standard");
   const selectedTypeFull = places.caps[placeType] !== null && places.remaining[placeType] === 0;
   const tourLabel = (value) => p.tourShort[value || "none"] || p.tourShort.none;
@@ -1060,19 +1130,86 @@ function VipPartnerPortalPage() {
             <h2>{portalLabel}</h2>
             <p>{p.intro}</p>
           </div>
-          {portalContacts.length ? (
+          {portalMeta ? (
             <div className="vip-portal-contact">
-              <span className="vip-portal-eyebrow">{portalContacts.length > 1 ? p.contacts : p.contact}</span>
+              <span className="vip-portal-eyebrow">{p.meetingContact}</span>
+              <div className="vip-portal-contact__person">
+                {buildVipFullName(meetingContact) ? <strong>{buildVipFullName(meetingContact)}</strong> : null}
+                {meetingContact.email ? <a href={`mailto:${meetingContact.email}`}>{meetingContact.email}</a> : null}
+                {meetingContact.phone ? (
+                  <a href={`tel:${meetingContact.phone.replace(/\s+/g, "")}`}>{meetingContact.phone}</a>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {portalContacts.length || accessGranted ? (
+            <div className="vip-portal-contact">
+              <span className="vip-portal-eyebrow">{p.orgContacts}</span>
               {portalContacts.map((contact, index) => (
                 <div className="vip-portal-contact__person" key={index}>
                   {buildVipFullName(contact) ? <strong>{buildVipFullName(contact)}</strong> : null}
-                  {contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : null}
-                  {contact.phone ? <a href={`tel:${contact.phone.replace(/\s+/g, "")}`}>{contact.phone}</a> : null}
+                  {contact.email ? <span>{contact.email}</span> : null}
+                  {contact.phone ? <span>{contact.phone}</span> : null}
                 </div>
               ))}
+              {accessGranted && !contactsDraft ? (
+                <button type="button" className="vip-portal-link vip-portal-contact__edit" onClick={startContactsEdit}>
+                  {portalContacts.length ? p.editContacts : p.addContacts}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </section>
+
+        {accessGranted && contactsDraft ? (
+          <section className="vip-portal-card">
+            <h3>{p.orgContacts}</h3>
+            <form className="vip-portal-form" onSubmit={saveContacts}>
+              <p className="vip-portal-muted">{p.contactsIntro}</p>
+              {contactsDraft.map((contact, index) => (
+                <div className="vip-portal-grid vip-portal-contacts-row" key={index}>
+                  <label className="vip-portal-field">
+                    <span>{p.firstName}{index === 0 ? " *" : ""}</span>
+                    <input name="firstName" required={index === 0} value={contact.firstName} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.lastName}</span>
+                    <input name="lastName" value={contact.lastName} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.email}</span>
+                    <input name="email" type="email" value={contact.email} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.phone}</span>
+                    <input name="phone" type="tel" value={contact.phone} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <button
+                    type="button"
+                    className="vip-portal-btn vip-portal-btn--small vip-portal-btn--danger"
+                    aria-label={p.remove}
+                    title={p.remove}
+                    onClick={() => setContactsDraft((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <div className="vip-portal-form__bar">
+                <button
+                  type="button"
+                  className="vip-portal-link"
+                  onClick={() => setContactsDraft((current) => [...current, createEmptyVipPortalContact()])}
+                >
+                  {p.addContact}
+                </button>
+                <button type="button" className="vip-portal-btn" onClick={() => setContactsDraft(null)}>{p.cancel}</button>
+                <button type="submit" className="vip-portal-btn vip-portal-btn--primary" disabled={contactsSaving}>{p.save}</button>
+              </div>
+              {contactsError ? <p className="form-error">{contactsError}</p> : null}
+            </form>
+          </section>
+        ) : null}
 
         {requiresPassword && !accessGranted ? (
           <section className="vip-portal-card vip-portal-card--narrow">

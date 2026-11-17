@@ -149,6 +149,7 @@ function createEmptyVipPartnerPortalData(overrides = {}) {
     portalId: "",
     organizationName: "",
     contacts: [createEmptyVipPortalContact()],
+    meetingContact: createEmptyVipPortalContact(DEFAULT_VIP_MEETING_CONTACT),
     vipPlacesCap: "",
     standardPlacesCap: "",
     accessPassword: "",
@@ -174,6 +175,21 @@ function getVipPortalContacts(portal = {}) {
       phone: normalizeVipText(portal.contactPhone),
     }),
   ];
+}
+
+// Contact côté meeting affiché sur le portail (« Votre contact au meeting ») ;
+// par défaut Margot, modifiable portail par portail dans l'admin.
+const DEFAULT_VIP_MEETING_CONTACT = Object.freeze({
+  firstName: "Margot",
+  lastName: "Laporte",
+  email: "margot.laporte@fla.lu",
+  phone: "",
+});
+
+function getVipPortalMeetingContact(portal = {}) {
+  const contact = portal.meetingContact || {};
+  const hasContact = ["firstName", "lastName", "email", "phone"].some((key) => normalizeVipText(contact[key]));
+  return createEmptyVipPortalContact(hasContact ? contact : DEFAULT_VIP_MEETING_CONTACT);
 }
 
 function normalizeVipPortalContacts(contacts = []) {
@@ -277,7 +293,9 @@ export {
   computeVipPortalPlaces,
   countVipEntryPlaces,
   getVipEntryPlaceType,
+  DEFAULT_VIP_MEETING_CONTACT,
   getVipPortalContacts,
+  getVipPortalMeetingContact,
   getVipPortalPlaceTypes,
   normalizeVipPlacesCap,
   normalizeVipPortalContacts,

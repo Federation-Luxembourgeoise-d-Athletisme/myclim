@@ -28,6 +28,7 @@ import {
   createEmptyVipPortalContact,
   computeVipPortalPlaces,
   getVipPortalContacts,
+  getVipPortalMeetingContact,
   normalizeVipPlacesCap,
   normalizeVipPortalContacts,
   parseVipPlacesCap,
@@ -417,6 +418,11 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
     }));
   }
 
+  function handleMeetingContactChange(event) {
+    const { name, value } = event.target;
+    setPartnerPortalForm((current) => ({ ...current, meetingContact: { ...current.meetingContact, [name]: value } }));
+  }
+
   function addPortalContact() {
     setPartnerPortalForm((current) => ({ ...current, contacts: [...current.contacts, createEmptyVipPortalContact()] }));
   }
@@ -598,6 +604,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       portalId: portal.id,
       organizationName: portal.organizationName || "",
       contacts: getVipPortalContacts(portal).length ? getVipPortalContacts(portal) : [createEmptyVipPortalContact()],
+      meetingContact: getVipPortalMeetingContact(portal),
       vipPlacesCap: normalizeVipPlacesCap(portal.vipPlacesCap) ?? "",
       standardPlacesCap: normalizeVipPlacesCap(portal.standardPlacesCap) ?? "",
       accessPassword: partnerPortalSecrets[portal.id] || "",
@@ -633,6 +640,8 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
     const payload = {
       organizationName: partnerPortalForm.organizationName,
       contacts,
+      // Vide = contact par défaut (Margot) sur le portail.
+      meetingContact: normalizeVipPortalContacts([partnerPortalForm.meetingContact || {}])[0] || null,
       // Champs historiques = premier contact (lus par les écrans plus anciens).
       contactName: buildVipFullName(mainContact),
       contactPhone: mainContact.phone,
@@ -1750,6 +1759,35 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                 <button className="button button--neutral vip-portal-contacts-editor__add" type="button" onClick={addPortalContact}>
                   {t("vipAddContact")}
                 </button>
+              </fieldset>
+              <fieldset className="vip-portal-contacts-editor">
+                <legend>{t("vipFieldMeetingContact")}</legend>
+                <div className="vip-portal-contacts-editor__row">
+                  <input
+                    aria-label={t("vipFieldFirstName")}
+                    placeholder={t("vipFieldFirstName")}
+                    name="firstName"
+                    value={partnerPortalForm.meetingContact?.firstName || ""}
+                    onChange={handleMeetingContactChange}
+                  />
+                  <input
+                    aria-label={t("vipFieldLastName")}
+                    placeholder={t("vipFieldLastName")}
+                    name="lastName"
+                    value={partnerPortalForm.meetingContact?.lastName || ""}
+                    onChange={handleMeetingContactChange}
+                  />
+                  <input
+                    aria-label={t("vipFieldContactEmail")}
+                    placeholder={t("vipFieldContactEmail")}
+                    name="email"
+                    type="email"
+                    value={partnerPortalForm.meetingContact?.email || ""}
+                    onChange={handleMeetingContactChange}
+                  />
+                  <PhoneInput name="phone" value={partnerPortalForm.meetingContact?.phone || ""} onChange={handleMeetingContactChange} />
+                </div>
+                <small className="vip-portal-contacts-editor__hint">{t("vipFieldMeetingContactHint")}</small>
               </fieldset>
               <div className="panel-actions vip-admin-form__actions">
                 <button className="button button--primary" type="submit">
