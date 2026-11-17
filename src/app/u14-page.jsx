@@ -246,7 +246,11 @@ function U14Page(props) {
       return (
         normalizeComparableValue(request.status) !== next.status ||
         normalizeComparableValue(request.allocationMode) !== next.allocationMode ||
-        (Number(request.waitlistPosition || 0) || null) !== next.waitlistPosition
+        (Number(request.waitlistPosition || 0) || null) !== next.waitlistPosition ||
+        // Place protégée pas encore marquée retenue et confirmée.
+        (next.allocationMode === "protected" &&
+          (normalizeComparableValue(request.adminApprovalStatus) !== "approved" ||
+            normalizeComparableValue(request.parentDecisionStatus) !== "confirmed"))
       );
     });
     return outdated.map((request) => request.id).sort().join(",");
