@@ -14,6 +14,10 @@ import {
   parseU14ProtectedInvitesPaste,
 } from "./u14-protected";
 
+function isWithdrawn(request) {
+  return ["declined", "cancelled", "rejected"].includes(normalizeComparableValue(request?.status));
+}
+
 const STATUS_PILLS = {
   invited: "status-pill status-pill--warn",
   claimed: "status-pill status-pill--ok",
@@ -61,6 +65,7 @@ function U14ProtectedTab(props) {
   );
   const validPreview = preview.filter((row) => !row.errors.length);
   const linkedCount = validPreview.filter((row) => row.existingRequest).length;
+  const withdrawnCount = validPreview.filter((row) => row.existingRequest?.withdrawn).length;
   // Invitations qui occupent déjà la réserve (envoyées ou utilisées).
   const usedByPool = useMemo(
     () =>
@@ -76,21 +81,24 @@ function U14ProtectedTab(props) {
 
   // Enfant de la liste déjà inscrit par le formulaire général (même dossard,
   // même réserve) : la place protégée est rattachée à cette inscription au
-  // lieu d'envoyer un lien qui créerait une seconde demande.
+  // lieu d'envoyer un lien qui créerait une seconde demande. Une inscription
+  // active passe avant une inscription dont la famille s'est désistée ; dans
+  // ce dernier cas la place est notée comme utilisée (elle va aux places
+  // générales, comme un désistement après invitation).
   function findExistingRequest(row) {
     const bib = normalizeComparableValue(row.bibNumber).replace(/\s+/g, "");
     const poolKey = getU14InvitePoolKey(row);
     if (!bib || !poolKey) return null;
-    return (
-      requestRecords.find(
+    const matches = requestRecords
+      .filter(
         (request) =>
           request.requestType !== "porte_panier" &&
           request.raceCode &&
-          !["declined", "cancelled", "rejected"].includes(normalizeComparableValue(request.status)) &&
           normalizeComparableValue(request.bibNumber).replace(/\s+/g, "") === bib &&
           getU14PoolKey(request.category, request.gender) === poolKey,
-      ) || null
-    );
+      )
+      .map((request) => ({ ...request, withdrawn: isWithdrawn(request) }));
+    return matches.find((request) => !request.withdrawn) || matches[0] || null;
   }
 
   function flash(message) {
@@ -162,7 +170,9 @@ function U14ProtectedTab(props) {
     }
     const inviteCount = validPreview.length - linkedCount;
     const question = linkedCount
-      ? fill(text.createConfirmMixed, { invites: inviteCount, linked: linkedCount })
+      ? fill(text.createConfirmMixed, { invites: inviteCount, linked: linkedCount }) +
+        (withdrawnCount ? fill(text.withdrawnConfirm, { count: withdrawnCount }) : "") +
+        text.confirmContinue
       : fill(text.createConfirm, { count: validPreview.length });
     if (!window.confirm(question)) return;
     setIsBusy(true);
@@ -174,7 +184,7 @@ function U14ProtectedTab(props) {
         try {
           await linkExistingRequest(row);
           linked += 1;
-          await sendLinkedConfirmationMail(row);
+          if (!row.existingRequest.withdrawn) await sendLinkedConfirmationMail(row);
         } catch {
           failed.push(`${row.firstName} ${row.lastName}`);
         }
@@ -236,7 +246,10 @@ function U14ProtectedTab(props) {
       claimedRaceCode: request.raceCode,
       claimedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
+      ...(request.withdrawn ? { withdrawnBeforeLink: true } : {}),
     });
+    // Désistement déjà fait : l'inscription reste telle quelle.
+    if (request.withdrawn) return;
     await updateDoc(doc(db, "u14Requests", request.id), {
       protectedInviteToken: token,
       allocationMode: "protected",
@@ -386,7 +399,9 @@ function U14ProtectedTab(props) {
                   <div className="table-stack">
                     <span className="status-pill status-pill--ok">OK</span>
                     <span className="parent-request-note">
-                      {fill(text.alreadyRegistered, { race: raceLabel(row.existingRequest.raceLabel) })}
+                      {fill(row.existingRequest.withdrawn ? text.alreadyWithdrawn : text.alreadyRegistered, {
+                        race: raceLabel(row.existingRequest.raceLabel),
+                      })}
                     </span>
                   </div>
                 ) : (
@@ -443,7 +458,7 @@ function U14ProtectedTab(props) {
                             {invite.reminderSentAt ? text.reminderSent : ""}
                           </span>
                         ) : null}
-                        {claimedRequest && claimedRequest.status === "declined" ? (
+                        {claimedRequest && isWithdrawn(claimedRequest) ? (
                           <span className="status-pill status-pill--danger">{text.withdrewLater}</span>
                         ) : null}
                       </div>

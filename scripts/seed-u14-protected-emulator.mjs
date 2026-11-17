@@ -13,6 +13,7 @@
 //   TESTDUPONT;Emma;CAB;emma.parent@example.test;9001;2016;F
 //   TESTMULLER;Noah;CSL;noah.parent@example.test;9002;2014;G
 //   TESTNOUVEAU;Lina;CAD;lina.parent@example.test;9003;2015;F
+//   TESTRETRAIT;Lea;CAFOLA;lea.parent@example.test;9005;2016;F   (désistée)
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
@@ -39,6 +40,7 @@ const CHILDREN = [
   { id: "seed-u14-emma", firstName: "Emma", lastName: "TESTDUPONT", birthYear: 2016, category: "U12", gender: "fille", club: "CAB", bibNumber: "9001", raceCode: "U12F60", requestedEvent: "60 m", daysAgo: 3 },
   { id: "seed-u14-noah", firstName: "Noah", lastName: "TESTMULLER", birthYear: 2014, category: "U14", gender: "garcon", club: "CSL", bibNumber: "9002", raceCode: "U14M1000", requestedEvent: "1000 m", daysAgo: 2 },
   { id: "seed-u14-other", firstName: "Tom", lastName: "TESTAUTRE", birthYear: 2016, category: "U12", gender: "garcon", club: "CAPA", bibNumber: "9004", raceCode: "U12M60", requestedEvent: "60 m", daysAgo: 1 },
+  { id: "seed-u14-lea", firstName: "Lea", lastName: "TESTRETRAIT", birthYear: 2016, category: "U12", gender: "fille", club: "CAFOLA", bibNumber: "9005", raceCode: "U12F60", requestedEvent: "60 m", daysAgo: 4, status: "declined" },
 ];
 
 async function ensureAdmin() {
@@ -104,7 +106,7 @@ for (const child of CHILDREN) {
     requestType: "preprogram",
     requestedEvent: child.requestedEvent,
     raceCode: child.raceCode,
-    status: "confirmed",
+    status: child.status || "confirmed",
     allocationMode: "platform",
     adminApprovalStatus: "pending",
     submittedAt: day(child.daysAgo),
