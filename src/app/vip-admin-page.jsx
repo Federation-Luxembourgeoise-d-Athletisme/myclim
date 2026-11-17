@@ -237,7 +237,9 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   const [isExportingVip, setIsExportingVip] = useState(false);
   const allRegistrations = useMemo(
     () =>
-      [...publicRegistrations, ...partnerRegistrations, ...adminRegistrations].sort((left, right) => {
+      // Places normales des portails : pas des inscriptions VIP (ni badge, ni
+      // accréditation) ; elles sont comptées dans les portails et à la caisse.
+      [...publicRegistrations, ...partnerRegistrations.filter((entry) => entry.placeType !== "standard"), ...adminRegistrations].sort((left, right) => {
         const leftMs = left?.submittedAt?.toMillis?.() || left?.createdAt?.toMillis?.() || 0;
         const rightMs = right?.submittedAt?.toMillis?.() || right?.createdAt?.toMillis?.() || 0;
         return rightMs - leftMs;

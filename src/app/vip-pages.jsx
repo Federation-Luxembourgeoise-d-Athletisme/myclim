@@ -16,6 +16,7 @@ import { getActiveEditionId, useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
 import { useLanguage } from "./language-context";
+import portalPhoto from "../assets/site-gallery/ambiance-1.jpg";
 import {
   VIP_TOUR_OPTIONS,
   buildVipFullName,
@@ -1237,6 +1238,7 @@ function VipPartnerPortalPage() {
   return (
     <AuthLayout title={p.eyebrow} subtitle="CMCM Luxembourg Indoor Meeting">
       <div className="vip-portal">
+        <img className="vip-portal-photo" src={portalPhoto} alt="" loading="lazy" />
         <section className="vip-portal-head">
           <div className="vip-portal-head__main">
             <h2>{portalLabel}</h2>

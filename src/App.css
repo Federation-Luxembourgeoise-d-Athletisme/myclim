@@ -10796,6 +10796,22 @@ button.xc-card:hover { border-color: #9fb3c8; }
   font-weight: 600;
 }
 
+/* Photo d'ambiance en bandeau au-dessus de la présentation. */
+.vip-portal-photo {
+  display: block;
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  object-position: center 36%;
+  border-radius: 12px;
+}
+
+@media (max-width: 640px) {
+  .vip-portal-photo {
+    height: 110px;
+  }
+}
+
 /* Quotas de places (VIP / normales) et demandes de places supplémentaires. */
 .vip-portal-head__main > p {
   margin: 0 0 6px;

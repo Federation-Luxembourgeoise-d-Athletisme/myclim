@@ -44,7 +44,8 @@ function useVipRegistrations(activeEditionId, enabled = true) {
       {
         key: "partner",
         ref: collectionGroup(db, "entries"),
-        keep: (entry) => entry.ref.path.startsWith("vipPartnerPortals/"),
+        // Places normales des portails : pas d'accréditation VIP.
+        keep: (entry) => entry.ref.path.startsWith("vipPartnerPortals/") && entry.data()?.placeType !== "standard",
         map: (entry) => mapRegistration(entry, "vipPartnerPortals", "partner_portal"),
       },
       {

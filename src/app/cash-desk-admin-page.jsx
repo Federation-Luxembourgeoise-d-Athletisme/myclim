@@ -21,6 +21,7 @@ import {
   DEFAULT_CASH_POSTS,
   DOOR_ENTRY_KINDS,
   DOOR_GUEST_LIST_CATEGORIES,
+  PARTNER_STANDARD_LIST_ID,
   buildPersonName,
   countEntriesByPost,
   filterDoorEntries,
@@ -191,6 +192,9 @@ function CashDeskAdminPage() {
   const listOptions = useMemo(() => {
     const options = [];
     if (entries.some((entry) => entry.listId === "vip")) options.push({ id: "vip", name: "VIP" });
+    if (entries.some((entry) => entry.listId === PARTNER_STANDARD_LIST_ID)) {
+      options.push({ id: PARTNER_STANDARD_LIST_ID, name: tr("Partenaires — places normales", "Partners — standard places") });
+    }
     if (entries.some((entry) => entry.listId === "national_races")) {
       options.push({ id: "national_races", name: tr("Courses nationales", "National races") });
     }

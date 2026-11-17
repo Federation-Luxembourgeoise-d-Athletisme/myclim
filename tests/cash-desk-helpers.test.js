@@ -138,3 +138,20 @@ test("buildDoorEntries lists selected national race athletes with one companion 
   assert.match(entries[1].notes, /lièvre/);
   assert.equal(entries[0].key, buildCheckInKey("2027", "national_race", "n1"));
 });
+
+test("partner portal standard places are a separate, non-VIP door list", async () => {
+  const { buildDoorEntries } = await import("../src/app/cash-desk-helpers.js");
+  const entries = buildDoorEntries({
+    editionId: "2027",
+    vipPortalEntries: [
+      { id: "a", portalId: "rtl", firstName: "Ana", lastName: "Vip", organization: "RTL" },
+      { id: "b", portalId: "rtl", firstName: "Ben", lastName: "Std", organization: "RTL", placeType: "standard", guestFirstName: "Cy" },
+    ],
+  });
+  const vip = entries.find((entry) => entry.fullName === "Ana Vip");
+  const standard = entries.find((entry) => entry.fullName === "Ben Std");
+  assert.equal(vip.isVip, true);
+  assert.equal(standard.isVip, false);
+  assert.equal(standard.listId, "partner_standard");
+  assert.equal(standard.places, 2);
+});

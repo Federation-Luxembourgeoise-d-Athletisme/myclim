@@ -28,6 +28,8 @@ const DOOR_ENTRY_KINDS = {
   free: { fr: "Invité", en: "Guest" },
 };
 
+const PARTNER_STANDARD_LIST_ID = "partner_standard";
+
 const VIP_SOURCE_LABELS = {
   vip_public: "VIP — formulaire",
   vip_admin: "VIP — ajout orga",
@@ -131,12 +133,35 @@ function buildDoorEntries({
       });
     });
 
+  // Places normales des portails partenaires : entrée en tribune, pas VIP.
+  // Elles ont leur propre liste à la caisse (badge « Sponsor »).
+  vipPortalEntries
+    .filter((record) => record.placeType === "standard")
+    .forEach((record) => {
+      const companion = buildPersonName(record.guestFirstName, record.guestLastName);
+      entries.push({
+        key: buildCheckInKey(editionId, "vip_portal", `${record.portalId || "portail"}-${record.id}`),
+        sourceType: "vip_portal",
+        sourceId: `${record.portalId || "portail"}-${record.id}`,
+        sourceLabel: "Portail partenaire · place normale",
+        isVip: false,
+        kind: "sponsors",
+        listId: PARTNER_STANDARD_LIST_ID,
+        listName: "Partenaires — places normales",
+        fullName: buildPersonName(record.firstName, record.lastName),
+        organization: normalizeCashText(record.organization),
+        companions: companion ? [companion] : [],
+        places: getVipPlaces(record),
+        notes: normalizeCashText(record.notes),
+      });
+    });
+
   const seenVipKeys = new Set();
   const vipSources = [
     ...vipAdminRegistrations
       .filter((record) => record.registrationStatus !== "cancelled")
       .map((record) => ({ record, sourceType: "vip_admin", sourceId: record.id })),
-    ...vipPortalEntries.map((record) => ({
+    ...vipPortalEntries.filter((record) => record.placeType !== "standard").map((record) => ({
       record,
       sourceType: "vip_portal",
       sourceId: `${record.portalId || "portail"}-${record.id}`,
@@ -333,6 +358,7 @@ export {
   DEFAULT_CASH_POSTS,
   DOOR_ENTRY_KINDS,
   DOOR_GUEST_LIST_CATEGORIES,
+  PARTNER_STANDARD_LIST_ID,
   buildCheckInKey,
   buildDoorEntries,
   buildPersonName,
