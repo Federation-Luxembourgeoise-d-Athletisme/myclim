@@ -22,6 +22,8 @@ import { U14_STAGE_ORDER, getU14ChildStage } from "./u14-stage";
 import { useU14AdminCopy } from "./u14-admin-copy";
 import { U14ProtectedTab } from "./u14-protected-tab";
 import { getU14InvitePoolKey, getU14ProtectedInviteStatus } from "./u14-protected";
+
+const U14_GUIDE_STORAGE_KEY = "myclim.u14.guide";
 import { useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
@@ -220,6 +222,24 @@ function U14Page(props) {
     editionYear: activeEdition?.year || activeEditionId,
   };
   const [now] = useState(() => Date.now());
+  // Encadré « Comment ça marche » : ouvert par défaut, replié si la personne
+  // l'a replié (choix gardé sur cet appareil).
+  const [guideOpen, setGuideOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(U14_GUIDE_STORAGE_KEY) !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  function toggleGuide(event) {
+    const open = event.currentTarget.open;
+    setGuideOpen(open);
+    try {
+      window.localStorage.setItem(U14_GUIDE_STORAGE_KEY, open ? "open" : "closed");
+    } catch {
+      // Stockage indisponible : le choix vaut pour cette visite.
+    }
+  }
   const activeTab = getTabFromPath(location.pathname);
   const [selectedRaceCode, setSelectedRaceCode] = useState(U14_RACE_DEFINITIONS[0].code);
   const [search, setSearch] = useState("");
@@ -582,10 +602,11 @@ function U14Page(props) {
         </div>
       </section>
 
-      <details className="u14m-guide" open>
+      <details className="u14m-guide" open={guideOpen} onToggle={toggleGuide}>
         <summary>
           <strong>{copy.guide.title}</strong>
           <span>{copy.guide.hint}</span>
+          <span className="u14m-guide__toggle">{guideOpen ? copy.guide.hide : copy.guide.show}</span>
         </summary>
         <ol className="u14m-guide__steps">
           {copy.guide.steps.map(([title, body]) => (
