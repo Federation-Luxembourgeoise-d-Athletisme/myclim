@@ -12352,20 +12352,24 @@ button.xc-card:hover { border-color: #9fb3c8; }
   font-weight: 600;
 }
 
-/* Liste des portails partenaires : 6 colonnes, « Modifier » toujours visible. */
+.data-table--vip-portals .table-stack--tight > span {
+  white-space: normal;
+}
+
+/* Liste des portails partenaires : « Modifier » sous le nom (toujours visible). */
 .data-table--vip-portals th:nth-child(1),
 .data-table--vip-portals td:nth-child(1) {
-  width: 15%;
+  width: 18%;
 }
 
 .data-table--vip-portals th:nth-child(2),
 .data-table--vip-portals td:nth-child(2) {
-  width: 17%;
+  width: 20%;
 }
 
 .data-table--vip-portals th:nth-child(3),
 .data-table--vip-portals td:nth-child(3) {
-  width: 24%;
+  width: 26%;
 }
 
 .data-table--vip-portals th:nth-child(4),
@@ -12375,14 +12379,16 @@ button.xc-card:hover { border-color: #9fb3c8; }
 
 .data-table--vip-portals th:nth-child(5),
 .data-table--vip-portals td:nth-child(5) {
-  width: 18%;
+  width: 20%;
 }
 
-.data-table--vip-portals th:nth-child(6),
-.data-table--vip-portals td:nth-child(6) {
-  width: 10%;
+.vip-admin .vip-portal-edit-btn {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
 }
 
-.data-table--vip-portals .table-stack--tight > span {
-  white-space: normal;
+.vip-admin .data-table--vip-portals .vip-portal-link-cell__actions {
+  flex-wrap: wrap;
 }

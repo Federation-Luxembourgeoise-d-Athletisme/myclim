@@ -1830,7 +1830,6 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                     <th>{t("vipColPlaces")}</th>
                     <th>{t("vipColAccess")}</th>
                     <th>{t("vipColUrl")}</th>
-                    <th>{t("vipColActions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1840,6 +1839,9 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                         <div className="table-stack table-stack--tight">
                           <strong>{portal.organizationName || portal.id}</strong>
                           <span className="vip-table-muted">{portal.id}</span>
+                          <button className="button button--secondary vip-portal-edit-btn" type="button" onClick={() => startEditingPartnerPortal(portal)}>
+                            {t("vipEdit")}
+                          </button>
                         </div>
                       </td>
                       <td>
@@ -1905,18 +1907,11 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                           </span>
                         </div>
                       </td>
-                      <td>
-                        <div className="vip-admin-actions vip-admin-actions--compact">
-                          <button className="button button--secondary" type="button" onClick={() => startEditingPartnerPortal(portal)}>
-                            {t("vipEdit")}
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   ))}
                   {partnerPortalRows.length === 0 ? (
                     <tr>
-                      <td colSpan="6">{t("vipNoPortals")}</td>
+                      <td colSpan="5">{t("vipNoPortals")}</td>
                     </tr>
                   ) : null}
                 </tbody>
