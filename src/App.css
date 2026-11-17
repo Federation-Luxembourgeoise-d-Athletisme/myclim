@@ -10971,6 +10971,21 @@ button.xc-card:hover { border-color: #9fb3c8; }
   cursor: pointer;
 }
 
+.vip-portal-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 220px));
+}
+
+.vip-portal-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .vip-portal-grid--two,
+  .vip-portal-grid--three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .vip-portal-requests {
   display: grid;
   gap: 4px;

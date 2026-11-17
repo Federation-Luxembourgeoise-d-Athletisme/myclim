@@ -1442,6 +1442,10 @@ function VipPartnerPortalPage() {
                     <span>{p.email}</span>
                     <input name="email" type="email" autoComplete="off" value={formData.email} onChange={handleChange} />
                   </label>
+                  <label className="vip-portal-field">
+                    <span>{p.phone}</span>
+                    <input name="phone" type="tel" autoComplete="off" value={formData.phone} onChange={handleChange} />
+                  </label>
                   {placeType === "vip" ? (
                   <label className="vip-portal-field">
                     <span>{p.tour}</span>
@@ -1452,10 +1456,6 @@ function VipPartnerPortalPage() {
                     </select>
                   </label>
                   ) : null}
-                  <label className="vip-portal-field">
-                    <span>{p.phone}</span>
-                    <input name="phone" type="tel" autoComplete="off" value={formData.phone} onChange={handleChange} />
-                  </label>
                 </div>
 
                 {showCompanion ? (
@@ -1534,7 +1534,7 @@ function VipPartnerPortalPage() {
                   </div>
                   <form className="vip-portal-form" onSubmit={handleRequestSubmit}>
                     <p className="vip-portal-muted">{p.requestIntro}</p>
-                    <div className="vip-portal-grid">
+                    <div className="vip-portal-grid vip-portal-grid--two">
                         <label className="vip-portal-field">
                           <span>{p.placeType}</span>
                           <select
@@ -1557,6 +1557,8 @@ function VipPartnerPortalPage() {
                           onChange={(event) => setRequestForm((current) => ({ ...current, requestedPlaces: event.target.value }))}
                         />
                       </label>
+                    </div>
+                    <div className="vip-portal-grid vip-portal-grid--three">
                       <label className="vip-portal-field">
                         <span>{p.requestFirstName} *</span>
                         <input
