@@ -25,6 +25,12 @@ import {
   createEmptyVipAdminRegistrationData,
   createEmptyVipInvitationData,
   createEmptyVipPartnerPortalData,
+  createEmptyVipPortalContact,
+  computeVipPortalPlaces,
+  getVipPortalContacts,
+  normalizeVipPlacesCap,
+  normalizeVipPortalContacts,
+  parseVipPlacesCap,
   findMatchingVipInvitation,
   findMatchingVipRegistration,
   getVipTourChoiceLabel,
@@ -205,6 +211,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   const tourShortLabel = (value) => t(VIP_TOUR_SHORT_LABEL_KEYS[value || "none"] || "vipTourShortNone");
   const [partnerPortals, setPartnerPortals] = useState([]);
   const [partnerPortalSecrets, setPartnerPortalSecrets] = useState({});
+  const [placeRequests, setPlaceRequests] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [publicRegistrations, setPublicRegistrations] = useState([]);
   const [partnerRegistrations, setPartnerRegistrations] = useState([]);
@@ -269,6 +276,24 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
         setPartnerPortals([]);
         setError(t("vipErrorLoadPortals"));
         markLoaded();
+      },
+    );
+
+    // Demandes de places supplémentaires envoyées depuis les portails (ne
+    // compte pas dans le chargement initial : un échec n'empêche pas la page).
+    const unsubPlaceRequests = onSnapshot(
+      collectionGroup(db, "placeRequests"),
+      (snapshot) => {
+        setPlaceRequests(
+          snapshot.docs
+            .filter((entry) => entry.ref.path.startsWith("vipPartnerPortals/"))
+            .map((entry) => ({ id: entry.id, portalId: entry.ref.path.split("/")[1] || "", ...entry.data() }))
+            .filter((entry) => recordMatchesEdition(entry, activeEditionId)),
+        );
+      },
+      (snapshotError) => {
+        console.error("Unable to load VIP place requests", snapshotError);
+        setPlaceRequests([]);
       },
     );
 
@@ -360,6 +385,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
 
     return () => {
       unsubPartnerPortals();
+      unsubPlaceRequests();
       unsubPartnerPortalSecrets();
       unsubInvitations();
       unsubPublic();
@@ -381,6 +407,58 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   function handlePartnerPortalChange(event) {
     const { name, value } = event.target;
     setPartnerPortalForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function handlePortalContactChange(index, event) {
+    const { name, value } = event.target;
+    setPartnerPortalForm((current) => ({
+      ...current,
+      contacts: current.contacts.map((contact, contactIndex) => (contactIndex === index ? { ...contact, [name]: value } : contact)),
+    }));
+  }
+
+  function addPortalContact() {
+    setPartnerPortalForm((current) => ({ ...current, contacts: [...current.contacts, createEmptyVipPortalContact()] }));
+  }
+
+  function removePortalContact(index) {
+    setPartnerPortalForm((current) => {
+      const contacts = current.contacts.filter((_, contactIndex) => contactIndex !== index);
+      return { ...current, contacts: contacts.length ? contacts : [createEmptyVipPortalContact()] };
+    });
+  }
+
+  // Accepter : le plafond du type demandé augmente du nombre de places demandé.
+  async function handlePlaceRequestDecision(request, accept) {
+    setError("");
+    setStatusMessage("");
+    const portal = partnerPortals.find((item) => item.id === request.portalId);
+    const placeType = request.placeType === "standard" ? "standard" : "vip";
+    const capField = placeType === "standard" ? "standardPlacesCap" : "vipPlacesCap";
+    const requested = Math.max(0, Math.floor(Number(request.requestedPlaces) || 0));
+    try {
+      if (accept && portal) {
+        const currentCap = normalizeVipPlacesCap(portal[capField]);
+        // Sans plafond, les places sont déjà illimitées : rien à augmenter.
+        if (currentCap !== null) {
+          const portalEntries = partnerRegistrations.filter((entry) => entry.portalId === portal.id);
+          const used = computeVipPortalPlaces(portal, portalEntries).used[placeType];
+          // Si le portail dépasse déjà son plafond, on part des places utilisées.
+          await updateDoc(doc(db, "vipPartnerPortals", portal.id), {
+            [capField]: Math.max(currentCap, used) + requested,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+      await updateDoc(doc(db, "vipPartnerPortals", request.portalId, "placeRequests", request.id), {
+        status: accept ? "accepted" : "refused",
+        decidedAt: serverTimestamp(),
+      });
+      setStatusMessage(accept ? t("vipPlaceRequestAccepted") : t("vipPlaceRequestRefused"));
+    } catch (decisionError) {
+      console.error("VIP place request decision failed", decisionError);
+      setError(t("vipErrorSavePortal"));
+    }
   }
 
   function handleEditingInvitationChange(event) {
@@ -519,9 +597,9 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
     setPartnerPortalForm({
       portalId: portal.id,
       organizationName: portal.organizationName || "",
-      contactName: portal.contactName || "",
-      contactPhone: portal.contactPhone || "",
-      contactEmail: portal.contactEmail || "",
+      contacts: getVipPortalContacts(portal).length ? getVipPortalContacts(portal) : [createEmptyVipPortalContact()],
+      vipPlacesCap: normalizeVipPlacesCap(portal.vipPlacesCap) ?? "",
+      standardPlacesCap: normalizeVipPlacesCap(portal.standardPlacesCap) ?? "",
       accessPassword: partnerPortalSecrets[portal.id] || "",
       notes: portal.notes || "",
     });
@@ -545,12 +623,22 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
 
     const resolvedDocId = editingPartnerPortalId || resolvedPortalId;
     const trimmedPassword = String(partnerPortalForm.accessPassword || "").trim();
+    const contacts = normalizeVipPortalContacts(partnerPortalForm.contacts);
+    if (!contacts.some((contact) => contact.firstName || contact.lastName)) {
+      setError(t("vipErrorMissingContact"));
+      return;
+    }
+    const mainContact = contacts[0];
 
     const payload = {
       organizationName: partnerPortalForm.organizationName,
-      contactName: partnerPortalForm.contactName,
-      contactPhone: partnerPortalForm.contactPhone,
-      contactEmail: String(partnerPortalForm.contactEmail || "").trim().toLowerCase(),
+      contacts,
+      // Champs historiques = premier contact (lus par les écrans plus anciens).
+      contactName: buildVipFullName(mainContact),
+      contactPhone: mainContact.phone,
+      contactEmail: mainContact.email,
+      vipPlacesCap: parseVipPlacesCap(partnerPortalForm.vipPlacesCap),
+      standardPlacesCap: parseVipPlacesCap(partnerPortalForm.standardPlacesCap),
       hasPassword: Boolean(trimmedPassword),
       notes: partnerPortalForm.notes,
       updatedAt: serverTimestamp(),
@@ -973,11 +1061,30 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
         )
         .map((portal) => ({
           ...portal,
+          contactList: getVipPortalContacts(portal),
+          places: computeVipPortalPlaces(
+            portal,
+            partnerRegistrations.filter((entry) => entry.portalId === portal.id),
+          ),
           portalUrl: buildVipPartnerPortalUrl(portal.id),
           portalPreviewUrl: canOpenVipPartnerPortalLocally() ? buildVipPartnerPortalPath(portal.id) : "",
         })),
-    [partnerPortals],
+    [partnerPortals, partnerRegistrations],
   );
+
+  const pendingPlaceRequests = useMemo(
+    () =>
+      placeRequests
+        .filter((request) => (request.status || "pending") === "pending")
+        .map((request) => ({
+          ...request,
+          portalName: partnerPortals.find((portal) => portal.id === request.portalId)?.organizationName || request.portalId,
+        }))
+        .sort((left, right) => (left.createdAt?.toMillis?.() || 0) - (right.createdAt?.toMillis?.() || 0)),
+    [partnerPortals, placeRequests],
+  );
+
+  const formatPlaces = (used, cap) => (cap === null ? `${used}` : `${used} / ${cap}`);
 
   return (
     <div className="stacked-entry vip-admin">
@@ -1527,6 +1634,52 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
         </>
       ) : (
         <>
+          {pendingPlaceRequests.length ? (
+            <Panel title={t("vipPlaceRequestsTitle")} subtitle={t("vipPlaceRequestsSubtitle")}>
+              <div className="table-wrap">
+                <table className="data-table data-table--vip">
+                  <thead>
+                    <tr>
+                      <th>{t("vipColOrganization")}</th>
+                      <th>{t("vipColRequest")}</th>
+                      <th>{t("vipColRequestedBy")}</th>
+                      <th>{t("vipColMessage")}</th>
+                      <th>{t("vipColActions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingPlaceRequests.map((request) => (
+                      <tr key={`${request.portalId}-${request.id}`}>
+                        <td><strong>{request.portalName}</strong></td>
+                        <td>
+                          +{request.requestedPlaces}{" "}
+                          {request.placeType === "standard" ? t("vipPlacesStandard") : t("vipPlacesVip")}
+                        </td>
+                        <td>
+                          <div className="table-stack table-stack--tight">
+                            <span>{buildVipFullName(request) || "—"}</span>
+                            <span className="vip-table-muted">{request.email || "—"}</span>
+                          </div>
+                        </td>
+                        <td>{request.message || <span className="vip-table-muted">—</span>}</td>
+                        <td>
+                          <div className="vip-admin-actions vip-admin-actions--compact">
+                            <button className="button button--primary" type="button" onClick={() => handlePlaceRequestDecision(request, true)}>
+                              {t("vipAccept")}
+                            </button>
+                            <button className="button button--secondary" type="button" onClick={() => handlePlaceRequestDecision(request, false)}>
+                              {t("vipRefuse")}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          ) : null}
+
           <Panel
             title={editingPartnerPortalId ? t("vipEditPortalTitle") : t("vipCreatePortalTitle")}
             subtitle={t("vipCreatePortalSubtitle")}
@@ -1544,14 +1697,11 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                   onChange={handlePartnerPortalChange}
                 />
               </AuthFormField>
-              <AuthFormField label={t("vipFieldContact")} required>
-                <input name="contactName" required value={partnerPortalForm.contactName} onChange={handlePartnerPortalChange} />
+              <AuthFormField label={t("vipFieldVipPlacesCap")} hint={t("vipFieldVipPlacesCapHint")}>
+                <input name="vipPlacesCap" type="number" min="0" step="1" value={partnerPortalForm.vipPlacesCap} onChange={handlePartnerPortalChange} />
               </AuthFormField>
-              <AuthFormField label={t("vipFieldContactEmail")}>
-                <input name="contactEmail" type="email" value={partnerPortalForm.contactEmail} onChange={handlePartnerPortalChange} />
-              </AuthFormField>
-              <AuthFormField className="vip-admin-form__phone" label={t("vipFieldContactPhone")}>
-                <PhoneInput name="contactPhone" value={partnerPortalForm.contactPhone} onChange={handlePartnerPortalChange} />
+              <AuthFormField label={t("vipFieldStandardPlacesCap")} hint={t("vipFieldStandardPlacesCapHint")}>
+                <input name="standardPlacesCap" type="number" min="0" step="1" value={partnerPortalForm.standardPlacesCap} onChange={handlePartnerPortalChange} />
               </AuthFormField>
               <AuthFormField label={t("vipFieldPassword")} hint={t("vipFieldPasswordHint")}>
                 <input name="accessPassword" type="text" value={partnerPortalForm.accessPassword} onChange={handlePartnerPortalChange} />
@@ -1559,6 +1709,48 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               <AuthFormField className="vip-admin-form__wide" label={t("vipFieldNotes")}>
                 <input name="notes" value={partnerPortalForm.notes} onChange={handlePartnerPortalChange} />
               </AuthFormField>
+              <fieldset className="vip-portal-contacts-editor">
+                <legend>{t("vipFieldContacts")}</legend>
+                {partnerPortalForm.contacts.map((contact, index) => (
+                  <div className="vip-portal-contacts-editor__row" key={index}>
+                    <input
+                      aria-label={t("vipFieldFirstName")}
+                      placeholder={`${t("vipFieldFirstName")}${index === 0 ? " *" : ""}`}
+                      name="firstName"
+                      value={contact.firstName}
+                      onChange={(event) => handlePortalContactChange(index, event)}
+                    />
+                    <input
+                      aria-label={t("vipFieldLastName")}
+                      placeholder={t("vipFieldLastName")}
+                      name="lastName"
+                      value={contact.lastName}
+                      onChange={(event) => handlePortalContactChange(index, event)}
+                    />
+                    <input
+                      aria-label={t("vipFieldContactEmail")}
+                      placeholder={t("vipFieldContactEmail")}
+                      name="email"
+                      type="email"
+                      value={contact.email}
+                      onChange={(event) => handlePortalContactChange(index, event)}
+                    />
+                    <PhoneInput name="phone" value={contact.phone} onChange={(event) => handlePortalContactChange(index, event)} />
+                    <button
+                      className="button button--neutral vip-portal-contacts-editor__remove"
+                      type="button"
+                      aria-label={t("vipRemoveContact")}
+                      title={t("vipRemoveContact")}
+                      onClick={() => removePortalContact(index)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <button className="button button--neutral vip-portal-contacts-editor__add" type="button" onClick={addPortalContact}>
+                  {t("vipAddContact")}
+                </button>
+              </fieldset>
               <div className="panel-actions vip-admin-form__actions">
                 <button className="button button--primary" type="submit">
                   {editingPartnerPortalId ? t("vipSavePortal") : t("vipCreatePortal")}
@@ -1579,6 +1771,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                   <tr>
                     <th>{t("vipColOrganization")}</th>
                     <th>{t("vipColContact")}</th>
+                    <th>{t("vipColPlaces")}</th>
                     <th>{t("vipColAccess")}</th>
                     <th>{t("vipColUrl")}</th>
                     <th>{t("vipColActions")}</th>
@@ -1594,10 +1787,31 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                         </div>
                       </td>
                       <td>
+                        {portal.contactList.length ? (
+                          <div className="vip-portal-contact-list">
+                            {portal.contactList.map((contact, index) => (
+                              <div className="table-stack table-stack--tight" key={index}>
+                                <span>{buildVipFullName(contact) || "—"}</span>
+                                <span className="vip-table-muted">
+                                  {[contact.email, contact.phone].filter(Boolean).join(" · ") || "—"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
                         <div className="table-stack table-stack--tight">
-                          <span>{portal.contactName || "—"}</span>
-                          <span className="vip-table-muted">{portal.contactEmail || "—"}</span>
-                          <span className="vip-table-muted">{portal.contactPhone || "—"}</span>
+                          <span>
+                            {t("vipPlacesVip")} : {formatPlaces(portal.places.used.vip, portal.places.caps.vip)}
+                          </span>
+                          {portal.places.caps.standard !== null || portal.places.used.standard ? (
+                            <span>
+                              {t("vipPlacesStandard")} : {formatPlaces(portal.places.used.standard, portal.places.caps.standard)}
+                            </span>
+                          ) : null}
                         </div>
                       </td>
                       <td>
@@ -1631,7 +1845,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                   ))}
                   {partnerPortalRows.length === 0 ? (
                     <tr>
-                      <td colSpan="5">{t("vipNoPortals")}</td>
+                      <td colSpan="6">{t("vipNoPortals")}</td>
                     </tr>
                   ) : null}
                 </tbody>

@@ -23,6 +23,7 @@ export const NOTIFICATION_DEFAULTS = {
   com_validation: { inApp: true, push: true, email: true },
   press_registration: { inApp: true, push: true, email: false },
   vip_registration: { inApp: true, push: true, email: false },
+  vip_place_request: { inApp: true, push: true, email: true },
   volunteer_application: { inApp: true, push: true, email: false },
   u14_request: { inApp: true, push: true, email: false },
   physio_booking: { inApp: true, push: true, email: false },
@@ -200,6 +201,29 @@ export const notifyVipPartnerEntry = onDocumentCreated(
   async (event) => {
     const entry = event.data?.data();
     if (entry?.source === "partner_portal") await notifyVip(entry);
+  },
+);
+
+export const notifyVipPlaceRequest = onDocumentCreated(
+  { document: "vipPartnerPortals/{portalId}/placeRequests/{id}", region: REGION },
+  async (event) => {
+    const request = event.data?.data();
+    if (!request) return;
+    const organization = request.organization || event.params.portalId;
+    const count = Number(request.requestedPlaces) || 0;
+    const standard = request.placeType === "standard";
+    const name = fullName(request);
+    const by = { fr: name ? ` (${name})` : "", en: name ? ` (${name})` : "" };
+    await notifyUsers({
+      users: await usersWithRoles(ADMIN_ROLES),
+      type: "vip_place_request",
+      title: { fr: "Demande de places VIP", en: "VIP places request" },
+      body: {
+        fr: `${organization}${by.fr} demande ${count} place(s) ${standard ? "normale(s)" : "VIP"} supplémentaire(s).`,
+        en: `${organization}${by.en} requests ${count} extra ${standard ? "standard" : "VIP"} place(s).`,
+      },
+      path: "/app/vip",
+    });
   },
 );
 

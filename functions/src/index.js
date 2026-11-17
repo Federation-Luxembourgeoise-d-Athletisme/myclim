@@ -15,6 +15,7 @@ export {
   notifyPressRegistration,
   notifyU14Request,
   notifyVipPartnerEntry,
+  notifyVipPlaceRequest,
   notifyVipRegistration,
   notifyVolunteerApplication,
   sendTeamAnnouncement,

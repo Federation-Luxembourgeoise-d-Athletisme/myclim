@@ -667,6 +667,24 @@ service cloud.firestore {
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
     }
 
+    // Demandes de places supplémentaires : l'organisation les crée (en attente)
+    // et les voit ; seuls admins/gestionnaires les acceptent ou les refusent.
+    match /vipPartnerPortals/{portalId}/placeRequests/{requestId} {
+      allow read: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId);
+      allow create: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId &&
+          request.resource.data.status == "pending" &&
+          request.resource.data.requestedPlaces is int &&
+          request.resource.data.requestedPlaces > 0 &&
+          request.resource.data.requestedPlaces <= 500);
+      allow update, delete: if isAdminOrManager();
+    }
+
+    match /{path=**}/placeRequests/{requestId} {
+      allow read: if isAdminOrManager();
+    }
+
     // ── Kiné ────────────────────────────────────────────────────────────────
     // Chaque kiné gère ses propres plages d'ouverture ; tous les kinés voient
     // et gèrent toutes les réservations (planning commun). Les athlètes
