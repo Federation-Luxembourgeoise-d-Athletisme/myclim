@@ -12,6 +12,8 @@ const U14_ADMIN_COPY = {
     guide: {
       title: "Comment ça marche",
       hint: "Le parcours d'un enfant, de l'inscription au jour J.",
+      hide: "Replier",
+      show: "Afficher",
       steps: [
         ["Inscription", "Les familles inscrivent leur enfant avec le lien /pre-programme : une seule course par enfant, le 1000 m seulement en U14. C'est réservé aux licenciés des clubs luxembourgeois listés."],
         ["Répartition automatique", "Chaque course a 14 places, attribuées par ordre d'arrivée. Au-delà, l'enfant passe en liste d'attente et monte tout seul dès qu'une place se libère."],
@@ -213,6 +215,8 @@ const U14_ADMIN_COPY = {
     guide: {
       title: "How it works",
       hint: "A child's journey, from registration to meeting day.",
+      hide: "Fold",
+      show: "Show",
       steps: [
         ["Registration", "Families register their child with the /pre-programme link: one race per child, the 1000 m for U14 only. It is limited to licence holders of the listed Luxembourg clubs."],
         ["Automatic allocation", "Each race has 14 places, given in order of arrival. After that, children go on the waiting list and move up on their own as soon as a place becomes free."],

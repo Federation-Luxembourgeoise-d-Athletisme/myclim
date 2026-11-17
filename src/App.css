@@ -8530,6 +8530,7 @@ tr.row--warning > td {
 }
 
 .u14m-guide > summary {
+  list-style: none;
   display: flex;
   gap: 10px;
   align-items: baseline;
@@ -8540,6 +8541,32 @@ tr.row--warning > td {
 .u14m-guide > summary span {
   color: #64748b;
   font-size: 0.8rem;
+}
+
+.u14m-guide > summary::-webkit-details-marker {
+  display: none;
+}
+
+.u14m-guide > summary .u14m-guide__toggle {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--u14m-line, #e5e7eb);
+  border-radius: 6px;
+  color: #334155;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.u14m-guide > summary .u14m-guide__toggle::after {
+  content: " ▾";
+}
+
+.u14m-guide[open] > summary .u14m-guide__toggle::after {
+  content: " ▴";
+}
+
+.u14m-guide > summary:hover .u14m-guide__toggle {
+  background: #f8fafc;
 }
 
 .u14m-guide__steps {
