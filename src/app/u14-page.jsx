@@ -64,7 +64,7 @@ function ChildDetail({ request, invite, onRelease, isBusy, now }) {
   const child = request.child || {};
   const history = [
     [request.submittedAt, text.submitted],
-    [invite?.claimedAt, text.claimed],
+    [invite?.claimedAt, invite?.linkedToExistingRequest ? text.linked : text.claimed],
     [request.promotedFromWaitlistAt, text.promoted],
     [request.adminApprovedAt, text.approved],
     [request.remindedAt, request.reminderCount > 1 ? fill(text.remindedTotal, { count: request.reminderCount }) : text.reminded],
@@ -670,6 +670,7 @@ function U14Page(props) {
           invites={protectedInvites}
           loadMailQueueModule={loadMailQueueModule}
           mailContext={mailContext}
+          practicalInfo={preprogramPracticalInfo}
           requestRecords={requestRecords}
           reserveByPool={reserveByPool}
           reserveReleased={reserveReleased}
