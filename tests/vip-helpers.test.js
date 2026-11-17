@@ -60,11 +60,14 @@ test("partner portal places: caps, place types and legacy contacts", async () =>
   assert.deepEqual(getVipPortalPlaceTypes({ vipPlacesCap: 10, standardPlacesCap: 5 }), ["vip", "standard"]);
   assert.deepEqual(getVipPortalPlaceTypes({ vipPlacesCap: 0, standardPlacesCap: 5 }), ["standard"]);
 
+  // Le quota compte les invitations ; l'accompagnant (nommé ou « + 1 ») ajoute une place.
   const places = computeVipPortalPlaces({ vipPlacesCap: 3, standardPlacesCap: 2 }, [
     { firstName: "A", guestFirstName: "B" },
+    { firstName: "D", hasCompanion: true },
     { firstName: "C", placeType: "standard" },
   ]);
   assert.deepEqual(places.used, { vip: 2, standard: 1 });
+  assert.deepEqual(places.seats, { vip: 4, standard: 1 });
   assert.deepEqual(places.remaining, { vip: 1, standard: 1 });
 
   assert.deepEqual(getVipPortalContacts({ contactName: "Fred Muller", contactEmail: "f@x.lu" }), [

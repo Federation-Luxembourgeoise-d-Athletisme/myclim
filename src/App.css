@@ -10528,6 +10528,24 @@ button.xc-card:hover { border-color: #9fb3c8; }
   white-space: nowrap;
 }
 
+/* Liste des portails : lien court + boutons, pour que « Modifier » reste visible. */
+.vip-admin .vip-portal-link-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.vip-admin .vip-portal-link-cell__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.vip-admin .vip-portal-link-cell__actions .button {
+  padding: 3px 9px;
+  font-size: 0.8rem;
+}
+
 /* ── Portail partenaire VIP (vip-pages.jsx › VipPartnerPortalPage) ───────── */
 .vip-portal {
   --vp-ink: #17324a;
@@ -12315,3 +12333,56 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-page .acc-qr-form__target select, .accreditation-page .acc-qr-form__target input { height: 32px; min-height: 0; padding: 0 9px; border: 1px solid #cfd9e3; border-radius: 7px; background: #fff; font-size: 13px; box-shadow: none; }
 .accreditation-page .acc-qr-form__actions { display: flex; gap: 8px; }
 @media (max-width: 700px) { .accreditation-page .acc-qr-form__grid { grid-template-columns: 1fr; } }
+
+/* Portail partenaire : accompagnant sans nom possible. */
+.vip-portal-sub-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--vp-muted);
+}
+
+.vip-portal-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: end;
+  padding-bottom: 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+/* Liste des portails partenaires : 6 colonnes, « Modifier » toujours visible. */
+.data-table--vip-portals th:nth-child(1),
+.data-table--vip-portals td:nth-child(1) {
+  width: 15%;
+}
+
+.data-table--vip-portals th:nth-child(2),
+.data-table--vip-portals td:nth-child(2) {
+  width: 17%;
+}
+
+.data-table--vip-portals th:nth-child(3),
+.data-table--vip-portals td:nth-child(3) {
+  width: 24%;
+}
+
+.data-table--vip-portals th:nth-child(4),
+.data-table--vip-portals td:nth-child(4) {
+  width: 16%;
+}
+
+.data-table--vip-portals th:nth-child(5),
+.data-table--vip-portals td:nth-child(5) {
+  width: 18%;
+}
+
+.data-table--vip-portals th:nth-child(6),
+.data-table--vip-portals td:nth-child(6) {
+  width: 10%;
+}
+
+.data-table--vip-portals .table-stack--tight > span {
+  white-space: normal;
+}

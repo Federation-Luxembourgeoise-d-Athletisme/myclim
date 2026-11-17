@@ -43,7 +43,8 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-// Une inscription donne un badge, plus un pour l'accompagnant s'il est nommé.
+// Une inscription donne un badge, plus un pour l'accompagnant : à son nom s'il
+// est connu, sinon un badge sans nom (accompagnant annoncé « + 1 »).
 function buildVipBadgeItems(registrations = []) {
   return registrations.flatMap((registration) => {
     const company = String(registration.organization || "").trim();
@@ -57,7 +58,7 @@ function buildVipBadgeItems(registrations = []) {
     ];
     const guestFirstName = String(registration.guestFirstName || "").trim();
     const guestLastName = String(registration.guestLastName || "").trim();
-    if (guestFirstName || guestLastName) {
+    if (guestFirstName || guestLastName || registration.hasCompanion) {
       items.push({
         registrationId: registration.id,
         company,

@@ -32,6 +32,7 @@ import {
   normalizeVipPlacesCap,
   normalizeVipPortalContacts,
   parseVipPlacesCap,
+  vipPortalAllowsCompanions,
   findMatchingVipInvitation,
   findMatchingVipRegistration,
   getVipTourChoiceLabel,
@@ -610,6 +611,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       meetingContact: getVipPortalMeetingContact(portal),
       vipPlacesCap: normalizeVipPlacesCap(portal.vipPlacesCap) ?? "",
       standardPlacesCap: normalizeVipPlacesCap(portal.standardPlacesCap) ?? "",
+      companionsAllowed: vipPortalAllowsCompanions(portal),
       accessPassword: partnerPortalSecrets[portal.id] || "",
       notes: portal.notes || "",
     });
@@ -651,6 +653,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       contactEmail: mainContact.email,
       vipPlacesCap: parseVipPlacesCap(partnerPortalForm.vipPlacesCap),
       standardPlacesCap: parseVipPlacesCap(partnerPortalForm.standardPlacesCap),
+      companionsAllowed: partnerPortalForm.companionsAllowed !== false,
       hasPassword: Boolean(trimmedPassword),
       notes: partnerPortalForm.notes,
       updatedAt: serverTimestamp(),
@@ -921,7 +924,9 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
           pickupPoint: registration.pickupPoint || "",
           badgePrintStatus: registration.badgePrintStatus || "non_imprime",
           sourceType: registration.sourceType || "",
-          guestName: buildVipFullName({ firstName: registration.guestFirstName, lastName: registration.guestLastName }),
+          guestName:
+            buildVipFullName({ firstName: registration.guestFirstName, lastName: registration.guestLastName }) ||
+            (registration.hasCompanion ? "+1" : ""),
           notes: registration.matchedInvitation?.notes || registration.notes || "",
         });
       });
@@ -1715,6 +1720,16 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               <AuthFormField label={t("vipFieldStandardPlacesCap")} hint={t("vipFieldStandardPlacesCapHint")}>
                 <input name="standardPlacesCap" type="number" min="0" step="1" value={partnerPortalForm.standardPlacesCap} onChange={handlePartnerPortalChange} />
               </AuthFormField>
+              <AuthFormField label={t("vipFieldCompanions")} hint={t("vipFieldCompanionsHint")}>
+                <select
+                  name="companionsAllowed"
+                  value={partnerPortalForm.companionsAllowed === false ? "no" : "yes"}
+                  onChange={(event) => setPartnerPortalForm((current) => ({ ...current, companionsAllowed: event.target.value === "yes" }))}
+                >
+                  <option value="yes">{t("vipCompanionsYes")}</option>
+                  <option value="no">{t("vipCompanionsNo")}</option>
+                </select>
+              </AuthFormField>
               <AuthFormField label={t("vipFieldPassword")} hint={t("vipFieldPasswordHint")}>
                 <input name="accessPassword" type="text" value={partnerPortalForm.accessPassword} onChange={handlePartnerPortalChange} />
               </AuthFormField>
@@ -1807,7 +1822,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
 
           <Panel title={t("vipPortalListTitle")} subtitle={t("vipPortalListSubtitle")}>
             <div className="table-wrap">
-              <table className="data-table data-table--vip">
+              <table className="data-table data-table--vip data-table--vip-portals">
                 <thead>
                   <tr>
                     <th>{t("vipColOrganization")}</th>
@@ -1846,13 +1861,22 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                       <td>
                         <div className="table-stack table-stack--tight">
                           <span>
-                            {t("vipPlacesVip")} : {formatPlaces(portal.places.used.vip, portal.places.caps.vip)}
+                            {t("vipPlacesVip")} : {formatPlaces(portal.places.used.vip, portal.places.caps.vip)}{" "}
+                            <span className="vip-table-muted">
+                              {t("vipInvitationsShort")} · {portal.places.seats.vip} {t("vipPeopleShort")}
+                            </span>
                           </span>
                           {portal.places.caps.standard > 0 || portal.places.used.standard ? (
                             <span>
-                              {t("vipPlacesStandard")} : {formatPlaces(portal.places.used.standard, portal.places.caps.standard)}
+                              {t("vipPlacesStandard")} : {formatPlaces(portal.places.used.standard, portal.places.caps.standard)}{" "}
+                              <span className="vip-table-muted">
+                                {t("vipInvitationsShort")} · {portal.places.seats.standard} {t("vipPeopleShort")}
+                              </span>
                             </span>
                           ) : null}
+                          <span className="vip-table-muted">
+                            {vipPortalAllowsCompanions(portal) ? t("vipCompanionsYesShort") : t("vipCompanionsNoShort")}
+                          </span>
                         </div>
                       </td>
                       <td>
@@ -1862,17 +1886,23 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                         </div>
                       </td>
                       <td>
-                        <div className="table-stack table-stack--tight">
-                          <span>{portal.portalUrl}</span>
-                          {portal.portalPreviewUrl ? (
-                            <a href={portal.portalPreviewUrl} target="_blank" rel="noreferrer">
-                              {t("vipOpenLocalPreview")}
+                        <div className="vip-portal-link-cell">
+                          <span className="vip-table-muted" title={portal.portalUrl}>/vip/orga/{portal.id}</span>
+                          <span className="vip-portal-link-cell__actions">
+                            <button
+                              className="button button--neutral"
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(portal.portalUrl);
+                                setStatusMessage(t("vipLinkCopied").replace("{name}", portal.organizationName || portal.id));
+                              }}
+                            >
+                              {t("vipCopyLink")}
+                            </button>
+                            <a href={portal.portalPreviewUrl || portal.portalUrl} target="_blank" rel="noreferrer">
+                              {t("vipOpenLink")}
                             </a>
-                          ) : (
-                            <a href={portal.portalUrl} target="_blank" rel="noreferrer">
-                              {t("vipOpenPublicLink")}
-                            </a>
-                          )}
+                          </span>
                         </div>
                       </td>
                       <td>

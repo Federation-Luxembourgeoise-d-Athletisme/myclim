@@ -120,6 +120,8 @@ function buildVipRegistrationPayload(formData = {}, overrides = {}) {
     guestFirstName: normalizeVipText(formData.guestFirstName),
     guestLastName: normalizeVipText(formData.guestLastName),
     guestEmail: normalizeVipText(formData.guestEmail).toLowerCase(),
+    // Accompagnant annoncé, même sans nom (« + 1 »).
+    hasCompanion: Boolean(formData.hasCompanion) || Boolean(normalizeVipText(formData.guestFirstName) || normalizeVipText(formData.guestLastName)),
     notes: normalizeVipText(formData.notes),
     ...overrides,
   };
@@ -152,6 +154,7 @@ function createEmptyVipPartnerPortalData(overrides = {}) {
     meetingContact: createEmptyVipPortalContact(DEFAULT_VIP_MEETING_CONTACT),
     vipPlacesCap: "",
     standardPlacesCap: "",
+    companionsAllowed: true,
     accessPassword: "",
     notes: "",
     ...overrides,
@@ -231,15 +234,31 @@ function getVipEntryPlaceType(entry = {}) {
   return entry.placeType === "standard" ? "standard" : "vip";
 }
 
-// Une fiche occupe 1 place, 2 avec un accompagnant (même type de place).
-function countVipEntryPlaces(entry = {}) {
-  return 1 + (buildVipFullName({ firstName: entry.guestFirstName, lastName: entry.guestLastName }) ? 1 : 0);
+// Accompagnant : nommé, ou simplement annoncé (« + 1 », nom inconnu).
+function vipEntryHasCompanion(entry = {}) {
+  return Boolean(entry.hasCompanion) || Boolean(buildVipFullName({ firstName: entry.guestFirstName, lastName: entry.guestLastName }));
 }
 
+// Nombre de personnes d'une fiche : 1, 2 avec un accompagnant.
+function countVipEntryPlaces(entry = {}) {
+  return 1 + (vipEntryHasCompanion(entry) ? 1 : 0);
+}
+
+// Accompagnants autorisés sur un portail (1 par invité) ; oui par défaut.
+function vipPortalAllowsCompanions(portal = {}) {
+  return portal.companionsAllowed !== false;
+}
+
+// Le quota compte les invitations (invités principaux) ; chaque invitation
+// peut amener 1 accompagnant si le portail l'autorise, donc un quota de 10
+// donne jusqu'à 20 places. `seats` = personnes réellement inscrites.
 function computeVipPortalPlaces(portal = {}, entries = []) {
   const used = { vip: 0, standard: 0 };
+  const seats = { vip: 0, standard: 0 };
   entries.forEach((entry) => {
-    used[getVipEntryPlaceType(entry)] += countVipEntryPlaces(entry);
+    const type = getVipEntryPlaceType(entry);
+    used[type] += 1;
+    seats[type] += countVipEntryPlaces(entry);
   });
   // VIP sans plafond = illimité (null) ; places normales sans plafond = aucune (0).
   const caps = { vip: normalizeVipPlacesCap(portal.vipPlacesCap), standard: normalizeVipPlacesCap(portal.standardPlacesCap) ?? 0 };
@@ -247,7 +266,7 @@ function computeVipPortalPlaces(portal = {}, entries = []) {
     vip: caps.vip === null ? null : Math.max(0, caps.vip - used.vip),
     standard: caps.standard === null ? null : Math.max(0, caps.standard - used.standard),
   };
-  return { used, caps, remaining };
+  return { used, seats, caps, remaining };
 }
 
 function buildVipPortalId(value) {
@@ -293,6 +312,8 @@ export {
   createEmptyVipPortalContact,
   computeVipPortalPlaces,
   countVipEntryPlaces,
+  vipEntryHasCompanion,
+  vipPortalAllowsCompanions,
   getVipEntryPlaceType,
   DEFAULT_VIP_MEETING_CONTACT,
   getVipPortalContacts,

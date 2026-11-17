@@ -2927,7 +2927,7 @@ function AccreditationsPage(props) {
                       <td>{`${registration.firstName || ""} ${registration.lastName || ""}`.trim() || "—"}</td>
                       <td>{registration.organization || "—"}</td>
                       <td>
-                        {`${registration.guestFirstName || ""} ${registration.guestLastName || ""}`.trim() || "—"}
+                        {`${registration.guestFirstName || ""} ${registration.guestLastName || ""}`.trim() || (registration.hasCompanion ? "+1" : "—")}
                       </td>
                       <td>
                         <button

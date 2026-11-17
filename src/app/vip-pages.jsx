@@ -22,7 +22,8 @@ import {
   buildVipFullName,
   buildVipRegistrationPayload,
   computeVipPortalPlaces,
-  countVipEntryPlaces,
+  vipEntryHasCompanion,
+  vipPortalAllowsCompanions,
   createEmptyVipFormData,
   getVipEntryPlaceType,
   getVipPartnerPortalLabel,
@@ -540,8 +541,8 @@ const PORTAL_COPY = {
     placeType: "Type de place",
     placeVip: "VIP",
     placeStandard: "Normale",
-    kpiPlacesVip: "Places VIP",
-    kpiPlacesStandard: "Places normales",
+    kpiPlacesVip: "Invitations VIP",
+    kpiPlacesStandard: "Invitations normales",
     colPlace: "Place",
     unlimited: "sans limite",
     onRequest: "sur demande",
@@ -549,8 +550,12 @@ const PORTAL_COPY = {
     typeNotOffered: "Votre organisation n'a pas encore de places {type}. Vous pouvez en demander : l'équipe du meeting vous répond rapidement.",
     typeInText: { vip: "VIP", standard: "normales" },
     remaining: "{n} restante(s)",
-    quotaReached: "Votre quota de places {type} est atteint ({used} / {cap}). Pour ajouter d'autres invités, demandez des places supplémentaires.",
-    quotaNotEnough: "Il ne reste que {n} place(s) {type} : cet invité et son accompagnant en demandent 2.",
+    quotaReached: "Votre quota d'invitations {type} est atteint ({used} / {cap}). Pour ajouter d'autres invités, demandez des places supplémentaires.",
+    companionUnnamed: "+1 (nom non communiqué)",
+    companionHint: "Le nom de l'accompagnant est facultatif : laissez vide s'il n'est pas encore connu.",
+    withCompanion: "Avec accompagnant",
+    introCompanion: "Chaque invitation donne droit à 1 accompagnant (son nom est facultatif).",
+    seatsNote: "{n} pers. avec accompagnants",
     requestPlaces: "Demander des places supplémentaires",
     requestTitle: "Demande de places supplémentaires",
     requestIntro: "Votre demande est envoyée à l'équipe du meeting, et son statut s'affiche sur cette page. Une fois acceptée, les places s'ajoutent automatiquement à votre quota.",
@@ -624,8 +629,8 @@ const PORTAL_COPY = {
     placeType: "Place type",
     placeVip: "VIP",
     placeStandard: "Standard",
-    kpiPlacesVip: "VIP places",
-    kpiPlacesStandard: "Standard places",
+    kpiPlacesVip: "VIP invitations",
+    kpiPlacesStandard: "Standard invitations",
     colPlace: "Place",
     unlimited: "no limit",
     onRequest: "on request",
@@ -633,8 +638,12 @@ const PORTAL_COPY = {
     typeInText: { vip: "VIP", standard: "standard" },
     typeNotOffered: "No {type} places are planned for your organisation yet. You can request some: the meeting team will get back to you quickly.",
     remaining: "{n} left",
-    quotaReached: "Your {type} place quota is reached ({used} / {cap}). To add more guests, request extra places.",
-    quotaNotEnough: "Only {n} {type} place(s) left: this guest and their companion need 2.",
+    quotaReached: "Your {type} invitation quota is reached ({used} / {cap}). To add more guests, request extra places.",
+    companionUnnamed: "+1 (name not given)",
+    companionHint: "The companion's name is optional: leave it empty if you don't know it yet.",
+    withCompanion: "With a companion",
+    introCompanion: "Each invitation includes 1 companion (their name is optional).",
+    seatsNote: "{n} people with companions",
     requestPlaces: "Request extra places",
     requestTitle: "Request for extra places",
     requestIntro: "Your request is sent to the meeting team, and its status shows on this page. Once accepted, the places are added to your quota automatically.",
@@ -708,8 +717,8 @@ const PORTAL_COPY = {
     placeType: "Platzart",
     placeVip: "VIP",
     placeStandard: "Normal",
-    kpiPlacesVip: "VIP-Plätze",
-    kpiPlacesStandard: "Normale Plätze",
+    kpiPlacesVip: "VIP-Einladungen",
+    kpiPlacesStandard: "Normale Einladungen",
     colPlace: "Platz",
     unlimited: "ohne Limit",
     onRequest: "auf Anfrage",
@@ -717,8 +726,12 @@ const PORTAL_COPY = {
     typeInText: { vip: "VIP-", standard: "normalen " },
     typeNotOffered: "Für Ihre Organisation sind derzeit keine {type}Plätze vorgesehen. Sie können welche anfragen: Das Meeting-Team meldet sich schnell bei Ihnen.",
     remaining: "{n} übrig",
-    quotaReached: "Ihr Kontingent an {type}Plätzen ist erreicht ({used} / {cap}). Um weitere Gäste einzutragen, fragen Sie zusätzliche Plätze an.",
-    quotaNotEnough: "Es bleiben nur {n} {type}Plätze: Dieser Gast und seine Begleitperson benötigen 2.",
+    quotaReached: "Ihr Kontingent an {type}Einladungen ist erreicht ({used} / {cap}). Um weitere Gäste einzutragen, fragen Sie zusätzliche Plätze an.",
+    companionUnnamed: "+1 (Name nicht angegeben)",
+    companionHint: "Der Name der Begleitperson ist optional: leer lassen, wenn er noch nicht bekannt ist.",
+    withCompanion: "Mit Begleitperson",
+    introCompanion: "Jede Einladung gilt für 1 Begleitperson (Name optional).",
+    seatsNote: "{n} Pers. mit Begleitung",
     requestPlaces: "Zusätzliche Plätze anfragen",
     requestTitle: "Anfrage für zusätzliche Plätze",
     requestIntro: "Ihre Anfrage geht an das Meeting-Team, der Status wird auf dieser Seite angezeigt. Nach der Annahme werden die Plätze automatisch Ihrem Kontingent hinzugefügt.",
@@ -744,6 +757,7 @@ const DEMO_PORTAL = {
     organizationName: "Organisation démo",
     vipPlacesCap: 6,
     standardPlacesCap: 10,
+    companionsAllowed: true,
     contacts: [
       { firstName: "Fred", lastName: "Muller", email: "fred.muller@example.lu", phone: "+352 621 000 000" },
       { firstName: "Anne", lastName: "Weber", email: "anne.weber@example.lu", phone: "" },
@@ -751,7 +765,7 @@ const DEMO_PORTAL = {
   },
   entries: [
     { id: "d1", firstName: "Paul", lastName: "Schmit", email: "paul@example.lu", vipTourChoice: "coque", guestFirstName: "Lea", guestLastName: "Schmit", placeType: "vip" },
-    { id: "d2", firstName: "Claire", lastName: "Hoffmann", email: "claire@example.lu", vipTourChoice: "coulisses", placeType: "vip" },
+    { id: "d2", firstName: "Claire", lastName: "Hoffmann", email: "claire@example.lu", vipTourChoice: "coulisses", placeType: "vip", hasCompanion: true },
     { id: "d3", firstName: "Marc", lastName: "Kieffer", email: "marc@example.lu", vipTourChoice: "none", placeType: "standard" },
     { id: "d4", firstName: "Sophie", lastName: "Reuter", email: "sophie@example.lu", vipTourChoice: "none", guestFirstName: "Tom", guestLastName: "Reuter", placeType: "standard" },
   ],
@@ -798,6 +812,7 @@ function VipPartnerPortalPage() {
   const placeTypes = useMemo(() => getVipPortalPlaceTypes(portalMeta || {}), [portalMeta]);
   const places = useMemo(() => computeVipPortalPlaces(portalMeta || {}, entries), [portalMeta, entries]);
   const placeTypeLabel = (type) => (type === "standard" ? p.placeStandard : p.placeVip);
+  const companionsAllowed = vipPortalAllowsCompanions(portalMeta || {});
   const placeTypesKey = placeTypes.join("|");
   const { activeEditionId } = useActiveEdition();
   const { editions } = useMeetingEditions();
@@ -964,15 +979,14 @@ function VipPartnerPortalPage() {
     );
   }, [accessGranted, portalId, isDemoPortal]);
 
-  // Places manquantes pour une fiche (1, ou 2 avec accompagnant) d'un type donné ;
-  // 0 quand elle tient dans le quota. `excludeId` : fiche modifiée, déjà comptée.
-  function missingPlaces(type, entry, excludeId = "") {
+  // Invitations manquantes pour ajouter une fiche d'un type donné (0 quand elle
+  // tient dans le quota). Le quota compte les invitations, pas les accompagnants.
+  // `excludeId` : fiche modifiée, déjà comptée.
+  function missingPlaces(type, _entry, excludeId = "") {
     const cap = places.caps[type];
     if (cap === null) return 0;
-    const usedByOthers = entries
-      .filter((item) => item.id !== excludeId && getVipEntryPlaceType(item) === type)
-      .reduce((total, item) => total + countVipEntryPlaces(item), 0);
-    return Math.max(0, usedByOthers + countVipEntryPlaces(entry) - cap);
+    const usedByOthers = entries.filter((item) => item.id !== excludeId && getVipEntryPlaceType(item) === type).length;
+    return Math.max(0, usedByOthers + 1 - cap);
   }
 
   function openRequestForm(type, count) {
@@ -986,12 +1000,9 @@ function VipPartnerPortalPage() {
   function quotaMessage(type, entry, excludeId) {
     const missing = missingPlaces(type, entry, excludeId);
     if (!missing) return "";
-    const remaining = Math.max(0, countVipEntryPlaces(entry) - missing);
     const typeName = p.typeInText[type];
     if (!placeTypes.includes(type)) return p.typeNotOffered.replace("{type}", typeName);
-    return remaining > 0
-      ? p.quotaNotEnough.replace("{n}", remaining).replace("{type}", typeName)
-      : p.quotaReached.replace("{type}", typeName).replace("{used}", places.used[type]).replace("{cap}", places.caps[type]);
+    return p.quotaReached.replace("{type}", typeName).replace("{used}", places.used[type]).replace("{cap}", places.caps[type]);
   }
 
   async function handleRequestSubmit(event) {
@@ -1107,14 +1118,19 @@ function VipPartnerPortalPage() {
       guestLastName: entry.guestLastName || "",
       guestEmail: entry.guestEmail || "",
       notes: entry.notes || "",
+      hasCompanion: vipEntryHasCompanion(entry),
     });
   }
 
   async function saveEdit(event) {
     event.preventDefault();
-    const trimmed = Object.fromEntries(Object.entries(editDraft).map(([key, value]) => [key, String(value || "").trim()]));
+    const { hasCompanion, ...textFields } = editDraft;
+    const trimmed = Object.fromEntries(Object.entries(textFields).map(([key, value]) => [key, String(value || "").trim()]));
     trimmed.email = trimmed.email.toLowerCase();
     trimmed.guestEmail = trimmed.guestEmail.toLowerCase();
+    // Décocher l'accompagnant efface aussi son nom.
+    trimmed.hasCompanion = Boolean(hasCompanion) && companionsAllowed;
+    if (!trimmed.hasCompanion) Object.assign(trimmed, { guestFirstName: "", guestLastName: "", guestEmail: "" });
     const editedEntry = entries.find((item) => item.id === editingId);
     const editedType = getVipEntryPlaceType(editedEntry);
     const missing = missingPlaces(editedType, trimmed, editingId);
@@ -1155,13 +1171,13 @@ function VipPartnerPortalPage() {
     }
   }
 
-  const companionCount = entries.filter((entry) => fullName(entry.guestFirstName, entry.guestLastName)).length;
+  const companionCount = entries.filter((entry) => vipEntryHasCompanion(entry)).length;
   const vipEntries = entries.filter((entry) => getVipEntryPlaceType(entry) === "vip");
   const tourCounts = VIP_TOUR_OPTIONS.filter((option) => option.value !== "none").map((option) => ({
     value: option.value,
     count:
       vipEntries.filter((entry) => entry.vipTourChoice === option.value).length +
-      vipEntries.filter((entry) => entry.vipTourChoice === option.value && fullName(entry.guestFirstName, entry.guestLastName)).length,
+      vipEntries.filter((entry) => entry.vipTourChoice === option.value && vipEntryHasCompanion(entry)).length,
   }));
   const query = search.trim().toLowerCase();
   const visibleEntries = query
@@ -1251,6 +1267,7 @@ function VipPartnerPortalPage() {
               <li><strong>{p.placeVip}</strong> — {p.offerVip}</li>
               <li><strong>{p.placeStandard}</strong> — {p.offerStandard}</li>
             </ul>
+            {companionsAllowed ? <p>{p.introCompanion}</p> : null}
             <p>{p.introHow}</p>
           </div>
           {portalMeta ? (
@@ -1384,6 +1401,9 @@ function VipPartnerPortalPage() {
                         ? p.onRequest
                         : p.remaining.replace("{n}", places.remaining[type])}
                   </span>
+                  {companionsAllowed && places.seats[type] > places.used[type] ? (
+                    <span className="vip-portal-kpis__note">{p.seatsNote.replace("{n}", places.seats[type])}</span>
+                  ) : null}
                 </div>
               ))}
               {tourCounts.map((tour) => (
@@ -1462,6 +1482,7 @@ function VipPartnerPortalPage() {
 
                 {showCompanion ? (
                   <div className="vip-portal-grid vip-portal-grid--sub">
+                    <p className="vip-portal-sub-hint">{p.companionHint}</p>
                     <label className="vip-portal-field">
                       <span>{p.companionFirstName}</span>
                       <input name="guestFirstName" autoComplete="off" value={formData.guestFirstName} onChange={handleChange} />
@@ -1484,16 +1505,22 @@ function VipPartnerPortalPage() {
                 ) : null}
 
                 <div className="vip-portal-form__bar">
-                  <button
-                    type="button"
-                    className="vip-portal-link"
-                    onClick={() => {
-                      if (showCompanion) setFormData((current) => ({ ...current, guestFirstName: "", guestLastName: "", guestEmail: "" }));
-                      setShowCompanion(!showCompanion);
-                    }}
-                  >
-                    {showCompanion ? p.removeCompanion : p.addCompanion}
-                  </button>
+                  {companionsAllowed ? (
+                    <button
+                      type="button"
+                      className="vip-portal-link"
+                      onClick={() => {
+                        setFormData((current) =>
+                          showCompanion
+                            ? { ...current, hasCompanion: false, guestFirstName: "", guestLastName: "", guestEmail: "" }
+                            : { ...current, hasCompanion: true },
+                        );
+                        setShowCompanion(!showCompanion);
+                      }}
+                    >
+                      {showCompanion ? p.removeCompanion : p.addCompanion}
+                    </button>
+                  ) : null}
                   {showNote ? null : (
                     <button type="button" className="vip-portal-link" onClick={() => setShowNote(true)}>{p.addNote}</button>
                   )}
@@ -1669,9 +1696,23 @@ function VipPartnerPortalPage() {
                                   <label className="vip-portal-field"><span>{p.lastName} *</span><input name="lastName" required value={editDraft.lastName} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.email}</span><input name="email" type="email" value={editDraft.email} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.phone}</span><input name="phone" type="tel" value={editDraft.phone} onChange={editChange} /></label>
-                                  <label className="vip-portal-field"><span>{p.companionFirstName}</span><input name="guestFirstName" value={editDraft.guestFirstName} onChange={editChange} /></label>
-                                  <label className="vip-portal-field"><span>{p.companionLastName}</span><input name="guestLastName" value={editDraft.guestLastName} onChange={editChange} /></label>
-                                  <label className="vip-portal-field"><span>{p.companionEmail}</span><input name="guestEmail" type="email" value={editDraft.guestEmail} onChange={editChange} /></label>
+                                  {companionsAllowed ? (
+                                    <label className="vip-portal-check">
+                                      <input
+                                        type="checkbox"
+                                        checked={Boolean(editDraft.hasCompanion)}
+                                        onChange={(event) => setEditDraft((current) => ({ ...current, hasCompanion: event.target.checked }))}
+                                      />
+                                      {p.withCompanion}
+                                    </label>
+                                  ) : null}
+                                  {companionsAllowed && editDraft.hasCompanion ? (
+                                    <>
+                                      <label className="vip-portal-field"><span>{p.companionFirstName}</span><input name="guestFirstName" value={editDraft.guestFirstName} onChange={editChange} /></label>
+                                      <label className="vip-portal-field"><span>{p.companionLastName}</span><input name="guestLastName" value={editDraft.guestLastName} onChange={editChange} /></label>
+                                      <label className="vip-portal-field"><span>{p.companionEmail}</span><input name="guestEmail" type="email" value={editDraft.guestEmail} onChange={editChange} /></label>
+                                    </>
+                                  ) : null}
                                   <label className="vip-portal-field"><span>{p.notes}</span><input name="notes" value={editDraft.notes} onChange={editChange} /></label>
                                 </div>
                                 <div className="vip-portal-form__bar">
@@ -1710,7 +1751,7 @@ function VipPartnerPortalPage() {
                               <span className="vip-portal-muted" title={p.tourVipOnly}>—</span>
                             )}
                             </td>
-                            <td>{fullName(entry.guestFirstName, entry.guestLastName) || <span className="vip-portal-muted">{p.noCompanion}</span>}</td>
+                            <td>{fullName(entry.guestFirstName, entry.guestLastName) || (entry.hasCompanion ? <span className="vip-portal-muted">{p.companionUnnamed}</span> : <span className="vip-portal-muted">{p.noCompanion}</span>)}</td>
                             <td className="vip-portal-actions">
                               <button type="button" className="vip-portal-btn vip-portal-btn--small" onClick={() => startEdit(entry)}>{p.edit}</button>
                               <button type="button" className="vip-portal-btn vip-portal-btn--small vip-portal-btn--danger" onClick={() => handleDelete(entry.id)}>{p.remove}</button>
