@@ -11,6 +11,7 @@ import { getAgeFromBirthDate, getU14CategoryFromBirthDate, readRememberMePrefere
 import {
   getPreProgramSubmissionErrorMessage,
   getU14AllowedEvents,
+  isU14BasketOnlyCategory,
   getValidRequestedEventForCategory,
   luxCompetitionClubs,
 } from "./u14-helpers";
@@ -212,6 +213,7 @@ function YouthRegistrationForm({ onEmailInUse }) {
         if (childIndex !== index) return child;
         const nextChild = { ...child, [name]: type === "checkbox" ? checked : value };
         if (name === "birthDate") nextChild.category = getU14CategoryFromBirthDate(value);
+        if (isU14BasketOnlyCategory(nextChild.category)) nextChild.requestType = "porte_panier";
         nextChild.requestedEvent = getValidRequestedEventForCategory(nextChild.category, nextChild.requestedEvent);
         return nextChild;
       }),
@@ -227,6 +229,10 @@ function YouthRegistrationForm({ onEmailInUse }) {
     }
     if (children.some((child) => !child.category)) {
       setError(t("u14ErrorBirthYears"));
+      return;
+    }
+    if (children.some((child) => isU14BasketOnlyCategory(child.category) && child.requestType !== "porte_panier")) {
+      setError(t("u14BasketOnlyNote"));
       return;
     }
     if (children.some((child) => child.requestType !== "porte_panier" && !getU14AllowedEvents(child.category).includes(child.requestedEvent))) {
@@ -344,7 +350,9 @@ function YouthRegistrationForm({ onEmailInUse }) {
                 { value: "preprogram", label: t("u14TypePreprogram"), body: t("ppTypePreprogramBody") },
                 { value: "porte_panier", label: t("u14TypeBasket"), body: t("ppTypeBasketBody") },
                 { value: "preprogram_ou_porte_panier", label: t("u14TypeEither"), body: t("ppTypeEitherBody") },
-              ].map((option) => (
+              ]
+                .filter((option) => !isU14BasketOnlyCategory(child.category) || option.value === "porte_panier")
+                .map((option) => (
                 <label key={option.value} className="selection-card selection-card--compact">
                   <input
                     checked={child.requestType === option.value}
@@ -360,6 +368,7 @@ function YouthRegistrationForm({ onEmailInUse }) {
                 </label>
               ))}
             </div>
+            {isU14BasketOnlyCategory(child.category) ? <p className="panel-note">{t("u14BasketOnlyNote")}</p> : null}
             {child.requestType !== "porte_panier" && child.category ? (
               allowedEvents.length > 1 ? (
                 <AuthFormField label={t("u14EventLabel")} hint={t("u14EventHint")} required>

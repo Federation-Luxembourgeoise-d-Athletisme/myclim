@@ -20,7 +20,15 @@ const U14_RACE_DEFINITION_MAP = new Map(U14_RACE_DEFINITIONS.map((definition) =>
 const U14_REQUESTABLE_EVENTS_BY_CATEGORY = {
   U12: ["60 m"],
   U14: ["60 m", "1000 m"],
+  U16: [],
 };
+
+// Catégories qui ne peuvent demander que le rôle de porte-panier.
+const U14_BASKET_ONLY_CATEGORIES = ["U16"];
+
+function isU14BasketOnlyCategory(category) {
+  return U14_BASKET_ONLY_CATEGORIES.includes(String(category || "").trim().toUpperCase());
+}
 const luxCompetitionClubs = [
   "CAB",
   "CAD",
@@ -129,7 +137,7 @@ function getU14AllowedEvents(category) {
 
 function getValidRequestedEventForCategory(category, requestedEvent) {
   const allowedEvents = getU14AllowedEvents(category);
-  return allowedEvents.includes(requestedEvent) ? requestedEvent : allowedEvents[0];
+  return allowedEvents.includes(requestedEvent) ? requestedEvent : allowedEvents[0] || "";
 }
 
 function getPreProgramSubmissionErrorMessage(error, t) {
@@ -516,13 +524,21 @@ async function syncU14RaceAllocations({ requests, children, protectedInvites, pr
     const nextAllocationMode = normalizeComparableValue(nextState.allocationMode);
     const currentAcceptedPosition = Number(request.acceptedPosition || 0) || null;
     const currentWaitlistPosition = Number(request.waitlistPosition || 0) || null;
+    // Place protégée (invitation utilisée ou rattachée par l'équipe) : retenue
+    // et confirmée d'office. Le calcul ne la remet jamais « à retenir », même
+    // s'il passe entre l'écriture de l'invitation et celle de la demande.
+    const isProtectedPlace = nextAllocationMode === "protected";
+    const protectedPlaceSettled =
+      normalizeComparableValue(request.adminApprovalStatus) === "approved" &&
+      normalizeComparableValue(request.parentDecisionStatus) === "confirmed";
 
     if (
       currentStatus === nextStatus &&
       currentAllocationMode === nextAllocationMode &&
       currentAcceptedPosition === nextState.acceptedPosition &&
       currentWaitlistPosition === nextState.waitlistPosition &&
-      String(request.protectedSlotId || "") === String(nextState.protectedSlotId || "")
+      String(request.protectedSlotId || "") === String(nextState.protectedSlotId || "") &&
+      (!isProtectedPlace || protectedPlaceSettled)
     ) {
       continue;
     }
@@ -534,24 +550,29 @@ async function syncU14RaceAllocations({ requests, children, protectedInvites, pr
       acceptedPosition: nextState.acceptedPosition,
       waitlistPosition: nextState.waitlistPosition,
       queuePosition: nextState.queuePosition,
-      parentDecisionRequired:
-        nextState.status === "confirmed"
+      parentDecisionRequired: isProtectedPlace
+        ? false
+        : nextState.status === "confirmed"
           ? normalizeComparableValue(request.adminApprovalStatus) === "approved"
           : nextState.parentDecisionRequired,
-      adminApprovalStatus:
-        nextState.status === "confirmed"
+      adminApprovalStatus: isProtectedPlace
+        ? "approved"
+        : nextState.status === "confirmed"
           ? currentStatus === "confirmed" && normalizeComparableValue(request.adminApprovalStatus) === "approved"
             ? "approved"
             : "pending"
           : null,
-      parentDecisionStatus:
-        nextState.status === "confirmed"
+      parentDecisionStatus: isProtectedPlace
+        ? "confirmed"
+        : nextState.status === "confirmed"
           ? currentStatus === "confirmed" &&
             normalizeComparableValue(request.parentDecisionStatus) === "confirmed" &&
             normalizeComparableValue(request.adminApprovalStatus) === "approved"
             ? "confirmed"
             : null
           : null,
+      ...(isProtectedPlace && !request.adminApprovedAt ? { adminApprovedAt: serverTimestamp() } : {}),
+      ...(isProtectedPlace && !request.parentDecisionAt ? { parentDecisionAt: serverTimestamp() } : {}),
       // Montée depuis la liste d'attente : signalée « à valider » dans le module.
       ...(currentStatus === "waitlisted" && nextStatus === "confirmed" ? { promotedFromWaitlistAt: serverTimestamp() } : {}),
       allocationUpdatedAt: serverTimestamp(),
@@ -606,6 +627,7 @@ export {
   getU14WorkflowStatusLabel,
   getValidRequestedEventForCategory,
   isProtectedSlotActive,
+  isU14BasketOnlyCategory,
   luxCompetitionClubs,
   normalizeComparableValue,
   syncU14RaceAllocations,

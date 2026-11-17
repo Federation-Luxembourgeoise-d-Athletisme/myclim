@@ -21,6 +21,9 @@ import {
 import { U14_STAGE_ORDER, getU14ChildStage } from "./u14-stage";
 import { useU14AdminCopy } from "./u14-admin-copy";
 import { U14ProtectedTab } from "./u14-protected-tab";
+import { getU14InvitePoolKey, getU14ProtectedInviteStatus } from "./u14-protected";
+
+const U14_GUIDE_STORAGE_KEY = "myclim.u14.guide";
 import { useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { db } from "../services/firebase";
@@ -219,6 +222,24 @@ function U14Page(props) {
     editionYear: activeEdition?.year || activeEditionId,
   };
   const [now] = useState(() => Date.now());
+  // Encadré « Comment ça marche » : ouvert par défaut, replié si la personne
+  // l'a replié (choix gardé sur cet appareil).
+  const [guideOpen, setGuideOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(U14_GUIDE_STORAGE_KEY) !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  function toggleGuide(event) {
+    const open = event.currentTarget.open;
+    setGuideOpen(open);
+    try {
+      window.localStorage.setItem(U14_GUIDE_STORAGE_KEY, open ? "open" : "closed");
+    } catch {
+      // Stockage indisponible : le choix vaut pour cette visite.
+    }
+  }
   const activeTab = getTabFromPath(location.pathname);
   const [selectedRaceCode, setSelectedRaceCode] = useState(U14_RACE_DEFINITIONS[0].code);
   const [search, setSearch] = useState("");
@@ -246,7 +267,11 @@ function U14Page(props) {
       return (
         normalizeComparableValue(request.status) !== next.status ||
         normalizeComparableValue(request.allocationMode) !== next.allocationMode ||
-        (Number(request.waitlistPosition || 0) || null) !== next.waitlistPosition
+        (Number(request.waitlistPosition || 0) || null) !== next.waitlistPosition ||
+        // Place protégée pas encore marquée retenue et confirmée.
+        (next.allocationMode === "protected" &&
+          (normalizeComparableValue(request.adminApprovalStatus) !== "approved" ||
+            normalizeComparableValue(request.parentDecisionStatus) !== "confirmed"))
       );
     });
     return outdated.map((request) => request.id).sort().join(",");
@@ -434,6 +459,14 @@ function U14Page(props) {
   // ── Tableau d'une course ──
   const normalizedSearch = normalizeComparableValue(search);
   const selectedRace = raceSummaries.find((race) => race.code === selectedRaceCode) || raceSummaries[0];
+  // Enfants invités qui n'ont pas encore utilisé leur lien : leurs places sont
+  // gardées dans toutes les courses de leur catégorie.
+  const pendingInvitesInPool = protectedInvites
+    .filter((invite) => getU14ProtectedInviteStatus(invite, now) === "invited" && getU14InvitePoolKey(invite) === selectedRace.poolKey)
+    .sort((left, right) => `${left.lastName} ${left.firstName}`.localeCompare(`${right.lastName} ${right.firstName}`, "fr"));
+  const otherRacesInPool = U14_RACE_DEFINITIONS.filter(
+    (definition) => definition.code !== selectedRace.code && `${definition.category}${definition.gender === "fille" ? "F" : "M"}` === selectedRace.poolKey,
+  ).map((definition) => definition.event);
   const RETAINED_STAGES = ["confirmed", "waiting-parent", "overdue", "to-retain", "received"];
   const byStageThenPosition = (left, right) => {
     const order = (U14_STAGE_ORDER[left.stage.key] ?? 9) - (U14_STAGE_ORDER[right.stage.key] ?? 9);
@@ -468,9 +501,31 @@ function U14Page(props) {
         !normalizedSearch && selectedRace.blockedPlaces ? (
           <div className="u14m-row u14m-row--reserve" role="row">
             <span className="u14m-position">—</span>
-            <span className="u14m-reserve-text">
-              {selectedRace.blockedPlaces > 1 ? fill(copy.races.reserveMany, { count: selectedRace.blockedPlaces }) : copy.races.reserveOne}
-            </span>
+            <div className="u14m-reserve-body">
+              <span className="u14m-reserve-text">
+                {fill(selectedRace.blockedPlaces > 1 ? copy.races.reserveMany : copy.races.reserveOne, {
+                  count: selectedRace.blockedPlaces,
+                  pool: copy.protected.poolLabels[selectedRace.poolKey] || "",
+                })}
+              </span>
+              {pendingInvitesInPool.length ? (
+                <span className="u14m-reserve-line">
+                  {fill(copy.races.reserveFor, {
+                    names: pendingInvitesInPool.map((invite) => `${invite.firstName} ${invite.lastName}`).join(" · "),
+                  })}
+                </span>
+              ) : null}
+              {selectedRace.blockedPlaces > pendingInvitesInPool.length ? (
+                <span className="u14m-reserve-line">
+                  {fill(copy.races.reserveNoInvite, { count: selectedRace.blockedPlaces - pendingInvitesInPool.length })}
+                </span>
+              ) : null}
+              {otherRacesInPool.length ? (
+                <span className="u14m-reserve-line u14m-reserve-line--muted">
+                  {fill(copy.races.reserveAlsoIn, { races: otherRacesInPool.join(", ") })}
+                </span>
+              ) : null}
+            </div>
             <span className="u14m-stage__detail">
               {protectedSettings.deadline ? fill(copy.races.reserveUntil, { date: formatDateForDisplay(protectedSettings.deadline) }) : copy.races.reserveUntilDeadline}
             </span>
@@ -546,6 +601,23 @@ function U14Page(props) {
           <p>{copy.intro}</p>
         </div>
       </section>
+
+      <details className="u14m-guide" open={guideOpen} onToggle={toggleGuide}>
+        <summary>
+          <strong>{copy.guide.title}</strong>
+          <span>{copy.guide.hint}</span>
+          <span className="u14m-guide__toggle">{guideOpen ? copy.guide.hide : copy.guide.show}</span>
+        </summary>
+        <ol className="u14m-guide__steps">
+          {copy.guide.steps.map(([title, body]) => (
+            <li key={title}>
+              <strong>{title}</strong>
+              <span>{body}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="u14m-guide__footer">{copy.guide.footer}</p>
+      </details>
 
       {requestsError || childrenError || invitesError ? <p className="status-note">{requestsError || childrenError || invitesError}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}

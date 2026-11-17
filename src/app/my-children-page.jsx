@@ -13,6 +13,7 @@ import {
   formatParentRequestType,
   getPreProgramSubmissionErrorMessage,
   getU14AllowedEvents,
+  isU14BasketOnlyCategory,
   getU14ParentStatusPillClass,
   getU14PracticalRoleKey,
   getU14RaceLabel,
@@ -64,6 +65,8 @@ function MyChildrenPage(props) {
         ...current,
         [name]: nextValue,
         ...(name === "birthDate" ? { category: nextCategory } : {}),
+        // U16 : porte-panier seulement.
+        ...(isU14BasketOnlyCategory(nextCategory) ? { requestType: "porte_panier" } : {}),
       };
 
       return {
@@ -91,6 +94,11 @@ function MyChildrenPage(props) {
 
     if (!luxCompetitionClubs.includes(childForm.club) || !childForm.bibNumber.trim()) {
       setErrorMessage(t("mcErrorClubLicence"));
+      return;
+    }
+
+    if (isU14BasketOnlyCategory(childForm.category) && childForm.requestType !== "porte_panier") {
+      setErrorMessage(t("u14BasketOnlyNote"));
       return;
     }
 
@@ -392,6 +400,7 @@ function MyChildrenPage(props) {
                 <input readOnly name="category" value={childForm.category} />
               </AuthFormField>
             </div>
+            {isU14BasketOnlyCategory(childForm.category) ? <p className="panel-note">{t("u14BasketOnlyNote")}</p> : null}
             {childForm.birthDate && !childForm.category ? (
               <div className="notice-card notice-card--danger">
                 <strong>{t("u14NotEligibleTitle")}</strong>
@@ -423,9 +432,11 @@ function MyChildrenPage(props) {
               </AuthFormField>
               <AuthFormField label={t("u14RequestTypeLabel")}>
                 <select name="requestType" value={childForm.requestType} onChange={handleChildFormChange}>
-                  <option value="preprogram">{t("u14TypePreprogram")}</option>
+                  {isU14BasketOnlyCategory(childForm.category) ? null : <option value="preprogram">{t("u14TypePreprogram")}</option>}
                   <option value="porte_panier">{t("u14TypeBasket")}</option>
-                  <option value="preprogram_ou_porte_panier">{t("u14TypeEither")}</option>
+                  {isU14BasketOnlyCategory(childForm.category) ? null : (
+                    <option value="preprogram_ou_porte_panier">{t("u14TypeEither")}</option>
+                  )}
                 </select>
               </AuthFormField>
             </div>
