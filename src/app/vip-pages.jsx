@@ -552,9 +552,9 @@ const PORTAL_COPY = {
     remaining: "{n} restante(s)",
     quotaReached: "Votre quota d'invitations {type} est atteint ({used} / {cap}). Pour ajouter d'autres invités, demandez des places supplémentaires.",
     companionUnnamed: "+1 (nom non communiqué)",
-    companionHint: "Le nom de l'accompagnant est facultatif : laissez vide s'il n'est pas encore connu.",
+    companionHint: "Les badges VIP étant nominatifs, merci d'indiquer autant que possible le prénom et le nom de l'accompagnant. S'il n'est pas encore connu, laissez vide : vous pourrez le compléter plus tard.",
     withCompanion: "Avec accompagnant",
-    introCompanion: "Chaque invitation donne droit à 1 accompagnant (son nom est facultatif).",
+    introCompanion: "Chaque invitation donne droit à 1 accompagnant. Les badges VIP étant nominatifs, merci d'indiquer autant que possible son prénom et son nom.",
     seatsNote: "{n} pers. avec accompagnants",
     requestPlaces: "Demander des places supplémentaires",
     requestTitle: "Demande de places supplémentaires",
@@ -640,9 +640,9 @@ const PORTAL_COPY = {
     remaining: "{n} left",
     quotaReached: "Your {type} invitation quota is reached ({used} / {cap}). To add more guests, request extra places.",
     companionUnnamed: "+1 (name not given)",
-    companionHint: "The companion's name is optional: leave it empty if you don't know it yet.",
+    companionHint: "VIP badges are personal: please give the companion's first and last name whenever possible. If not known yet, leave it empty and complete it later.",
     withCompanion: "With a companion",
-    introCompanion: "Each invitation includes 1 companion (their name is optional).",
+    introCompanion: "Each invitation includes 1 companion. VIP badges are personal, so please give their first and last name whenever possible.",
     seatsNote: "{n} people with companions",
     requestPlaces: "Request extra places",
     requestTitle: "Request for extra places",
@@ -728,9 +728,9 @@ const PORTAL_COPY = {
     remaining: "{n} übrig",
     quotaReached: "Ihr Kontingent an {type}Einladungen ist erreicht ({used} / {cap}). Um weitere Gäste einzutragen, fragen Sie zusätzliche Plätze an.",
     companionUnnamed: "+1 (Name nicht angegeben)",
-    companionHint: "Der Name der Begleitperson ist optional: leer lassen, wenn er noch nicht bekannt ist.",
+    companionHint: "VIP-Badges sind personalisiert: Bitte geben Sie nach Möglichkeit Vor- und Nachnamen der Begleitperson an. Ist er noch nicht bekannt, leer lassen und später ergänzen.",
     withCompanion: "Mit Begleitperson",
-    introCompanion: "Jede Einladung gilt für 1 Begleitperson (Name optional).",
+    introCompanion: "Jede Einladung gilt für 1 Begleitperson. Da die VIP-Badges personalisiert sind, geben Sie bitte nach Möglichkeit Vor- und Nachnamen an.",
     seatsNote: "{n} Pers. mit Begleitung",
     requestPlaces: "Zusätzliche Plätze anfragen",
     requestTitle: "Anfrage für zusätzliche Plätze",
@@ -1708,6 +1708,7 @@ function VipPartnerPortalPage() {
                                   ) : null}
                                   {companionsAllowed && editDraft.hasCompanion ? (
                                     <>
+                                      <p className="vip-portal-sub-hint">{p.companionHint}</p>
                                       <label className="vip-portal-field"><span>{p.companionFirstName}</span><input name="guestFirstName" value={editDraft.guestFirstName} onChange={editChange} /></label>
                                       <label className="vip-portal-field"><span>{p.companionLastName}</span><input name="guestLastName" value={editDraft.guestLastName} onChange={editChange} /></label>
                                       <label className="vip-portal-field"><span>{p.companionEmail}</span><input name="guestEmail" type="email" value={editDraft.guestEmail} onChange={editChange} /></label>
