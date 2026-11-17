@@ -9066,9 +9066,23 @@ tr.row--warning > td {
 .sheet-team-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 6px; border: 1px solid #d6e0ec; border-radius: 4px; background: #f3f7fc; font-size: 11.5px; line-height: 18px; white-space: nowrap; }
 .sheet-team-chip__remove { border: 0; background: none; padding: 0 3px; font-size: 13px; line-height: 1; color: #8391a3; cursor: pointer; }
 .sheet-team-chip__remove:hover { color: #b0182b; }
-.data-table--sheet select.sheet-team-add { width: auto; min-width: 0; height: 20px; max-width: 96px; padding: 0 2px 0 4px; border: 1px dashed #b9c6d6; border-radius: 4px; background-color: transparent; font: inherit; font-size: 11.5px; line-height: 18px; font-weight: 600; color: #1a4aa1; cursor: pointer; box-shadow: none; }
-.data-table--sheet select.sheet-team-add:hover,
-.data-table--sheet select.sheet-team-add:focus { border-style: solid; background-color: #fff; }
+.data-table--sheet button.sheet-team-add { width: auto; min-width: 0; height: 20px; padding: 0 6px; border: 1px dashed #b9c6d6; border-radius: 4px; background: transparent; font: inherit; font-size: 11.5px; line-height: 18px; font-weight: 600; color: #1a4aa1; cursor: pointer; box-shadow: none; white-space: nowrap; }
+.data-table--sheet button.sheet-team-add:hover,
+.data-table--sheet button.sheet-team-add:focus-visible,
+.data-table--sheet button.sheet-team-add[aria-expanded="true"] { border-style: solid; background: #fff; }
+.sheet-team-picker { position: fixed; z-index: 60; display: flex; flex-direction: column; max-height: 280px; padding: 4px; border: 1px solid #d6e0ec; border-radius: 6px; background: #fff; box-shadow: 0 8px 24px rgba(19, 33, 58, 0.14); font-size: 12px; }
+.sheet-team-picker input.sheet-team-picker__search { width: 100%; height: 26px; min-height: 0; margin: 0 0 4px; padding: 0 8px; border: 1px solid #d6e0ec; border-radius: 4px; font: inherit; font-size: 12px; box-shadow: none; }
+.sheet-team-picker input.sheet-team-picker__search:focus { outline: none; border-color: #1a4aa1; }
+.sheet-team-picker__list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.sheet-team-picker__option { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #13213a; }
+.sheet-team-picker__option.is-active { background: #eef4fb; }
+.sheet-team-picker__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-team-picker__tag { padding: 0 4px; border-radius: 3px; background: #e7f4ec; color: #216344; font-size: 10px; font-weight: 600; }
+.sheet-team-picker__count { color: #8391a3; font-size: 11px; font-variant-numeric: tabular-nums; }
+.sheet-team-picker__count.is-full { color: #216344; }
+.sheet-team-picker__empty { padding: 4px 8px; color: #8391a3; }
+.status-note--warning { margin: 16px 0; padding: 10px 14px; border-radius: 10px; border: 1px solid #f0d58a; background: #fff8e5; color: #7a5300; }
+.assign-status--warn { background: #fff8e5; color: #7a5300; }
 .sheet-link { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: #13213a; cursor: pointer; }
 .sheet-link:hover { color: #1a4aa1; text-decoration: underline; }
 .workflow-pill.sheet-status { padding: 1px 7px; font-size: 11px; font-weight: 600; border-radius: 4px; }
