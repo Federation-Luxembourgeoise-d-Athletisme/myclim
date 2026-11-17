@@ -9,6 +9,7 @@ import {
   volunteerWorkflowStatusOptions,
 } from "./seed-data";
 import { mapVolunteerApplicationToAdminVolunteer } from "./volunteer-helpers";
+import { buildAddTeamPatch, buildRemoveTeamPatch, buildTeamBoard, suggestTeams } from "./volunteer-assignment-helpers";
 import { useVolunteerAlertLog, useVolunteerApplicationsList } from "./volunteer-hooks";
 import { defaultTeamRoles, normalizeSubRoles, normalizeTeamConfigurationPayload } from "./team-config";
 import { db } from "../services/firebase";
@@ -533,6 +534,42 @@ function VolunteersPage(props) {
     }
   }
 
+  // Affectation directe depuis le tableau : mêmes règles que Équipes &
+  // affectations › Affectations (statut « Affecté », e-mail à renvoyer,
+  // alerte quand la dernière équipe est retirée, synchro équipes + profil).
+  const teamBoard = useMemo(() => buildTeamBoard(teamRoleConfigs, volunteers), [teamRoleConfigs, volunteers]);
+
+  function fillVolunteerNote(key, volunteer, teamName) {
+    return t(key)
+      .replace("{name}", `${volunteer.firstName} ${volunteer.lastName}`.trim())
+      .replace("{team}", teamName);
+  }
+
+  async function addVolunteerToTeam(volunteer, teamName) {
+    const patch = teamName ? buildAddTeamPatch(volunteer, teamName) : null;
+    if (!patch) return;
+    clearVolunteerActionStatus();
+    const next = await persistVolunteerPatchAndSync(volunteer.id, patch, {
+      persistenceErrorMessage: t("sheetAssignError"),
+    });
+    if (next) {
+      setVolunteerActionStatus({ tone: "success", message: fillVolunteerNote("sheetAssignedNote", volunteer, teamName) });
+    }
+  }
+
+  async function removeVolunteerFromTeam(volunteer, teamName) {
+    const patch = buildRemoveTeamPatch(volunteer, teamName);
+    if (!patch) return;
+    clearVolunteerActionStatus();
+    const next = await persistVolunteerPatchWithAlertsAndSync(volunteer.id, patch, {
+      alertReason: patch.assignedRoles.length === 0 ? `Retrait de l'équipe ${teamName}.` : "",
+      persistenceErrorMessage: t("sheetAssignError"),
+    });
+    if (next) {
+      setVolunteerActionStatus({ tone: "success", message: fillVolunteerNote("sheetRemovedNote", volunteer, teamName) });
+    }
+  }
+
   function getStatusLabel(status) {
     switch (status) {
       case "Candidature reçue":
@@ -928,18 +965,16 @@ function VolunteersPage(props) {
                             {getStatusLabel(volunteer.workflowStatus)}
                           </span>
                         </td>
-                        <td className="sheet-ellipsis">
-                          {getVolunteerAssignedRoles(volunteer).length === 0 ? (
-                            <span className="sheet-muted">—</span>
-                          ) : (
-                            getVolunteerAssignedRoles(volunteer).map((assignedRole, roleIndex) => (
-                              <Fragment key={`${volunteer.id}-${assignedRole}`}>
-                                {roleIndex > 0 ? ", " : ""}
-                                {assignedRole}
-                                <span className="sheet-muted"> ({getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)})</span>
-                              </Fragment>
-                            ))
-                          )}
+                        <td className="sheet-teams">
+                          <SheetTeamCell
+                            volunteer={volunteer}
+                            assignedRoles={getVolunteerAssignedRoles(volunteer)}
+                            getMemberRole={(assignedRole) => getVolunteerTeamRoleForAssignedRole(volunteer, assignedRole)}
+                            teamBoard={teamBoard}
+                            onAdd={(teamName) => addVolunteerToTeam(volunteer, teamName)}
+                            onRemove={(teamName) => removeVolunteerFromTeam(volunteer, teamName)}
+                            t={t}
+                          />
                         </td>
                         <td className="sheet-ellipsis sheet-muted" title={volunteer.missionPreferences.join(", ")}>
                           {volunteer.missionPreferences.join(", ")}
@@ -1250,6 +1285,93 @@ function VolunteersPage(props) {
           </div>
         )}
       </Panel>
+    </div>
+  );
+}
+
+// Cellule « Équipe(s) » du tableau Candidatures : une pastille par équipe
+// (retirer avec ×) et un petit menu « + Équipe », suggestions en tête.
+function SheetTeamCell({ volunteer, assignedRoles, getMemberRole, teamBoard, onAdd, onRemove, t }) {
+  const [busy, setBusy] = useState(false);
+  const cancelled = volunteer.workflowStatus === "Annulé";
+  const isAssigned = (teamName) => assignedRoles.some((name) => name.toLowerCase() === String(teamName).toLowerCase());
+  const suggestions = cancelled ? [] : suggestTeams(volunteer, teamBoard);
+  const suggestedNames = new Set(suggestions.map((suggestion) => suggestion.teamName));
+  const otherTeams = teamBoard.filter((entry) => !isAssigned(entry.team.roleName) && !suggestedNames.has(entry.team.roleName));
+
+  async function run(action) {
+    setBusy(true);
+    try {
+      await action();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function optionLabel(entry) {
+    return entry.needed > 0 ? `${entry.team.roleName} (${entry.placed}/${entry.needed})` : entry.team.roleName;
+  }
+
+  return (
+    <div className="sheet-teams__inner">
+      {assignedRoles.map((assignedRole) => {
+        const memberRole = getMemberRole(assignedRole);
+        const removeLabel = t("sheetRemoveTeam").replace("{team}", assignedRole);
+        return (
+          <span className="sheet-team-chip" key={assignedRole} title={memberRole}>
+            {assignedRole}
+            {memberRole && memberRole !== "Bénévole" ? <span className="sheet-muted"> · {memberRole}</span> : null}
+            {cancelled ? null : (
+              <button
+                type="button"
+                className="sheet-team-chip__remove"
+                disabled={busy}
+                aria-label={removeLabel}
+                title={removeLabel}
+                onClick={() => run(() => onRemove(assignedRole))}
+              >
+                ×
+              </button>
+            )}
+          </span>
+        );
+      })}
+      {cancelled ? (
+        assignedRoles.length === 0 ? <span className="sheet-muted">—</span> : null
+      ) : (
+        <select
+          className="sheet-team-add"
+          value=""
+          disabled={busy}
+          aria-label={t("sheetAddTeam")}
+          title={t("sheetAddTeam")}
+          onChange={(event) => {
+            const teamName = event.target.value;
+            if (teamName) run(() => onAdd(teamName));
+          }}
+        >
+          <option value="">{assignedRoles.length ? "+" : t("sheetAddTeamShort")}</option>
+          {suggestions.length ? (
+            <optgroup label={t("sheetSuggestedTeams")}>
+              {suggestions.map((suggestion) => {
+                const entry = teamBoard.find((item) => item.team.roleName === suggestion.teamName);
+                return (
+                  <option key={suggestion.teamName} value={suggestion.teamName}>
+                    {entry ? optionLabel(entry) : suggestion.teamName}
+                  </option>
+                );
+              })}
+            </optgroup>
+          ) : null}
+          <optgroup label={t("sheetAllTeams")}>
+            {otherTeams.map((entry) => (
+              <option key={entry.team.roleName} value={entry.team.roleName}>
+                {optionLabel(entry)}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+      )}
     </div>
   );
 }
