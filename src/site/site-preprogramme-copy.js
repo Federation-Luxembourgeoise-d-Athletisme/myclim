@@ -18,7 +18,7 @@ const SITE_PREPROGRAMME_COPY = {
     freeEntryYouth: "Free entry for the accompanying adult",
     freeEntryAthlete: "1 free companion entry",
     youthTitle: "My child",
-    youthBody: "U12 born {u12} · U14 born {u14} · licensed in a Luxembourg club · or basket carrier",
+    youthBody: "U12 born {u12} · U14 born {u14} · licensed in a Luxembourg club · basket carrier up to U16 (born {u16})",
     youthCta: "Register a child",
     athleteTitle: "Athlete",
     athleteBody: "800 m national races · 8 places per race · selection on season best · 60 m by invitation",
@@ -40,7 +40,7 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventBody:
       "Luxembourg's youngest licensed athletes race on the same track as the elite. Places are allocated in order of complete applications, then a waiting list applies.",
     youthEventAges: "U12 born {u12} · U14 born {u14} · Luxembourg licence",
-    youthEventFacts: ["U12 60 m · U14 60 m and 1000 m", "One race per child", "Basket carrier also possible"],
+    youthEventFacts: ["U12 60 m · U14 60 m and 1000 m", "One race per child", "Basket carrier: U12 to U16"],
     nationalEventTitle: "National races",
     nationalEventBody:
       "Women's and men's 60 m and 800 m, run by the athletes' commission. The 60 m is by invitation only. For the 800 m, apply online: the commission selects on season best (SB 2026 or 2027) and informs athletes two weeks before the meeting; the organisers then handle the entries.",
@@ -85,7 +85,7 @@ const SITE_PREPROGRAMME_COPY = {
 
     faqTitle: "Frequently asked questions",
     faq: [
-      { q: "Which birth years for U12 and U14?", a: "For this edition: U12 = born {u12}, U14 = born {u14}." },
+      { q: "Which birth years for U12, U14 and U16?", a: "For this edition: U12 = born {u12}, U14 = born {u14}. U16 (born {u16}) can register as basket carriers only." },
       {
         q: "Where do I find my FLA bib number?",
         a: "It's the bib number given by the FLA, not the licence number. Your club can give it to you.",
@@ -141,7 +141,7 @@ const SITE_PREPROGRAMME_COPY = {
     freeEntryYouth: "Entrée offerte pour l'accompagnant",
     freeEntryAthlete: "1 entrée offerte pour un accompagnateur",
     youthTitle: "Mon enfant",
-    youthBody: "U12 nés en {u12} · U14 nés en {u14} · licenciés dans un club luxembourgeois · ou porte-panier",
+    youthBody: "U12 nés en {u12} · U14 nés en {u14} · licenciés dans un club luxembourgeois · porte-panier jusqu'en U16 (nés en {u16})",
     youthCta: "Inscrire un enfant",
     athleteTitle: "Athlète",
     athleteBody: "Courses nationales 800 m · 8 places par course · sélection sur la meilleure perf. de la saison · 60 m sur invitation",
@@ -163,7 +163,7 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventBody:
       "Les plus jeunes licenciés luxembourgeois courent sur la même piste que l'élite. Les places sont attribuées dans l'ordre des dossiers complets, puis une liste d'attente s'applique.",
     youthEventAges: "U12 nés en {u12} · U14 nés en {u14} · licence luxembourgeoise",
-    youthEventFacts: ["U12 60 m · U14 60 m et 1000 m", "Une course par enfant", "Porte-panier également possible"],
+    youthEventFacts: ["U12 60 m · U14 60 m et 1000 m", "Une course par enfant", "Porte-panier : de U12 à U16"],
     nationalEventTitle: "Courses nationales",
     nationalEventBody:
       "60 m et 800 m femmes et hommes, pilotés par la commission des athlètes. Le 60 m se fait uniquement sur invitation. Pour le 800 m, inscrivez-vous en ligne : la commission sélectionne sur la meilleure perf. de la saison (SB 2026 ou 2027) et prévient les athlètes deux semaines avant le meeting ; l'organisation engage ensuite les athlètes retenus.",
@@ -208,7 +208,7 @@ const SITE_PREPROGRAMME_COPY = {
 
     faqTitle: "Questions fréquentes",
     faq: [
-      { q: "Quelles années de naissance pour les U12 et U14 ?", a: "Pour cette édition : U12 = nés en {u12}, U14 = nés en {u14}." },
+      { q: "Quelles années de naissance pour les U12, U14 et U16 ?", a: "Pour cette édition : U12 = nés en {u12}, U14 = nés en {u14}. Les U16 (nés en {u16}) peuvent s'inscrire comme porte-panier seulement." },
       {
         q: "Où trouver mon numéro de dossard FLA ?",
         a: "C'est le numéro de dossard attribué par la FLA, pas le numéro de licence. Votre club peut vous le donner.",

@@ -134,6 +134,8 @@ function getU14CategoryFromBirthDate(dateString) {
   if (Number.isNaN(year)) return "";
   if (year === 2016 || year === 2017) return "U12";
   if (year === 2014 || year === 2015) return "U14";
+  // U16 : rôle de porte-panier seulement (pas de course).
+  if (year === 2012 || year === 2013) return "U16";
 
   return "";
 }
