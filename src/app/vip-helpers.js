@@ -140,17 +140,114 @@ function createEmptyVipInvitationData(overrides = {}) {
   };
 }
 
+function createEmptyVipPortalContact(overrides = {}) {
+  return { firstName: "", lastName: "", email: "", phone: "", ...overrides };
+}
+
 function createEmptyVipPartnerPortalData(overrides = {}) {
   return {
     portalId: "",
     organizationName: "",
-    contactName: "",
-    contactPhone: "",
-    contactEmail: "",
+    contacts: [createEmptyVipPortalContact()],
+    meetingContact: createEmptyVipPortalContact(DEFAULT_VIP_MEETING_CONTACT),
+    vipPlacesCap: "",
+    standardPlacesCap: "",
     accessPassword: "",
     notes: "",
     ...overrides,
   };
+}
+
+// Contacts d'un portail : liste « contacts » (prénom / nom séparés) ; les
+// anciens portails n'ont qu'un contactName / contactEmail / contactPhone.
+function getVipPortalContacts(portal = {}) {
+  if (Array.isArray(portal.contacts) && portal.contacts.length) {
+    return portal.contacts.map((contact) => createEmptyVipPortalContact(contact));
+  }
+  const legacyName = normalizeVipText(portal.contactName);
+  if (!legacyName && !portal.contactEmail && !portal.contactPhone) return [];
+  const [firstName = "", ...rest] = legacyName.split(/\s+/);
+  return [
+    createEmptyVipPortalContact({
+      firstName,
+      lastName: rest.join(" "),
+      email: normalizeVipText(portal.contactEmail),
+      phone: normalizeVipText(portal.contactPhone),
+    }),
+  ];
+}
+
+// Contact côté meeting affiché sur le portail (« Votre contact au meeting ») ;
+// par défaut Margot, modifiable portail par portail dans l'admin.
+const DEFAULT_VIP_MEETING_CONTACT = Object.freeze({
+  firstName: "Margot",
+  lastName: "Laporte",
+  email: "margot.laporte@fla.lu",
+  phone: "",
+});
+
+function getVipPortalMeetingContact(portal = {}) {
+  const contact = portal.meetingContact || {};
+  const hasContact = ["firstName", "lastName", "email", "phone"].some((key) => normalizeVipText(contact[key]));
+  return createEmptyVipPortalContact(hasContact ? contact : DEFAULT_VIP_MEETING_CONTACT);
+}
+
+function normalizeVipPortalContacts(contacts = []) {
+  return contacts
+    .map((contact) => ({
+      firstName: normalizeVipText(contact.firstName),
+      lastName: normalizeVipText(contact.lastName),
+      email: normalizeVipText(contact.email).toLowerCase(),
+      phone: normalizeVipText(contact.phone),
+    }))
+    .filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone);
+}
+
+// Plafond saisi : vide = pas de limite (null), sinon entier >= 0.
+function parseVipPlacesCap(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const number = Math.floor(Number(text));
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function normalizeVipPlacesCap(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+// Types de places d'un portail. Places VIP : sans plafond = illimitées
+// (comportement historique), plafond 0 = aucune. Places normales : proposées
+// seulement quand un plafond est fixé (> 0).
+function getVipPortalPlaceTypes(portal = {}) {
+  const vipCap = normalizeVipPlacesCap(portal.vipPlacesCap);
+  const standardCap = normalizeVipPlacesCap(portal.standardPlacesCap);
+  const types = [];
+  if (vipCap === null || vipCap > 0) types.push("vip");
+  if (standardCap !== null && standardCap > 0) types.push("standard");
+  return types.length ? types : ["vip"];
+}
+
+function getVipEntryPlaceType(entry = {}) {
+  return entry.placeType === "standard" ? "standard" : "vip";
+}
+
+// Une fiche occupe 1 place, 2 avec un accompagnant (même type de place).
+function countVipEntryPlaces(entry = {}) {
+  return 1 + (buildVipFullName({ firstName: entry.guestFirstName, lastName: entry.guestLastName }) ? 1 : 0);
+}
+
+function computeVipPortalPlaces(portal = {}, entries = []) {
+  const used = { vip: 0, standard: 0 };
+  entries.forEach((entry) => {
+    used[getVipEntryPlaceType(entry)] += countVipEntryPlaces(entry);
+  });
+  // VIP sans plafond = illimité (null) ; places normales sans plafond = aucune (0).
+  const caps = { vip: normalizeVipPlacesCap(portal.vipPlacesCap), standard: normalizeVipPlacesCap(portal.standardPlacesCap) ?? 0 };
+  const remaining = {
+    vip: caps.vip === null ? null : Math.max(0, caps.vip - used.vip),
+    standard: caps.standard === null ? null : Math.max(0, caps.standard - used.standard),
+  };
+  return { used, caps, remaining };
 }
 
 function buildVipPortalId(value) {
@@ -193,6 +290,17 @@ export {
   createEmptyVipAdminRegistrationData,
   createEmptyVipInvitationData,
   createEmptyVipPartnerPortalData,
+  createEmptyVipPortalContact,
+  computeVipPortalPlaces,
+  countVipEntryPlaces,
+  getVipEntryPlaceType,
+  DEFAULT_VIP_MEETING_CONTACT,
+  getVipPortalContacts,
+  getVipPortalMeetingContact,
+  getVipPortalPlaceTypes,
+  normalizeVipPlacesCap,
+  normalizeVipPortalContacts,
+  parseVipPlacesCap,
   findMatchingVipInvitation,
   findMatchingVipRegistration,
   buildVipPortalId,

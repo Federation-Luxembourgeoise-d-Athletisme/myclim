@@ -277,7 +277,7 @@ function AthleteRegistryAnalysisPanel(props) {
   const maxPerYear = Math.max(1, ...analysis.perYear.map((item) => item.athletes));
   const pct = (value) => (analysis.total ? Math.round((value / analysis.total) * 100) : 0);
   const tr = useTr();
-  const genderLabel = { W: tr("Femmes", "Women"), M: tr("Hommes", "Men") };
+  const genderLabel = { W: tr("Femmes", "Women"), M: tr("Hommes", "Men"), "?": tr("Non renseigné", "Not specified") };
 
   return (
     <Panel

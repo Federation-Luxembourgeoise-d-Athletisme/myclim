@@ -128,10 +128,13 @@ function AppShell(props) {
   const isManagerRole = effectiveRoles.includes("admin") || effectiveRoles.includes("gestionnaire");
   const hasOwnMeetingTasks = useHasOwnMeetingTasks(currentUser?.email, !isManagerRole);
   // Membre d'une équipe de l'organisation (y compris gestionnaires) : « Mon planning ».
-  const hasOrganisationTeams = useMyOrganisationTeams(currentUser?.email).teams.length > 0;
+  const myOrganisation = useMyOrganisationTeams(currentUser?.email);
+  const hasOrganisationTeams = myOrganisation.teams.length > 0;
+  // Modules ouverts par ses équipes (Animation…), réglés dans Équipes organisation.
+  const organisationModules = myOrganisation.modules;
   const navigation = useMemo(
-    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess, hasOwnMeetingTasks, hasOrganisationTeams }),
-    [athletePortalAccess, effectiveRoles, hasOwnMeetingTasks, hasOrganisationTeams],
+    () => buildNavigationFromRoles(effectiveRoles, { athletePortal: athletePortalAccess, hasOwnMeetingTasks, hasOrganisationTeams, organisationModules }),
+    [athletePortalAccess, effectiveRoles, hasOwnMeetingTasks, hasOrganisationTeams, organisationModules],
   );
   const linkLabel = (link) => (t(link.labelKey) || link.label).replace("{edition}", activeEditionId || "");
   const flatNavigation = useMemo(() => flattenNavigationItems(navigation), [navigation]);

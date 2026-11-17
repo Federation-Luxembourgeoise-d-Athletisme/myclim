@@ -80,6 +80,15 @@ service cloud.firestore {
       return isSignedIn() && "kine" in userTypes();
     }
 
+    // Module ouvert par une équipe de l'organisation (ex. « animation » pour
+    // les speakers Athle.ch) : recopié dans organisationMembers/{e-mail}.modules
+    // à chaque enregistrement des équipes, retiré quand le membre quitte l'équipe.
+    function hasOrganisationModule(module) {
+      return isSignedIn() && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/organisationMembers/$(request.auth.token.email.lower())) &&
+        module in get(/databases/$(database)/documents/organisationMembers/$(request.auth.token.email.lower())).data.get("modules", []);
+    }
+
     function isAthleteTransportVolunteer() {
       return isSignedIn() && "benevole_transport_athletes" in userTypes();
     }
@@ -161,30 +170,25 @@ service cloud.firestore {
     }
 
     // ── Caisse jour J ────────────────────────────────────────────────────────
-    // Session technique d'un ordinateur de caisse, ouverte par code via la
-    // Cloud Function openCashPostSession (claims cashPostId +
-    // cashAccessVersion). Elle n'est valide que si le poste est actif et que
-    // sa version d'accès n'a pas changé depuis (régénérer le code coupe
-    // immédiatement les sessions déjà ouvertes).
-    function cashPostIdClaim() {
-      return isSignedIn() && request.auth.token.cashPostId is string
-        ? request.auth.token.cashPostId
-        : "";
-    }
-
-    function cashPostDoc() {
-      return get(/databases/$(database)/documents/cashPosts/$(cashPostIdClaim()));
+    // Session technique d'un ordinateur de caisse, ouverte avec le code unique
+    // de la caisse via la Cloud Function openCashPostSession (claims cashDesk +
+    // cashAccessVersion). Elle n'est valide que si la caisse est ouverte et que
+    // sa version d'accès n'a pas changé depuis (générer un nouveau code coupe
+    // immédiatement les sessions déjà ouvertes). Tous les postes voient tous
+    // les invités, VIP compris.
+    function cashDeskAccessPath() {
+      return /databases/$(database)/documents/cashDesk/access;
     }
 
     function isValidCashSession() {
-      return cashPostIdClaim() != "" &&
-        exists(/databases/$(database)/documents/cashPosts/$(cashPostIdClaim())) &&
-        cashPostDoc().data.get("active", true) == true &&
-        cashPostDoc().data.get("accessVersion", 0) == request.auth.token.cashAccessVersion;
+      return isSignedIn() && request.auth.token.get("cashDesk", false) == true &&
+        exists(cashDeskAccessPath()) &&
+        get(cashDeskAccessPath()).data.get("open", true) == true &&
+        get(cashDeskAccessPath()).data.get("accessVersion", 0) == request.auth.token.cashAccessVersion;
     }
 
     function isVipCashSession() {
-      return isValidCashSession() && cashPostDoc().data.get("showVipLists", false) == true;
+      return isValidCashSession();
     }
 
     // ── Attribution des rôles ────────────────────────────────────────────────
@@ -307,7 +311,8 @@ service cloud.firestore {
     // et un appSettings/athletePortalSettings.accessRoles qui leur donnent
     // explicitement accès à ce module.
     match /athletes/{athleteId} {
-      allow read: if canReadAthletePortal();
+      // Animation : fiches speaker (seuls nom, nation, épreuve, PB/SB sont affichés).
+      allow read: if canReadAthletePortal() || hasOrganisationModule("animation");
       allow write: if canManageAthletePortal();
     }
 
@@ -646,6 +651,13 @@ service cloud.firestore {
     match /vipPartnerPortals/{portalId} {
       allow read: if true;
       allow write: if isAdminOrManager();
+      // L'organisation peut mettre à jour ses propres personnes de contact,
+      // et rien d'autre (ni quotas, ni contact meeting, ni mot de passe).
+      allow update: if isSignedIn() && request.auth.token.vipPortalId == portalId &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["contacts", "contactName", "contactEmail", "contactPhone", "updatedAt"]) &&
+        request.resource.data.contacts is list &&
+        request.resource.data.contacts.size() <= 10;
     }
 
     match /vipPartnerPortalSecrets/{portalId} {
@@ -660,6 +672,24 @@ service cloud.firestore {
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
       allow create, update, delete: if isAdminOrManager() ||
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
+    }
+
+    // Demandes de places supplémentaires : l'organisation les crée (en attente)
+    // et les voit ; seuls admins/gestionnaires les acceptent ou les refusent.
+    match /vipPartnerPortals/{portalId}/placeRequests/{requestId} {
+      allow read: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId);
+      allow create: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId &&
+          request.resource.data.status == "pending" &&
+          request.resource.data.requestedPlaces is int &&
+          request.resource.data.requestedPlaces > 0 &&
+          request.resource.data.requestedPlaces <= 500);
+      allow update, delete: if isAdminOrManager();
+    }
+
+    match /{path=**}/placeRequests/{requestId} {
+      allow read: if isAdminOrManager();
     }
 
     // ── Kiné ────────────────────────────────────────────────────────────────
@@ -692,9 +722,16 @@ service cloud.firestore {
     }
 
     // ── Caisse jour J ────────────────────────────────────────────────────────
-    // Chaque ordinateur de caisse ne lit que son propre poste.
+    // Les ordinateurs de caisse lisent la liste des postes pour choisir le leur.
     match /cashPosts/{postId} {
-      allow read: if isAdminOrManager() || cashPostIdClaim() == postId;
+      allow read: if isAdminOrManager() || isValidCashSession();
+      allow write: if isAdminOrManager();
+    }
+
+    // État de l'accès : code défini, caisse ouverte/fermée, version d'accès.
+    // accessVersion n'est changée que par la Cloud Function setCashDeskCode.
+    match /cashDesk/{docId} {
+      allow read: if isAdminOrManager() || (isSignedIn() && request.auth.token.get("cashDesk", false) == true);
       allow write: if isAdminOrManager();
     }
 
@@ -719,11 +756,12 @@ service cloud.firestore {
 
     // Un check-in par invité et par édition (id déterministe), partagé par
     // tous les postes pour bloquer une double entrée. Le poste qui écrit doit
-    // se déclarer comme dernier poste.
+    // se déclarer comme dernier poste, et ce poste doit exister.
     match /doorCheckIns/{checkInId} {
       allow read: if isAdminOrManager() || isValidCashSession();
       allow create, update: if isAdminOrManager() ||
-        (isValidCashSession() && request.resource.data.lastPostId == cashPostIdClaim());
+        (isValidCashSession() && request.resource.data.lastPostId is string &&
+          exists(/databases/$(database)/documents/cashPosts/$(request.resource.data.lastPostId)));
       allow delete: if isAdminOrManager();
     }
 

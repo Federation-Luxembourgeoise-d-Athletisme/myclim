@@ -15,6 +15,7 @@ export {
   notifyPressRegistration,
   notifyU14Request,
   notifyVipPartnerEntry,
+  notifyVipPlaceRequest,
   notifyVipRegistration,
   notifyVolunteerApplication,
   sendTeamAnnouncement,
@@ -387,13 +388,16 @@ export const verifyVipPortalAccess = onCall({ region: REGION }, async (request) 
   return { token };
 });
 
-// ── Caisse jour J : accès des ordinateurs de caisse par code de poste ───────
-// Le code n'est jamais stocké en clair : cashPostSecrets/{postId} garde un
-// hash scrypt salé. Un poste ouvert obtient une session technique
-// (uid cash-post-{postId}) portant les claims cashPostId + cashAccessVersion ;
-// les règles Firestore comparent cette version à cashPosts/{postId}, donc
-// régénérer le code ou incrémenter accessVersion coupe immédiatement les
-// sessions ouvertes.
+// ── Caisse jour J : accès des ordinateurs de caisse par un code unique ──────
+// Un seul code pour tous les postes ; après l'avoir saisi, l'ordinateur
+// choisit son poste à l'écran. Le code n'est jamais stocké en clair :
+// cashPostSecrets/shared garde un hash scrypt salé. Un ordinateur ouvert
+// obtient une session technique (uid cash-post-desk) portant les claims
+// cashDesk + cashAccessVersion ; les règles Firestore comparent cette version
+// à cashDesk/access, donc générer un nouveau code coupe immédiatement toutes
+// les sessions ouvertes, et « Fermer la caisse » (open: false) les suspend.
+const CASH_DESK_SECRET_ID = "shared";
+const CASH_DESK_UID = "cash-post-desk";
 const CASH_POST_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const CASH_POST_CODE_LENGTH = 8;
 const CASH_ACCESS_MAX_FAILURES = 10;
@@ -430,32 +434,23 @@ async function assertManagerRequester(request) {
   return { requesterUid };
 }
 
-export const setCashPostCode = onCall({ region: REGION }, async (request) => {
+export const setCashDeskCode = onCall({ region: REGION }, async (request) => {
   const { requesterUid } = await assertManagerRequester(request);
-  const postId = String(request.data?.postId || "").trim();
-  if (!postId) {
-    throw new HttpsError("invalid-argument", "Identifiant de poste manquant.");
-  }
-
-  const postRef = db.collection("cashPosts").doc(postId);
-  const postSnapshot = await postRef.get();
-  if (!postSnapshot.exists) {
-    throw new HttpsError("not-found", "Ce poste de caisse n'existe pas.");
-  }
 
   const code = generateCashPostCode();
   const salt = randomBytes(16).toString("hex");
 
-  await db.collection("cashPostSecrets").doc(postId).set({
+  await db.collection("cashPostSecrets").doc(CASH_DESK_SECRET_ID).set({
     codeHash: hashCashPostCode(code, salt),
     salt,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedBy: requesterUid,
   });
 
-  await postRef.set(
+  await db.collection("cashDesk").doc("access").set(
     {
       hasCode: true,
+      open: true,
       accessVersion: admin.firestore.FieldValue.increment(1),
       codeUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       codeUpdatedBy: requesterUid,
@@ -501,31 +496,27 @@ export const openCashPostSession = onCall({ region: REGION }, async (request) =>
     throw new HttpsError("resource-exhausted", "Trop d'essais. Réessaie dans quelques minutes.");
   }
 
-  const secretsSnapshot = await db.collection("cashPostSecrets").get();
-  const matchingSecret = secretsSnapshot.docs.find((secretDoc) => {
-    const { codeHash, salt } = secretDoc.data() || {};
-    if (!codeHash || !salt) return false;
-    const expected = Buffer.from(String(codeHash), "hex");
-    const actual = Buffer.from(hashCashPostCode(code, salt), "hex");
-    return expected.length === actual.length && timingSafeEqual(expected, actual);
-  });
+  const secretSnapshot = await db.collection("cashPostSecrets").doc(CASH_DESK_SECRET_ID).get();
+  const { codeHash, salt } = secretSnapshot.exists ? secretSnapshot.data() || {} : {};
+  const expected = codeHash ? Buffer.from(String(codeHash), "hex") : null;
+  const actual = salt ? Buffer.from(hashCashPostCode(code, salt), "hex") : null;
+  const matches = Boolean(expected && actual && expected.length === actual.length && timingSafeEqual(expected, actual));
 
-  if (!matchingSecret) {
+  if (!matches) {
     await registerCashAccessFailure(attemptRef);
     throw new HttpsError("permission-denied", "Code incorrect.");
   }
 
-  const postId = matchingSecret.id;
-  const postSnapshot = await db.collection("cashPosts").doc(postId).get();
-  const post = postSnapshot.exists ? postSnapshot.data() : null;
-  if (!post || post.active === false) {
-    throw new HttpsError("failed-precondition", "Ce poste de caisse est fermé.");
+  const accessSnapshot = await db.collection("cashDesk").doc("access").get();
+  const access = accessSnapshot.exists ? accessSnapshot.data() : {};
+  if (access.open === false) {
+    throw new HttpsError("failed-precondition", "La caisse est fermée.");
   }
 
-  const uid = `cash-post-${postId}`;
-  const claims = { cashPostId: postId, cashAccessVersion: Number(post.accessVersion) || 0 };
+  const uid = CASH_DESK_UID;
+  const claims = { cashDesk: true, cashAccessVersion: Number(access.accessVersion) || 0 };
   try {
-    await auth.createUser({ uid, displayName: String(post.name || postId) });
+    await auth.createUser({ uid, displayName: "Caisse" });
   } catch (error) {
     if (error?.code !== "auth/uid-already-exists") {
       throw error;
@@ -538,7 +529,7 @@ export const openCashPostSession = onCall({ region: REGION }, async (request) =>
   }
 
   const token = await auth.createCustomToken(uid, claims);
-  return { token, postId };
+  return { token };
 });
 
 export const deletePlatformUser = onCall({ region: REGION }, async (request) => {

@@ -38,6 +38,14 @@ function getBirthYear(entry) {
   return Number.isFinite(year) && year > 1900 ? year : null;
 }
 
+// F / Femme / Women → W, H / Homme / Men → M ; anything else (X = mixed race) → "".
+function normalizeGender(value) {
+  const token = normalizeToken(value);
+  if (["w", "f", "women", "woman", "femme", "femmes", "female"].includes(token)) return "W";
+  if (["m", "h", "men", "man", "homme", "hommes", "male"].includes(token)) return "M";
+  return "";
+}
+
 // Résumé d'une fiche : années, épreuves, meilleure place en finale, podiums.
 function getRegistryEntryStats(entry) {
   const editions = Array.isArray(entry?.editions) ? entry.editions : [];
@@ -49,7 +57,10 @@ function getRegistryEntryStats(entry) {
     .filter((edition) => isFinalRound(edition?.round) && String(edition?.status || "OK").toUpperCase() === "OK")
     .map((edition) => Number(edition?.rank))
     .filter((rank) => Number.isFinite(rank) && rank > 0);
-  const genders = [...new Set([entry?.gender, ...editions.map((edition) => edition?.gender)].filter(Boolean))];
+  // Prefer a real M/W anywhere on the profile; "X" only tags a mixed race
+  // (Special Olympics), it says nothing about the athlete.
+  const genders = [entry?.gender, ...editions.map((edition) => edition?.gender)].map(normalizeGender);
+  const gender = genders.find((value) => value === "W" || value === "M") || "";
 
   return {
     years,
@@ -60,7 +71,7 @@ function getRegistryEntryStats(entry) {
     bestFinalRank: finalRanks.length ? Math.min(...finalRanks) : null,
     wins: finalRanks.filter((rank) => rank === 1).length,
     podiums: finalRanks.filter((rank) => rank <= 3).length,
-    gender: genders[0] || "",
+    gender,
     birthYear: getBirthYear(entry),
   };
 }
@@ -182,7 +193,7 @@ function buildRegistryAnalysis(rows) {
     participations: rows.reduce((sum, { stats }) => sum + stats.editionCount, 0),
     returning: rows.filter(({ stats }) => stats.editionCount >= 2).length,
     nations: countBy(rows.map(({ entry }) => String(entry.nationality || "").trim())),
-    genders: countBy(rows.map(({ stats }) => stats.gender)),
+    genders: countBy(rows.map(({ stats }) => stats.gender || "?")),
     disciplines: countBy(rows.flatMap(({ stats }) => stats.disciplines)),
     loyalty: countBy(rows.map(({ stats }) => (stats.editionCount >= 5 ? "5+" : String(stats.editionCount)))),
     perYear: years.map((year) => ({

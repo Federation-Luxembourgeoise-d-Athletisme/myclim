@@ -58,6 +58,24 @@ const ORGANISATION_ACCESS = [
   { value: "lunex", label: "LUNEX Student", role: "gestionnaire", help: "Gestionnaire : toute la gestion sauf le budget" },
 ];
 
+// Modules ouverts à toute une équipe (Margot, 12/11/2026 : l'accès des
+// speakers Athle.ch se règle depuis le panneau organisation). Les modules
+// cochés sont recopiés dans organisationMembers/{e-mail}.modules pour chaque
+// membre qui a un compte : les règles Firestore et le menu les lisent là, donc
+// retirer quelqu'un de l'équipe (ou décocher) lui retire l'accès.
+const ORGANISATION_MODULES = [
+  {
+    value: "animation",
+    label: "Animation",
+    help: "Fiches par épreuve pour le micro, chiffres de l'édition et comparaisons Bronze / Silver (lecture seule).",
+  },
+];
+
+function normalizeModules(modules) {
+  const allowed = new Set(ORGANISATION_MODULES.map((module) => module.value));
+  return [...new Set((Array.isArray(modules) ? modules : []).filter((value) => allowed.has(value)))];
+}
+
 function getAccessOption(access) {
   return ORGANISATION_ACCESS.find((option) => option.value === access) || ORGANISATION_ACCESS[0];
 }
@@ -102,12 +120,19 @@ function normalizeOrganisationTeams(data = {}) {
       id: String(team.id),
       name: cleanText(team.name),
       description: cleanText(team.description),
+      modules: normalizeModules(team.modules),
       members: (Array.isArray(team.members) ? team.members : []).map(normalizeMember),
     }));
 }
 
 function buildDefaultOrganisationTeams() {
-  return DEFAULT_ORGANISATION_TEAMS.map(({ id, name }) => ({ id, name, description: "", members: [] }));
+  return DEFAULT_ORGANISATION_TEAMS.map(({ id, name }) => ({
+    id,
+    name,
+    description: "",
+    modules: id === "speakers" ? ["animation"] : [],
+    members: [],
+  }));
 }
 
 function memberDisplayName(member = {}) {
@@ -159,8 +184,25 @@ function buildMembershipByEmail(teams = []) {
   return byEmail;
 }
 
+// Modules de chaque membre, par e-mail : réunion des modules de ses équipes.
+// Un membre sans compte (accès « Pas de compte ») n'en reçoit aucun.
+function buildModulesByEmail(teams = []) {
+  const byEmail = {};
+  teams.forEach((team) =>
+    team.members.forEach((member) => {
+      const email = String(member.email || "").trim().toLowerCase();
+      if (!email || member.access === "none") return;
+      byEmail[email] = normalizeModules([...(byEmail[email] || []), ...normalizeModules(team.modules)]).sort();
+    }),
+  );
+  return byEmail;
+}
+
 export {
   ORGANISATION_ACCESS,
+  ORGANISATION_MODULES,
+  buildModulesByEmail,
+  normalizeModules,
   getAccessOption,
   getMemberAccountStatus,
   DEFAULT_ORGANISATION_TEAMS,

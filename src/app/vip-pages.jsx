@@ -12,14 +12,25 @@ import { signInWithCustomToken } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { NavLink, useParams } from "react-router-dom";
 import { auth, db, functions } from "../services/firebase";
-import { getActiveEditionId } from "./edition";
+import { getActiveEditionId, useActiveEdition } from "./edition";
+import { useMeetingEditions } from "./meeting-history-hooks";
 import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
 import { useLanguage } from "./language-context";
+import portalPhoto from "../assets/site-gallery/ambiance-1.jpg";
 import {
   VIP_TOUR_OPTIONS,
+  buildVipFullName,
   buildVipRegistrationPayload,
+  computeVipPortalPlaces,
+  countVipEntryPlaces,
   createEmptyVipFormData,
+  getVipEntryPlaceType,
   getVipPartnerPortalLabel,
+  createEmptyVipPortalContact,
+  getVipPortalContacts,
+  getVipPortalMeetingContact,
+  getVipPortalPlaceTypes,
+  normalizeVipPortalContacts,
 } from "./vip-helpers";
 
 function getVipRgpdDisclaimer(language) {
@@ -473,7 +484,13 @@ function getVipPortalUid(portalId) {
 const PORTAL_COPY = {
   fr: {
     eyebrow: "Portail partenaire VIP",
-    intro: "Ajoutez ici vos invités au CMCM Luxembourg Indoor Meeting. La liste est enregistrée au fur et à mesure : vous pouvez revenir la compléter ou la corriger à tout moment avec ce lien.",
+    introEvent:
+      "Le CMCM Luxembourg Indoor Meeting est le grand rendez-vous de l'athlétisme en salle au Luxembourg : une après-midi de compétition avec des athlètes internationaux de haut niveau, étape du circuit World Athletics Indoor Tour Silver.",
+    introInvite: "En tant que partenaire, vous pouvez y inviter les personnes de votre choix. Deux types de places existent :",
+    offerVip: "accueil réservé, espace VIP et, au choix, visite exclusive à 14h15 de la Coque ou des coulisses du meeting.",
+    offerStandard: "entrée au meeting en tribune, sans les prestations VIP ni la visite.",
+    introHow:
+      "Ajoutez vos invités un par un ci-dessous (le prénom et le nom suffisent, l'e-mail est facultatif). La liste est enregistrée au fur et à mesure : revenez la compléter ou la corriger quand vous voulez avec ce même lien. Besoin de plus de places ? Faites-en la demande en bas du formulaire.",
     contact: "Votre contact",
     kpiGuests: "Invités",
     kpiCompanions: "Accompagnants",
@@ -511,10 +528,53 @@ const PORTAL_COPY = {
     loading: "Chargement de la liste…",
     checking: "Vérification de l'accès…",
     tourShort: { coque: "14h15 · La Coque", coulisses: "14h15 · Les coulisses", none: "Pas de visite" },
+    contacts: "Vos contacts",
+    meetingContact: "Votre contact au meeting",
+    orgContacts: "Vos personnes de contact",
+    editContacts: "Modifier",
+    addContacts: "+ Ajouter vos contacts",
+    addContact: "+ Ajouter une personne",
+    contactsIntro: "Les personnes de votre organisation que l'équipe du meeting peut joindre au sujet de cette liste.",
+    contactsRequired: "Indiquez au moins une personne (prénom ou nom).",
+    contactsError: "Impossible d'enregistrer les contacts pour le moment.",
+    placeType: "Type de place",
+    placeVip: "VIP",
+    placeStandard: "Normale",
+    kpiPlacesVip: "Places VIP",
+    kpiPlacesStandard: "Places normales",
+    colPlace: "Place",
+    unlimited: "sans limite",
+    onRequest: "sur demande",
+    tourVipOnly: "Visite réservée aux places VIP",
+    typeNotOffered: "Votre organisation n'a pas encore de places {type}. Vous pouvez en demander : l'équipe du meeting vous répond rapidement.",
+    typeInText: { vip: "VIP", standard: "normales" },
+    remaining: "{n} restante(s)",
+    quotaReached: "Votre quota de places {type} est atteint ({used} / {cap}). Pour ajouter d'autres invités, demandez des places supplémentaires.",
+    quotaNotEnough: "Il ne reste que {n} place(s) {type} : cet invité et son accompagnant en demandent 2.",
+    requestPlaces: "Demander des places supplémentaires",
+    requestTitle: "Demande de places supplémentaires",
+    requestIntro: "Votre demande est envoyée à l'équipe du meeting, et son statut s'affiche sur cette page. Une fois acceptée, les places s'ajoutent automatiquement à votre quota.",
+    requestCount: "Nombre de places",
+    requestFirstName: "Votre prénom",
+    requestLastName: "Votre nom",
+    requestEmail: "Votre e-mail",
+    requestMessage: "Message (facultatif)",
+    requestSend: "Envoyer la demande",
+    requestSending: "Envoi…",
+    requestSent: "Votre demande a bien été envoyée.",
+    requestError: "Impossible d'envoyer la demande pour le moment.",
+    requestsTitle: "Vos demandes",
+    requestStatus: { pending: "En attente", accepted: "Acceptée", refused: "Refusée" },
   },
   en: {
     eyebrow: "VIP partner portal",
-    intro: "Add your guests to the CMCM Luxembourg Indoor Meeting here. The list is saved as you go: come back with this link at any time to complete or correct it.",
+    introEvent:
+      "The CMCM Luxembourg Indoor Meeting is Luxembourg's major indoor athletics event: an afternoon of competition with top international athletes, part of the World Athletics Indoor Tour Silver.",
+    introInvite: "As a partner, you can invite the people of your choice. There are two types of places:",
+    offerVip: "dedicated welcome, VIP area and, if they wish, an exclusive 2:15 pm tour of the Coque or behind the scenes of the meeting.",
+    offerStandard: "entry to the meeting in the stands, without the VIP services or the tour.",
+    introHow:
+      "Add your guests one by one below (first and last name are enough, the e-mail is optional). The list is saved as you go: come back with this same link to complete or correct it at any time. Need more places? Request them at the bottom of the form.",
     contact: "Your contact",
     kpiGuests: "Guests",
     kpiCompanions: "Companions",
@@ -552,10 +612,53 @@ const PORTAL_COPY = {
     loading: "Loading the list…",
     checking: "Checking access…",
     tourShort: { coque: "2:15 pm · The Coque", coulisses: "2:15 pm · Behind the scenes", none: "No tour" },
+    contacts: "Your contacts",
+    meetingContact: "Your contact at the meeting",
+    orgContacts: "Your contact persons",
+    editContacts: "Edit",
+    addContacts: "+ Add your contacts",
+    addContact: "+ Add a person",
+    contactsIntro: "The people in your organisation the meeting team can reach about this list.",
+    contactsRequired: "Enter at least one person (first or last name).",
+    contactsError: "Unable to save the contacts right now.",
+    placeType: "Place type",
+    placeVip: "VIP",
+    placeStandard: "Standard",
+    kpiPlacesVip: "VIP places",
+    kpiPlacesStandard: "Standard places",
+    colPlace: "Place",
+    unlimited: "no limit",
+    onRequest: "on request",
+    tourVipOnly: "Tour reserved for VIP places",
+    typeInText: { vip: "VIP", standard: "standard" },
+    typeNotOffered: "No {type} places are planned for your organisation yet. You can request some: the meeting team will get back to you quickly.",
+    remaining: "{n} left",
+    quotaReached: "Your {type} place quota is reached ({used} / {cap}). To add more guests, request extra places.",
+    quotaNotEnough: "Only {n} {type} place(s) left: this guest and their companion need 2.",
+    requestPlaces: "Request extra places",
+    requestTitle: "Request for extra places",
+    requestIntro: "Your request is sent to the meeting team, and its status shows on this page. Once accepted, the places are added to your quota automatically.",
+    requestCount: "Number of places",
+    requestFirstName: "Your first name",
+    requestLastName: "Your last name",
+    requestEmail: "Your e-mail",
+    requestMessage: "Message (optional)",
+    requestSend: "Send the request",
+    requestSending: "Sending…",
+    requestSent: "Your request has been sent.",
+    requestError: "Unable to send the request right now.",
+    requestsTitle: "Your requests",
+    requestStatus: { pending: "Pending", accepted: "Accepted", refused: "Refused" },
   },
   de: {
     eyebrow: "VIP-Partnerportal",
-    intro: "Tragen Sie hier Ihre Gäste für das CMCM Luxembourg Indoor Meeting ein. Die Liste wird laufend gespeichert: Mit diesem Link können Sie sie jederzeit ergänzen oder korrigieren.",
+    introEvent:
+      "Das CMCM Luxembourg Indoor Meeting ist das große Hallenleichtathletik-Event in Luxemburg: ein Nachmittag Spitzensport mit internationalen Athletinnen und Athleten, Etappe der World Athletics Indoor Tour Silver.",
+    introInvite: "Als Partner können Sie Personen Ihrer Wahl einladen. Es gibt zwei Arten von Plätzen:",
+    offerVip: "eigener Empfang, VIP-Bereich und auf Wunsch eine exklusive Führung um 14:15 durch die Coque oder hinter die Kulissen des Meetings.",
+    offerStandard: "Eintritt zum Meeting auf der Tribüne, ohne VIP-Leistungen und ohne Führung.",
+    introHow:
+      "Tragen Sie Ihre Gäste unten einzeln ein (Vor- und Nachname genügen, die E-Mail ist optional). Die Liste wird laufend gespeichert: Mit demselben Link können Sie sie jederzeit ergänzen oder korrigieren. Mehr Plätze nötig? Fragen Sie sie unten im Formular an.",
     contact: "Ihr Kontakt",
     kpiGuests: "Gäste",
     kpiCompanions: "Begleitpersonen",
@@ -593,15 +696,73 @@ const PORTAL_COPY = {
     loading: "Liste wird geladen…",
     checking: "Zugriff wird überprüft…",
     tourShort: { coque: "14:15 · Die Coque", coulisses: "14:15 · Hinter den Kulissen", none: "Keine Führung" },
+    contacts: "Ihre Kontakte",
+    meetingContact: "Ihr Kontakt beim Meeting",
+    orgContacts: "Ihre Ansprechpersonen",
+    editContacts: "Bearbeiten",
+    addContacts: "+ Ansprechpersonen hinzufügen",
+    addContact: "+ Person hinzufügen",
+    contactsIntro: "Die Personen Ihrer Organisation, die das Meeting-Team zu dieser Liste erreichen kann.",
+    contactsRequired: "Geben Sie mindestens eine Person an (Vor- oder Nachname).",
+    contactsError: "Die Kontakte konnten derzeit nicht gespeichert werden.",
+    placeType: "Platzart",
+    placeVip: "VIP",
+    placeStandard: "Normal",
+    kpiPlacesVip: "VIP-Plätze",
+    kpiPlacesStandard: "Normale Plätze",
+    colPlace: "Platz",
+    unlimited: "ohne Limit",
+    onRequest: "auf Anfrage",
+    tourVipOnly: "Führung nur für VIP-Plätze",
+    typeInText: { vip: "VIP-", standard: "normalen " },
+    typeNotOffered: "Für Ihre Organisation sind derzeit keine {type}Plätze vorgesehen. Sie können welche anfragen: Das Meeting-Team meldet sich schnell bei Ihnen.",
+    remaining: "{n} übrig",
+    quotaReached: "Ihr Kontingent an {type}Plätzen ist erreicht ({used} / {cap}). Um weitere Gäste einzutragen, fragen Sie zusätzliche Plätze an.",
+    quotaNotEnough: "Es bleiben nur {n} {type}Plätze: Dieser Gast und seine Begleitperson benötigen 2.",
+    requestPlaces: "Zusätzliche Plätze anfragen",
+    requestTitle: "Anfrage für zusätzliche Plätze",
+    requestIntro: "Ihre Anfrage geht an das Meeting-Team, der Status wird auf dieser Seite angezeigt. Nach der Annahme werden die Plätze automatisch Ihrem Kontingent hinzugefügt.",
+    requestCount: "Anzahl Plätze",
+    requestFirstName: "Ihr Vorname",
+    requestLastName: "Ihr Name",
+    requestEmail: "Ihre E-Mail",
+    requestMessage: "Nachricht (optional)",
+    requestSend: "Anfrage senden",
+    requestSending: "Wird gesendet…",
+    requestSent: "Ihre Anfrage wurde gesendet.",
+    requestError: "Die Anfrage konnte derzeit nicht gesendet werden.",
+    requestsTitle: "Ihre Anfragen",
+    requestStatus: { pending: "Ausstehend", accepted: "Angenommen", refused: "Abgelehnt" },
   },
 };
 
 const fullName = (first, last) => `${first || ""} ${last || ""}`.trim();
 
+const DEMO_PORTAL = {
+  meta: {
+    id: "demo",
+    organizationName: "Organisation démo",
+    vipPlacesCap: 6,
+    standardPlacesCap: 10,
+    contacts: [
+      { firstName: "Fred", lastName: "Muller", email: "fred.muller@example.lu", phone: "+352 621 000 000" },
+      { firstName: "Anne", lastName: "Weber", email: "anne.weber@example.lu", phone: "" },
+    ],
+  },
+  entries: [
+    { id: "d1", firstName: "Paul", lastName: "Schmit", email: "paul@example.lu", vipTourChoice: "coque", guestFirstName: "Lea", guestLastName: "Schmit", placeType: "vip" },
+    { id: "d2", firstName: "Claire", lastName: "Hoffmann", email: "claire@example.lu", vipTourChoice: "coulisses", placeType: "vip" },
+    { id: "d3", firstName: "Marc", lastName: "Kieffer", email: "marc@example.lu", vipTourChoice: "none", placeType: "standard" },
+    { id: "d4", firstName: "Sophie", lastName: "Reuter", email: "sophie@example.lu", vipTourChoice: "none", guestFirstName: "Tom", guestLastName: "Reuter", placeType: "standard" },
+  ],
+  requests: [],
+};
+
 function VipPartnerPortalPage() {
   const { language } = useLanguage();
   const copy = VIP_COPY[language] || VIP_COPY.en;
   const { portalId = "" } = useParams();
+  const isDemoPortal = import.meta.env.DEV && portalId === "demo";
   const fallbackPortalLabel = useMemo(() => getVipPartnerPortalLabel(portalId), [portalId]);
   const [formData, setFormData] = useState(() => createEmptyVipFormData({ organization: fallbackPortalLabel }));
   const [portalMeta, setPortalMeta] = useState(null);
@@ -620,17 +781,52 @@ function VipPartnerPortalPage() {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState("");
   const [editDraft, setEditDraft] = useState(null);
+  const [placeType, setPlaceType] = useState("vip");
+  const [placeRequests, setPlaceRequests] = useState([]);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestForm, setRequestForm] = useState({ placeType: "vip", requestedPlaces: "1", firstName: "", lastName: "", email: "", message: "" });
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestFeedback, setRequestFeedback] = useState("");
+  const [contactsDraft, setContactsDraft] = useState(null);
+  const [contactsSaving, setContactsSaving] = useState(false);
+  const [contactsError, setContactsError] = useState("");
   const firstNameRef = useRef(null);
+  const requestFormRef = useRef(null);
 
   const portalLabel = String(portalMeta?.organizationName || "").trim() || fallbackPortalLabel;
   const requiresPassword = Boolean(portalMeta?.hasPassword);
+  const placeTypes = useMemo(() => getVipPortalPlaceTypes(portalMeta || {}), [portalMeta]);
+  const places = useMemo(() => computeVipPortalPlaces(portalMeta || {}, entries), [portalMeta, entries]);
+  const placeTypeLabel = (type) => (type === "standard" ? p.placeStandard : p.placeVip);
+  const placeTypesKey = placeTypes.join("|");
+  const { activeEditionId } = useActiveEdition();
+  const { editions } = useMeetingEditions();
+  const edition = editions.find((entry) => String(entry.year || entry.id) === String(activeEditionId)) || null;
+
+  // Type proposé par défaut : le premier disponible (l'organisation peut
+  // choisir l'autre, même sans quota, pour en faire la demande).
+  useEffect(() => {
+    setPlaceType(placeTypesKey.split("|")[0] || "vip");
+  }, [placeTypesKey]);
+
+  // Aperçu local (npm run dev, /vip/orga/demo) : portail fictif avec places
+  // VIP et normales, rien n'est lu ni écrit dans Firestore.
+  useEffect(() => {
+    if (!isDemoPortal) return;
+    setPortalMeta(DEMO_PORTAL.meta);
+    setPortalMetaLoading(false);
+    setEntries(DEMO_PORTAL.entries);
+    setPlaceRequests(DEMO_PORTAL.requests);
+    setLoading(false);
+    setAccessGranted(true);
+  }, [isDemoPortal]);
 
   useEffect(() => {
     setFormData(createEmptyVipFormData({ organization: portalLabel }));
   }, [portalLabel]);
 
   useEffect(() => {
-    if (!portalId) return undefined;
+    if (!portalId || isDemoPortal) return undefined;
 
     // Any already-authenticated session (a real platform login, or this browser's
     // pseudo-session for this or another portal) is treated as already resolved:
@@ -646,6 +842,7 @@ function VipPartnerPortalPage() {
   }, [portalId]);
 
   useEffect(() => {
+    if (isDemoPortal) return undefined;
     if (!portalId) {
       setPortalMeta(null);
       setPortalMetaLoading(false);
@@ -666,7 +863,7 @@ function VipPartnerPortalPage() {
     );
 
     return unsubscribeMeta;
-  }, [portalId]);
+  }, [portalId, isDemoPortal]);
 
   async function requestPortalAccess(password) {
     setError("");
@@ -702,7 +899,7 @@ function VipPartnerPortalPage() {
   }
 
   useEffect(() => {
-    if (portalMetaLoading || !portalId || accessGranted || requiresPassword) return;
+    if (isDemoPortal || portalMetaLoading || !portalId || accessGranted || requiresPassword) return;
     // Never mint/sign in a portal session if this browser already has any Firebase
     // session (real login or another portal's pseudo-session) -- see the comment
     // on the auth-state effect above.
@@ -712,6 +909,7 @@ function VipPartnerPortalPage() {
   }, [portalMetaLoading, portalId, accessGranted, requiresPassword]);
 
   useEffect(() => {
+    if (isDemoPortal) return undefined;
     if (!accessGranted || !portalId) {
       setEntries([]);
       setLoading(accessGranted === false && requiresPassword);
@@ -742,7 +940,92 @@ function VipPartnerPortalPage() {
     );
 
     return unsubscribe;
-  }, [accessGranted, portalId, requiresPassword]);
+  }, [accessGranted, portalId, requiresPassword, isDemoPortal]);
+
+  useEffect(() => {
+    if (isDemoPortal) return undefined;
+    if (!accessGranted || !portalId) {
+      setPlaceRequests([]);
+      return undefined;
+    }
+    return onSnapshot(
+      collection(db, "vipPartnerPortals", portalId, "placeRequests"),
+      (snapshot) => {
+        setPlaceRequests(
+          snapshot.docs
+            .map((entry) => ({ id: entry.id, ...entry.data() }))
+            .sort((left, right) => (right.createdAt?.toMillis?.() || 0) - (left.createdAt?.toMillis?.() || 0)),
+        );
+      },
+      (snapshotError) => {
+        console.error("VIP place requests load failed", snapshotError);
+        setPlaceRequests([]);
+      },
+    );
+  }, [accessGranted, portalId, isDemoPortal]);
+
+  // Places manquantes pour une fiche (1, ou 2 avec accompagnant) d'un type donné ;
+  // 0 quand elle tient dans le quota. `excludeId` : fiche modifiée, déjà comptée.
+  function missingPlaces(type, entry, excludeId = "") {
+    const cap = places.caps[type];
+    if (cap === null) return 0;
+    const usedByOthers = entries
+      .filter((item) => item.id !== excludeId && getVipEntryPlaceType(item) === type)
+      .reduce((total, item) => total + countVipEntryPlaces(item), 0);
+    return Math.max(0, usedByOthers + countVipEntryPlaces(entry) - cap);
+  }
+
+  function openRequestForm(type, count) {
+    setRequestFeedback("");
+    setRequestForm((current) => ({ ...current, placeType: type, requestedPlaces: String(Math.max(1, count || 1)) }));
+    setShowRequestForm(true);
+    // Fenêtre au premier plan : on place le curseur sur le nombre de places.
+    window.setTimeout(() => requestFormRef.current?.querySelector('input[type="number"]')?.focus(), 0);
+  }
+
+  function quotaMessage(type, entry, excludeId) {
+    const missing = missingPlaces(type, entry, excludeId);
+    if (!missing) return "";
+    const remaining = Math.max(0, countVipEntryPlaces(entry) - missing);
+    const typeName = p.typeInText[type];
+    if (!placeTypes.includes(type)) return p.typeNotOffered.replace("{type}", typeName);
+    return remaining > 0
+      ? p.quotaNotEnough.replace("{n}", remaining).replace("{type}", typeName)
+      : p.quotaReached.replace("{type}", typeName).replace("{used}", places.used[type]).replace("{cap}", places.caps[type]);
+  }
+
+  async function handleRequestSubmit(event) {
+    event.preventDefault();
+    setRequestFeedback("");
+    setRequestSubmitting(true);
+    try {
+      const activeEditionId = isDemoPortal ? "demo" : await getActiveEditionId();
+      const writeRequest = isDemoPortal
+        ? async (data) => setPlaceRequests((current) => [{ ...data, id: `r${Date.now()}`, createdAt: null }, ...current])
+        : (data) => addDoc(collection(db, "vipPartnerPortals", portalId, "placeRequests"), data);
+      await writeRequest({
+        editionId: activeEditionId,
+        portalId,
+        organization: portalLabel,
+        placeType: requestForm.placeType === "standard" ? "standard" : "vip",
+        requestedPlaces: Math.max(1, Math.floor(Number(requestForm.requestedPlaces) || 1)),
+        firstName: requestForm.firstName.trim(),
+        lastName: requestForm.lastName.trim(),
+        email: requestForm.email.trim().toLowerCase(),
+        message: requestForm.message.trim(),
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
+      setRequestForm((current) => ({ ...current, requestedPlaces: "1", message: "" }));
+      setShowRequestForm(false);
+      setRequestFeedback(p.requestSent);
+    } catch (requestError) {
+      console.error("VIP place request failed", requestError);
+      setRequestFeedback(p.requestError);
+    } finally {
+      setRequestSubmitting(false);
+    }
+  }
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -753,19 +1036,35 @@ function VipPartnerPortalPage() {
     event.preventDefault();
     setError("");
     setSuccessMessage("");
+    // Visite de 14h15 réservée aux places VIP.
+    const guestData = placeType === "vip" ? formData : { ...formData, vipTourChoice: "none" };
+    const missing = missingPlaces(placeType, formData);
+    if (missing) {
+      setError(quotaMessage(placeType, formData));
+      openRequestForm(placeType, missing);
+      return;
+    }
     setIsSubmitting(true);
 
     try {
-      const activeEditionId = await getActiveEditionId();
-      await addDoc(
-        collection(db, "vipPartnerPortals", portalId, "entries"),
-        buildVipRegistrationPayload(formData, {
-          editionId: activeEditionId,
-          portalId,
-          source: "partner_portal",
-          createdAt: serverTimestamp(),
-        }),
-      );
+      if (isDemoPortal) {
+        setEntries((current) => [
+          { id: `d${Date.now()}`, ...buildVipRegistrationPayload(guestData, { placeType }) },
+          ...current,
+        ]);
+      } else {
+        const activeEditionId = await getActiveEditionId();
+        await addDoc(
+          collection(db, "vipPartnerPortals", portalId, "entries"),
+          buildVipRegistrationPayload(guestData, {
+            editionId: activeEditionId,
+            portalId,
+            placeType,
+            source: "partner_portal",
+            createdAt: serverTimestamp(),
+          }),
+        );
+      }
       const addedName = fullName(formData.firstName, formData.lastName);
       // On garde le choix de visite pour enchaîner les saisies d'un même groupe.
       setFormData(createEmptyVipFormData({ organization: portalLabel, vipTourChoice: formData.vipTourChoice }));
@@ -783,6 +1082,10 @@ function VipPartnerPortalPage() {
 
   async function handleEntryUpdate(entryId, patch) {
     setError("");
+    if (isDemoPortal) {
+      setEntries((current) => current.map((entry) => (entry.id === entryId ? { ...entry, ...patch } : entry)));
+      return true;
+    }
     try {
       await updateDoc(doc(db, "vipPartnerPortals", portalId, "entries", entryId), { ...patch, updatedAt: serverTimestamp() });
       return true;
@@ -812,6 +1115,14 @@ function VipPartnerPortalPage() {
     const trimmed = Object.fromEntries(Object.entries(editDraft).map(([key, value]) => [key, String(value || "").trim()]));
     trimmed.email = trimmed.email.toLowerCase();
     trimmed.guestEmail = trimmed.guestEmail.toLowerCase();
+    const editedEntry = entries.find((item) => item.id === editingId);
+    const editedType = getVipEntryPlaceType(editedEntry);
+    const missing = missingPlaces(editedType, trimmed, editingId);
+    if (missing) {
+      setError(quotaMessage(editedType, trimmed, editingId));
+      openRequestForm(editedType, missing);
+      return;
+    }
     if (await handleEntryUpdate(editingId, trimmed)) {
       setEditingId("");
       setEditDraft(null);
@@ -823,6 +1134,10 @@ function VipPartnerPortalPage() {
     if (!window.confirm(p.confirmRemove.replace("{name}", fullName(entry?.firstName, entry?.lastName) || "?"))) return;
     setError("");
     setSuccessMessage("");
+    if (isDemoPortal) {
+      setEntries((current) => current.filter((item) => item.id !== entryId));
+      return;
+    }
 
     try {
       await deleteDoc(doc(db, "vipPartnerPortals", portalId, "entries", entryId));
@@ -841,11 +1156,12 @@ function VipPartnerPortalPage() {
   }
 
   const companionCount = entries.filter((entry) => fullName(entry.guestFirstName, entry.guestLastName)).length;
+  const vipEntries = entries.filter((entry) => getVipEntryPlaceType(entry) === "vip");
   const tourCounts = VIP_TOUR_OPTIONS.filter((option) => option.value !== "none").map((option) => ({
     value: option.value,
     count:
-      entries.filter((entry) => entry.vipTourChoice === option.value).length +
-      entries.filter((entry) => entry.vipTourChoice === option.value && fullName(entry.guestFirstName, entry.guestLastName)).length,
+      vipEntries.filter((entry) => entry.vipTourChoice === option.value).length +
+      vipEntries.filter((entry) => entry.vipTourChoice === option.value && fullName(entry.guestFirstName, entry.guestLastName)).length,
   }));
   const query = search.trim().toLowerCase();
   const visibleEntries = query
@@ -856,27 +1172,167 @@ function VipPartnerPortalPage() {
           .includes(query),
       )
     : entries;
-  const hasContact = portalMeta?.contactName || portalMeta?.contactEmail || portalMeta?.contactPhone;
+  const portalContacts = getVipPortalContacts(portalMeta || {});
+  const meetingContact = getVipPortalMeetingContact(portalMeta || {});
+
+  function startContactsEdit() {
+    setContactsError("");
+    setContactsDraft(portalContacts.length ? portalContacts : [createEmptyVipPortalContact()]);
+  }
+
+  function changeContact(index, event) {
+    const { name, value } = event.target;
+    setContactsDraft((current) => current.map((contact, itemIndex) => (itemIndex === index ? { ...contact, [name]: value } : contact)));
+  }
+
+  // L'organisation met à jour ses propres personnes de contact (les règles
+  // Firestore ne lui laissent modifier que ces champs-là du portail).
+  async function saveContacts(event) {
+    event.preventDefault();
+    const contacts = normalizeVipPortalContacts(contactsDraft).slice(0, 10);
+    if (!contacts.some((contact) => contact.firstName || contact.lastName)) {
+      setContactsError(p.contactsRequired);
+      return;
+    }
+    if (isDemoPortal) {
+      setPortalMeta((current) => ({ ...current, contacts }));
+      setContactsDraft(null);
+      return;
+    }
+    setContactsSaving(true);
+    setContactsError("");
+    try {
+      const mainContact = contacts[0];
+      await updateDoc(doc(db, "vipPartnerPortals", portalId), {
+        contacts,
+        contactName: buildVipFullName(mainContact),
+        contactEmail: mainContact.email,
+        contactPhone: mainContact.phone,
+        updatedAt: serverTimestamp(),
+      });
+      setContactsDraft(null);
+    } catch (saveError) {
+      console.error("VIP portal contacts update failed", saveError);
+      setContactsError(p.contactsError);
+    } finally {
+      setContactsSaving(false);
+    }
+  }
+  const showPlaceColumn = placeTypes.length > 1 || entries.some((entry) => getVipEntryPlaceType(entry) === "standard");
+  const selectedTypeFull = places.caps[placeType] !== null && places.remaining[placeType] === 0;
+  const selectedTypeOffered = placeTypes.includes(placeType);
+  const eventDate = edition?.date?.toDate?.() || (edition?.date ? new Date(edition.date) : null);
+  const eventDateLabel =
+    eventDate && !Number.isNaN(eventDate.getTime())
+      ? eventDate.toLocaleDateString(language === "fr" ? "fr-LU" : language === "de" ? "de-LU" : "en-GB", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "";
+  const venueLabel = edition?.venue || "Coque, Luxembourg";
   const tourLabel = (value) => p.tourShort[value || "none"] || p.tourShort.none;
   const editChange = (event) => setEditDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
 
   return (
     <AuthLayout title={p.eyebrow} subtitle="CMCM Luxembourg Indoor Meeting">
       <div className="vip-portal">
+        <img className="vip-portal-photo" src={portalPhoto} alt="" loading="lazy" />
         <section className="vip-portal-head">
           <div className="vip-portal-head__main">
             <h2>{portalLabel}</h2>
-            <p>{p.intro}</p>
+            <p className="vip-portal-facts">
+              {[eventDateLabel, venueLabel, "World Athletics Indoor Tour Silver"].filter(Boolean).join(" · ")}
+            </p>
+            <p>{p.introEvent}</p>
+            <p>{p.introInvite}</p>
+            <ul className="vip-portal-offer">
+              <li><strong>{p.placeVip}</strong> — {p.offerVip}</li>
+              <li><strong>{p.placeStandard}</strong> — {p.offerStandard}</li>
+            </ul>
+            <p>{p.introHow}</p>
           </div>
-          {hasContact ? (
+          {portalMeta ? (
             <div className="vip-portal-contact">
-              <span className="vip-portal-eyebrow">{p.contact}</span>
-              {portalMeta?.contactName ? <strong>{portalMeta.contactName}</strong> : null}
-              {portalMeta?.contactEmail ? <a href={`mailto:${portalMeta.contactEmail}`}>{portalMeta.contactEmail}</a> : null}
-              {portalMeta?.contactPhone ? <a href={`tel:${portalMeta.contactPhone.replace(/\s+/g, "")}`}>{portalMeta.contactPhone}</a> : null}
+              <span className="vip-portal-eyebrow">{p.meetingContact}</span>
+              <div className="vip-portal-contact__person">
+                {buildVipFullName(meetingContact) ? <strong>{buildVipFullName(meetingContact)}</strong> : null}
+                {meetingContact.email ? <a href={`mailto:${meetingContact.email}`}>{meetingContact.email}</a> : null}
+                {meetingContact.phone ? (
+                  <a href={`tel:${meetingContact.phone.replace(/\s+/g, "")}`}>{meetingContact.phone}</a>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {portalContacts.length || accessGranted ? (
+            <div className="vip-portal-contact">
+              <span className="vip-portal-eyebrow">{p.orgContacts}</span>
+              {portalContacts.map((contact, index) => (
+                <div className="vip-portal-contact__person" key={index}>
+                  {buildVipFullName(contact) ? <strong>{buildVipFullName(contact)}</strong> : null}
+                  {contact.email ? <span>{contact.email}</span> : null}
+                  {contact.phone ? <span>{contact.phone}</span> : null}
+                </div>
+              ))}
+              {accessGranted && !contactsDraft ? (
+                <button type="button" className="vip-portal-link vip-portal-contact__edit" onClick={startContactsEdit}>
+                  {portalContacts.length ? p.editContacts : p.addContacts}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </section>
+
+        {accessGranted && contactsDraft ? (
+          <section className="vip-portal-card">
+            <h3>{p.orgContacts}</h3>
+            <form className="vip-portal-form" onSubmit={saveContacts}>
+              <p className="vip-portal-muted">{p.contactsIntro}</p>
+              {contactsDraft.map((contact, index) => (
+                <div className="vip-portal-grid vip-portal-contacts-row" key={index}>
+                  <label className="vip-portal-field">
+                    <span>{p.firstName}{index === 0 ? " *" : ""}</span>
+                    <input name="firstName" required={index === 0} value={contact.firstName} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.lastName}</span>
+                    <input name="lastName" value={contact.lastName} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.email}</span>
+                    <input name="email" type="email" value={contact.email} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <label className="vip-portal-field">
+                    <span>{p.phone}</span>
+                    <input name="phone" type="tel" value={contact.phone} onChange={(event) => changeContact(index, event)} />
+                  </label>
+                  <button
+                    type="button"
+                    className="vip-portal-btn vip-portal-btn--small vip-portal-btn--danger"
+                    aria-label={p.remove}
+                    title={p.remove}
+                    onClick={() => setContactsDraft((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <div className="vip-portal-form__bar">
+                <button
+                  type="button"
+                  className="vip-portal-link"
+                  onClick={() => setContactsDraft((current) => [...current, createEmptyVipPortalContact()])}
+                >
+                  {p.addContact}
+                </button>
+                <button type="button" className="vip-portal-btn" onClick={() => setContactsDraft(null)}>{p.cancel}</button>
+                <button type="submit" className="vip-portal-btn vip-portal-btn--primary" disabled={contactsSaving}>{p.save}</button>
+              </div>
+              {contactsError ? <p className="form-error">{contactsError}</p> : null}
+            </form>
+          </section>
+        ) : null}
 
         {requiresPassword && !accessGranted ? (
           <section className="vip-portal-card vip-portal-card--narrow">
@@ -911,7 +1367,25 @@ function VipPartnerPortalPage() {
             <dl className="vip-portal-kpis">
               <div><dt>{p.kpiGuests}</dt><dd>{entries.length}</dd></div>
               <div><dt>{p.kpiCompanions}</dt><dd>{companionCount}</dd></div>
-              <div className="is-strong"><dt>{p.kpiTotal}</dt><dd>{entries.length + companionCount}</dd></div>
+              {["vip", "standard"].map((type) => (
+                <div
+                  key={type}
+                  className={`is-strong${places.caps[type] !== null && places.remaining[type] === 0 ? " is-full" : ""}`}
+                >
+                  <dt>{type === "standard" ? p.kpiPlacesStandard : p.kpiPlacesVip}</dt>
+                  <dd>
+                    {places.used[type]}
+                    <small> / {places.caps[type] === null ? p.unlimited : places.caps[type]}</small>
+                  </dd>
+                  <span className="vip-portal-kpis__note">
+                    {places.caps[type] === null
+                      ? p.unlimited
+                      : places.caps[type] === 0 && !places.used[type]
+                        ? p.onRequest
+                        : p.remaining.replace("{n}", places.remaining[type])}
+                  </span>
+                </div>
+              ))}
               {tourCounts.map((tour) => (
                 <div key={tour.value}><dt>{tourLabel(tour.value)}</dt><dd>{tour.count}</dd></div>
               ))}
@@ -919,7 +1393,44 @@ function VipPartnerPortalPage() {
 
             <section className="vip-portal-card">
               <h3>{p.addTitle}</h3>
+              {selectedTypeFull ? (
+                <div className="vip-portal-quota">
+                  <p>
+                    {selectedTypeOffered
+                      ? p.quotaReached
+                          .replace("{type}", p.typeInText[placeType])
+                          .replace("{used}", places.used[placeType])
+                          .replace("{cap}", places.caps[placeType])
+                      : p.typeNotOffered.replace("{type}", p.typeInText[placeType])}
+                  </p>
+                  <button type="button" className="vip-portal-btn vip-portal-btn--primary" onClick={() => openRequestForm(placeType, 1)}>
+                    {p.requestPlaces}
+                  </button>
+                </div>
+              ) : null}
               <form className="vip-portal-form" onSubmit={handleSubmit}>
+                  <div className="vip-portal-placetype" role="radiogroup" aria-label={p.placeType}>
+                    <span>{p.placeType}</span>
+                    {["vip", "standard"].map((type) => (
+                      <label key={type} className={`vip-portal-placetype__option${placeType === type ? " is-active" : ""}`}>
+                        <input
+                          type="radio"
+                          name="placeType"
+                          value={type}
+                          checked={placeType === type}
+                          onChange={() => setPlaceType(type)}
+                        />
+                        {placeTypeLabel(type)}
+                        <small>
+                          {places.caps[type] === null
+                            ? p.unlimited
+                            : !placeTypes.includes(type)
+                              ? p.onRequest
+                              : p.remaining.replace("{n}", places.remaining[type])}
+                        </small>
+                      </label>
+                    ))}
+                  </div>
                 <div className="vip-portal-grid">
                   <label className="vip-portal-field">
                     <span>{p.firstName} *</span>
@@ -930,9 +1441,14 @@ function VipPartnerPortalPage() {
                     <input name="lastName" required autoComplete="off" value={formData.lastName} onChange={handleChange} />
                   </label>
                   <label className="vip-portal-field">
-                    <span>{p.email} *</span>
-                    <input name="email" required type="email" autoComplete="off" value={formData.email} onChange={handleChange} />
+                    <span>{p.email}</span>
+                    <input name="email" type="email" autoComplete="off" value={formData.email} onChange={handleChange} />
                   </label>
+                  <label className="vip-portal-field">
+                    <span>{p.phone}</span>
+                    <input name="phone" type="tel" autoComplete="off" value={formData.phone} onChange={handleChange} />
+                  </label>
+                  {placeType === "vip" ? (
                   <label className="vip-portal-field">
                     <span>{p.tour}</span>
                     <select name="vipTourChoice" value={formData.vipTourChoice} onChange={handleChange}>
@@ -941,10 +1457,7 @@ function VipPartnerPortalPage() {
                       ))}
                     </select>
                   </label>
-                  <label className="vip-portal-field">
-                    <span>{p.phone}</span>
-                    <input name="phone" type="tel" autoComplete="off" value={formData.phone} onChange={handleChange} />
-                  </label>
+                  ) : null}
                 </div>
 
                 {showCompanion ? (
@@ -984,7 +1497,12 @@ function VipPartnerPortalPage() {
                   {showNote ? null : (
                     <button type="button" className="vip-portal-link" onClick={() => setShowNote(true)}>{p.addNote}</button>
                   )}
-                  <button className="vip-portal-btn vip-portal-btn--primary" disabled={isSubmitting} type="submit">
+                  {!selectedTypeFull ? (
+                    <button type="button" className="vip-portal-link" onClick={() => openRequestForm(placeType, 1)}>
+                      {p.requestPlaces}
+                    </button>
+                  ) : null}
+                  <button className="vip-portal-btn vip-portal-btn--primary" disabled={isSubmitting || selectedTypeFull} type="submit">
                     {isSubmitting ? p.adding : p.submit}
                   </button>
                 </div>
@@ -993,6 +1511,121 @@ function VipPartnerPortalPage() {
                 <p className="vip-portal-legal">{getVipRgpdDisclaimer(language)}</p>
               </form>
             </section>
+
+            {showRequestForm ? (
+              <div
+                className="vip-portal-modal"
+                role="presentation"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) setShowRequestForm(false);
+                }}
+              >
+                <section
+                  className="vip-portal-card vip-portal-modal__card"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="vip-request-title"
+                  ref={requestFormRef}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setShowRequestForm(false);
+                  }}
+                >
+                  <div className="vip-portal-modal__head">
+                    <h3 id="vip-request-title">{p.requestTitle}</h3>
+                    <button type="button" className="vip-portal-modal__close" aria-label={p.cancel} onClick={() => setShowRequestForm(false)}>×</button>
+                  </div>
+                  <form className="vip-portal-form" onSubmit={handleRequestSubmit}>
+                    <p className="vip-portal-muted">{p.requestIntro}</p>
+                    <div className="vip-portal-grid vip-portal-grid--two">
+                        <label className="vip-portal-field">
+                          <span>{p.placeType}</span>
+                          <select
+                            value={requestForm.placeType}
+                            onChange={(event) => setRequestForm((current) => ({ ...current, placeType: event.target.value }))}
+                          >
+                            {["vip", "standard"].map((type) => (
+                              <option key={type} value={type}>{placeTypeLabel(type)}</option>
+                            ))}
+                          </select>
+                        </label>
+                      <label className="vip-portal-field">
+                        <span>{p.requestCount} *</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          required
+                          value={requestForm.requestedPlaces}
+                          onChange={(event) => setRequestForm((current) => ({ ...current, requestedPlaces: event.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <div className="vip-portal-grid vip-portal-grid--three">
+                      <label className="vip-portal-field">
+                        <span>{p.requestFirstName} *</span>
+                        <input
+                          required
+                          value={requestForm.firstName}
+                          onChange={(event) => setRequestForm((current) => ({ ...current, firstName: event.target.value }))}
+                        />
+                      </label>
+                      <label className="vip-portal-field">
+                        <span>{p.requestLastName} *</span>
+                        <input
+                          required
+                          value={requestForm.lastName}
+                          onChange={(event) => setRequestForm((current) => ({ ...current, lastName: event.target.value }))}
+                        />
+                      </label>
+                      <label className="vip-portal-field">
+                        <span>{p.requestEmail} *</span>
+                        <input
+                          type="email"
+                          required
+                          value={requestForm.email}
+                          onChange={(event) => setRequestForm((current) => ({ ...current, email: event.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <label className="vip-portal-field vip-portal-field--wide">
+                      <span>{p.requestMessage}</span>
+                      <input
+                        value={requestForm.message}
+                        onChange={(event) => setRequestForm((current) => ({ ...current, message: event.target.value }))}
+                      />
+                    </label>
+                    <div className="vip-portal-form__bar">
+                      <button type="button" className="vip-portal-btn" onClick={() => setShowRequestForm(false)}>{p.cancel}</button>
+                      <button type="submit" className="vip-portal-btn vip-portal-btn--primary" disabled={requestSubmitting}>
+                        {requestSubmitting ? p.requestSending : p.requestSend}
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+            ) : null}
+
+            {placeRequests.length || requestFeedback ? (
+              <section className="vip-portal-card">
+                <h3>{p.requestsTitle}</h3>
+                {requestFeedback ? <p className="vip-portal-success" role="status">{requestFeedback}</p> : null}
+                {placeRequests.length ? (
+                  <ul className="vip-portal-requests">
+                    {placeRequests.map((request) => (
+                      <li key={request.id}>
+                        <span>
+                          +{request.requestedPlaces} {placeTypeLabel(request.placeType)}
+                          {request.createdAt?.toDate ? ` · ${request.createdAt.toDate().toLocaleDateString(language)}` : ""}
+                        </span>
+                        <span className={`vip-portal-status vip-portal-status--${request.status || "pending"}`}>
+                          {p.requestStatus[request.status || "pending"] || p.requestStatus.pending}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ) : null}
 
             <section className="vip-portal-card">
               <div className="vip-portal-card__head">
@@ -1019,6 +1652,7 @@ function VipPartnerPortalPage() {
                     <thead>
                       <tr>
                         <th>{p.colGuest}</th>
+                        {showPlaceColumn ? <th>{p.colPlace}</th> : null}
                         <th>{p.colTour}</th>
                         <th>{p.colCompanion}</th>
                         <th aria-label="Actions" />
@@ -1028,12 +1662,12 @@ function VipPartnerPortalPage() {
                       {visibleEntries.map((entry) =>
                         editingId === entry.id && editDraft ? (
                           <tr key={entry.id} className="is-editing">
-                            <td colSpan={4}>
+                            <td colSpan={showPlaceColumn ? 5 : 4}>
                               <form className="vip-portal-edit" onSubmit={saveEdit}>
                                 <div className="vip-portal-grid">
                                   <label className="vip-portal-field"><span>{p.firstName} *</span><input name="firstName" required value={editDraft.firstName} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.lastName} *</span><input name="lastName" required value={editDraft.lastName} onChange={editChange} /></label>
-                                  <label className="vip-portal-field"><span>{p.email} *</span><input name="email" type="email" required value={editDraft.email} onChange={editChange} /></label>
+                                  <label className="vip-portal-field"><span>{p.email}</span><input name="email" type="email" value={editDraft.email} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.phone}</span><input name="phone" type="tel" value={editDraft.phone} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.companionFirstName}</span><input name="guestFirstName" value={editDraft.guestFirstName} onChange={editChange} /></label>
                                   <label className="vip-portal-field"><span>{p.companionLastName}</span><input name="guestLastName" value={editDraft.guestLastName} onChange={editChange} /></label>
@@ -1054,7 +1688,15 @@ function VipPartnerPortalPage() {
                               <span className="vip-portal-sub" title={entry.email || ""}>{entry.email || "—"}</span>
                               {entry.notes ? <span className="vip-portal-sub vip-portal-sub--note" title={entry.notes}>“{entry.notes}”</span> : null}
                             </td>
+                            {showPlaceColumn ? (
+                              <td>
+                                <span className={`vip-portal-place vip-portal-place--${getVipEntryPlaceType(entry)}`}>
+                                  {placeTypeLabel(getVipEntryPlaceType(entry))}
+                                </span>
+                              </td>
+                            ) : null}
                             <td>
+                            {getVipEntryPlaceType(entry) === "vip" ? (
                               <select
                                 aria-label={p.colTour}
                                 value={entry.vipTourChoice || "none"}
@@ -1064,6 +1706,9 @@ function VipPartnerPortalPage() {
                                   <option key={option.value} value={option.value}>{tourLabel(option.value)}</option>
                                 ))}
                               </select>
+                            ) : (
+                              <span className="vip-portal-muted" title={p.tourVipOnly}>—</span>
+                            )}
                             </td>
                             <td>{fullName(entry.guestFirstName, entry.guestLastName) || <span className="vip-portal-muted">{p.noCompanion}</span>}</td>
                             <td className="vip-portal-actions">

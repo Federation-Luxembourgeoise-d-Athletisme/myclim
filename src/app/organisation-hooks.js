@@ -15,7 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { getAppBaseUrl } from "../services/app-url";
-import { getAccessOption, buildMembershipByEmail, getPerimeterEmails, getPerimeterNames, normalizeOrganisationTeams } from "./organisation-teams";
+import { getAccessOption, buildMembershipByEmail, buildModulesByEmail, getPerimeterEmails, getPerimeterNames, normalizeOrganisationTeams } from "./organisation-teams";
 import { normalizeTask } from "./retroplanning";
 
 const ORGANISATION_TEAMS_REF = ["appSettings", "organisationTeams"];
@@ -53,15 +53,19 @@ async function saveOrganisationTeams(teams) {
   await setDoc(doc(db, ...ORGANISATION_TEAMS_REF), { teams: normalized, updatedAt: serverTimestamp() });
 
   const membership = buildMembershipByEmail(normalized);
+  // Modules (Animation…) ouverts par les équipes : lus par le menu et par les
+  // règles Firestore, donc retirés dès que le membre quitte l'équipe.
+  const modulesByEmail = buildModulesByEmail(normalized);
   const previous = await getDocs(collection(db, ORGANISATION_MEMBERS));
   const memberBatch = writeBatch(db);
   previous.forEach((entry) => {
     if (!membership[entry.id]) memberBatch.delete(entry.ref);
   });
   Object.entries(membership).forEach(([email, teamsOfMember]) => {
-    const current = previous.docs.find((entry) => entry.id === email)?.data()?.teams || [];
-    if (JSON.stringify(current) !== JSON.stringify(teamsOfMember)) {
-      memberBatch.set(doc(db, ORGANISATION_MEMBERS, email), { teams: teamsOfMember, updatedAt: serverTimestamp() });
+    const current = previous.docs.find((entry) => entry.id === email)?.data() || {};
+    const modules = modulesByEmail[email] || [];
+    if (JSON.stringify(current.teams || []) !== JSON.stringify(teamsOfMember) || JSON.stringify(current.modules || []) !== JSON.stringify(modules)) {
+      memberBatch.set(doc(db, ORGANISATION_MEMBERS, email), { teams: teamsOfMember, modules, updatedAt: serverTimestamp() });
     }
   });
   await memberBatch.commit();
@@ -133,9 +137,10 @@ function useHasOwnMeetingTasks(email, enabled = true) {
   return enabled && normalizedEmail ? hasTasks : false;
 }
 
-// Les équipes de l'organisation de l'utilisateur connecté ([{ id, name, lead }]).
+// Les équipes de l'organisation de l'utilisateur connecté ([{ id, name, lead }])
+// et les modules qu'elles lui ouvrent (["animation"]…).
 function useMyOrganisationTeams(email, enabled = true) {
-  const [state, setState] = useState({ teams: [], loading: true, key: "" });
+  const [state, setState] = useState({ teams: [], modules: [], loading: true, key: "" });
   const normalizedEmail = String(email || "").trim().toLowerCase();
   useEffect(() => {
     if (!enabled || !normalizedEmail) return undefined;
@@ -144,14 +149,15 @@ function useMyOrganisationTeams(email, enabled = true) {
       (snapshot) =>
         setState({
           teams: Array.isArray(snapshot.data()?.teams) ? snapshot.data().teams : [],
+          modules: Array.isArray(snapshot.data()?.modules) ? snapshot.data().modules : [],
           loading: false,
           key: normalizedEmail,
         }),
-      () => setState({ teams: [], loading: false, key: normalizedEmail }),
+      () => setState({ teams: [], modules: [], loading: false, key: normalizedEmail }),
     );
   }, [enabled, normalizedEmail]);
-  if (!enabled || !normalizedEmail) return { teams: [], loading: false };
-  return state.key === normalizedEmail ? state : { teams: [], loading: true };
+  if (!enabled || !normalizedEmail) return { teams: [], modules: [], loading: false };
+  return state.key === normalizedEmail ? state : { teams: [], modules: [], loading: true };
 }
 
 // ─── Comptes des membres (Équipes organisation) ─────────────────────────────

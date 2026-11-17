@@ -25,6 +25,13 @@ export const NOTIFICATION_TYPES = [
     defaults: { inApp: true, push: true, email: false },
   },
   {
+    id: "vip_place_request",
+    label: { fr: "Demandes de places VIP", en: "VIP place requests" },
+    hint: { fr: "Quand une organisation partenaire demande des places en plus de son quota.", en: "When a partner organisation asks for places beyond its quota." },
+    roles: MANAGERS,
+    defaults: { inApp: true, push: true, email: true },
+  },
+  {
     id: "volunteer_application",
     label: { fr: "Inscriptions bénévoles", en: "Volunteer sign-ups" },
     roles: MANAGERS,

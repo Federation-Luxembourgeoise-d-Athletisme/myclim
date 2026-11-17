@@ -11,6 +11,7 @@ import {
 } from "./organisation-hooks";
 import {
   ORGANISATION_ACCESS,
+  ORGANISATION_MODULES,
   buildDefaultOrganisationTeams,
   getAccessOption,
   getMemberAccountStatus,
@@ -189,7 +190,7 @@ export function OrganisationTeamsPage() {
 
   function addTeam() {
     const id = newId("org");
-    update((current) => [...current, { id, name: "Nouvelle équipe", description: "", members: [] }]);
+    update((current) => [...current, { id, name: "Nouvelle équipe", description: "", modules: [], members: [] }]);
     setSelectedId(id);
   }
 
@@ -276,6 +277,24 @@ export function OrganisationTeamsPage() {
                 onChange={(event) => updateTeam(selected.id, { description: event.target.value })}
               />
             </label>
+            <fieldset className="orgt-modules">
+              <legend>Modules</legend>
+              {ORGANISATION_MODULES.map((module) => (
+                <label key={module.value} title={module.help}>
+                  <input
+                    type="checkbox"
+                    checked={(selected.modules || []).includes(module.value)}
+                    onChange={(event) => {
+                      const current = selected.modules || [];
+                      updateTeam(selected.id, {
+                        modules: event.target.checked ? [...current, module.value] : current.filter((value) => value !== module.value),
+                      });
+                    }}
+                  />
+                  {module.label}
+                </label>
+              ))}
+            </fieldset>
             <button
               className="ath-link ath-link--danger orgt-detail__delete"
               type="button"
@@ -450,7 +469,8 @@ export function OrganisationTeamsPage() {
           <p className="orgt-hint">
             Accès <strong>Organisation</strong> : le membre voit son planning, les tâches de son équipe dans le Rétroplanning
             (et peut en changer le statut) et ses décomptes. <strong>Staff FLA</strong> et <strong>LUNEX Student</strong> : rôle gestionnaire, toute la gestion
-            sauf le budget.{" "}
+            sauf le budget. <strong>Modules</strong> : cochés pour l'équipe, ils s'ajoutent à l'accès de chaque membre qui a
+            un compte (ex. <em>Animation</em> pour les speakers) et se retirent quand le membre quitte l'équipe.{" "}
             {isAdmin ? "« Envoyer le lien » crée son compte avec ces droits." : "Seul un admin peut envoyer les liens d'activation."}
           </p>
         </div>

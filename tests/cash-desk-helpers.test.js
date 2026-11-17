@@ -4,13 +4,15 @@ import assert from "node:assert/strict";
 import {
   buildCheckInKey,
   buildDoorEntries,
+  countEntriesByPost,
   evaluateCheckIn,
   filterDoorEntries,
+  flattenCheckInEvents,
   normalizeCashPostCode,
   parseGuestImportRows,
 } from "../src/app/cash-desk-helpers.js";
 
-test("buildDoorEntries merges VIP sources without duplicates and hides VIP on public posts", () => {
+test("buildDoorEntries merges VIP sources without duplicates and shows every active list", () => {
   const input = {
     editionId: "2027",
     vipAdminRegistrations: [{ id: "a1", firstName: "Ada", lastName: "Lovelace", email: "ada@x.lu" }],
@@ -20,29 +22,49 @@ test("buildDoorEntries merges VIP sources without duplicates and hides VIP on pu
     ],
     vipPortalEntries: [{ id: "e1", portalId: "cmcm", firstName: "Alan", lastName: "Turing" }],
     guestLists: [
-      { id: "l1", name: "Sponsors", postScope: "all" },
-      { id: "l2", name: "Fédé", postScope: "vip" },
+      { id: "l1", name: "Sponsors", category: "sponsors" },
+      { id: "l2", name: "Fédé", category: "officials" },
+      { id: "l3", name: "Archivée", active: false },
     ],
     guests: [
       { id: "g1", listId: "l1", firstName: "Marie", lastName: "Curie", places: 3 },
       { id: "g2", listId: "l2", firstName: "Niels", lastName: "Bohr" },
+      { id: "g3", listId: "l3", firstName: "Old", lastName: "Guest" },
     ],
     checkIns: [{ id: buildCheckInKey("2027", "door_guest", "g1"), admittedCount: 1 }],
   };
 
-  const vipEntries = buildDoorEntries({ ...input, post: { kind: "vip", showVipLists: true } });
+  const entries = buildDoorEntries(input);
   assert.deepEqual(
-    vipEntries.map((entry) => entry.fullName),
+    entries.map((entry) => entry.fullName),
     ["Ada Lovelace", "Alan Turing", "Grace Hopper", "Marie Curie", "Niels Bohr"],
   );
-  assert.equal(vipEntries.find((entry) => entry.fullName === "Ada Lovelace").sourceType, "vip_admin");
-  assert.equal(vipEntries.find((entry) => entry.fullName === "Grace Hopper").places, 2);
-  const marie = vipEntries.find((entry) => entry.fullName === "Marie Curie");
+  assert.equal(entries.find((entry) => entry.fullName === "Ada Lovelace").sourceType, "vip_admin");
+  assert.equal(entries.find((entry) => entry.fullName === "Ada Lovelace").kind, "vip");
+  assert.equal(entries.find((entry) => entry.fullName === "Grace Hopper").places, 2);
+  assert.equal(entries.find((entry) => entry.fullName === "Niels Bohr").kind, "officials");
+  const marie = entries.find((entry) => entry.fullName === "Marie Curie");
+  assert.equal(marie.kind, "sponsors");
   assert.equal(marie.admittedCount, 1);
   assert.equal(marie.remainingPlaces, 2);
+});
 
-  const publicEntries = buildDoorEntries({ ...input, post: { kind: "public", showVipLists: false } });
-  assert.deepEqual(publicEntries.map((entry) => entry.fullName), ["Marie Curie"]);
+test("flattenCheckInEvents sorts passages newest first and countEntriesByPost nets undos", () => {
+  const events = flattenCheckInEvents([
+    {
+      id: "a",
+      displayName: "Ada",
+      history: [
+        { postId: "p1", count: 2, at: new Date("2027-02-01T18:00:00Z") },
+        { postId: "p1", count: -1, at: new Date("2027-02-01T18:05:00Z") },
+      ],
+    },
+    { id: "b", displayName: "Bob", history: [{ postId: "p2", count: 1, at: new Date("2027-02-01T18:02:00Z") }] },
+  ]);
+  assert.deepEqual(events.map((event) => [event.displayName, event.count]), [["Ada", -1], ["Bob", 1], ["Ada", 2]]);
+  const counts = countEntriesByPost(events);
+  assert.equal(counts.get("p1"), 1);
+  assert.equal(counts.get("p2"), 1);
 });
 
 test("filterDoorEntries matches every term, ignoring accents and case", () => {
@@ -101,7 +123,6 @@ test("normalizeCashPostCode ignores separators and case", () => {
 test("buildDoorEntries lists selected national race athletes with one companion ticket", () => {
   const entries = buildDoorEntries({
     editionId: "2027",
-    post: { kind: "public", showVipLists: false },
     nationalRaceAthletes: [
       { id: "n1", editionId: "2027", status: "selected", firstName: "Lea", lastName: "Muller", event: "800 m", gender: "femme", isLuxLicensed: true, club: "CAB" },
       { id: "n2", editionId: "2027", status: "selected", role: "pacer", firstName: "Tom", lastName: "Weber", event: "800 m", gender: "homme" },
@@ -116,4 +137,21 @@ test("buildDoorEntries lists selected national race athletes with one companion 
   assert.equal(entries[0].organization, "CAB");
   assert.match(entries[1].notes, /lièvre/);
   assert.equal(entries[0].key, buildCheckInKey("2027", "national_race", "n1"));
+});
+
+test("partner portal standard places are a separate, non-VIP door list", async () => {
+  const { buildDoorEntries } = await import("../src/app/cash-desk-helpers.js");
+  const entries = buildDoorEntries({
+    editionId: "2027",
+    vipPortalEntries: [
+      { id: "a", portalId: "rtl", firstName: "Ana", lastName: "Vip", organization: "RTL" },
+      { id: "b", portalId: "rtl", firstName: "Ben", lastName: "Std", organization: "RTL", placeType: "standard", guestFirstName: "Cy" },
+    ],
+  });
+  const vip = entries.find((entry) => entry.fullName === "Ana Vip");
+  const standard = entries.find((entry) => entry.fullName === "Ben Std");
+  assert.equal(vip.isVip, true);
+  assert.equal(standard.isVip, false);
+  assert.equal(standard.listId, "partner_standard");
+  assert.equal(standard.places, 2);
 });

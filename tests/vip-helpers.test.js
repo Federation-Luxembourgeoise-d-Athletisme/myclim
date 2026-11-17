@@ -43,3 +43,38 @@ test("getVipTourChoiceLabel resolves the configured labels", () => {
   assert.match(getVipTourChoiceLabel("coulisses"), /coulisses/i);
   assert.match(getVipTourChoiceLabel("unknown"), /non renseigné/i);
 });
+
+test("partner portal places: caps, place types and legacy contacts", async () => {
+  const {
+    computeVipPortalPlaces,
+    getVipPortalContacts,
+    getVipPortalPlaceTypes,
+    parseVipPlacesCap,
+  } = await import("../src/app/vip-helpers.js");
+
+  assert.equal(parseVipPlacesCap(""), null);
+  assert.equal(parseVipPlacesCap("12"), 12);
+  assert.equal(parseVipPlacesCap("0"), 0);
+
+  assert.deepEqual(getVipPortalPlaceTypes({}), ["vip"]);
+  assert.deepEqual(getVipPortalPlaceTypes({ vipPlacesCap: 10, standardPlacesCap: 5 }), ["vip", "standard"]);
+  assert.deepEqual(getVipPortalPlaceTypes({ vipPlacesCap: 0, standardPlacesCap: 5 }), ["standard"]);
+
+  const places = computeVipPortalPlaces({ vipPlacesCap: 3, standardPlacesCap: 2 }, [
+    { firstName: "A", guestFirstName: "B" },
+    { firstName: "C", placeType: "standard" },
+  ]);
+  assert.deepEqual(places.used, { vip: 2, standard: 1 });
+  assert.deepEqual(places.remaining, { vip: 1, standard: 1 });
+
+  assert.deepEqual(getVipPortalContacts({ contactName: "Fred Muller", contactEmail: "f@x.lu" }), [
+    { firstName: "Fred", lastName: "Muller", email: "f@x.lu", phone: "" },
+  ]);
+});
+
+test("partner portal meeting contact falls back to Margot", async () => {
+  const { getVipPortalMeetingContact } = await import("../src/app/vip-helpers.js");
+  assert.equal(getVipPortalMeetingContact({}).email, "margot.laporte@fla.lu");
+  assert.equal(getVipPortalMeetingContact({ meetingContact: null }).lastName, "Laporte");
+  assert.equal(getVipPortalMeetingContact({ meetingContact: { firstName: "Paul", email: "p@fla.lu" } }).firstName, "Paul");
+});
