@@ -26,11 +26,11 @@ function toDate(value) {
 }
 
 // Catégories du meeting : âge atteint au 31 décembre de l'année de l'édition
-// (U12 = 10-11 ans, U14 = 12-13 ans).
+// (U12 = 10-11 ans, U14 = 12-13 ans, U16 = 14-15 ans, porte-panier seulement).
 function getYouthBirthYears(editionYear) {
   const year = Number(editionYear);
-  if (!year) return { u12: "", u14: "" };
-  return { u12: `${year - 11}/${year - 10}`, u14: `${year - 13}/${year - 12}` };
+  if (!year) return { u12: "", u14: "", u16: "" };
+  return { u12: `${year - 11}/${year - 10}`, u14: `${year - 13}/${year - 12}`, u16: `${year - 15}/${year - 14}` };
 }
 
 function useCurrentEdition() {

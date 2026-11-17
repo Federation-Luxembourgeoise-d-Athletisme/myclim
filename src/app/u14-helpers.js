@@ -20,7 +20,15 @@ const U14_RACE_DEFINITION_MAP = new Map(U14_RACE_DEFINITIONS.map((definition) =>
 const U14_REQUESTABLE_EVENTS_BY_CATEGORY = {
   U12: ["60 m"],
   U14: ["60 m", "1000 m"],
+  U16: [],
 };
+
+// Catégories qui ne peuvent demander que le rôle de porte-panier.
+const U14_BASKET_ONLY_CATEGORIES = ["U16"];
+
+function isU14BasketOnlyCategory(category) {
+  return U14_BASKET_ONLY_CATEGORIES.includes(String(category || "").trim().toUpperCase());
+}
 const luxCompetitionClubs = [
   "CAB",
   "CAD",
@@ -129,7 +137,7 @@ function getU14AllowedEvents(category) {
 
 function getValidRequestedEventForCategory(category, requestedEvent) {
   const allowedEvents = getU14AllowedEvents(category);
-  return allowedEvents.includes(requestedEvent) ? requestedEvent : allowedEvents[0];
+  return allowedEvents.includes(requestedEvent) ? requestedEvent : allowedEvents[0] || "";
 }
 
 function getPreProgramSubmissionErrorMessage(error, t) {
@@ -619,6 +627,7 @@ export {
   getU14WorkflowStatusLabel,
   getValidRequestedEventForCategory,
   isProtectedSlotActive,
+  isU14BasketOnlyCategory,
   luxCompetitionClubs,
   normalizeComparableValue,
   syncU14RaceAllocations,
