@@ -241,7 +241,8 @@ function computeVipPortalPlaces(portal = {}, entries = []) {
   entries.forEach((entry) => {
     used[getVipEntryPlaceType(entry)] += countVipEntryPlaces(entry);
   });
-  const caps = { vip: normalizeVipPlacesCap(portal.vipPlacesCap), standard: normalizeVipPlacesCap(portal.standardPlacesCap) };
+  // VIP sans plafond = illimité (null) ; places normales sans plafond = aucune (0).
+  const caps = { vip: normalizeVipPlacesCap(portal.vipPlacesCap), standard: normalizeVipPlacesCap(portal.standardPlacesCap) ?? 0 };
   const remaining = {
     vip: caps.vip === null ? null : Math.max(0, caps.vip - used.vip),
     standard: caps.standard === null ? null : Math.max(0, caps.standard - used.standard),

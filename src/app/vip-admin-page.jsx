@@ -444,8 +444,9 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
     const requested = Math.max(0, Math.floor(Number(request.requestedPlaces) || 0));
     try {
       if (accept && portal) {
-        const currentCap = normalizeVipPlacesCap(portal[capField]);
-        // Sans plafond, les places sont déjà illimitées : rien à augmenter.
+        // VIP sans plafond = déjà illimité : rien à augmenter. Places normales
+        // sans plafond = aucune : on part de 0.
+        const currentCap = normalizeVipPlacesCap(portal[capField]) ?? (placeType === "standard" ? 0 : null);
         if (currentCap !== null) {
           const portalEntries = partnerRegistrations.filter((entry) => entry.portalId === portal.id);
           const used = computeVipPortalPlaces(portal, portalEntries).used[placeType];
@@ -1845,7 +1846,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                           <span>
                             {t("vipPlacesVip")} : {formatPlaces(portal.places.used.vip, portal.places.caps.vip)}
                           </span>
-                          {portal.places.caps.standard !== null || portal.places.used.standard ? (
+                          {portal.places.caps.standard > 0 || portal.places.used.standard ? (
                             <span>
                               {t("vipPlacesStandard")} : {formatPlaces(portal.places.used.standard, portal.places.caps.standard)}
                             </span>
