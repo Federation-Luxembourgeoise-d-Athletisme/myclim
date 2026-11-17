@@ -10926,6 +10926,43 @@ button.xc-card:hover { border-color: #9fb3c8; }
   font-weight: 600;
 }
 
+/* Demande de places : fenêtre au premier plan, pour qu'on voie bien le changement. */
+.vip-portal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 30, 50, 0.45);
+  overflow-y: auto;
+}
+
+.vip-portal-modal__card {
+  width: min(720px, 100%);
+  border-top: 4px solid var(--vp-accent);
+  box-shadow: 0 18px 48px rgba(15, 30, 50, 0.25);
+}
+
+.vip-portal-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.vip-portal-modal__close {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--vp-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--vp-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .vip-portal-requests {
   display: grid;
   gap: 4px;
