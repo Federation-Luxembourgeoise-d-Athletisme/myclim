@@ -16,6 +16,7 @@ import {
   getAccessOption,
   getMemberAccountStatus,
   memberDisplayName,
+  normalizeKey,
   normalizeMember,
   parsePastedMembers,
 } from "./organisation-teams";
@@ -80,6 +81,7 @@ export function OrganisationTeamsPage() {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [pasteResult, setPasteResult] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
   const [saveState, setSaveState] = useState("");
   const saveTimer = useRef(null);
   const saveVersion = useRef(0);
@@ -206,17 +208,49 @@ export function OrganisationTeamsPage() {
   }
 
   // Liste collée depuis Excel : même accès par défaut qu'un ajout à la main.
-  function addPastedMembers() {
-    const { toAdd, duplicates } = parsePastedMembers(pasteText, selected.members);
+  // Un nom collé sans e-mail est relié au compte MyCLIM qui porte exactement
+  // ce prénom + nom (un seul résultat), ex. les étudiants LUNEX déjà inscrits.
+  async function findAccountByName(member) {
+    try {
+      const sameName = (user) =>
+        normalizeKey(`${user.firstName} ${user.lastName}`) === normalizeKey(`${member.firstName} ${member.lastName}`);
+      const matches = (await searchUserAccounts(`${member.firstName} ${member.lastName}`)).filter(sameName);
+      return matches.length === 1 ? matches[0] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function addPastedMembers() {
+    const team = selected;
+    const { toAdd, duplicates } = parsePastedMembers(pasteText, team.members);
     if (!toAdd.length) {
       setPasteResult(duplicates.length ? "Tout le monde est déjà dans l'équipe." : "Aucune ligne lisible : Prénom, Nom (puis e-mail, téléphone…).");
       return;
     }
-    const defaultAccess = (email) => (!email ? "none" : selected.id === "lunex" ? "lunex" : "organisation");
-    updateTeam(selected.id, {
-      members: [...selected.members, ...toAdd.map((member) => normalizeMember({ ...member, access: defaultAccess(member.email), id: newId("m") }))],
-    });
-    setPasteResult(`${toAdd.length} ajouté(s)${duplicates.length ? `, ${duplicates.length} déjà présent(s) ignoré(s)` : ""}.`);
+    setPasteBusy(true);
+    let linked = 0;
+    const enriched = await Promise.all(
+      toAdd.map(async (member) => {
+        if (member.email) return member;
+        const user = await findAccountByName(member);
+        if (!user) return member;
+        linked += 1;
+        return { ...member, email: String(user.email).toLowerCase(), phone: member.phone || user.phone || "" };
+      }),
+    );
+    setPasteBusy(false);
+    const defaultAccess = (email) => (!email ? "none" : team.id === "lunex" ? "lunex" : "organisation");
+    update((current) =>
+      current.map((item) =>
+        item.id === team.id
+          ? { ...item, members: [...item.members, ...enriched.map((member) => normalizeMember({ ...member, access: defaultAccess(member.email), id: newId("m") }))] }
+          : item,
+      ),
+    );
+    setPasteResult(
+      `${toAdd.length} ajouté(s) dans « ${team.name} »${linked ? `, dont ${linked} relié(s) à leur compte` : ""}${duplicates.length ? `, ${duplicates.length} déjà présent(s) ignoré(s)` : ""}.`,
+    );
     setPasteText("");
     setPasteOpen(false);
   }
@@ -519,8 +553,8 @@ export function OrganisationTeamsPage() {
                   <button className="ath-btn" type="button" onClick={() => { setPasteOpen(false); setPasteText(""); }}>
                     Annuler
                   </button>
-                  <button className="ath-btn ath-btn--primary" disabled={!pastePreview?.toAdd.length} type="button" onClick={addPastedMembers}>
-                    Ajouter {pastePreview?.toAdd.length || ""}
+                  <button className="ath-btn ath-btn--primary" disabled={pasteBusy || !pastePreview?.toAdd.length} type="button" onClick={addPastedMembers}>
+                    {pasteBusy ? "Recherche des comptes…" : `Ajouter ${pastePreview?.toAdd.length || ""}`}
                   </button>
                 </div>
               </>
