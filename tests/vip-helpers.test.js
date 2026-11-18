@@ -81,3 +81,40 @@ test("partner portal meeting contact falls back to Margot", async () => {
   assert.equal(getVipPortalMeetingContact({ meetingContact: null }).lastName, "Laporte");
   assert.equal(getVipPortalMeetingContact({ meetingContact: { firstName: "Paul", email: "p@fla.lu" } }).firstName, "Paul");
 });
+
+test('one portal, two modules: the company sees the places added up', async () => {
+  const { computeVipPortalPlaces, getVipPortalCaps, portalHasVipModule, getVipPortalPlaceTypes } = await import('../src/app/vip-helpers.js');
+  assert.equal(portalHasVipModule({ vipPlacesCap: 4 }), true);
+  assert.equal(portalHasVipModule({ businessRace: true }), false);
+  assert.equal(portalHasVipModule({ businessRace: true, vipPartner: true }), true);
+
+  const both = { vipPartner: true, vipPlacesCap: 6, standardPlacesCap: 2, businessRace: true, businessRaceVipCap: 4, businessRaceStandardCap: 8 };
+  const caps = getVipPortalCaps(both);
+  assert.deepEqual(caps.total, { vip: 10, standard: 10 });
+  assert.deepEqual(caps.partner, { vip: 6, standard: 2 });
+  const places = computeVipPortalPlaces(both, [{ firstName: 'A' }, { firstName: 'B', placeType: 'standard' }]);
+  assert.deepEqual(places.remaining, { vip: 9, standard: 9 });
+
+  // Business Race seule : ses anciens champs VIP du partenariat sont ignorés.
+  const raceOnly = { businessRace: true, vipPlacesCap: 99, businessRaceVipCap: 4, businessRaceStandardCap: 0 };
+  assert.deepEqual(getVipPortalCaps(raceOnly).total, { vip: 4, standard: 0 });
+  assert.deepEqual(getVipPortalPlaceTypes(raceOnly), ['vip']);
+
+  // Partenariat VIP sans plafond : total illimité.
+  assert.equal(getVipPortalCaps({ vipPartner: true, businessRace: true, businessRaceVipCap: 4 }).total.vip, null);
+});
+
+test('existing portal found by id, by a name containing the other, or by contact e-mail', async () => {
+  const { findExistingPortal, buildCompanyPortalPath } = await import('../src/app/vip-helpers.js');
+  const portals = [
+    { id: 'cargolux', organizationName: 'Cargolux' },
+    { id: 'bgl-bnp-paribas', organizationName: 'BGL BNP Paribas', contacts: [{ firstName: 'M', email: 'm.schmit@bgl.lu' }] },
+  ];
+  assert.equal(findExistingPortal(portals, { organizationName: 'Cargolux' }).id, 'cargolux');
+  assert.equal(findExistingPortal(portals, { organizationName: 'BGL BNP' }).id, 'bgl-bnp-paribas');
+  assert.equal(findExistingPortal(portals, { organizationName: 'Autre', email: 'M.Schmit@bgl.lu' }).id, 'bgl-bnp-paribas');
+  assert.equal(findExistingPortal(portals, { organizationName: 'Cargo' }).id, 'cargolux');
+  assert.equal(findExistingPortal(portals, { organizationName: 'Luxair' }), null);
+  assert.equal(buildCompanyPortalPath({ id: 'cargolux' }), '/vip/orga/cargolux');
+  assert.equal(buildCompanyPortalPath({ id: 'acme', businessRace: true }), '/business-race/acme');
+});

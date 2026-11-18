@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { collection, collectionGroup, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { buildAppUrl } from "../services/app-url";
-import { buildBusinessRacePortalPath } from "./business-race-helpers";
+
 import { useActiveEdition } from "./edition";
 import { useTr } from "./use-tr";
 import { useLanguage } from "./language-context";
@@ -25,7 +25,11 @@ import {
 } from "./business-race-helpers";
 import {
   buildVipFullName,
+  buildCompanyPortalPath,
   buildVipPortalId,
+  findExistingPortal,
+  getVipPortalCaps,
+  portalHasVipModule,
   computeVipPortalPlaces,
   createEmptyVipPortalContact,
   getVipPortalContacts,
@@ -51,12 +55,22 @@ function createEmptyForm() {
     organizationName: "",
     businessRacePack: pack.id,
     businessRaceTeams: String(pack.teams),
-    vipPlacesCap: String(pack.vipPlacesCap),
-    standardPlacesCap: String(pack.standardPlacesCap),
+    businessRaceVipCap: String(pack.vipPlacesCap),
+    businessRaceStandardCap: String(pack.standardPlacesCap),
     companionsAllowed: false,
     contact: createEmptyVipPortalContact(),
     notes: "",
+    // Portail VIP trouvé pour la même entreprise : true = créer quand même un portail séparé.
+    separate: false,
   };
+}
+
+// Identifiant libre (l'entreprise « n'est pas la même » qu'un portail existant).
+function buildFreePortalId(base, takenIds) {
+  if (!takenIds.has(base)) return base;
+  let index = 2;
+  while (takenIds.has(`${base}-${index}`)) index += 1;
+  return `${base}-${index}`;
 }
 
 function capLabel(cap) {
@@ -67,7 +81,9 @@ function BusinessRaceAdminPage() {
   const tr = useTr();
   const { language } = useLanguage();
   const { activeEditionId, activeEditionLabel } = useActiveEdition(true);
-  const [portals, setPortals] = useState([]);
+  const [allPortals, setAllPortals] = useState([]);
+  const portals = useMemo(() => allPortals.filter(isBusinessRacePortal), [allPortals]);
+  const [placeRequests, setPlaceRequests] = useState([]);
   const [teamsByPortal, setTeamsByPortal] = useState({});
   const [entriesByPortal, setEntriesByPortal] = useState({});
   const [loading, setLoading] = useState(true);
@@ -86,10 +102,9 @@ function BusinessRaceAdminPage() {
     const unsubscribePortals = onSnapshot(
       collection(db, "vipPartnerPortals"),
       (snapshot) => {
-        setPortals(
+        setAllPortals(
           snapshot.docs
             .map((entry) => ({ id: entry.id, ...entry.data() }))
-            .filter(isBusinessRacePortal)
             .sort((left, right) => String(left.organizationName || left.id).localeCompare(String(right.organizationName || right.id), "fr")),
         );
         setLoading(false);
@@ -120,10 +135,23 @@ function BusinessRaceAdminPage() {
       (snapshot) => setEntriesByPortal(groupByPortal(snapshot)),
       (snapshotError) => console.error("Business Race guests load failed", snapshotError),
     );
+    // Demandes de places des entreprises sans partenariat VIP (celles des
+    // partenaires VIP se traitent dans VIP).
+    const unsubscribeRequests = onSnapshot(
+      collectionGroup(db, "placeRequests"),
+      (snapshot) =>
+        setPlaceRequests(
+          snapshot.docs
+            .filter((entry) => entry.ref.path.startsWith("vipPartnerPortals/"))
+            .map((entry) => ({ id: entry.id, portalId: entry.ref.path.split("/")[1] || "", ...entry.data() })),
+        ),
+      (snapshotError) => console.error("Business Race place requests load failed", snapshotError),
+    );
     return () => {
       unsubscribePortals();
       unsubscribeTeams();
       unsubscribeEntries();
+      unsubscribeRequests();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -139,6 +167,7 @@ function BusinessRaceAdminPage() {
           teams,
           statuses,
           places,
+          caps: getVipPortalCaps(portal),
           runners: statuses.reduce((sum, status) => sum + status.filled, 0),
           completeTeams: statuses.filter((status) => status.complete).length,
           contact: getVipPortalContacts(portal)[0] || null,
@@ -180,13 +209,28 @@ function BusinessRaceAdminPage() {
       organizationName: portal.organizationName || "",
       businessRacePack: getBusinessRacePack(portal.businessRacePack) ? portal.businessRacePack : "custom",
       businessRaceTeams: String(getBusinessRaceTeamCount(portal)),
-      vipPlacesCap: normalizeVipPlacesCap(portal.vipPlacesCap) ?? "",
-      standardPlacesCap: normalizeVipPlacesCap(portal.standardPlacesCap) ?? "",
+      businessRaceVipCap: String(normalizeVipPlacesCap(portal.businessRaceVipCap) ?? 0),
+      businessRaceStandardCap: String(normalizeVipPlacesCap(portal.businessRaceStandardCap) ?? 0),
       companionsAllowed: vipPortalAllowsCompanions(portal),
       contact: getVipPortalContacts(portal)[0] || createEmptyVipPortalContact(),
-      notes: portal.notes || "",
+      notes: portal.businessRaceNotes ?? portal.notes ?? "",
+      separate: false,
     });
   }
+
+  // Portail que le formulaire va compléter : celui modifié, ou le portail VIP
+  // trouvé pour la même entreprise (sauf « ce n'est pas la même entreprise »).
+  const vipOnlyPortals = useMemo(() => allPortals.filter((portal) => !isBusinessRacePortal(portal)), [allPortals]);
+  const detectedVipPortal =
+    form && !editingId ? findExistingPortal(vipOnlyPortals, { organizationName: form.organizationName, email: form.contact.email }) : null;
+  const alreadyInRace =
+    form && !editingId && !detectedVipPortal ? findExistingPortal(portals, { organizationName: form.organizationName, email: form.contact.email }) : null;
+  const targetPortal = editingId
+    ? allPortals.find((portal) => portal.id === editingId) || null
+    : detectedVipPortal && !form?.separate
+      ? detectedVipPortal
+      : null;
+  const targetHasVip = Boolean(targetPortal && portalHasVipModule(targetPortal));
 
   function changeForm(event) {
     const { name, value, type, checked } = event.target;
@@ -200,7 +244,7 @@ function BusinessRaceAdminPage() {
       ...current,
       businessRacePack: event.target.value,
       ...(pack && pack.id !== "custom"
-        ? { businessRaceTeams: String(pack.teams), vipPlacesCap: String(pack.vipPlacesCap), standardPlacesCap: String(pack.standardPlacesCap) }
+        ? { businessRaceTeams: String(pack.teams), businessRaceVipCap: String(pack.vipPlacesCap), businessRaceStandardCap: String(pack.standardPlacesCap) }
         : {}),
     }));
   }
@@ -214,53 +258,62 @@ function BusinessRaceAdminPage() {
     event.preventDefault();
     setError("");
     setStatusMessage("");
-    const organizationName = form.organizationName.trim();
-    const portalId = editingId || buildVipPortalId(organizationName);
+    if (alreadyInRace) {
+      setError(tr(`${alreadyInRace.organizationName || alreadyInRace.id} est déjà dans la Business Race : modifiez-la dans la liste.`, `${alreadyInRace.organizationName || alreadyInRace.id} is already in the Business Race: edit it in the list.`));
+      return;
+    }
+    const existingPortal = targetPortal;
+    const organizationName = targetHasVip ? existingPortal.organizationName || existingPortal.id : form.organizationName.trim();
+    const baseId = buildVipPortalId(organizationName);
+    const portalId = existingPortal ? existingPortal.id : baseId ? buildFreePortalId(baseId, new Set(allPortals.map((portal) => portal.id))) : "";
     if (!portalId) {
       setError(tr("Indiquez le nom de l'entreprise.", "Enter the company name."));
       return;
     }
-    const existing = portals.find((portal) => portal.id === portalId);
-    const existingPortal = editingId ? existing : null;
-    if (!editingId && existing) {
-      setError(tr("Cette entreprise a déjà un portail.", "This company already has a portal."));
-      return;
+    // Réglages du module Business Race seulement. Pour une entreprise aussi
+    // partenaire VIP, le nom, les contacts et l'accompagnant se règlent dans VIP.
+    const moduleFields = {
+      ...buildBusinessRacePortalFields(form),
+      businessRaceVipCap: parseVipPlacesCap(form.businessRaceVipCap) ?? 0,
+      businessRaceStandardCap: parseVipPlacesCap(form.businessRaceStandardCap) ?? 0,
+      businessRaceNotes: form.notes.trim(),
+      updatedAt: serverTimestamp(),
+    };
+    let portalFields = {};
+    if (!targetHasVip) {
+      // Les autres personnes de contact (saisies par l'entreprise) sont gardées.
+      const otherContacts = existingPortal ? getVipPortalContacts(existingPortal).slice(1) : [];
+      const contacts = normalizeVipPortalContacts([form.contact, ...otherContacts]);
+      const mainContact = contacts[0] || createEmptyVipPortalContact();
+      portalFields = {
+        organizationName,
+        companionsAllowed: Boolean(form.companionsAllowed),
+        contacts,
+        contactName: buildVipFullName(mainContact),
+        contactEmail: mainContact.email,
+        contactPhone: mainContact.phone,
+        ...(existingPortal ? {} : { vipPartner: false, createdAt: serverTimestamp(), hasPassword: false, editionId: activeEditionId || "" }),
+      };
+    } else if (existingPortal.vipPartner !== true) {
+      // Portail VIP d'avant les modules : on note explicitement le partenariat.
+      portalFields = { vipPartner: true };
     }
-    // Les autres personnes de contact (saisies par l'entreprise) sont gardées.
-    const otherContacts = existingPortal ? getVipPortalContacts(existingPortal).slice(1) : [];
-    const contacts = normalizeVipPortalContacts([form.contact, ...otherContacts]);
-    const mainContact = contacts[0] || createEmptyVipPortalContact();
     setSaving(true);
     try {
-      await setDoc(
-        doc(db, "vipPartnerPortals", portalId),
-        {
-          organizationName,
-          ...buildBusinessRacePortalFields(form),
-          vipPlacesCap: parseVipPlacesCap(form.vipPlacesCap) ?? 0,
-          standardPlacesCap: parseVipPlacesCap(form.standardPlacesCap) ?? 0,
-          companionsAllowed: Boolean(form.companionsAllowed),
-          contacts,
-          contactName: buildVipFullName(mainContact),
-          contactEmail: mainContact.email,
-          contactPhone: mainContact.phone,
-          notes: form.notes.trim(),
-          updatedAt: serverTimestamp(),
-          ...(existingPortal ? {} : { createdAt: serverTimestamp(), hasPassword: false, editionId: activeEditionId || "" }),
-        },
-        { merge: true },
-      );
+      await setDoc(doc(db, "vipPartnerPortals", portalId), { ...portalFields, ...moduleFields }, { merge: true });
       if (!existingPortal) {
         await setDoc(doc(db, "vipPartnerPortalSecrets", portalId), { accessPassword: "", updatedAt: serverTimestamp() }, { merge: true });
       }
       setStatusMessage(
-        existingPortal
+        editingId
           ? tr(`${organizationName} mis à jour.`, `${organizationName} updated.`)
-          : tr(`${organizationName} ajouté : copiez son lien et envoyez-le à l'entreprise.`, `${organizationName} added: copy its link and send it to the company.`),
+          : existingPortal
+            ? tr(`Business Race ajoutée au portail de ${organizationName} : même lien qu'avant, la page affiche maintenant ses équipes.`, `Business Race added to ${organizationName}'s portal: same link as before, the page now shows its teams.`)
+            : tr(`${organizationName} ajouté : copiez son lien et envoyez-le à l'entreprise.`, `${organizationName} added: copy its link and send it to the company.`),
       );
       setForm(null);
       setEditingId("");
-      if (!existingPortal) setExpanded((current) => ({ ...current, [portalId]: true }));
+      if (!editingId) setExpanded((current) => ({ ...current, [portalId]: true }));
     } catch (saveError) {
       console.error("Business Race portal save failed", saveError);
       setError(tr("Impossible d'enregistrer l'entreprise.", "Unable to save the company."));
@@ -339,10 +392,44 @@ function BusinessRaceAdminPage() {
     }
   }
 
-  async function copyLink(portalId) {
+  // Demandes de places des entreprises Business Race sans partenariat VIP
+  // (celles des partenaires VIP se traitent dans VIP › Portails partenaires).
+  const pendingRequests = placeRequests
+    .filter((request) => (request.status || "pending") === "pending")
+    .map((request) => ({ ...request, portal: portals.find((portal) => portal.id === request.portalId) }))
+    .filter((request) => request.portal && !portalHasVipModule(request.portal))
+    .sort((left, right) => (left.createdAt?.toMillis?.() || 0) - (right.createdAt?.toMillis?.() || 0));
+
+  // Accepter : les places du pack augmentent du nombre demandé.
+  async function decidePlaceRequest(request, accept) {
+    setError("");
+    setStatusMessage("");
+    const standard = request.placeType === "standard";
+    const field = standard ? "businessRaceStandardCap" : "businessRaceVipCap";
+    const requested = Math.max(0, Math.floor(Number(request.requestedPlaces) || 0));
     try {
-      await navigator.clipboard.writeText(buildAppUrl(buildBusinessRacePortalPath(portalId)));
-      setCopiedId(portalId);
+      if (accept) {
+        const row = rows.find((item) => item.portal.id === request.portalId);
+        const current = normalizeVipPlacesCap(request.portal[field]) ?? 0;
+        const used = row ? row.places.used[standard ? "standard" : "vip"] : 0;
+        await setDoc(doc(db, "vipPartnerPortals", request.portalId), { [field]: Math.max(current, used) + requested, updatedAt: serverTimestamp() }, { merge: true });
+      }
+      await setDoc(
+        doc(db, "vipPartnerPortals", request.portalId, "placeRequests", request.id),
+        { status: accept ? "accepted" : "refused", decidedAt: serverTimestamp() },
+        { merge: true },
+      );
+      setStatusMessage(accept ? tr("Demande acceptée : les places sont ajoutées au pack.", "Request accepted: the places are added to the pack.") : tr("Demande refusée.", "Request refused."));
+    } catch (decisionError) {
+      console.error("Business Race place request decision failed", decisionError);
+      setError(tr("Impossible d'enregistrer la décision.", "Unable to save the decision."));
+    }
+  }
+
+  async function copyLink(portal) {
+    try {
+      await navigator.clipboard.writeText(buildAppUrl(buildCompanyPortalPath(portal)));
+      setCopiedId(portal.id);
       window.setTimeout(() => setCopiedId(""), 1500);
     } catch {
       setCopiedId("");
@@ -417,7 +504,7 @@ function BusinessRaceAdminPage() {
           <li>{tr("Ajoutez chaque entreprise avec son pack : nombre d'équipes, invitations VIP et normales. Tout reste modifiable.", "Add each company with its pack: number of teams, VIP and standard invitations. Everything can be changed later.")}</li>
           <li>{tr("Copiez son lien et envoyez-le au contact : l'entreprise y nomme ses équipes, inscrit ses coureurs (2 femmes, 2 hommes, 1 remplaçant) et ses invités.", "Copy its link and send it to the contact: the company names its teams, registers its runners (2 women, 2 men, 1 reserve) and its guests.")}</li>
           <li>{tr("Les invités arrivent d'eux-mêmes dans VIP (liste, badges, visite) et à la Caisse (places normales). Les coureurs ont leur badge « Business Race » dans Accréditations.", "Guests flow automatically into VIP (list, badges, tour) and the Cash desk (standard places). Runners get their “Business Race” badge in Accreditations.")}</li>
-          <li>{tr("Le mot de passe d'un portail et les demandes de places supplémentaires se gèrent dans VIP › Portails partenaires.", "A portal's password and extra place requests are handled in VIP › Partner portals.")}</li>
+          <li>{tr("Une entreprise n'a qu'un seul portail. Si elle est déjà partenaire VIP, la Business Race s'ajoute à son portail : même lien, places cumulées pour elle ; ici vous ne réglez que la Business Race, le partenariat se règle dans VIP.", "A company only has one portal. If it is already a VIP partner, the Business Race is added to its portal: same link, places added up for the company; here you only set up the Business Race, the partnership is set up in VIP.")}</li>
         </ul>
       </details>
 
@@ -523,6 +610,29 @@ function BusinessRaceAdminPage() {
         </footer>
       </form>
 
+      {pendingRequests.length ? (
+        <section className="br-panel">
+          <header className="br-panel__head">
+            <h3>{tr("Demandes de places supplémentaires", "Extra place requests")} <span className="br-count">{pendingRequests.length}</span></h3>
+            <span>{tr("Accepter ajoute les places au pack de l'entreprise.", "Accepting adds the places to the company's pack.")}</span>
+          </header>
+          <ul className="br-requests">
+            {pendingRequests.map((request) => (
+              <li key={`${request.portalId}-${request.id}`}>
+                <span>
+                  <strong>{request.portal.organizationName || request.portalId}</strong>
+                  {" · "}+{request.requestedPlaces} {request.placeType === "standard" ? tr("normale(s)", "standard") : "VIP"}
+                  {[request.firstName, request.lastName].filter(Boolean).length ? ` · ${[request.firstName, request.lastName].filter(Boolean).join(" ")}` : ""}
+                  {request.message ? <small>“{request.message}”</small> : null}
+                </span>
+                <button type="button" className="br-btn br-btn--small" onClick={() => decidePlaceRequest(request, false)}>{tr("Refuser", "Refuse")}</button>
+                <button type="button" className="br-btn br-btn--small br-btn--primary" onClick={() => decidePlaceRequest(request, true)}>{tr("Accepter", "Accept")}</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <div className="br-toolbar">
         <h2>{tr("Entreprises", "Companies")} <span className="br-count">{rows.length}</span></h2>
         <span className="br-toolbar__spacer" />
@@ -540,13 +650,61 @@ function BusinessRaceAdminPage() {
             <h3>{editingId ? tr(`Modifier ${form.organizationName || editingId}`, `Edit ${form.organizationName || editingId}`) : tr("Nouvelle entreprise", "New company")}</h3>
             <span>{tr("Le pack remplit les équipes et les places ; tout reste modifiable.", "The pack fills in teams and places; everything stays editable.")}</span>
           </header>
+          {detectedVipPortal ? (
+            <div className="br-detect">
+              <h4>
+                {tr(`${detectedVipPortal.organizationName || detectedVipPortal.id} a déjà un portail`, `${detectedVipPortal.organizationName || detectedVipPortal.id} already has a portal`)}
+                <span className="br-mod br-mod--vip">★ {tr("Partenaire VIP", "VIP partner")}</span>
+              </h4>
+              <p className="br-detect__facts">
+                {(() => {
+                  const caps = getVipPortalCaps(detectedVipPortal);
+                  const contact = getVipPortalContacts(detectedVipPortal)[0];
+                  return [
+                    tr(`Invitations VIP ${capLabel(caps.partner.vip)}`, `VIP invitations ${capLabel(caps.partner.vip)}`),
+                    tr(`normales ${caps.partner.standard}`, `standard ${caps.partner.standard}`),
+                    contact ? [buildVipFullName(contact), contact.email].filter(Boolean).join(" · ") : "",
+                    buildCompanyPortalPath(detectedVipPortal),
+                  ].filter(Boolean).join("  ·  ");
+                })()}
+              </p>
+              <div className="br-detect__choice">
+                <label className={!form.separate ? "is-on" : ""}>
+                  <input type="radio" name="separate" checked={!form.separate} onChange={() => setForm((current) => ({ ...current, separate: false }))} />
+                  <span>
+                    <strong>{tr("Ajouter la Business Race à ce portail", "Add the Business Race to this portal")}</strong>
+                    <small>{tr("Même lien et mêmes contacts. Le partenariat VIP reste réglé dans VIP ; ici vous ne réglez que la Business Race.", "Same link and contacts. The VIP partnership stays set up in VIP; here you only set up the Business Race.")}</small>
+                  </span>
+                </label>
+                <label className={form.separate ? "is-on" : ""}>
+                  <input type="radio" name="separate" checked={form.separate} onChange={() => setForm((current) => ({ ...current, separate: true }))} />
+                  <span>
+                    <strong>{tr("Ce n'est pas la même entreprise", "It's not the same company")}</strong>
+                    <small>{tr("Créer un portail séparé (autre lien).", "Create a separate portal (another link).")}</small>
+                  </span>
+                </label>
+              </div>
+            </div>
+          ) : alreadyInRace ? (
+            <p className="br-detect br-detect--warn">
+              {tr(`${alreadyInRace.organizationName || alreadyInRace.id} est déjà dans la Business Race : modifiez-la dans la liste ci-dessous.`, `${alreadyInRace.organizationName || alreadyInRace.id} is already in the Business Race: edit it in the list below.`)}
+            </p>
+          ) : null}
           <div className="br-panel__body">
             <section className="br-panel__section">
-              <h4>{tr("Entreprise & pack", "Company & pack")}</h4>
+              <h4>{tr("Entreprise & module Business Race", "Company & Business Race module")}</h4>
               <div className="br-panel__row br-panel__row--main">
                 <label className="br-field">
                   <span>{tr("Entreprise", "Company")} *</span>
-                  <input name="organizationName" required autoFocus={!editingId} value={form.organizationName} onChange={changeForm} />
+                  <input
+                    name="organizationName"
+                    required
+                    autoFocus={!editingId}
+                    readOnly={Boolean(editingId) && targetHasVip}
+                    title={editingId && targetHasVip ? tr("Nom réglé dans VIP (portail partenaire)", "Name set in VIP (partner portal)") : undefined}
+                    value={editingId && targetHasVip && targetPortal ? targetPortal.organizationName || targetPortal.id : form.organizationName}
+                    onChange={changeForm}
+                  />
                 </label>
                 <label className="br-field">
                   <span>{tr("Pack", "Pack")}</span>
@@ -563,36 +721,66 @@ function BusinessRaceAdminPage() {
                   <input name="businessRaceTeams" type="number" min="1" max={BUSINESS_RACE_MAX_TEAMS} required value={form.businessRaceTeams} onChange={changeForm} />
                 </label>
                 <label className="br-field">
-                  <span>{tr("Invitations VIP", "VIP invitations")}</span>
-                  <input name="vipPlacesCap" type="number" min="0" value={form.vipPlacesCap} onChange={changeForm} />
+                  <span>{tr("Invitations VIP du pack", "Pack VIP invitations")}</span>
+                  <input name="businessRaceVipCap" type="number" min="0" value={form.businessRaceVipCap} onChange={changeForm} />
                 </label>
                 <label className="br-field">
-                  <span>{tr("Invitations normales", "Standard invitations")}</span>
-                  <input name="standardPlacesCap" type="number" min="0" value={form.standardPlacesCap} onChange={changeForm} />
+                  <span>{tr("Invitations normales du pack", "Pack standard invitations")}</span>
+                  <input name="businessRaceStandardCap" type="number" min="0" value={form.businessRaceStandardCap} onChange={changeForm} />
                 </label>
               </div>
-              <label className="br-check">
-                <input name="companionsAllowed" type="checkbox" checked={Boolean(form.companionsAllowed)} onChange={changeForm} />
-                {tr("+1 accompagnant par invitation", "+1 companion per invitation")}
-              </label>
+              {targetHasVip ? (
+                <div className="br-readonly">
+                  <span className="br-mod br-mod--vip">★ {tr("Partenariat VIP", "VIP partnership")}</span>
+                  <span>
+                    {(() => {
+                      const caps = getVipPortalCaps(targetPortal);
+                      return tr(
+                        `+ ${capLabel(caps.partner.vip)} VIP et ${caps.partner.standard} normales du partenariat : l'entreprise voit le total.`,
+                        `+ ${capLabel(caps.partner.vip)} VIP and ${caps.partner.standard} standard from the partnership: the company sees the total.`,
+                      );
+                    })()}
+                  </span>
+                  <Link className="br-link" to="/app/vip">{tr("Régler dans VIP ›", "Set up in VIP ›")}</Link>
+                </div>
+              ) : (
+                <label className="br-check">
+                  <input name="companionsAllowed" type="checkbox" checked={Boolean(form.companionsAllowed)} onChange={changeForm} />
+                  {tr("+1 accompagnant par invitation", "+1 companion per invitation")}
+                </label>
+              )}
             </section>
             <section className="br-panel__section">
               <h4>{tr("Contact dans l'entreprise", "Company contact")}</h4>
-              <div className="br-panel__row br-panel__row--two">
-                <label className="br-field"><span>{tr("Prénom", "First name")}</span><input name="firstName" value={form.contact.firstName} onChange={changeContact} /></label>
-                <label className="br-field"><span>{tr("Nom", "Last name")}</span><input name="lastName" value={form.contact.lastName} onChange={changeContact} /></label>
-                <label className="br-field"><span>{tr("E-mail", "E-mail")}</span><input name="email" type="email" value={form.contact.email} onChange={changeContact} /></label>
-                <label className="br-field"><span>{tr("Téléphone", "Phone")}</span><input name="phone" type="tel" value={form.contact.phone} onChange={changeContact} /></label>
-              </div>
+              {targetHasVip ? (
+                <div className="br-readonly br-readonly--stack">
+                  <span>
+                    {getVipPortalContacts(targetPortal).map((contact) => buildVipFullName(contact) || contact.email).filter(Boolean).join(", ") || tr("Aucun contact", "No contact")}
+                  </span>
+                  <small>{tr("Contacts communs aux deux modules, modifiables dans VIP ou par l'entreprise sur sa page.", "Contacts shared by both modules, editable in VIP or by the company on its page.")}</small>
+                </div>
+              ) : (
+                <div className="br-panel__row br-panel__row--two">
+                  <label className="br-field"><span>{tr("Prénom", "First name")}</span><input name="firstName" value={form.contact.firstName} onChange={changeContact} /></label>
+                  <label className="br-field"><span>{tr("Nom", "Last name")}</span><input name="lastName" value={form.contact.lastName} onChange={changeContact} /></label>
+                  <label className="br-field"><span>{tr("E-mail", "E-mail")}</span><input name="email" type="email" value={form.contact.email} onChange={changeContact} /></label>
+                  <label className="br-field"><span>{tr("Téléphone", "Phone")}</span><input name="phone" type="tel" value={form.contact.phone} onChange={changeContact} /></label>
+                </div>
+              )}
               <label className="br-field">
-                <span>{tr("Remarques internes", "Internal notes")}</span>
+                <span>{tr("Remarques Business Race", "Business Race notes")}</span>
                 <input name="notes" value={form.notes} onChange={changeForm} placeholder={tr("Facture, déjeuner, team building…", "Invoice, lunch, team building…")} />
               </label>
             </section>
           </div>
           <footer className="br-panel__bar">
+            <span className="br-panel__hint">
+              {!editingId && targetPortal ? tr("Lien envoyé à l'entreprise : le même qu'aujourd'hui, sa page affichera en plus ses équipes.", "Link for the company: the same as today, its page will also show its teams.") : ""}
+            </span>
             <button type="button" className="br-btn" onClick={() => { setForm(null); setEditingId(""); }}>{tr("Annuler", "Cancel")}</button>
-            <button type="submit" className="br-btn br-btn--primary" disabled={saving}>{saving ? "…" : tr("Enregistrer", "Save")}</button>
+            <button type="submit" className="br-btn br-btn--primary" disabled={saving || Boolean(alreadyInRace)}>
+              {saving ? "…" : !editingId && targetPortal ? tr("Ajouter la Business Race", "Add the Business Race") : tr("Enregistrer", "Save")}
+            </button>
           </footer>
         </form>
       ) : null}
@@ -611,8 +799,8 @@ function BusinessRaceAdminPage() {
                   <th>{tr("Pack", "Pack")}</th>
                   <th>{tr("Équipes", "Teams")}</th>
                   <th className="is-num">{tr("Coureurs", "Runners")}</th>
-                  <th className="is-num">VIP</th>
-                  <th className="is-num">{tr("Normales", "Standard")}</th>
+                  <th className="is-num">{tr("Invit. VIP", "VIP invit.")}</th>
+                  <th className="is-num">{tr("Invit. normales", "Standard invit.")}</th>
                   <th>{tr("Lien du portail", "Portal link")}</th>
                 </tr>
               </thead>
@@ -628,6 +816,7 @@ function BusinessRaceAdminPage() {
                           <button type="button" className="br-row-toggle" aria-expanded={isOpen} onClick={() => setExpanded((current) => ({ ...current, [portal.id]: !isOpen }))}>
                             <span className="br-caret" aria-hidden="true">{isOpen ? "▾" : "▸"}</span>
                             <strong>{organization}</strong>
+                            {row.caps.hasVip ? <span className="br-mod br-mod--vip" title={tr("Aussi partenaire VIP : un seul portail, places cumulées", "Also a VIP partner: one portal, places added up")}>★ VIP</span> : null}
                           </button>
                           <span className="br-sub">
                             {row.contact ? [buildVipFullName(row.contact), row.contact.email].filter(Boolean).join(" · ") : tr("Pas de contact", "No contact")}
@@ -645,14 +834,14 @@ function BusinessRaceAdminPage() {
                           </div>
                         </td>
                         <td className="is-num">{row.runners}<small> / {row.teams.length * RUNNERS_PER_TEAM}</small></td>
-                        <td className="is-num">{row.places.used.vip}<small> / {capLabel(row.places.caps.vip)}</small></td>
-                        <td className="is-num">{row.places.used.standard}<small> / {capLabel(row.places.caps.standard)}</small></td>
+                        <td className="is-num">{row.places.used.vip}<small> / {capLabel(row.places.caps.vip)}</small>{row.caps.hasVip ? <span className="br-split">{capLabel(row.caps.partner.vip)} VIP + {row.caps.businessRace.vip} BR</span> : null}</td>
+                        <td className="is-num">{row.places.used.standard}<small> / {capLabel(row.places.caps.standard)}</small>{row.caps.hasVip ? <span className="br-split">{row.caps.partner.standard} VIP + {row.caps.businessRace.standard} BR</span> : null}</td>
                         <td>
                           <div className="br-link-cell">
-                            <button type="button" className="br-btn br-btn--small" onClick={() => copyLink(portal.id)}>
+                            <button type="button" className="br-btn br-btn--small" onClick={() => copyLink(portal)}>
                               {copiedId === portal.id ? tr("Copié ✓", "Copied ✓") : tr("Copier", "Copy")}
                             </button>
-                            <a className="br-btn br-btn--small br-btn--ghost" href={buildBusinessRacePortalPath(portal.id)} target="_blank" rel="noreferrer">{tr("Ouvrir", "Open")}</a>
+                            <a className="br-btn br-btn--small br-btn--ghost" href={buildCompanyPortalPath(portal)} target="_blank" rel="noreferrer">{tr("Ouvrir", "Open")}</a>
                           </div>
                         </td>
                       </tr>
@@ -696,7 +885,13 @@ function BusinessRaceAdminPage() {
                                   )}
                                 </p>
                                 <Link className="br-link" to="/app/vip">{tr("Voir dans VIP →", "See in VIP →")}</Link>
-                                {portal.notes ? <p className="br-note">“{portal.notes}”</p> : null}
+                                {row.caps.hasVip ? (
+                                  <div className="br-readonly">
+                                    <span className="br-mod br-mod--vip">★ {tr("Partenariat VIP", "VIP partnership")}</span>
+                                    <span>{tr(`${capLabel(row.caps.partner.vip)} VIP · ${row.caps.partner.standard} normales`, `${capLabel(row.caps.partner.vip)} VIP · ${row.caps.partner.standard} standard`)}</span>
+                                  </div>
+                                ) : null}
+                                {(portal.businessRaceNotes ?? portal.notes) ? <p className="br-note">“{portal.businessRaceNotes ?? portal.notes}”</p> : null}
                               </div>
                             </div>
                           </td>
