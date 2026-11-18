@@ -281,7 +281,6 @@ const TEAMS_TABS = [
   { to: "/app/equipes", end: true, label: "Équipes bénévoles" },
   { to: "/app/equipes/organisation", label: "Équipes organisation" },
   { to: "/app/equipes/affectations", label: "Affectations" },
-  { to: "/app/equipes/planning", label: "Planning" },
   { to: "/app/equipes/recapitulatif", label: "Récapitulatif" },
   { to: "/app/equipes/autour-du-meeting", label: "Autour du meeting" },
 ];
@@ -693,10 +692,14 @@ export default function App() {
                   <Route index element={<TeamsPage view="configuration" />} />
                   <Route path="affectations" element={<VolunteerAssignmentsPage />} />
                   <Route path="organisation" element={<OrganisationTeamsPage />} />
-                  <Route path="planning" element={<MeetingDayProgrammePage />} />
-                  <Route path="programme-dimanche" element={<Navigate replace to="/app/equipes/planning" />} />
+                  {/* Planning : page à part dans le menu (Pilotage) ; anciennes adresses redirigées. */}
+                  <Route path="planning" element={<Navigate replace to="/app/planning" />} />
+                  <Route path="programme-dimanche" element={<Navigate replace to="/app/planning" />} />
                   <Route path="recapitulatif" element={<TeamsPage view="overview" />} />
                   <Route path="autour-du-meeting" element={<MeetingSupportPage />} />
+                </Route>
+                <Route path="planning" element={<TabbedPage eyebrowKey="navSectionSteering" titleKey="navPlanning" title="Planning" tabs={[]} />}>
+                  <Route index element={<MeetingDayProgrammePage />} />
                 </Route>
                 <Route path="u14/*" element={<U14Page />} />
                 <Route path="accreditations/*" element={<AccreditationsPage />} />

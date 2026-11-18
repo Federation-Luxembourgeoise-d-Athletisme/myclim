@@ -26,6 +26,7 @@ const APP_ROUTES = {
   calendar: "/app/calendrier",
   tasks: "/app/taches",
   retroplanning: "/app/retroplanning",
+  planning: "/app/planning",
   myPlanning: "/app/mon-planning",
   expenseClaims: "/app/decomptes",
   myExpenseClaims: "/app/mes-decomptes",
@@ -160,6 +161,7 @@ const LINKS = {
   calendar: () => makeLink(APP_ROUTES.calendar, "navCalendar", "Calendrier", "calendar"),
   tasks: () => makeLink(APP_ROUTES.tasks, "navTasks", "Tâches", "check"),
   retroplanning: () => makeLink(APP_ROUTES.retroplanning, "navRetroplanning", "Rétroplanning", "calendar"),
+  planning: () => makeLink(APP_ROUTES.planning, "navPlanning", "Planning", "calendar"),
   myRetroplanning: () => makeLink(APP_ROUTES.retroplanning, "navMyRetroplanning", "Mes échéances", "calendar"),
   myPlanning: () => makeLink(APP_ROUTES.myPlanning, "navMyPlanning", "Mon planning", "calendar"),
   expenseClaims: () => makeLink(APP_ROUTES.expenseClaims, "navExpenseClaims", "Décomptes", "folder"),
@@ -250,7 +252,7 @@ function buildNavigationFromRoles(roles, options = {}) {
     return [
       LINKS.home(),
       section("mySpace", [options.hasOrganisationTeams && "myPlanning", "myExpenseClaims"]),
-      section("steering", ["edition", "retroplanning", "budget", "expenseClaims", "documents"]),
+      section("steering", ["edition", "retroplanning", "planning", "budget", "expenseClaims", "documents"]),
       section("volunteers", ["applications", "teams"]),
       section("athletes", ["entries", "transport", "roadbook", "physio", "results"]),
       section("animation", ["animation"]),
@@ -266,7 +268,7 @@ function buildNavigationFromRoles(roles, options = {}) {
     return [
       LINKS.home(),
       section("mySpace", personalLinkKeys(roles, options)),
-      section("steering", [has("gestionnaire_site") && "edition", "retroplanning", has("budget") && "budget", has("budget") && "expenseClaims", "documents"]),
+      section("steering", [has("gestionnaire_site") && "edition", "retroplanning", "planning", has("budget") && "budget", has("budget") && "expenseClaims", "documents"]),
       section("volunteers", ["applications", "teams"]),
       // Engagés en lecture seule (modifs et imports : admin / meeting director).
       section("athletes", [
