@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { arrayUnion, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getWorkflowStatusClass } from "./common-helpers";
@@ -9,7 +9,7 @@ import {
   volunteerWorkflowStatusOptions,
 } from "./seed-data";
 import { mapVolunteerApplicationToAdminVolunteer } from "./volunteer-helpers";
-import { buildAddTeamPatch, buildRemoveTeamPatch, buildTeamBoard, suggestTeams } from "./volunteer-assignment-helpers";
+import { buildAddTeamPatch, buildRemoveTeamPatch, buildTeamBoard, suggestTeams, wasInformedOfTeam } from "./volunteer-assignment-helpers";
 import { useVolunteerAlertLog, useVolunteerApplicationsList } from "./volunteer-hooks";
 import { defaultTeamRoles, normalizeSubRoles, normalizeTeamConfigurationPayload } from "./team-config";
 import { db } from "../services/firebase";
@@ -560,13 +560,28 @@ function VolunteersPage(props) {
   async function removeVolunteerFromTeam(volunteer, teamName) {
     const patch = buildRemoveTeamPatch(volunteer, teamName);
     if (!patch) return;
+    // Le retrait n'envoie aucun e-mail : on demande confirmation, avec un
+    // avertissement si la personne a déjà été informée de cette équipe.
+    const informed = wasInformedOfTeam(volunteer, teamName);
+    if (!window.confirm(fillVolunteerNote(informed ? "sheetRemoveInformedConfirm" : "sheetRemoveConfirm", volunteer, teamName))) return;
     clearVolunteerActionStatus();
+    const lastTeam = patch.assignedRoles.length === 0;
+    if (informed && !lastTeam) {
+      // La dernière équipe retirée est déjà journalisée par persistVolunteerPatchWithAlerts.
+      await appendVolunteerAlertEntry(
+        buildVolunteerAlertEntry(volunteer, `Retrait de l'équipe ${teamName} (déjà informé(e) par e-mail).`, "assignment_removed"),
+      );
+    }
     const next = await persistVolunteerPatchWithAlertsAndSync(volunteer.id, patch, {
-      alertReason: patch.assignedRoles.length === 0 ? `Retrait de l'équipe ${teamName}.` : "",
+      alertReason: lastTeam ? `Retrait de l'équipe ${teamName}${informed ? " (déjà informé(e) par e-mail)" : ""}.` : "",
       persistenceErrorMessage: t("sheetAssignError"),
     });
     if (next) {
-      setVolunteerActionStatus({ tone: "success", message: fillVolunteerNote("sheetRemovedNote", volunteer, teamName) });
+      setVolunteerActionStatus(
+        informed
+          ? { tone: "warning", message: fillVolunteerNote("sheetRemovedInformedNote", volunteer, teamName) }
+          : { tone: "success", message: fillVolunteerNote("sheetRemovedNote", volunteer, teamName) },
+      );
     }
   }
 
@@ -684,7 +699,7 @@ function VolunteersPage(props) {
       {volunteerApplicationsLoading ? <p className="status-note">Chargement des candidatures bénévoles...</p> : null}
       {volunteerAlertLogLoading ? <p className="status-note">Chargement des alertes bénévoles...</p> : null}
       {volunteerActionStatus ? (
-        <div className={`status-note ${volunteerActionStatus.tone === "error" ? "status-note--error" : "status-note--success"}`}>
+        <div className={`status-note status-note--${["error", "warning"].includes(volunteerActionStatus.tone) ? volunteerActionStatus.tone : "success"}`}>
           <strong>{volunteerActionStatus.message}</strong>
           {volunteerActionStatus.detail ? <div className="status-note__detail">{volunteerActionStatus.detail}</div> : null}
         </div>
@@ -1297,7 +1312,9 @@ function SheetTeamCell({ volunteer, assignedRoles, getMemberRole, teamBoard, onA
   const isAssigned = (teamName) => assignedRoles.some((name) => name.toLowerCase() === String(teamName).toLowerCase());
   const suggestions = cancelled ? [] : suggestTeams(volunteer, teamBoard);
   const suggestedNames = new Set(suggestions.map((suggestion) => suggestion.teamName));
-  const otherTeams = teamBoard.filter((entry) => !isAssigned(entry.team.roleName) && !suggestedNames.has(entry.team.roleName));
+  const otherTeams = teamBoard
+    .filter((entry) => !isAssigned(entry.team.roleName) && !suggestedNames.has(entry.team.roleName))
+    .sort((left, right) => left.team.roleName.localeCompare(right.team.roleName, "fr"));
 
   async function run(action) {
     setBusy(true);
@@ -1306,10 +1323,6 @@ function SheetTeamCell({ volunteer, assignedRoles, getMemberRole, teamBoard, onA
     } finally {
       setBusy(false);
     }
-  }
-
-  function optionLabel(entry) {
-    return entry.needed > 0 ? `${entry.team.roleName} (${entry.placed}/${entry.needed})` : entry.team.roleName;
   }
 
   return (
@@ -1339,40 +1352,166 @@ function SheetTeamCell({ volunteer, assignedRoles, getMemberRole, teamBoard, onA
       {cancelled ? (
         assignedRoles.length === 0 ? <span className="sheet-muted">—</span> : null
       ) : (
-        <select
-          className="sheet-team-add"
-          value=""
+        <SheetTeamPicker
+          label={assignedRoles.length ? "+" : t("sheetAddTeamShort")}
           disabled={busy}
-          aria-label={t("sheetAddTeam")}
-          title={t("sheetAddTeam")}
-          onChange={(event) => {
-            const teamName = event.target.value;
-            if (teamName) run(() => onAdd(teamName));
-          }}
-        >
-          <option value="">{assignedRoles.length ? "+" : t("sheetAddTeamShort")}</option>
-          {suggestions.length ? (
-            <optgroup label={t("sheetSuggestedTeams")}>
-              {suggestions.map((suggestion) => {
-                const entry = teamBoard.find((item) => item.team.roleName === suggestion.teamName);
-                return (
-                  <option key={suggestion.teamName} value={suggestion.teamName}>
-                    {entry ? optionLabel(entry) : suggestion.teamName}
-                  </option>
-                );
-              })}
-            </optgroup>
-          ) : null}
-          <optgroup label={t("sheetAllTeams")}>
-            {otherTeams.map((entry) => (
-              <option key={entry.team.roleName} value={entry.team.roleName}>
-                {optionLabel(entry)}
-              </option>
-            ))}
-          </optgroup>
-        </select>
+          options={[
+            ...suggestions
+              .map((suggestion) => teamBoard.find((item) => item.team.roleName === suggestion.teamName))
+              .filter(Boolean)
+              .map((entry) => ({ entry, suggested: true })),
+            ...otherTeams.map((entry) => ({ entry, suggested: false })),
+          ]}
+          onPick={(teamName) => run(() => onAdd(teamName))}
+          t={t}
+        />
       )}
     </div>
+  );
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+// Petit menu « + Équipe » avec recherche : on tape quelques lettres, flèches
+// pour choisir, Entrée pour affecter, Échap pour fermer. Le menu est en
+// position fixe pour ne pas être coupé par le défilement du tableau.
+function SheetTeamPicker({ label, disabled, options, onPick, t }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [position, setPosition] = useState(null);
+  const buttonRef = useRef(null);
+  const popoverRef = useRef(null);
+
+  const filtered = useMemo(() => {
+    const needle = normalizeSearchText(query.trim());
+    return needle ? options.filter((option) => normalizeSearchText(option.entry.team.roleName).includes(needle)) : options;
+  }, [options, query]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function close(event) {
+      if (popoverRef.current?.contains(event.target) || buttonRef.current?.contains(event.target)) return;
+      setOpen(false);
+    }
+    function closeOnScroll(event) {
+      if (popoverRef.current?.contains(event.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    window.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("resize", closeOnScroll);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("resize", closeOnScroll);
+    };
+  }, [open]);
+
+  function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    const width = 240;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setPosition({
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+      ...(spaceBelow < 280 ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      width,
+    });
+    setQuery("");
+    setActiveIndex(0);
+    setOpen(true);
+  }
+
+  function pick(option) {
+    if (!option) return;
+    setOpen(false);
+    onPick(option.entry.team.roleName);
+  }
+
+  function onKeyDown(event) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.min(index + 1, filtered.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      pick(filtered[activeIndex]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="sheet-team-add"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title={t("sheetAddTeam")}
+        onClick={toggle}
+      >
+        {label}
+      </button>
+      {open && position ? (
+        <div ref={popoverRef} className="sheet-team-picker" style={position} role="dialog" aria-label={t("sheetAddTeam")}>
+          <input
+            autoFocus
+            className="sheet-team-picker__search"
+            type="search"
+            value={query}
+            placeholder={t("sheetSearchTeam")}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActiveIndex(0);
+            }}
+            onKeyDown={onKeyDown}
+          />
+          <ul className="sheet-team-picker__list" role="listbox">
+            {filtered.length === 0 ? <li className="sheet-team-picker__empty">{t("sheetNoTeamMatch")}</li> : null}
+            {filtered.map((option, index) => {
+              const { entry } = option;
+              return (
+                <li
+                  key={entry.team.roleName}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  className={`sheet-team-picker__option${index === activeIndex ? " is-active" : ""}`}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    pick(option);
+                  }}
+                >
+                  <span className="sheet-team-picker__name">{entry.team.roleName}</span>
+                  {option.suggested ? <span className="sheet-team-picker__tag">{t("sheetSuggestedTag")}</span> : null}
+                  {entry.needed > 0 ? (
+                    <span className={`sheet-team-picker__count${entry.missing > 0 ? "" : " is-full"}`}>
+                      {entry.placed}/{entry.needed}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </>
   );
 }
 

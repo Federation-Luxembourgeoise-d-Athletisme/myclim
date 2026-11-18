@@ -21,6 +21,9 @@ import {
   VIP_TOUR_SHORT_LABEL_KEYS,
   buildVipFullName,
   buildVipPortalId,
+  findExistingPortal,
+  getVipPortalCaps,
+  portalHasVipModule,
   buildVipRegistrationPayload,
   createEmptyVipAdminRegistrationData,
   createEmptyVipInvitationData,
@@ -32,12 +35,15 @@ import {
   normalizeVipPlacesCap,
   normalizeVipPortalContacts,
   parseVipPlacesCap,
+  vipPortalAllowsCompanions,
   findMatchingVipInvitation,
   findMatchingVipRegistration,
   getVipTourChoiceLabel,
   normalizeVipComparableValue,
 } from "./vip-helpers";
 import { buildAppUrl } from "../services/app-url";
+import { useTr } from "./use-tr";
+import { getBusinessRacePack, getBusinessRaceTeamCount, isBusinessRacePortal } from "./business-race-helpers";
 
 async function downloadWorkbook(workbook, filename) {
   const buffer = await workbook.xlsx.writeBuffer();
@@ -204,6 +210,7 @@ function canOpenVipPartnerPortalLocally() {
 
 function VipAdminPage({ Panel, loadMailQueueModule }) {
   const { t } = useLanguage();
+  const tr = useTr();
   const { activeEditionId, activeEditionLabel, loading: editionLoading } = useActiveEdition(true);
   const [activeVipTab, setActiveVipTab] = useState("invitations");
   // Formulaires d'ajout repliés derrière un bouton (page plus compacte).
@@ -221,6 +228,8 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   const [editingInvitationForm, setEditingInvitationForm] = useState(() => createEmptyVipInvitationData());
   const [registrationForm, setRegistrationForm] = useState(() => createEmptyVipAdminRegistrationData());
   const [partnerPortalForm, setPartnerPortalForm] = useState(() => createEmptyVipPartnerPortalData());
+  // Entreprise déjà inscrite à la Business Race : true = créer quand même un portail séparé.
+  const [partnerPortalSeparate, setPartnerPortalSeparate] = useState(false);
   const [editingInvitationId, setEditingInvitationId] = useState("");
   const [editingPartnerPortalId, setEditingPartnerPortalId] = useState("");
   const [invitationSearch, setInvitationSearch] = useState("");
@@ -610,12 +619,14 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       meetingContact: getVipPortalMeetingContact(portal),
       vipPlacesCap: normalizeVipPlacesCap(portal.vipPlacesCap) ?? "",
       standardPlacesCap: normalizeVipPlacesCap(portal.standardPlacesCap) ?? "",
+      companionsAllowed: vipPortalAllowsCompanions(portal),
       accessPassword: partnerPortalSecrets[portal.id] || "",
       notes: portal.notes || "",
     });
   }
 
   function cancelEditingPartnerPortal() {
+    setPartnerPortalSeparate(false);
     setEditingPartnerPortalId("");
     setPartnerPortalForm(createEmptyVipPartnerPortalData());
   }
@@ -631,9 +642,21 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       return;
     }
 
-    const resolvedDocId = editingPartnerPortalId || resolvedPortalId;
+    // Une entreprise = un seul portail : si elle court déjà la Business Race, le
+    // partenariat VIP s'ajoute à son portail (sauf « pas la même entreprise »).
+    const mergeTarget = !editingPartnerPortalId && detectedRacePortal && !partnerPortalSeparate ? detectedRacePortal : null;
+    const takenIds = new Set(partnerPortals.map((portal) => portal.id));
+    let resolvedDocId = editingPartnerPortalId || (mergeTarget ? mergeTarget.id : resolvedPortalId);
+    if (!editingPartnerPortalId && !mergeTarget && takenIds.has(resolvedDocId) && isBusinessRacePortal(partnerPortals.find((portal) => portal.id === resolvedDocId) || {})) {
+      let index = 2;
+      while (takenIds.has(`${resolvedPortalId}-${index}`)) index += 1;
+      resolvedDocId = `${resolvedPortalId}-${index}`;
+    }
     const trimmedPassword = String(partnerPortalForm.accessPassword || "").trim();
-    const contacts = normalizeVipPortalContacts(partnerPortalForm.contacts);
+    let contacts = normalizeVipPortalContacts(partnerPortalForm.contacts);
+    if (mergeTarget && !contacts.some((contact) => contact.firstName || contact.lastName)) {
+      contacts = getVipPortalContacts(mergeTarget);
+    }
     if (!contacts.some((contact) => contact.firstName || contact.lastName)) {
       setError(t("vipErrorMissingContact"));
       return;
@@ -641,7 +664,8 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
     const mainContact = contacts[0];
 
     const payload = {
-      organizationName: partnerPortalForm.organizationName,
+      vipPartner: true,
+      organizationName: mergeTarget ? mergeTarget.organizationName || partnerPortalForm.organizationName : partnerPortalForm.organizationName,
       contacts,
       // Vide = contact par défaut (Margot) sur le portail.
       meetingContact: normalizeVipPortalContacts([partnerPortalForm.meetingContact || {}])[0] || null,
@@ -651,6 +675,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       contactEmail: mainContact.email,
       vipPlacesCap: parseVipPlacesCap(partnerPortalForm.vipPlacesCap),
       standardPlacesCap: parseVipPlacesCap(partnerPortalForm.standardPlacesCap),
+      companionsAllowed: partnerPortalForm.companionsAllowed !== false,
       hasPassword: Boolean(trimmedPassword),
       notes: partnerPortalForm.notes,
       updatedAt: serverTimestamp(),
@@ -661,7 +686,9 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
         doc(db, "vipPartnerPortals", resolvedDocId),
         {
           ...payload,
-          createdAt: editingPartnerPortalId ? partnerPortals.find((portal) => portal.id === editingPartnerPortalId)?.createdAt || serverTimestamp() : serverTimestamp(),
+          createdAt: editingPartnerPortalId || mergeTarget
+            ? partnerPortals.find((portal) => portal.id === resolvedDocId)?.createdAt || serverTimestamp()
+            : serverTimestamp(),
         },
         { merge: true },
       );
@@ -672,7 +699,14 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
         { merge: true },
       );
 
-      setStatusMessage(editingPartnerPortalId ? t("vipPortalUpdated") : t("vipPortalCreated"));
+      setStatusMessage(
+        editingPartnerPortalId
+          ? t("vipPortalUpdated")
+          : mergeTarget
+            ? tr(`Partenariat VIP ajouté au portail de ${payload.organizationName} : même lien, places cumulées pour l'entreprise.`, `VIP partnership added to ${payload.organizationName}'s portal: same link, places added up for the company.`)
+            : t("vipPortalCreated"),
+      );
+      setPartnerPortalSeparate(false);
       setPartnerPortalForm(createEmptyVipPartnerPortalData());
       setEditingPartnerPortalId("");
     } catch (submissionError) {
@@ -921,7 +955,9 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
           pickupPoint: registration.pickupPoint || "",
           badgePrintStatus: registration.badgePrintStatus || "non_imprime",
           sourceType: registration.sourceType || "",
-          guestName: buildVipFullName({ firstName: registration.guestFirstName, lastName: registration.guestLastName }),
+          guestName:
+            buildVipFullName({ firstName: registration.guestFirstName, lastName: registration.guestLastName }) ||
+            (registration.hasCompanion ? "+1" : ""),
           notes: registration.matchedInvitation?.notes || registration.notes || "",
         });
       });
@@ -1067,13 +1103,14 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   const partnerPortalRows = useMemo(
     () =>
       partnerPortals
-        .slice()
+        .filter(portalHasVipModule)
         .sort((left, right) =>
           String(left.organizationName || left.id || "").localeCompare(String(right.organizationName || right.id || ""), "fr"),
         )
         .map((portal) => ({
           ...portal,
           contactList: getVipPortalContacts(portal),
+          caps: getVipPortalCaps(portal),
           places: computeVipPortalPlaces(
             portal,
             partnerRegistrations.filter((entry) => entry.portalId === portal.id),
@@ -1088,6 +1125,8 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
     () =>
       placeRequests
         .filter((request) => (request.status || "pending") === "pending")
+        // Entreprises Business Race sans partenariat : leurs demandes se traitent dans Business Race.
+        .filter((request) => portalHasVipModule(partnerPortals.find((portal) => portal.id === request.portalId) || {}))
         .map((request) => ({
           ...request,
           portalName: partnerPortals.find((portal) => portal.id === request.portalId)?.organizationName || request.portalId,
@@ -1097,6 +1136,22 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
   );
 
   const formatPlaces = (used, cap) => (cap === null ? `${used}` : `${used} / ${cap}`);
+
+  // Portail Business Race (sans partenariat VIP) de la même entreprise, à la création.
+  const detectedRacePortal =
+    !editingPartnerPortalId && (partnerPortalForm.organizationName || partnerPortalForm.contacts?.[0]?.email)
+      ? findExistingPortal(
+          partnerPortals.filter((portal) => isBusinessRacePortal(portal) && !portalHasVipModule(portal)),
+          { organizationName: partnerPortalForm.portalId || partnerPortalForm.organizationName, email: partnerPortalForm.contacts?.[0]?.email },
+        )
+      : null;
+  const editingRacePortal = editingPartnerPortalId
+    ? partnerPortals.find((portal) => portal.id === editingPartnerPortalId && isBusinessRacePortal(portal)) || null
+    : null;
+  const racePackLabel = (portal) => {
+    const pack = getBusinessRacePack(portal.businessRacePack);
+    return pack ? tr(pack.labelFr, pack.labelEn) : "";
+  };
 
   return (
     <div className="stacked-entry vip-admin">
@@ -1700,6 +1755,47 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               <AuthFormField label={t("vipFieldOrganization")} required>
                 <input name="organizationName" required value={partnerPortalForm.organizationName} onChange={handlePartnerPortalChange} />
               </AuthFormField>
+              {detectedRacePortal ? (
+                <div className="vip-admin-form__wide vip-module-detect">
+                  <strong>
+                    {tr(`${detectedRacePortal.organizationName || detectedRacePortal.id} a déjà un portail`, `${detectedRacePortal.organizationName || detectedRacePortal.id} already has a portal`)}
+                    <span className="vip-module vip-module--race">🏃 Business Race</span>
+                  </strong>
+                  <span className="vip-table-muted">
+                    {[racePackLabel(detectedRacePortal), tr(`${getBusinessRaceTeamCount(detectedRacePortal)} équipe(s)`, `${getBusinessRaceTeamCount(detectedRacePortal)} team(s)`), buildVipFullName(getVipPortalContacts(detectedRacePortal)[0] || {})].filter(Boolean).join(" · ")}
+                  </span>
+                  <label className={!partnerPortalSeparate ? "is-on" : ""}>
+                    <input type="radio" checked={!partnerPortalSeparate} onChange={() => setPartnerPortalSeparate(false)} />
+                    <span>
+                      <b>{tr("Ajouter le partenariat VIP à ce portail", "Add the VIP partnership to this portal")}</b>
+                      <small>{tr("Même lien et mêmes contacts. La Business Race reste réglée dans Business Race ; ici vous ne réglez que le partenariat VIP.", "Same link and contacts. The Business Race stays set up in Business Race; here you only set up the VIP partnership.")}</small>
+                    </span>
+                  </label>
+                  <label className={partnerPortalSeparate ? "is-on" : ""}>
+                    <input type="radio" checked={partnerPortalSeparate} onChange={() => setPartnerPortalSeparate(true)} />
+                    <span>
+                      <b>{tr("Ce n'est pas la même entreprise", "It's not the same company")}</b>
+                      <small>{tr("Créer un portail séparé (autre lien).", "Create a separate portal (another link).")}</small>
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+              {editingRacePortal ? (
+                <div className="vip-admin-form__wide vip-module-readonly">
+                  <span className="vip-module vip-module--race">🏃 Business Race</span>
+                  <span>
+                    {(() => {
+                      const caps = getVipPortalCaps(editingRacePortal);
+                      return [
+                        racePackLabel(editingRacePortal),
+                        tr(`${getBusinessRaceTeamCount(editingRacePortal)} équipe(s)`, `${getBusinessRaceTeamCount(editingRacePortal)} team(s)`),
+                        tr(`+ ${caps.businessRace.vip} VIP et ${caps.businessRace.standard} normales du pack (cumulées pour l'entreprise)`, `+ ${caps.businessRace.vip} VIP and ${caps.businessRace.standard} standard from the pack (added up for the company)`),
+                      ].filter(Boolean).join(" · ");
+                    })()}
+                  </span>
+                  <a className="vip-module-readonly__link" href="/app/business-race">{tr("Régler dans Business Race ›", "Set up in Business Race ›")}</a>
+                </div>
+              ) : null}
               <AuthFormField label={t("vipFieldSlugUrl")} hint={t("vipFieldSlugUrlHint")}>
                 <input
                   name="portalId"
@@ -1714,6 +1810,16 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               </AuthFormField>
               <AuthFormField label={t("vipFieldStandardPlacesCap")} hint={t("vipFieldStandardPlacesCapHint")}>
                 <input name="standardPlacesCap" type="number" min="0" step="1" value={partnerPortalForm.standardPlacesCap} onChange={handlePartnerPortalChange} />
+              </AuthFormField>
+              <AuthFormField label={t("vipFieldCompanions")} hint={t("vipFieldCompanionsHint")}>
+                <select
+                  name="companionsAllowed"
+                  value={partnerPortalForm.companionsAllowed === false ? "no" : "yes"}
+                  onChange={(event) => setPartnerPortalForm((current) => ({ ...current, companionsAllowed: event.target.value === "yes" }))}
+                >
+                  <option value="yes">{t("vipCompanionsYes")}</option>
+                  <option value="no">{t("vipCompanionsNo")}</option>
+                </select>
               </AuthFormField>
               <AuthFormField label={t("vipFieldPassword")} hint={t("vipFieldPasswordHint")}>
                 <input name="accessPassword" type="text" value={partnerPortalForm.accessPassword} onChange={handlePartnerPortalChange} />
@@ -1807,7 +1913,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
 
           <Panel title={t("vipPortalListTitle")} subtitle={t("vipPortalListSubtitle")}>
             <div className="table-wrap">
-              <table className="data-table data-table--vip">
+              <table className="data-table data-table--vip data-table--vip-portals">
                 <thead>
                   <tr>
                     <th>{t("vipColOrganization")}</th>
@@ -1815,7 +1921,6 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                     <th>{t("vipColPlaces")}</th>
                     <th>{t("vipColAccess")}</th>
                     <th>{t("vipColUrl")}</th>
-                    <th>{t("vipColActions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1823,8 +1928,14 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                     <tr key={portal.id}>
                       <td>
                         <div className="table-stack table-stack--tight">
-                          <strong>{portal.organizationName || portal.id}</strong>
+                          <strong>
+                            {portal.organizationName || portal.id}
+                            {portal.caps.hasBusinessRace ? <span className="vip-module vip-module--race" title={tr("Aussi dans la Business Race : un seul portail, places cumulées", "Also in the Business Race: one portal, places added up")}>🏃 Business Race</span> : null}
+                          </strong>
                           <span className="vip-table-muted">{portal.id}</span>
+                          <button className="button button--secondary vip-portal-edit-btn" type="button" onClick={() => startEditingPartnerPortal(portal)}>
+                            {t("vipEdit")}
+                          </button>
                         </div>
                       </td>
                       <td>
@@ -1846,13 +1957,22 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                       <td>
                         <div className="table-stack table-stack--tight">
                           <span>
-                            {t("vipPlacesVip")} : {formatPlaces(portal.places.used.vip, portal.places.caps.vip)}
+                            {t("vipPlacesVip")} : {formatPlaces(portal.places.used.vip, portal.places.caps.vip)}{" "}
+                            <span className="vip-table-muted">
+                              {t("vipInvitationsShort")} · {portal.places.seats.vip} {t("vipPeopleShort")}
+                            </span>
                           </span>
                           {portal.places.caps.standard > 0 || portal.places.used.standard ? (
                             <span>
-                              {t("vipPlacesStandard")} : {formatPlaces(portal.places.used.standard, portal.places.caps.standard)}
+                              {t("vipPlacesStandard")} : {formatPlaces(portal.places.used.standard, portal.places.caps.standard)}{" "}
+                              <span className="vip-table-muted">
+                                {t("vipInvitationsShort")} · {portal.places.seats.standard} {t("vipPeopleShort")}
+                              </span>
                             </span>
                           ) : null}
+                          <span className="vip-table-muted">
+                            {vipPortalAllowsCompanions(portal) ? t("vipCompanionsYesShort") : t("vipCompanionsNoShort")}
+                          </span>
                         </div>
                       </td>
                       <td>
@@ -1862,31 +1982,30 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                         </div>
                       </td>
                       <td>
-                        <div className="table-stack table-stack--tight">
-                          <span>{portal.portalUrl}</span>
-                          {portal.portalPreviewUrl ? (
-                            <a href={portal.portalPreviewUrl} target="_blank" rel="noreferrer">
-                              {t("vipOpenLocalPreview")}
+                        <div className="vip-portal-link-cell">
+                          <span className="vip-table-muted" title={portal.portalUrl}>/vip/orga/{portal.id}</span>
+                          <span className="vip-portal-link-cell__actions">
+                            <button
+                              className="button button--neutral"
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(portal.portalUrl);
+                                setStatusMessage(t("vipLinkCopied").replace("{name}", portal.organizationName || portal.id));
+                              }}
+                            >
+                              {t("vipCopyLink")}
+                            </button>
+                            <a href={portal.portalPreviewUrl || portal.portalUrl} target="_blank" rel="noreferrer">
+                              {t("vipOpenLink")}
                             </a>
-                          ) : (
-                            <a href={portal.portalUrl} target="_blank" rel="noreferrer">
-                              {t("vipOpenPublicLink")}
-                            </a>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="vip-admin-actions vip-admin-actions--compact">
-                          <button className="button button--secondary" type="button" onClick={() => startEditingPartnerPortal(portal)}>
-                            {t("vipEdit")}
-                          </button>
+                          </span>
                         </div>
                       </td>
                     </tr>
                   ))}
                   {partnerPortalRows.length === 0 ? (
                     <tr>
-                      <td colSpan="6">{t("vipNoPortals")}</td>
+                      <td colSpan="5">{t("vipNoPortals")}</td>
                     </tr>
                   ) : null}
                 </tbody>

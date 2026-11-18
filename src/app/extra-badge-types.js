@@ -51,13 +51,25 @@ function normalizeNamelessBadgeTypes(stored, availableZoneIds = null) {
   return [...builtIns, ...custom];
 }
 
-function normalizeNationalBadge(stored, availableZoneIds = null) {
+function normalizeNamedBadge(stored, seed, availableZoneIds = null) {
   const saved = stored && typeof stored === "object" ? stored : {};
   return {
-    label: String(saved.label || NATIONAL_BADGE_SEED.label).trim() || NATIONAL_BADGE_SEED.label,
-    category: cleanCategory(saved.category, NATIONAL_BADGE_SEED.category),
-    zoneIds: cleanZoneIds(Array.isArray(saved.zoneIds) ? saved.zoneIds : NATIONAL_BADGE_SEED.zoneIds, availableZoneIds),
+    label: String(saved.label || seed.label).trim() || seed.label,
+    category: cleanCategory(saved.category, seed.category),
+    zoneIds: cleanZoneIds(Array.isArray(saved.zoneIds) ? saved.zoneIds : seed.zoneIds, availableZoneIds),
   };
+}
+
+function normalizeNationalBadge(stored, availableZoneIds = null) {
+  return normalizeNamedBadge(stored, NATIONAL_BADGE_SEED, availableZoneIds);
+}
+
+// Badge nominatif des coureurs de la Business Race (le nom vient des équipes
+// saisies par les entreprises sur leur portail).
+const BUSINESS_RACE_BADGE_SEED = { label: "Business Race", category: "athlete", zoneIds: ["zone-warmup", "zone-infield"] };
+
+function normalizeBusinessRaceBadge(stored, availableZoneIds = null) {
+  return normalizeNamedBadge(stored, BUSINESS_RACE_BADGE_SEED, availableZoneIds);
 }
 
 function toggleZone(zoneIds = [], zoneId) {
@@ -72,9 +84,11 @@ function nationalBadgeKey(requestId) {
 
 export {
   NAMELESS_BADGE_SEED,
+  BUSINESS_RACE_BADGE_SEED,
   NATIONAL_BADGE_SEED,
   nationalBadgeKey,
   normalizeNamelessBadgeTypes,
+  normalizeBusinessRaceBadge,
   normalizeNationalBadge,
   toggleZone,
 };

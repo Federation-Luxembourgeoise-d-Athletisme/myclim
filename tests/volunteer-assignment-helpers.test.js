@@ -91,3 +91,18 @@ test('suggestions favour preferences, then languages, and skip current teams', (
   assert.equal(suggestions[1].speaks, true);
   assert.deepEqual(suggestTeams({ languages: ['Portugais'] }, board), []);
 });
+
+test('wasInformedOfTeam: teams listed in the last email count as informed', async () => {
+  const { wasInformedOfTeam } = await import('../src/app/volunteer-assignment-helpers.js');
+  const volunteer = { assignedRoles: ['Accueil', 'Warm-up'], teamEmailSent: false, lastMailSentRole: 'Accueil', lastMailSentTeams: ['Accueil', 'Call room'] };
+  assert.equal(wasInformedOfTeam(volunteer, 'accueil'), true);
+  assert.equal(wasInformedOfTeam(volunteer, 'Call room'), true);
+  assert.equal(wasInformedOfTeam(volunteer, 'Warm-up'), false);
+});
+
+test('wasInformedOfTeam: older files fall back on the primary team and the informed flag', async () => {
+  const { wasInformedOfTeam } = await import('../src/app/volunteer-assignment-helpers.js');
+  assert.equal(wasInformedOfTeam({ assignedRoles: ['Accueil', 'Warm-up'], teamEmailSent: true }, 'Warm-up'), true);
+  assert.equal(wasInformedOfTeam({ assignedRoles: ['Accueil'], teamEmailSent: false, lastMailSentRole: 'Accueil' }, 'Accueil'), true);
+  assert.equal(wasInformedOfTeam({ assignedRoles: ['Accueil'], teamEmailSent: false }, 'Accueil'), false);
+});

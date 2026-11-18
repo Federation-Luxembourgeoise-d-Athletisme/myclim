@@ -297,6 +297,7 @@ function mapVolunteerApplicationToAdminVolunteer(application = {}) {
     firstAssignedRole: String(application?.firstAssignedRole || ""),
     firstAssignedAt: application?.firstAssignedAt || null,
     lastMailSentRole: String(application?.lastMailSentRole || ""),
+    lastMailSentTeams: Array.isArray(application?.lastMailSentTeams) ? application.lastMailSentTeams : [],
     lastMailSentTeamRole: String(application?.lastMailSentTeamRole || ""),
     lastMailSentAt: application?.lastMailSentAt || null,
     submittedAt: application?.submittedAt || null,

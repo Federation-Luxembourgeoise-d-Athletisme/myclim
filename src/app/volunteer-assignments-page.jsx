@@ -21,6 +21,7 @@ import {
   getStatusAfterInform,
   needsInforming,
   suggestTeams,
+  wasInformedOfTeam,
 } from "./volunteer-assignment-helpers";
 
 // Équipes & affectations › Affectations : le seul endroit où l'on affecte,
@@ -234,14 +235,25 @@ export function VolunteerAssignmentsPage({
   async function removeFromTeam(volunteer, teamName) {
     const patch = buildRemoveTeamPatch(volunteer, teamName);
     if (!patch) return;
+    // Retirer une équipe n'envoie aucun e-mail : si la personne a déjà été
+    // informée de cette équipe, on le rappelle avant et après.
+    const informed = wasInformedOfTeam(volunteer, teamName);
+    const question = informed
+      ? `${fullName(volunteer)} a déjà reçu l'e-mail d'affectation pour ${teamName}.\n\nLe retrait n'envoie aucun e-mail : il faudra la/le prévenir vous-même.\n\nRetirer quand même ?`
+      : `Retirer ${fullName(volunteer)} de ${teamName} ?`;
+    if (!window.confirm(question)) return;
     setStatus(null);
     const lastTeam = patch.assignedRoles.length === 0;
-    if (await persist(volunteer, patch, lastTeam ? `Retrait de l'équipe ${teamName}.` : "")) {
+    const alertReason = lastTeam || informed
+      ? `Retrait de l'équipe ${teamName}${informed ? " (déjà informé(e) par e-mail)" : ""}.`
+      : "";
+    if (await persist(volunteer, patch, alertReason)) {
+      const base = lastTeam
+        ? `${fullName(volunteer)} est retiré(e) de ${teamName} et revient dans « À affecter ».`
+        : `${fullName(volunteer)} est retiré(e) de ${teamName}.`;
       setStatus({
-        tone: "info",
-        text: lastTeam
-          ? `${fullName(volunteer)} est retiré(e) de ${teamName} et revient dans « À affecter ».`
-          : `${fullName(volunteer)} est retiré(e) de ${teamName}.`,
+        tone: informed ? "warn" : "info",
+        text: informed ? `${base} Elle/il avait déjà été informé(e) : prévenez-la/le du changement.` : base,
       });
     }
   }
@@ -280,6 +292,7 @@ export function VolunteerAssignmentsPage({
             workflowStatus: getStatusAfterInform(volunteer),
             teamEmailSent: true,
             lastMailSentRole: primaryTeam,
+            lastMailSentTeams: teamsOfVolunteer,
             lastMailSentTeamRole: primaryRole,
             lastMailSentAt: serverTimestamp(),
           });

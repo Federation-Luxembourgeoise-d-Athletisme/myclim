@@ -24,6 +24,7 @@ export const NOTIFICATION_DEFAULTS = {
   press_registration: { inApp: true, push: true, email: false },
   vip_registration: { inApp: true, push: true, email: false },
   vip_place_request: { inApp: true, push: true, email: true },
+  business_race_team: { inApp: true, push: true, email: false },
   volunteer_application: { inApp: true, push: true, email: false },
   u14_request: { inApp: true, push: true, email: false },
   physio_booking: { inApp: true, push: true, email: false },
@@ -223,6 +224,29 @@ export const notifyVipPlaceRequest = onDocumentCreated(
         en: `${organization}${by.en} requests ${count} extra ${standard ? "standard" : "VIP"} place(s).`,
       },
       path: "/app/vip",
+    });
+  },
+);
+
+// Business Race : une entreprise enregistre une équipe pour la première fois.
+export const notifyBusinessRaceTeam = onDocumentCreated(
+  { document: "vipPartnerPortals/{portalId}/teams/{teamId}", region: REGION },
+  async (event) => {
+    const team = event.data?.data();
+    if (!team) return;
+    const organization = team.organization || event.params.portalId;
+    const teamName = String(team.teamName || "").trim();
+    const runners = (Array.isArray(team.runners) ? team.runners : []).filter((runner) => runner?.firstName && runner?.lastName).length;
+    const label = teamName && teamName !== organization ? ` « ${teamName} »` : "";
+    await notifyUsers({
+      users: await usersWithRoles(ADMIN_ROLES),
+      type: "business_race_team",
+      title: { fr: "Business Race : nouvelle équipe", en: "Business Race: new team" },
+      body: {
+        fr: `${organization} a inscrit son équipe${label} (${runners} / 4 relayeurs).`,
+        en: `${organization} registered its team${label.replace(/[«»]/g, '"')} (${runners} / 4 runners).`,
+      },
+      path: "/app/business-race",
     });
   },
 );

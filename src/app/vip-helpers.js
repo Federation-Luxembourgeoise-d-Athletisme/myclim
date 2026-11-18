@@ -120,6 +120,8 @@ function buildVipRegistrationPayload(formData = {}, overrides = {}) {
     guestFirstName: normalizeVipText(formData.guestFirstName),
     guestLastName: normalizeVipText(formData.guestLastName),
     guestEmail: normalizeVipText(formData.guestEmail).toLowerCase(),
+    // Accompagnant annoncé, même sans nom (« + 1 »).
+    hasCompanion: Boolean(formData.hasCompanion) || Boolean(normalizeVipText(formData.guestFirstName) || normalizeVipText(formData.guestLastName)),
     notes: normalizeVipText(formData.notes),
     ...overrides,
   };
@@ -152,6 +154,7 @@ function createEmptyVipPartnerPortalData(overrides = {}) {
     meetingContact: createEmptyVipPortalContact(DEFAULT_VIP_MEETING_CONTACT),
     vipPlacesCap: "",
     standardPlacesCap: "",
+    companionsAllowed: true,
     accessPassword: "",
     notes: "",
     ...overrides,
@@ -215,12 +218,52 @@ function normalizeVipPlacesCap(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+// Une entreprise = un seul portail, avec un ou deux modules :
+// - Partenariat VIP (réglé dans VIP) : vipPlacesCap / standardPlacesCap ;
+// - Business Race (réglé dans Business Race) : businessRaceVipCap / businessRaceStandardCap.
+// Les anciens portails sans Business Race sont des partenaires VIP.
+function portalHasVipModule(portal = {}) {
+  if (portal.vipPartner === true) return true;
+  if (portal.vipPartner === false) return false;
+  return portal.businessRace !== true;
+}
+
+function normalizeModuleCap(value) {
+  return normalizeVipPlacesCap(value) ?? 0;
+}
+
+// Plafonds par module, puis le total que voit l'entreprise (places cumulées).
+// VIP du partenariat sans plafond = illimité, donc total illimité.
+function getVipPortalCaps(portal = {}) {
+  const hasVip = portalHasVipModule(portal);
+  const hasBusinessRace = portal.businessRace === true;
+  const partner = {
+    vip: hasVip ? normalizeVipPlacesCap(portal.vipPlacesCap) : 0,
+    standard: hasVip ? normalizeModuleCap(portal.standardPlacesCap) : 0,
+  };
+  const businessRace = {
+    vip: hasBusinessRace ? normalizeModuleCap(portal.businessRaceVipCap) : 0,
+    standard: hasBusinessRace ? normalizeModuleCap(portal.businessRaceStandardCap) : 0,
+  };
+  return {
+    hasVip,
+    hasBusinessRace,
+    partner,
+    businessRace,
+    total: {
+      vip: partner.vip === null ? null : partner.vip + businessRace.vip,
+      standard: partner.standard + businessRace.standard,
+    },
+  };
+}
+
 // Types de places d'un portail. Places VIP : sans plafond = illimitées
 // (comportement historique), plafond 0 = aucune. Places normales : proposées
 // seulement quand un plafond est fixé (> 0).
 function getVipPortalPlaceTypes(portal = {}) {
-  const vipCap = normalizeVipPlacesCap(portal.vipPlacesCap);
-  const standardCap = normalizeVipPlacesCap(portal.standardPlacesCap);
+  const { total } = getVipPortalCaps(portal);
+  const vipCap = total.vip;
+  const standardCap = total.standard;
   const types = [];
   if (vipCap === null || vipCap > 0) types.push("vip");
   if (standardCap !== null && standardCap > 0) types.push("standard");
@@ -231,23 +274,39 @@ function getVipEntryPlaceType(entry = {}) {
   return entry.placeType === "standard" ? "standard" : "vip";
 }
 
-// Une fiche occupe 1 place, 2 avec un accompagnant (même type de place).
-function countVipEntryPlaces(entry = {}) {
-  return 1 + (buildVipFullName({ firstName: entry.guestFirstName, lastName: entry.guestLastName }) ? 1 : 0);
+// Accompagnant : nommé, ou simplement annoncé (« + 1 », nom inconnu).
+function vipEntryHasCompanion(entry = {}) {
+  return Boolean(entry.hasCompanion) || Boolean(buildVipFullName({ firstName: entry.guestFirstName, lastName: entry.guestLastName }));
 }
 
+// Nombre de personnes d'une fiche : 1, 2 avec un accompagnant.
+function countVipEntryPlaces(entry = {}) {
+  return 1 + (vipEntryHasCompanion(entry) ? 1 : 0);
+}
+
+// Accompagnants autorisés sur un portail (1 par invité) ; oui par défaut.
+function vipPortalAllowsCompanions(portal = {}) {
+  return portal.companionsAllowed !== false;
+}
+
+// Le quota compte les invitations (invités principaux) ; chaque invitation
+// peut amener 1 accompagnant si le portail l'autorise, donc un quota de 10
+// donne jusqu'à 20 places. `seats` = personnes réellement inscrites.
 function computeVipPortalPlaces(portal = {}, entries = []) {
   const used = { vip: 0, standard: 0 };
+  const seats = { vip: 0, standard: 0 };
   entries.forEach((entry) => {
-    used[getVipEntryPlaceType(entry)] += countVipEntryPlaces(entry);
+    const type = getVipEntryPlaceType(entry);
+    used[type] += 1;
+    seats[type] += countVipEntryPlaces(entry);
   });
   // VIP sans plafond = illimité (null) ; places normales sans plafond = aucune (0).
-  const caps = { vip: normalizeVipPlacesCap(portal.vipPlacesCap), standard: normalizeVipPlacesCap(portal.standardPlacesCap) ?? 0 };
+  const caps = getVipPortalCaps(portal).total;
   const remaining = {
     vip: caps.vip === null ? null : Math.max(0, caps.vip - used.vip),
     standard: caps.standard === null ? null : Math.max(0, caps.standard - used.standard),
   };
-  return { used, caps, remaining };
+  return { used, seats, caps, remaining };
 }
 
 function buildVipPortalId(value) {
@@ -257,6 +316,32 @@ function buildVipPortalId(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+// Portail déjà existant pour une entreprise (une entreprise = un seul portail) :
+// même identifiant, un nom qui contient l'autre (« BGL » / « BGL BNP Paribas »),
+// un nom qui commence par ce qui est tapé, ou un e-mail de contact commun.
+function findExistingPortal(portals = [], { organizationName = "", email = "" } = {}) {
+  const slug = buildVipPortalId(organizationName);
+  const mail = normalizeVipText(email).toLowerCase();
+  if (!slug && !mail) return null;
+  const padded = (value) => `-${value}-`;
+  return (
+    portals.find((portal) => slug && portal.id === slug) ||
+    portals.find((portal) => {
+      const other = buildVipPortalId(portal.organizationName || portal.id);
+      return slug.length >= 3 && other.length >= 3 && (padded(other).includes(padded(slug)) || padded(slug).includes(padded(other)) || other.startsWith(slug));
+    }) ||
+    portals.find((portal) => mail && getVipPortalContacts(portal).some((contact) => normalizeVipText(contact.email).toLowerCase() === mail)) ||
+    null
+  );
+}
+
+// Lien unique de l'entreprise : celui du portail partenaire s'il a le module VIP,
+// sinon celui de la Business Race (les deux adresses ouvrent la même page).
+function buildCompanyPortalPath(portal = {}) {
+  const id = encodeURIComponent(String(portal.id || "").trim());
+  return portalHasVipModule(portal) ? `/vip/orga/${id}` : `/business-race/${id}`;
 }
 
 // Libellés courts du tour pour l'écran d'administration (listes, filtres).
@@ -293,11 +378,17 @@ export {
   createEmptyVipPortalContact,
   computeVipPortalPlaces,
   countVipEntryPlaces,
+  vipEntryHasCompanion,
+  vipPortalAllowsCompanions,
   getVipEntryPlaceType,
   DEFAULT_VIP_MEETING_CONTACT,
   getVipPortalContacts,
   getVipPortalMeetingContact,
   getVipPortalPlaceTypes,
+  getVipPortalCaps,
+  portalHasVipModule,
+  findExistingPortal,
+  buildCompanyPortalPath,
   normalizeVipPlacesCap,
   normalizeVipPortalContacts,
   parseVipPlacesCap,

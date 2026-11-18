@@ -128,6 +128,7 @@ const AthleteRoadbookAdminPageScreen = lazyNamed(() => import("./app/athlete-roa
 const PhysioPageScreen = lazyNamed(() => import("./app/physio-page"), "PhysioPage");
 const CashDeskPage = lazyNamed(() => import("./app/cash-desk-page"), "CashDeskPage");
 const CashDeskAdminPageScreen = lazyNamed(() => import("./app/cash-desk-admin-page"), "CashDeskAdminPage");
+const BusinessRaceAdminPage = lazyNamed(() => import("./app/business-race-admin-page"), "BusinessRaceAdminPage");
 
 async function loadMailQueueModule() {
   if (!mailQueueModulePromise) {
@@ -280,7 +281,6 @@ const TEAMS_TABS = [
   { to: "/app/equipes", end: true, label: "Équipes bénévoles" },
   { to: "/app/equipes/organisation", label: "Équipes organisation" },
   { to: "/app/equipes/affectations", label: "Affectations" },
-  { to: "/app/equipes/planning", label: "Planning" },
   { to: "/app/equipes/recapitulatif", label: "Récapitulatif" },
   { to: "/app/equipes/autour-du-meeting", label: "Autour du meeting" },
 ];
@@ -650,6 +650,7 @@ export default function App() {
           <Route path="/pre-programme" element={<PreProgrammeAccessPage />} />
           <Route path="/vip" element={<VipAccessPage loadMailQueueModule={loadMailQueueModule} />} />
           <Route path="/vip/orga/:portalId" element={<VipPartnerPortalPage />} />
+          <Route path="/business-race/:portalId" element={<VipPartnerPortalPage />} />
           <Route path="/presse" element={<PressRegistrationPage loadMailQueueModule={loadMailQueueModule} />} />
           {/* Lien court à partager (QR des badges) ; l'ancienne adresse reste valable. */}
           <Route path="/roadbook" element={<AthleteRoadbookPage />} />
@@ -691,10 +692,14 @@ export default function App() {
                   <Route index element={<TeamsPage view="configuration" />} />
                   <Route path="affectations" element={<VolunteerAssignmentsPage />} />
                   <Route path="organisation" element={<OrganisationTeamsPage />} />
-                  <Route path="planning" element={<MeetingDayProgrammePage />} />
-                  <Route path="programme-dimanche" element={<Navigate replace to="/app/equipes/planning" />} />
+                  {/* Planning : page à part dans le menu (Pilotage) ; anciennes adresses redirigées. */}
+                  <Route path="planning" element={<Navigate replace to="/app/planning" />} />
+                  <Route path="programme-dimanche" element={<Navigate replace to="/app/planning" />} />
                   <Route path="recapitulatif" element={<TeamsPage view="overview" />} />
                   <Route path="autour-du-meeting" element={<MeetingSupportPage />} />
+                </Route>
+                <Route path="planning" element={<TabbedPage eyebrowKey="navSectionSteering" titleKey="navPlanning" title="Planning" tabs={[]} />}>
+                  <Route index element={<MeetingDayProgrammePage />} />
                 </Route>
                 <Route path="u14/*" element={<U14Page />} />
                 <Route path="accreditations/*" element={<AccreditationsPage />} />
@@ -703,6 +708,7 @@ export default function App() {
                 <Route path="vip" element={<VipPage />} />
                 <Route path="roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
+                <Route path="business-race" element={<BusinessRaceAdminPage />} />
                 <Route path="calendrier/*" element={<CommunicationModule area="calendar" />} />
                 <Route path="taches" element={<CommunicationModule area="tasks" />} />
               </Route>

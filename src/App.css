@@ -9066,9 +9066,23 @@ tr.row--warning > td {
 .sheet-team-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 6px; border: 1px solid #d6e0ec; border-radius: 4px; background: #f3f7fc; font-size: 11.5px; line-height: 18px; white-space: nowrap; }
 .sheet-team-chip__remove { border: 0; background: none; padding: 0 3px; font-size: 13px; line-height: 1; color: #8391a3; cursor: pointer; }
 .sheet-team-chip__remove:hover { color: #b0182b; }
-.data-table--sheet select.sheet-team-add { width: auto; min-width: 0; height: 20px; max-width: 96px; padding: 0 2px 0 4px; border: 1px dashed #b9c6d6; border-radius: 4px; background-color: transparent; font: inherit; font-size: 11.5px; line-height: 18px; font-weight: 600; color: #1a4aa1; cursor: pointer; box-shadow: none; }
-.data-table--sheet select.sheet-team-add:hover,
-.data-table--sheet select.sheet-team-add:focus { border-style: solid; background-color: #fff; }
+.data-table--sheet button.sheet-team-add { width: auto; min-width: 0; height: 20px; padding: 0 6px; border: 1px dashed #b9c6d6; border-radius: 4px; background: transparent; font: inherit; font-size: 11.5px; line-height: 18px; font-weight: 600; color: #1a4aa1; cursor: pointer; box-shadow: none; white-space: nowrap; }
+.data-table--sheet button.sheet-team-add:hover,
+.data-table--sheet button.sheet-team-add:focus-visible,
+.data-table--sheet button.sheet-team-add[aria-expanded="true"] { border-style: solid; background: #fff; }
+.sheet-team-picker { position: fixed; z-index: 60; display: flex; flex-direction: column; max-height: 280px; padding: 4px; border: 1px solid #d6e0ec; border-radius: 6px; background: #fff; box-shadow: 0 8px 24px rgba(19, 33, 58, 0.14); font-size: 12px; }
+.sheet-team-picker input.sheet-team-picker__search { width: 100%; height: 26px; min-height: 0; margin: 0 0 4px; padding: 0 8px; border: 1px solid #d6e0ec; border-radius: 4px; font: inherit; font-size: 12px; box-shadow: none; }
+.sheet-team-picker input.sheet-team-picker__search:focus { outline: none; border-color: #1a4aa1; }
+.sheet-team-picker__list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.sheet-team-picker__option { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #13213a; }
+.sheet-team-picker__option.is-active { background: #eef4fb; }
+.sheet-team-picker__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-team-picker__tag { padding: 0 4px; border-radius: 3px; background: #e7f4ec; color: #216344; font-size: 10px; font-weight: 600; }
+.sheet-team-picker__count { color: #8391a3; font-size: 11px; font-variant-numeric: tabular-nums; }
+.sheet-team-picker__count.is-full { color: #216344; }
+.sheet-team-picker__empty { padding: 4px 8px; color: #8391a3; }
+.status-note--warning { margin: 16px 0; padding: 10px 14px; border-radius: 10px; border: 1px solid #f0d58a; background: #fff8e5; color: #7a5300; }
+.assign-status--warn { background: #fff8e5; color: #7a5300; }
 .sheet-link { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: #13213a; cursor: pointer; }
 .sheet-link:hover { color: #1a4aa1; text-decoration: underline; }
 .workflow-pill.sheet-status { padding: 1px 7px; font-size: 11px; font-weight: 600; border-radius: 4px; }
@@ -10512,6 +10526,24 @@ button.xc-card:hover { border-color: #9fb3c8; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Liste des portails : lien court + boutons, pour que « Modifier » reste visible. */
+.vip-admin .vip-portal-link-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.vip-admin .vip-portal-link-cell__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.vip-admin .vip-portal-link-cell__actions .button {
+  padding: 3px 9px;
+  font-size: 0.8rem;
 }
 
 /* ── Portail partenaire VIP (vip-pages.jsx › VipPartnerPortalPage) ───────── */
@@ -12301,3 +12333,142 @@ button.xc-card:hover { border-color: #9fb3c8; }
 .accreditation-page .acc-qr-form__target select, .accreditation-page .acc-qr-form__target input { height: 32px; min-height: 0; padding: 0 9px; border: 1px solid #cfd9e3; border-radius: 7px; background: #fff; font-size: 13px; box-shadow: none; }
 .accreditation-page .acc-qr-form__actions { display: flex; gap: 8px; }
 @media (max-width: 700px) { .accreditation-page .acc-qr-form__grid { grid-template-columns: 1fr; } }
+
+/* Portail partenaire : accompagnant sans nom possible. */
+.vip-portal-sub-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--vp-muted);
+}
+
+.vip-portal-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: end;
+  padding-bottom: 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.data-table--vip-portals .table-stack--tight > span {
+  white-space: normal;
+}
+
+/* Liste des portails partenaires : « Modifier » sous le nom (toujours visible). */
+.data-table--vip-portals th:nth-child(1),
+.data-table--vip-portals td:nth-child(1) {
+  width: 18%;
+}
+
+.data-table--vip-portals th:nth-child(2),
+.data-table--vip-portals td:nth-child(2) {
+  width: 20%;
+}
+
+.data-table--vip-portals th:nth-child(3),
+.data-table--vip-portals td:nth-child(3) {
+  width: 26%;
+}
+
+.data-table--vip-portals th:nth-child(4),
+.data-table--vip-portals td:nth-child(4) {
+  width: 16%;
+}
+
+.data-table--vip-portals th:nth-child(5),
+.data-table--vip-portals td:nth-child(5) {
+  width: 20%;
+}
+
+.vip-admin .vip-portal-edit-btn {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+}
+
+.vip-admin .data-table--vip-portals .vip-portal-link-cell__actions {
+  flex-wrap: wrap;
+}
+
+/* Un portail, deux modules : badge et rappel du module Business Race dans VIP */
+.vip-module {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.vip-module--race {
+  background: #fdecef;
+  color: #c8102e;
+}
+
+.vip-module-detect {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #f1c2cb;
+  border-radius: 9px;
+  background: #fff7f8;
+  font-size: 0.86rem;
+}
+
+.vip-module-detect label {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 7px 10px;
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.vip-module-detect label.is-on {
+  border-color: #17324a;
+  box-shadow: inset 0 0 0 1px #17324a;
+}
+
+.vip-module-detect input {
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+}
+
+.vip-module-detect small {
+  display: block;
+  color: #627788;
+  font-size: 0.78rem;
+}
+
+.vip-module-readonly {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: 1px dashed #c9d4de;
+  border-radius: 8px;
+  background: #f6f9fc;
+  font-size: 0.82rem;
+  color: #627788;
+}
+
+.vip-module-readonly .vip-module {
+  margin-left: 0;
+}
+
+.vip-module-readonly__link {
+  margin-left: auto;
+  color: #1a4aa1;
+  font-weight: 700;
+  text-decoration: none;
+}

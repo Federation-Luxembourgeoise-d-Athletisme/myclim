@@ -116,6 +116,19 @@ function buildMemberRolePatch(volunteer, teamName, memberRole) {
   };
 }
 
+// La personne a-t-elle déjà reçu l'e-mail d'affectation pour cette équipe ?
+// lastMailSentTeams (toutes les équipes du dernier e-mail) est enregistré
+// depuis le 17/11/2026 ; avant, seul lastMailSentRole (l'équipe principale)
+// l'était. Un dossier encore « informé » (aucun changement depuis l'e-mail)
+// a reçu toutes ses équipes actuelles.
+function wasInformedOfTeam(volunteer = {}, teamName) {
+  if (!teamName) return false;
+  const mailedTeams = cleanList(volunteer.lastMailSentTeams);
+  if (mailedTeams.some((name) => sameName(name, teamName))) return true;
+  if (sameName(volunteer.lastMailSentRole, teamName)) return true;
+  return Boolean(volunteer.teamEmailSent) && getAssignedTeams(volunteer).some((name) => sameName(name, teamName));
+}
+
 function needsInforming(volunteer = {}) {
   return !isCancelled(volunteer) && getAssignedTeams(volunteer).length > 0 && !volunteer.teamEmailSent;
 }
@@ -189,4 +202,5 @@ export {
   getStatusAfterInform,
   needsInforming,
   suggestTeams,
+  wasInformedOfTeam,
 };

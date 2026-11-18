@@ -59,8 +59,15 @@ function buildCheckInKey(editionId, sourceType, sourceId) {
     .join("__");
 }
 
+// Accompagnant nommé, ou annoncé sans nom (« + 1 » sur les portails partenaires).
+function getVipCompanionLabel(record = {}) {
+  const name = buildPersonName(record.guestFirstName, record.guestLastName);
+  if (name) return name;
+  return record.hasCompanion ? "Accompagnant (+1)" : "";
+}
+
 function getVipPlaces(record = {}) {
-  return buildPersonName(record.guestFirstName, record.guestLastName) ? 2 : 1;
+  return getVipCompanionLabel(record) ? 2 : 1;
 }
 
 function getVipDedupKey(record = {}) {
@@ -71,7 +78,7 @@ function getVipDedupKey(record = {}) {
 }
 
 function mapVipRecordToDoorEntry(record, sourceType, sourceId, editionId) {
-  const companion = buildPersonName(record.guestFirstName, record.guestLastName);
+  const companion = getVipCompanionLabel(record);
   return {
     key: buildCheckInKey(editionId, sourceType, sourceId),
     sourceType,
@@ -138,7 +145,7 @@ function buildDoorEntries({
   vipPortalEntries
     .filter((record) => record.placeType === "standard")
     .forEach((record) => {
-      const companion = buildPersonName(record.guestFirstName, record.guestLastName);
+      const companion = getVipCompanionLabel(record);
       entries.push({
         key: buildCheckInKey(editionId, "vip_portal", `${record.portalId || "portail"}-${record.id}`),
         sourceType: "vip_portal",

@@ -1,6 +1,6 @@
 import { defaultTeamRoles } from "./team-config";
 import { QR_LINK_SOURCES, pickQrSource } from "./qr-link-sources.js";
-import { normalizeNamelessBadgeTypes, normalizeNationalBadge } from "./extra-badge-types.js";
+import { normalizeBusinessRaceBadge, normalizeNamelessBadgeTypes, normalizeNationalBadge } from "./extra-badge-types.js";
 import accreditationQrEmagazineAthleteUrl from "../assets/accreditation-qr-emagazine-athlete.png";
 import accreditationQrPhotosUrl from "../assets/accreditation-qr-photos.png";
 import accreditationQrResultsLiveAthleteUrl from "../assets/accreditation-qr-results-live-athlete.png";
@@ -396,6 +396,7 @@ function normalizeAccreditationConfigurationPayload(data, roles = defaultTeamRol
     // Badges sans nom et badge des courses nationales (extra-badge-types.js).
     namelessBadgeTypes: normalizeNamelessBadgeTypes(data?.namelessBadgeTypes, availableZoneIds),
     nationalBadge: normalizeNationalBadge(data?.nationalBadge, availableZoneIds),
+    businessRaceBadge: normalizeBusinessRaceBadge(data?.businessRaceBadge, availableZoneIds),
   };
 }
 

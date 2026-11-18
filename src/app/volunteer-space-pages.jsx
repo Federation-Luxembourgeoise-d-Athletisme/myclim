@@ -255,7 +255,7 @@ function MyAssignmentsPage(props) {
                             name: buildVipFullName(registration) || "—",
                             organization: registration.organization || "—",
                             guest:
-                              `${registration.guestFirstName || ""} ${registration.guestLastName || ""}`.trim() || "—",
+                              `${registration.guestFirstName || ""} ${registration.guestLastName || ""}`.trim() || (registration.hasCompanion ? "+1" : "—"),
                           }))}
                         />
                       ) : (

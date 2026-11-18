@@ -12,6 +12,7 @@ export * from "./communication.js";
 export * from "./communication-social.js";
 // Notifications de l'équipe : cloche, push et e-mail (voir notifications.js).
 export {
+  notifyBusinessRaceTeam,
   notifyPressRegistration,
   notifyU14Request,
   notifyVipPartnerEntry,
@@ -21,6 +22,8 @@ export {
   sendTeamAnnouncement,
   sendTestNotification,
 } from "./notifications.js";
+// Business Race : line-up public des équipes pour l'e-magazine (voir business-race.js).
+export { syncBusinessRaceLineupOnPortal, syncBusinessRaceLineupOnTeam } from "./business-race.js";
 // Places protégées U12 / U14 : inscription par lien, rappel J-2, libération (voir u14-protected.js).
 export { claimU14ProtectedInvite, u14ProtectedInvitesDaily } from "./u14-protected.js";
 // Liste d'attente U12 / U14 : avance toute seule après un désistement (voir u14-allocation.js).

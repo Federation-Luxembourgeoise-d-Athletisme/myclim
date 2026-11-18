@@ -60,11 +60,14 @@ test("partner portal places: caps, place types and legacy contacts", async () =>
   assert.deepEqual(getVipPortalPlaceTypes({ vipPlacesCap: 10, standardPlacesCap: 5 }), ["vip", "standard"]);
   assert.deepEqual(getVipPortalPlaceTypes({ vipPlacesCap: 0, standardPlacesCap: 5 }), ["standard"]);
 
+  // Le quota compte les invitations ; l'accompagnant (nommé ou « + 1 ») ajoute une place.
   const places = computeVipPortalPlaces({ vipPlacesCap: 3, standardPlacesCap: 2 }, [
     { firstName: "A", guestFirstName: "B" },
+    { firstName: "D", hasCompanion: true },
     { firstName: "C", placeType: "standard" },
   ]);
   assert.deepEqual(places.used, { vip: 2, standard: 1 });
+  assert.deepEqual(places.seats, { vip: 4, standard: 1 });
   assert.deepEqual(places.remaining, { vip: 1, standard: 1 });
 
   assert.deepEqual(getVipPortalContacts({ contactName: "Fred Muller", contactEmail: "f@x.lu" }), [
@@ -77,4 +80,41 @@ test("partner portal meeting contact falls back to Margot", async () => {
   assert.equal(getVipPortalMeetingContact({}).email, "margot.laporte@fla.lu");
   assert.equal(getVipPortalMeetingContact({ meetingContact: null }).lastName, "Laporte");
   assert.equal(getVipPortalMeetingContact({ meetingContact: { firstName: "Paul", email: "p@fla.lu" } }).firstName, "Paul");
+});
+
+test('one portal, two modules: the company sees the places added up', async () => {
+  const { computeVipPortalPlaces, getVipPortalCaps, portalHasVipModule, getVipPortalPlaceTypes } = await import('../src/app/vip-helpers.js');
+  assert.equal(portalHasVipModule({ vipPlacesCap: 4 }), true);
+  assert.equal(portalHasVipModule({ businessRace: true }), false);
+  assert.equal(portalHasVipModule({ businessRace: true, vipPartner: true }), true);
+
+  const both = { vipPartner: true, vipPlacesCap: 6, standardPlacesCap: 2, businessRace: true, businessRaceVipCap: 4, businessRaceStandardCap: 8 };
+  const caps = getVipPortalCaps(both);
+  assert.deepEqual(caps.total, { vip: 10, standard: 10 });
+  assert.deepEqual(caps.partner, { vip: 6, standard: 2 });
+  const places = computeVipPortalPlaces(both, [{ firstName: 'A' }, { firstName: 'B', placeType: 'standard' }]);
+  assert.deepEqual(places.remaining, { vip: 9, standard: 9 });
+
+  // Business Race seule : ses anciens champs VIP du partenariat sont ignorés.
+  const raceOnly = { businessRace: true, vipPlacesCap: 99, businessRaceVipCap: 4, businessRaceStandardCap: 0 };
+  assert.deepEqual(getVipPortalCaps(raceOnly).total, { vip: 4, standard: 0 });
+  assert.deepEqual(getVipPortalPlaceTypes(raceOnly), ['vip']);
+
+  // Partenariat VIP sans plafond : total illimité.
+  assert.equal(getVipPortalCaps({ vipPartner: true, businessRace: true, businessRaceVipCap: 4 }).total.vip, null);
+});
+
+test('existing portal found by id, by a name containing the other, or by contact e-mail', async () => {
+  const { findExistingPortal, buildCompanyPortalPath } = await import('../src/app/vip-helpers.js');
+  const portals = [
+    { id: 'cargolux', organizationName: 'Cargolux' },
+    { id: 'bgl-bnp-paribas', organizationName: 'BGL BNP Paribas', contacts: [{ firstName: 'M', email: 'm.schmit@bgl.lu' }] },
+  ];
+  assert.equal(findExistingPortal(portals, { organizationName: 'Cargolux' }).id, 'cargolux');
+  assert.equal(findExistingPortal(portals, { organizationName: 'BGL BNP' }).id, 'bgl-bnp-paribas');
+  assert.equal(findExistingPortal(portals, { organizationName: 'Autre', email: 'M.Schmit@bgl.lu' }).id, 'bgl-bnp-paribas');
+  assert.equal(findExistingPortal(portals, { organizationName: 'Cargo' }).id, 'cargolux');
+  assert.equal(findExistingPortal(portals, { organizationName: 'Luxair' }), null);
+  assert.equal(buildCompanyPortalPath({ id: 'cargolux' }), '/vip/orga/cargolux');
+  assert.equal(buildCompanyPortalPath({ id: 'acme', businessRace: true }), '/business-race/acme');
 });
