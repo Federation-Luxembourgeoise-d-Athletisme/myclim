@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { nationalBadgeKey, normalizeNamelessBadgeTypes, normalizeNationalBadge, toggleZone } from '../src/app/extra-badge-types.js';
+import { nationalBadgeKey, normalizeBusinessRaceBadge, normalizeNamelessBadgeTypes, normalizeNationalBadge, toggleZone } from '../src/app/extra-badge-types.js';
 
 test('Athlete and Coach start from their former fixed zones', () => {
   const types = normalizeNamelessBadgeTypes(undefined);
@@ -38,4 +38,13 @@ test('national race badge has defaults and keeps saved zones', () => {
 test('toggleZone adds or removes', () => {
   assert.deepEqual(toggleZone(['a'], 'b'), ['a', 'b']);
   assert.deepEqual(toggleZone(['a', 'b'], 'a'), ['b']);
+});
+
+test('Business Race badge starts from warm-up + infield, saved settings win', () => {
+  const seed = normalizeBusinessRaceBadge(undefined);
+  assert.equal(seed.label, 'Business Race');
+  assert.deepEqual(seed.zoneIds, ['zone-warmup', 'zone-infield']);
+  const saved = normalizeBusinessRaceBadge({ category: 'volunteer', zoneIds: ['zone-vip', 'zone-gone'] }, new Set(['zone-vip']));
+  assert.equal(saved.category, 'volunteer');
+  assert.deepEqual(saved.zoneIds, ['zone-vip']);
 });

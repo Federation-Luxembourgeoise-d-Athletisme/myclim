@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, collectionGroup, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import {
@@ -32,6 +32,7 @@ import { normalizeComparableValue } from "./u14-helpers";
 import { enterQueue } from "./accreditation-queue";
 import { REASON_LABELS, STEP_LABELS, canPrintStep, countSteps, getBadgeStep } from "./accreditation-steps";
 import { nationalBadgeKey, toggleZone } from "./extra-badge-types";
+import { isBusinessRacePortal, listBusinessRaceRunners } from "./business-race-helpers";
 import { getNationalRaceDefinition, isNationalRacePacer, NATIONAL_RACE_REQUESTS_COLLECTION } from "./national-races-helpers";
 import { recordMatchesEdition } from "./edition";
 import { useAuth } from "../context/auth-context";
@@ -190,6 +191,7 @@ function AccreditationsPage(props) {
     qrVisualAssignments: storedQrVisualAssignments,
     namelessBadgeTypes,
     nationalBadge,
+    businessRaceBadge,
     loading: accreditationLoading,
     error: accreditationError,
   } = useAccreditationConfiguration(roles);
@@ -210,6 +212,8 @@ function AccreditationsPage(props) {
   const [isQrFormOpen, setIsQrFormOpen] = useState(false);
   // Courses nationales : athlètes retenus (badge nominatif).
   const [nationalAthletes, setNationalAthletes] = useState([]);
+  // Business Race : coureurs des équipes saisies par les entreprises (badge nominatif).
+  const [businessRunners, setBusinessRunners] = useState([]);
   // Badges cochés pour l'impression (plus de file : on coche, on imprime).
   const [printSelection, setPrintSelection] = useState(() => new Set());
   const [peopleType, setPeopleType] = useState("volunteers");
@@ -1772,6 +1776,109 @@ function AccreditationsPage(props) {
     );
   }, [activeEditionId, canOperatePrinting, editionLoading]);
 
+  // Business Race : portails des entreprises + leurs équipes (sous-collection teams).
+  useEffect(() => {
+    if (!canOperatePrinting) return undefined;
+    let portals = [];
+    let teamsByPortal = {};
+    const recompute = () => setBusinessRunners(listBusinessRaceRunners(portals, teamsByPortal));
+    const unsubscribePortals = onSnapshot(
+      collection(db, "vipPartnerPortals"),
+      (snapshot) => {
+        portals = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })).filter(isBusinessRacePortal);
+        recompute();
+      },
+      () => {
+        portals = [];
+        recompute();
+      },
+    );
+    const unsubscribeTeams = onSnapshot(
+      collectionGroup(db, "teams"),
+      (snapshot) => {
+        teamsByPortal = {};
+        snapshot.docs
+          .filter((entry) => entry.ref.path.startsWith("vipPartnerPortals/"))
+          .forEach((entry) => {
+            const portalId = entry.ref.path.split("/")[1] || "";
+            (teamsByPortal[portalId] ||= []).push({ id: entry.id, ...entry.data() });
+          });
+        recompute();
+      },
+      () => {
+        teamsByPortal = {};
+        recompute();
+      },
+    );
+    return () => {
+      unsubscribePortals();
+      unsubscribeTeams();
+    };
+  }, [canOperatePrinting]);
+
+  // Libellé d'un coureur Business Race : équipe · passage (toujours en anglais sur le badge).
+  function getBusinessRunnerLabel(runner, printed = false) {
+    const english = printed || tr("fr", "en") === "en";
+    const leg = runner.isReserve ? (english ? "reserve" : "remplaçant") : `${english ? "leg" : "relayeur"} ${runner.leg}`;
+    return `${runner.teamLabel} · ${leg}`;
+  }
+  const businessRaceZoneLabels = sortedZones.filter((zone) => businessRaceBadge.zoneIds.includes(zone.id)).map((zone) => formatZoneLabel(zone));
+
+  async function printBusinessRaceBadges(runners) {
+    const list = runners.filter((runner) => canPrintStep(getBadgeStep(getVolunteerOverride(runner.key))));
+    if (!list.length) return;
+    const printedAt = new Date().toISOString();
+    const resourceCards = await buildResourceCardsForVisual("athlete");
+    const badgeItems = list.map((runner) => ({
+      volunteerId: runner.key,
+      name: `${runner.firstName} ${runner.lastName}`.trim(),
+      firstName: runner.firstName,
+      lastName: runner.lastName,
+      category: businessRaceBadge.category,
+      role: [businessRaceBadge.label, runner.organization].filter(Boolean).join(" · "),
+      roleNames: [getBusinessRunnerLabel(runner, true)],
+      zoneIds: businessRaceBadge.zoneIds,
+      zoneLabels: businessRaceZoneLabels,
+      resourceCards,
+    }));
+    const historyEntries = badgeItems.map((item, index) => ({
+      id: `${item.volunteerId}-${Date.now()}-${index}`,
+      volunteerId: item.volunteerId,
+      name: item.name,
+      roleLabel: item.role,
+      roleNames: item.roleNames,
+      zoneLabels: item.zoneLabels,
+      printedAt,
+      generatedBy: getCurrentOperatorLabel(),
+      reviewStatus: "",
+      reviewComment: "",
+    }));
+    const nextOverrides = { ...volunteerOverrides };
+    badgeItems.forEach((item) => {
+      nextOverrides[item.volunteerId] = {
+        ...getVolunteerOverride(item.volunteerId),
+        printStatus: "Imprimé",
+        lastPrintedAt: printedAt,
+        handedOverAt: null,
+        warningMessage: "",
+        printedSnapshot: { roleLabel: item.role, roleNames: item.roleNames, zoneIds: item.zoneIds },
+      };
+    });
+    await persistAccreditationConfiguration(
+      buildCurrentConfiguration({
+        volunteerOverrides: nextOverrides,
+        printHistory: [{ id: `business-race-batch-${Date.now()}`, printedAt, generatedBy: getCurrentOperatorLabel(), items: historyEntries }, ...printHistory],
+      }),
+      tr(`${list.length} badge(s) Business Race imprimé(s).`, `${list.length} Business Race badge(s) printed.`),
+    );
+    openPrintWindow(buildAccreditationBadgeMarkup(badgeItems, { planElements: coquePlanElements }));
+    openPrintWindow(buildAccreditationPrintHistoryMarkup(historyEntries, formatDateTimeForDisplay));
+  }
+
+  function updateBusinessRaceBadge(patch) {
+    persistAccreditationConfiguration({ businessRaceBadge: { ...businessRaceBadge, ...patch } }, tr("Badge Business Race enregistré.", "Business Race badge saved."));
+  }
+
   // Badge d'un athlète de course nationale : suivi dans volunteerOverrides (clé nr-…).
   // printed : texte imprimé sur le badge (toujours en anglais, comme les badges) ;
   // sinon dans la langue de l'écran.
@@ -1901,6 +2008,16 @@ function AccreditationsPage(props) {
         handOver: () => markBadgeHandedOver({ id: key }),
       };
     }),
+    ...businessRunners.map((runner) => ({
+      key: runner.key,
+      name: `${runner.firstName} ${runner.lastName}`.trim(),
+      role: getBusinessRunnerLabel(runner),
+      kind: "Business Race",
+      step: getBadgeStep(getVolunteerOverride(runner.key)).step,
+      location: getBadgeStorageLocation(runner.key),
+      setLocation: (location) => updateBadgeStorageLocation(runner.key, location),
+      handOver: () => markBadgeHandedOver({ id: runner.key }),
+    })),
   ].filter((row) => row.step === "done" || row.step === "given");
 
   function openAccreditationTab(tabId) {
@@ -2381,6 +2498,52 @@ function AccreditationsPage(props) {
                       </tr>
                     );
                   })()}
+                  <tr className="acc-matrix__group">
+                    <td colSpan={sortedZones.length + 2}>
+                      Business Race{" "}
+                      <small>{tr("badge nominatif, nom repris des équipes saisies par les entreprises", "named badge, name taken from the teams entered by the companies")}</small>
+                    </td>
+                  </tr>
+                  {(() => {
+                    const category = BADGE_CATEGORIES.find((item) => item.key === businessRaceBadge.category);
+                    return (
+                      <tr>
+                        <td className="acc-matrix__role">
+                          <strong>{businessRaceBadge.label}</strong>
+                          <small>{tr(`${businessRunners.length} coureur(s)`, `${businessRunners.length} runner(s)`)}</small>
+                        </td>
+                        <td className="acc-matrix__band">
+                          <span className="acc-matrix__category">
+                            <i style={{ background: category?.color }} />
+                            <select aria-label={tr("Bande du badge Business Race", "Business Race badge band")} value={businessRaceBadge.category} onChange={(event) => updateBusinessRaceBadge({ category: event.target.value })}>
+                              {BADGE_CATEGORIES.map((item) => (
+                                <option key={item.key} value={item.key}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          </span>
+                        </td>
+                        {sortedZones.map((zone) => {
+                          const on = businessRaceBadge.zoneIds.includes(zone.id);
+                          return (
+                            <td key={zone.id} className="acc-matrix__cell">
+                              <button
+                                aria-label={on
+                                  ? tr(`Retirer ${zone.name} à la Business Race`, `Remove ${zone.name} from the Business Race`)
+                                  : tr(`Donner ${zone.name} à la Business Race`, `Give ${zone.name} to the Business Race`)}
+                                aria-pressed={on}
+                                className={`acc-matrix__toggle${on ? " is-on" : ""}`}
+                                style={on ? { background: category?.color } : undefined}
+                                type="button"
+                                onClick={() => updateBusinessRaceBadge({ zoneIds: toggleZone(businessRaceBadge.zoneIds, zone.id) })}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>
@@ -2796,6 +2959,7 @@ function AccreditationsPage(props) {
               { id: "judges", label: tr("Juges", "Judges"), count: activeJudges.length },
               { id: "press", label: tr("Presse", "Press"), count: acceptedPressRegistrations.length },
               { id: "national", label: tr("Courses nationales", "National races"), count: nationalAthletes.length },
+              { id: "businessRace", label: "Business Race", count: businessRunners.length },
               { id: "vip", label: "VIP", count: queuedVipBadgeCount },
               { id: "nominless", label: tr("Sans nom (athlètes, coachs)", "Without name (athletes, coaches)"), count: null },
             ].map((type) => (
@@ -2896,6 +3060,88 @@ function AccreditationsPage(props) {
               nationalAthletes.filter((request) => canPrintStep(getBadgeStep(getVolunteerOverride(nationalBadgeKey(request.id))))),
               (request) => nationalBadgeKey(request.id),
               printNationalBadges,
+            )}
+          </Panel>
+          ) : null}
+
+          {peopleType === "businessRace" ? (
+          <Panel
+            title="Business Race"
+            subtitle={tr(
+              "Badge nominatif des coureurs (relayeurs et remplaçants) saisis par les entreprises sur leur portail. Les zones et la couleur se règlent dans Réglages › Zones par rôle.",
+              "Named badge for the runners (relay runners and reserves) entered by the companies on their portal. Zones and colour are set in Settings › Zones by role.",
+            )}
+          >
+            <div className="table-wrap">
+              <table className="data-table data-table--admin acc-people-table">
+                <thead>
+                  <tr>
+                    <th className="acc-cb" aria-label={tr("Cocher", "Select")} />
+                    <th>{tr("Coureur", "Runner")}</th>
+                    <th>{tr("Entreprise · équipe", "Company · team")}</th>
+                    <th>Zones</th>
+                    <th>{tr("Étape", "Step")}</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {businessRunners.map((runner) => {
+                    const stepInfo = getBadgeStep(getVolunteerOverride(runner.key));
+                    return (
+                      <tr key={runner.key}>
+                        <td className="acc-cb">
+                          {canPrintStep(stepInfo) ? (
+                            <input
+                              aria-label={tr(`Cocher ${runner.firstName} ${runner.lastName}`, `Select ${runner.firstName} ${runner.lastName}`)}
+                              checked={printSelection.has(runner.key)}
+                              type="checkbox"
+                              onChange={(event) => togglePrintSelection(runner.key, event.target.checked)}
+                            />
+                          ) : null}
+                        </td>
+                        <td>
+                          <span className="acc-people-name">{`${runner.firstName} ${runner.lastName}`.trim() || "—"}</span>
+                        </td>
+                        <td>
+                          {runner.organization}
+                          {runner.teamLabel !== runner.organization ? ` · ${runner.teamLabel}` : ""}
+                          {" · "}
+                          {runner.isReserve ? tr("remplaçant", "reserve") : tr(`relayeur ${runner.leg}`, `leg ${runner.leg}`)}
+                        </td>
+                        <td>
+                          {businessRaceZoneLabels.length ? (
+                            <span className="acc-people-zones">{businessRaceZoneLabels.join(", ")}</span>
+                          ) : (
+                            <span className="acc-people-muted">{tr("aucune zone", "no zone")}</span>
+                          )}
+                        </td>
+                        <td>
+                          {stepInfo.step ? <span className={STEP_PILL_CLASS[stepInfo.step]}>{tr(STEP_LABELS[stepInfo.step].fr, STEP_LABELS[stepInfo.step].en)}</span> : null}
+                        </td>
+                        <td className="acc-people-actions">
+                          {stepInfo.step === "done" ? (
+                            <button className="button button--secondary button--small" type="button" onClick={() => markBadgeHandedOver({ id: runner.key })}>
+                              {tr("Remis", "Handed over")}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!businessRunners.length ? (
+                    <tr>
+                      <td colSpan="6" className="acc-people-empty">
+                        {tr("Aucun coureur Business Race saisi pour l'instant.", "No Business Race runner entered yet.")}
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            {renderPrintBar(
+              businessRunners.filter((runner) => canPrintStep(getBadgeStep(getVolunteerOverride(runner.key)))),
+              (runner) => runner.key,
+              printBusinessRaceBadges,
             )}
           </Panel>
           ) : null}
