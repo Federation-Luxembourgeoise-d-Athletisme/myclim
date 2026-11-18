@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useLanguage } from "./language-context";
 import {
+  NATIONAL_RACE_PUBLIC_EVENTS,
   NATIONAL_RACE_REQUESTS_COLLECTION,
   getNationalRaceDefinition,
   getNationalRaceStatusKey,
@@ -126,9 +127,9 @@ function MyNationalRacePage(props) {
           }
         />
       </Panel>
-      {/* Seul le 800 m est ouvert au public : plus rien à ajouter une fois
-          une demande 800 m active. */}
-      {requests.some((request) => request.event === "800 m" && request.status !== "withdrawn") ? null : (
+      {/* 60 m et 800 m ouverts au public : plus rien à ajouter une fois une
+          demande active sur chacune des deux courses. */}
+      {NATIONAL_RACE_PUBLIC_EVENTS.every((eventName) => requests.some((request) => request.event === eventName && request.status !== "withdrawn")) ? null : (
         <div className="panel-actions">
           <NavLink className="button button-link" to="/pre-programme?parcours=courses-nationales">
             {t("natAddEvent")}

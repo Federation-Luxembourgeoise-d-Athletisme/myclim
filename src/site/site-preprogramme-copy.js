@@ -21,7 +21,7 @@ const SITE_PREPROGRAMME_COPY = {
     youthBody: "U12 born {u12} · U14 born {u14} · licensed in a Luxembourg club · basket carrier up to U16 (born {u16})",
     youthCta: "Register a child",
     athleteTitle: "Athlete",
-    athleteBody: "800 m national races · 8 places per race · selection on season best · 60 m by invitation",
+    athleteBody: "60 m and 800 m national races · 8 places per race · selection on season best",
     athleteCta: "Apply",
     companyTitle: "Company",
     companyBody: "Business Race · mixed 4 × 200 m relay · 6 companies maximum",
@@ -43,8 +43,8 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventFacts: ["U12 60 m · U14 60 m and 1000 m", "One race per child", "Basket carrier: U12 to U16"],
     nationalEventTitle: "National races",
     nationalEventBody:
-      "Women's and men's 60 m and 800 m, run by the athletes' commission. The 60 m is by invitation only. For the 800 m, apply online: the commission selects on season best (SB 2026 or 2027) and informs athletes two weeks before the meeting; the organisers then handle the entries.",
-    nationalEventFacts: ["800 m: 8 places per race, up to 3 reserved for Luxembourg athletes", "60 m by invitation only", "No entry fee · registration does not guarantee selection"],
+      "Women's and men's 60 m and 800 m, run by the athletes' commission. Apply online for the 60 m, the 800 m or both: the commission selects on season best (SB 2026 or 2027) and informs athletes two weeks before the meeting; the organisers then handle the entries.",
+    nationalEventFacts: ["800 m: 8 places per race, up to 3 reserved for Luxembourg athletes", "60 m: 8 places per race, no reserved places", "No entry fee · registration does not guarantee selection"],
     specialOlympicsTitle: "Special Olympics race",
     specialOlympicsBody:
       "An inclusive race in front of the full meeting audience, celebrating personal achievement and sport for all.",
@@ -92,11 +92,11 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "How are national race athletes selected?",
-        a: "For the 800 m, the athletes' commission selects on the season best (SB 2026 or 2027). Each race has 8 places (7 athletes + 1 pacer, or 8 athletes without a pacer) and up to 3 places are reserved for Luxembourg athletes. Registering does not guarantee selection.",
+        a: "The athletes' commission selects on the season best (SB 2026 or 2027). Each race has 8 places. In the 800 m (7 athletes + 1 pacer, or 8 athletes without a pacer), up to 3 places are reserved for Luxembourg athletes; the 60 m has no reserved places. Registering does not guarantee selection.",
       },
       {
         q: "How do I take part in the 60 m?",
-        a: "The national 60 m is by invitation only: the athletes' commission invites the best Luxembourg athletes, then the best season bests. There is no form to fill in.",
+        a: "Apply with the online form, like for the 800 m: tick the 60 m and give your times. The athletes' commission selects on the season best and informs athletes two weeks before the meeting.",
       },
       {
         q: "Is there an entry fee for the national races?",
@@ -144,7 +144,7 @@ const SITE_PREPROGRAMME_COPY = {
     youthBody: "U12 nés en {u12} · U14 nés en {u14} · licenciés dans un club luxembourgeois · porte-panier jusqu'en U16 (nés en {u16})",
     youthCta: "Inscrire un enfant",
     athleteTitle: "Athlète",
-    athleteBody: "Courses nationales 800 m · 8 places par course · sélection sur la meilleure perf. de la saison · 60 m sur invitation",
+    athleteBody: "Courses nationales 60 m et 800 m · 8 places par course · sélection sur la meilleure perf. de la saison",
     athleteCta: "Postuler",
     companyTitle: "Entreprise",
     companyBody: "Business Race · relais mixte 4 × 200 m · 6 entreprises maximum",
@@ -166,8 +166,8 @@ const SITE_PREPROGRAMME_COPY = {
     youthEventFacts: ["U12 60 m · U14 60 m et 1000 m", "Une course par enfant", "Porte-panier : de U12 à U16"],
     nationalEventTitle: "Courses nationales",
     nationalEventBody:
-      "60 m et 800 m femmes et hommes, pilotés par la commission des athlètes. Le 60 m se fait uniquement sur invitation. Pour le 800 m, inscrivez-vous en ligne : la commission sélectionne sur la meilleure perf. de la saison (SB 2026 ou 2027) et prévient les athlètes deux semaines avant le meeting ; l'organisation engage ensuite les athlètes retenus.",
-    nationalEventFacts: ["800 m : 8 places par course, jusqu'à 3 réservées aux Luxembourgeois", "60 m uniquement sur invitation", "Pas de frais d'inscription · l'inscription ne garantit pas la sélection"],
+      "60 m et 800 m femmes et hommes, pilotés par la commission des athlètes. Inscrivez-vous en ligne au 60 m, au 800 m ou aux deux : la commission sélectionne sur la meilleure perf. de la saison (SB 2026 ou 2027) et prévient les athlètes deux semaines avant le meeting ; l'organisation engage ensuite les athlètes retenus.",
+    nationalEventFacts: ["800 m : 8 places par course, jusqu'à 3 réservées aux Luxembourgeois", "60 m : 8 places par course, sans place réservée", "Pas de frais d'inscription · l'inscription ne garantit pas la sélection"],
     specialOlympicsTitle: "Course Special Olympics",
     specialOlympicsBody:
       "Une course inclusive devant tout le public du meeting, qui célèbre la réussite de chacun et le sport pour tous.",
@@ -215,11 +215,11 @@ const SITE_PREPROGRAMME_COPY = {
       },
       {
         q: "Comment sont sélectionnés les athlètes des courses nationales ?",
-        a: "Pour le 800 m, la commission des athlètes sélectionne sur la meilleure performance de la saison (SB 2026 ou 2027). Chaque course compte 8 places (7 athlètes + 1 lièvre, ou 8 athlètes sans lièvre) et jusqu'à 3 places sont réservées aux athlètes luxembourgeois. L'inscription ne garantit pas la sélection.",
+        a: "La commission des athlètes sélectionne sur la meilleure performance de la saison (SB 2026 ou 2027). Chaque course compte 8 places. Au 800 m (7 athlètes + 1 lièvre, ou 8 athlètes sans lièvre), jusqu'à 3 places sont réservées aux athlètes luxembourgeois ; le 60 m n'a pas de place réservée. L'inscription ne garantit pas la sélection.",
       },
       {
         q: "Comment participer au 60 m ?",
-        a: "Le 60 m national se fait uniquement sur invitation : la commission des athlètes invite les meilleurs Luxembourgeois, puis les meilleures performances de la saison. Il n'y a pas de formulaire à remplir.",
+        a: "Inscrivez-vous avec le formulaire en ligne, comme pour le 800 m : cochez le 60 m et indiquez vos temps. La commission des athlètes sélectionne sur la meilleure performance de la saison et prévient les athlètes deux semaines avant le meeting.",
       },
       {
         q: "Faut-il payer pour participer aux courses nationales ?",

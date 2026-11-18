@@ -6,7 +6,7 @@ const NATIONAL_RACES_ADMIN_COPY = {
   fr: {
     eyebrow: "Commission des athlètes",
     title: "Courses nationales",
-    intro: "60 m sur invitation (vous ajoutez les athlètes), 800 m sur inscription. Classement au meilleur temps de la saison (SB), puis PB, puis ordre d'arrivée. Une décision n'envoie aucun mail : vous choisissez quand prévenir chaque athlète, idéalement deux semaines avant le meeting.",
+    intro: "60 m et 800 m sur inscription (formulaire public) ; vous pouvez aussi ajouter directement un athlète invité. Classement au meilleur temps de la saison (SB), puis PB, puis ordre d'arrivée. Une décision n'envoie aucun mail : vous choisissez quand prévenir chaque athlète, idéalement deux semaines avant le meeting.",
     raceRules: {
       invitation: "Course sur invitation : pas de formulaire public, ajoutez les athlètes invités. Étrangers : confirmation au plus tard deux semaines avant le meeting.",
       open: "{quota} places (7 + 1 lièvre, ou 8 sans lièvre) · jusqu'à {lux} places réservées aux Luxembourgeois · sélection sur SB 2026/2027.",
@@ -231,7 +231,7 @@ const NATIONAL_RACES_ADMIN_COPY = {
   en: {
     eyebrow: "Athletes' commission",
     title: "National races",
-    intro: "60 m by invitation (you add the athletes), 800 m on registration. Ranking on season best (SB), then PB, then order of arrival. A decision sends no email: you choose when to tell each athlete, ideally two weeks before the meeting.",
+    intro: "60 m and 800 m on registration (public form); you can also add an invited athlete directly. Ranking on season best (SB), then PB, then order of arrival. A decision sends no email: you choose when to tell each athlete, ideally two weeks before the meeting.",
     raceRules: {
       invitation: "Invitation-only race: no public form, add the invited athletes. Foreign athletes: confirmation no later than two weeks before the meeting.",
       open: "{quota} places (7 + 1 pacer, or 8 without a pacer) · up to {lux} places reserved for Luxembourg athletes · selection on SB 2026/2027.",
