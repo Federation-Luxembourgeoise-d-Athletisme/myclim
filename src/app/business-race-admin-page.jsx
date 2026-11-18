@@ -73,6 +73,18 @@ function buildFreePortalId(base, takenIds) {
   return `${base}-${index}`;
 }
 
+// Panneaux repliables (« accordéon ») de la page admin, mémorisés par navigateur.
+const COLLAPSE_STORAGE_KEY = "business-race-admin-collapsed";
+
+function CollapseToggle({ open, onToggle, children, label }) {
+  return (
+    <button type="button" className="br-collapse" aria-expanded={open} aria-label={label} onClick={onToggle}>
+      <span className="br-collapse__caret" aria-hidden="true">{open ? "▾" : "▸"}</span>
+      {children}
+    </button>
+  );
+}
+
 function capLabel(cap) {
   return cap === null ? "∞" : String(cap);
 }
@@ -97,6 +109,25 @@ function BusinessRaceAdminPage() {
   const { settings, saved: settingsSaved } = useBusinessRaceSettings();
   const [settingsDraft, setSettingsDraft] = useState(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(COLLAPSE_STORAGE_KEY) || "{}") || {};
+    } catch {
+      return {};
+    }
+  });
+
+  function toggleCollapsed(key, value) {
+    setCollapsed((current) => {
+      const next = { ...current, [key]: value ?? !current[key] };
+      try {
+        window.localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Stockage indisponible (navigation privée) : le repli vaut pour la session.
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     const unsubscribePortals = onSnapshot(
@@ -195,6 +226,7 @@ function BusinessRaceAdminPage() {
   }
 
   function startCreate() {
+    toggleCollapsed("companies", false);
     setEditingId("");
     setStatusMessage("");
     setError("");
@@ -511,12 +543,24 @@ function BusinessRaceAdminPage() {
       {error ? <p className="form-error">{error}</p> : null}
       {statusMessage ? <p className="br-flash">{statusMessage}</p> : null}
 
-      <form className="br-panel br-dates" onSubmit={handleSettingsSubmit}>
+      <form className={`br-panel br-dates${collapsed.dates ? " is-collapsed" : ""}`} onSubmit={handleSettingsSubmit}>
         <header className="br-panel__head">
-          <h3>{tr("Dates clés", "Key dates")}</h3>
-          <span>{tr("Affichées sur le portail de chaque entreprise ; elles ne peuvent pas les modifier.", "Shown on every company's portal; companies can't change them.")}</span>
+          <CollapseToggle open={!collapsed.dates} onToggle={() => toggleCollapsed("dates")} label={tr("Ouvrir ou fermer les dates clés", "Open or close key dates")}>
+            <h3>{tr("Dates clés", "Key dates")}</h3>
+          </CollapseToggle>
+          <span>
+            {collapsed.dates
+              ? [
+                  settingsView.teamsDeadline ? tr(`Équipes jusqu'au ${formatLongDate(settingsView.teamsDeadline, language)}`, `Teams until ${formatLongDate(settingsView.teamsDeadline, language)}`) : tr("Pas de date limite", "No deadline"),
+                  tr(`${settingsView.trainings.length} entraînement(s)`, `${settingsView.trainings.length} training(s)`),
+                ].join(" · ")
+              : tr("Affichées sur le portail de chaque entreprise ; elles ne peuvent pas les modifier.", "Shown on every company's portal; companies can't change them.")}
+          </span>
           {!settingsSaved ? <span className="br-chip br-chip--warn">{tr("Pas encore enregistrées", "Not saved yet")}</span> : null}
+          {settingsDraft && collapsed.dates ? <span className="br-chip br-chip--warn">{tr("Modifications non enregistrées", "Unsaved changes")}</span> : null}
         </header>
+        {collapsed.dates ? null : (
+        <>
         <div className="br-dates__deadline">
           <label className="br-field">
             <span>{tr("Équipes modifiables jusqu'au", "Teams editable until")}</span>
@@ -608,14 +652,19 @@ function BusinessRaceAdminPage() {
             {settingsSaving ? "…" : tr("Enregistrer", "Save")}
           </button>
         </footer>
+        </>
+        )}
       </form>
 
       {pendingRequests.length ? (
-        <section className="br-panel">
+        <section className={`br-panel${collapsed.requests ? " is-collapsed" : ""}`}>
           <header className="br-panel__head">
-            <h3>{tr("Demandes de places supplémentaires", "Extra place requests")} <span className="br-count">{pendingRequests.length}</span></h3>
+            <CollapseToggle open={!collapsed.requests} onToggle={() => toggleCollapsed("requests")} label={tr("Ouvrir ou fermer les demandes", "Open or close requests")}>
+              <h3>{tr("Demandes de places supplémentaires", "Extra place requests")} <span className="br-count">{pendingRequests.length}</span></h3>
+            </CollapseToggle>
             <span>{tr("Accepter ajoute les places au pack de l'entreprise.", "Accepting adds the places to the company's pack.")}</span>
           </header>
+          {collapsed.requests ? null : (
           <ul className="br-requests">
             {pendingRequests.map((request) => (
               <li key={`${request.portalId}-${request.id}`}>
@@ -630,11 +679,19 @@ function BusinessRaceAdminPage() {
               </li>
             ))}
           </ul>
+          )}
         </section>
       ) : null}
 
       <div className="br-toolbar">
-        <h2>{tr("Entreprises", "Companies")} <span className="br-count">{rows.length}</span></h2>
+        <CollapseToggle open={!collapsed.companies} onToggle={() => toggleCollapsed("companies")} label={tr("Ouvrir ou fermer la liste des entreprises", "Open or close the company list")}>
+          <h2>{tr("Entreprises", "Companies")} <span className="br-count">{rows.length}</span></h2>
+        </CollapseToggle>
+        {collapsed.companies && rows.length ? (
+          <span className="br-muted">
+            {tr(`${totals.completeTeams} / ${totals.teams} équipe(s) complète(s) · ${totals.runners} coureur(s)`, `${totals.completeTeams} / ${totals.teams} complete team(s) · ${totals.runners} runner(s)`)}
+          </span>
+        ) : null}
         <span className="br-toolbar__spacer" />
         <button type="button" className="br-btn" disabled={!totals.runners} onClick={exportStartList}>
           {tr("Exporter les coureurs (Excel)", "Export runners (Excel)")}
@@ -785,6 +842,7 @@ function BusinessRaceAdminPage() {
         </form>
       ) : null}
 
+      {collapsed.companies ? null : (
       <div className="br-card br-card--flush">
         {loading ? (
           <p className="br-muted br-pad">{tr("Chargement…", "Loading…")}</p>
@@ -905,6 +963,7 @@ function BusinessRaceAdminPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -1403,3 +1403,32 @@
   background: #fdecef;
   color: #c8102e;
 }
+
+/* Panneaux repliables (accordéon) */
+.br-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.br-collapse__caret {
+  width: 12px;
+  font-size: 0.8rem;
+  color: var(--br-muted);
+}
+
+.br-collapse:hover h2,
+.br-collapse:hover h3 {
+  color: var(--br-accent);
+}
+
+.br-panel.is-collapsed .br-panel__head {
+  border-bottom: 0;
+}
