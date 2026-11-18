@@ -352,53 +352,65 @@ function BusinessRaceAdminPage() {
       </div>
 
       {form ? (
-        <form className="br-card br-form" onSubmit={handleSubmit}>
-          <h3>{editingId ? tr(`Modifier ${form.organizationName || editingId}`, `Edit ${form.organizationName || editingId}`) : tr("Nouvelle entreprise", "New company")}</h3>
-          <div className="br-form__grid">
-            <label className="br-field br-field--wide">
-              <span>{tr("Entreprise", "Company")} *</span>
-              <input name="organizationName" required value={form.organizationName} onChange={changeForm} />
-            </label>
-            <label className="br-field">
-              <span>{tr("Pack", "Pack")}</span>
-              <select name="businessRacePack" value={form.businessRacePack} onChange={changePack}>
-                {BUSINESS_RACE_PACKS.map((pack) => (
-                  <option key={pack.id} value={pack.id}>{language === "fr" ? pack.labelFr : pack.labelEn}</option>
-                ))}
-              </select>
-            </label>
-            <label className="br-field br-field--num">
-              <span>{tr("Équipes", "Teams")}</span>
-              <input name="businessRaceTeams" type="number" min="1" max={BUSINESS_RACE_MAX_TEAMS} required value={form.businessRaceTeams} onChange={changeForm} />
-            </label>
-            <label className="br-field br-field--num">
-              <span>{tr("Invitations VIP", "VIP invitations")}</span>
-              <input name="vipPlacesCap" type="number" min="0" value={form.vipPlacesCap} onChange={changeForm} />
-            </label>
-            <label className="br-field br-field--num">
-              <span>{tr("Invitations normales", "Standard invitations")}</span>
-              <input name="standardPlacesCap" type="number" min="0" value={form.standardPlacesCap} onChange={changeForm} />
-            </label>
-            <label className="br-check">
-              <input name="companionsAllowed" type="checkbox" checked={Boolean(form.companionsAllowed)} onChange={changeForm} />
-              {tr("+1 accompagnant par invitation", "+1 companion per invitation")}
-            </label>
+        <form className="br-panel" onSubmit={handleSubmit}>
+          <header className="br-panel__head">
+            <h3>{editingId ? tr(`Modifier ${form.organizationName || editingId}`, `Edit ${form.organizationName || editingId}`) : tr("Nouvelle entreprise", "New company")}</h3>
+            <span>{tr("Le pack remplit les équipes et les places ; tout reste modifiable.", "The pack fills in teams and places; everything stays editable.")}</span>
+          </header>
+          <div className="br-panel__body">
+            <section className="br-panel__section">
+              <h4>{tr("Entreprise & pack", "Company & pack")}</h4>
+              <div className="br-panel__row br-panel__row--main">
+                <label className="br-field">
+                  <span>{tr("Entreprise", "Company")} *</span>
+                  <input name="organizationName" required autoFocus={!editingId} value={form.organizationName} onChange={changeForm} />
+                </label>
+                <label className="br-field">
+                  <span>{tr("Pack", "Pack")}</span>
+                  <select name="businessRacePack" value={form.businessRacePack} onChange={changePack}>
+                    {BUSINESS_RACE_PACKS.map((pack) => (
+                      <option key={pack.id} value={pack.id}>{language === "fr" ? pack.labelFr : pack.labelEn}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="br-panel__row br-panel__row--nums">
+                <label className="br-field">
+                  <span>{tr("Équipes", "Teams")}</span>
+                  <input name="businessRaceTeams" type="number" min="1" max={BUSINESS_RACE_MAX_TEAMS} required value={form.businessRaceTeams} onChange={changeForm} />
+                </label>
+                <label className="br-field">
+                  <span>{tr("Invitations VIP", "VIP invitations")}</span>
+                  <input name="vipPlacesCap" type="number" min="0" value={form.vipPlacesCap} onChange={changeForm} />
+                </label>
+                <label className="br-field">
+                  <span>{tr("Invitations normales", "Standard invitations")}</span>
+                  <input name="standardPlacesCap" type="number" min="0" value={form.standardPlacesCap} onChange={changeForm} />
+                </label>
+              </div>
+              <label className="br-check">
+                <input name="companionsAllowed" type="checkbox" checked={Boolean(form.companionsAllowed)} onChange={changeForm} />
+                {tr("+1 accompagnant par invitation", "+1 companion per invitation")}
+              </label>
+            </section>
+            <section className="br-panel__section">
+              <h4>{tr("Contact dans l'entreprise", "Company contact")}</h4>
+              <div className="br-panel__row br-panel__row--two">
+                <label className="br-field"><span>{tr("Prénom", "First name")}</span><input name="firstName" value={form.contact.firstName} onChange={changeContact} /></label>
+                <label className="br-field"><span>{tr("Nom", "Last name")}</span><input name="lastName" value={form.contact.lastName} onChange={changeContact} /></label>
+                <label className="br-field"><span>{tr("E-mail", "E-mail")}</span><input name="email" type="email" value={form.contact.email} onChange={changeContact} /></label>
+                <label className="br-field"><span>{tr("Téléphone", "Phone")}</span><input name="phone" type="tel" value={form.contact.phone} onChange={changeContact} /></label>
+              </div>
+              <label className="br-field">
+                <span>{tr("Remarques internes", "Internal notes")}</span>
+                <input name="notes" value={form.notes} onChange={changeForm} placeholder={tr("Facture, déjeuner, team building…", "Invoice, lunch, team building…")} />
+              </label>
+            </section>
           </div>
-          <fieldset className="br-form__grid br-form__contact">
-            <legend>{tr("Contact dans l'entreprise", "Company contact")}</legend>
-            <label className="br-field"><span>{tr("Prénom", "First name")}</span><input name="firstName" value={form.contact.firstName} onChange={changeContact} /></label>
-            <label className="br-field"><span>{tr("Nom", "Last name")}</span><input name="lastName" value={form.contact.lastName} onChange={changeContact} /></label>
-            <label className="br-field"><span>{tr("E-mail", "E-mail")}</span><input name="email" type="email" value={form.contact.email} onChange={changeContact} /></label>
-            <label className="br-field"><span>{tr("Téléphone", "Phone")}</span><input name="phone" type="tel" value={form.contact.phone} onChange={changeContact} /></label>
-          </fieldset>
-          <label className="br-field br-field--wide">
-            <span>{tr("Remarques internes", "Internal notes")}</span>
-            <input name="notes" value={form.notes} onChange={changeForm} placeholder={tr("Facture, déjeuner, team building…", "Invoice, lunch, team building…")} />
-          </label>
-          <div className="br-form__bar">
+          <footer className="br-panel__bar">
             <button type="button" className="br-btn" onClick={() => { setForm(null); setEditingId(""); }}>{tr("Annuler", "Cancel")}</button>
             <button type="submit" className="br-btn br-btn--primary" disabled={saving}>{saving ? "…" : tr("Enregistrer", "Save")}</button>
-          </div>
+          </footer>
         </form>
       ) : null}
 

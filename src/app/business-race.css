@@ -765,3 +765,115 @@
   background: var(--vp-ink, #17324a);
   color: #fff;
 }
+
+/* Panneau entreprise / réglages (admin) */
+.br-panel {
+  display: grid;
+  background: #fff;
+  border: 1px solid var(--br-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.br-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--br-line);
+  background: var(--br-soft);
+}
+
+.br-panel__head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.br-panel__head span {
+  font-size: 0.78rem;
+  color: var(--br-muted);
+}
+
+.br-panel__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+.br-panel__section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px 16px 14px;
+  min-width: 0;
+}
+
+.br-panel__section + .br-panel__section {
+  border-left: 1px solid var(--br-line);
+}
+
+.br-panel__section h4 {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--br-muted);
+}
+
+.br-panel__row {
+  display: grid;
+  gap: 10px;
+}
+
+.br-panel__row--main {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+.br-panel__row--nums {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.br-panel__row--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.br-panel .br-check {
+  height: auto;
+  width: max-content;
+  max-width: 100%;
+  color: var(--br-ink);
+}
+
+.br-panel .br-check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.br-panel__bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--br-line);
+  background: var(--br-soft);
+}
+
+@media (max-width: 860px) {
+  .br-panel__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .br-panel__section + .br-panel__section {
+    border-left: 0;
+    border-top: 1px solid var(--br-line);
+  }
+}
+
+@media (max-width: 520px) {
+  .br-panel__row--main,
+  .br-panel__row--two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
