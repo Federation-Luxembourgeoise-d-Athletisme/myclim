@@ -692,6 +692,28 @@ service cloud.firestore {
       allow read: if isAdminOrManager();
     }
 
+    // Business Race : équipes de relais d'une entreprise (team-1 … team-N).
+    // L'entreprise (session du portail) écrit ses équipes, dans la limite du
+    // nombre d'équipes réglé par l'organisation sur le portail.
+    match /vipPartnerPortals/{portalId}/teams/{teamId} {
+      allow read: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId);
+      allow create, update: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId &&
+          get(/databases/$(database)/documents/vipPartnerPortals/$(portalId)).data.get("businessRace", false) == true &&
+          request.resource.data.teamNumber is int &&
+          request.resource.data.teamNumber >= 1 &&
+          request.resource.data.teamNumber <= get(/databases/$(database)/documents/vipPartnerPortals/$(portalId)).data.get("businessRaceTeams", 1) &&
+          teamId == "team-" + string(request.resource.data.teamNumber) &&
+          request.resource.data.runners is list &&
+          request.resource.data.runners.size() <= 4);
+      allow delete: if isAdminOrManager();
+    }
+
+    match /{path=**}/teams/{teamId} {
+      allow read: if isAdminOrManager();
+    }
+
     // ── Kiné ────────────────────────────────────────────────────────────────
     // Chaque kiné gère ses propres plages d'ouverture ; tous les kinés voient
     // et gèrent toutes les réservations (planning commun). Les athlètes

@@ -12,6 +12,7 @@ export * from "./communication.js";
 export * from "./communication-social.js";
 // Notifications de l'équipe : cloche, push et e-mail (voir notifications.js).
 export {
+  notifyBusinessRaceTeam,
   notifyPressRegistration,
   notifyU14Request,
   notifyVipPartnerEntry,

@@ -10,13 +10,17 @@ import {
 } from "firebase/firestore";
 import { signInWithCustomToken } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
-import { NavLink, useParams } from "react-router-dom";
+import { NavLink, useLocation, useParams } from "react-router-dom";
 import { auth, db, functions } from "../services/firebase";
 import { getActiveEditionId, useActiveEdition } from "./edition";
 import { useMeetingEditions } from "./meeting-history-hooks";
 import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
 import { useLanguage } from "./language-context";
 import portalPhoto from "../assets/site-gallery/ambiance-1.jpg";
+import businessRacePhoto from "../assets/site-gallery/preprog-business-1.jpg";
+import { BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome } from "./business-race-portal";
+import { getBusinessRaceCopy } from "./business-race-copy";
+import { isBusinessRacePortal } from "./business-race-helpers";
 import {
   VIP_TOUR_OPTIONS,
   buildVipFullName,
@@ -776,7 +780,10 @@ function VipPartnerPortalPage() {
   const { language } = useLanguage();
   const copy = VIP_COPY[language] || VIP_COPY.en;
   const { portalId = "" } = useParams();
+  const location = useLocation();
   const isDemoPortal = import.meta.env.DEV && portalId === "demo";
+  // Démo Business Race : /business-race/demo (npm run dev).
+  const isBusinessRaceDemo = isDemoPortal && location.pathname.startsWith("/business-race/");
   const fallbackPortalLabel = useMemo(() => getVipPartnerPortalLabel(portalId), [portalId]);
   const [formData, setFormData] = useState(() => createEmptyVipFormData({ organization: fallbackPortalLabel }));
   const [portalMeta, setPortalMeta] = useState(null);
@@ -828,13 +835,17 @@ function VipPartnerPortalPage() {
   // VIP et normales, rien n'est lu ni écrit dans Firestore.
   useEffect(() => {
     if (!isDemoPortal) return;
-    setPortalMeta(DEMO_PORTAL.meta);
+    setPortalMeta(
+      isBusinessRaceDemo
+        ? { ...DEMO_PORTAL.meta, organizationName: "Entreprise démo", businessRace: true, businessRaceTeams: 2, vipPlacesCap: 4, standardPlacesCap: 8, companionsAllowed: false }
+        : DEMO_PORTAL.meta,
+    );
     setPortalMetaLoading(false);
     setEntries(DEMO_PORTAL.entries);
     setPlaceRequests(DEMO_PORTAL.requests);
     setLoading(false);
     setAccessGranted(true);
-  }, [isDemoPortal]);
+  }, [isDemoPortal, isBusinessRaceDemo]);
 
   useEffect(() => {
     setFormData(createEmptyVipFormData({ organization: portalLabel }));
@@ -1250,25 +1261,37 @@ function VipPartnerPortalPage() {
   const venueLabel = edition?.venue || "Coque, Luxembourg";
   const tourLabel = (value) => p.tourShort[value || "none"] || p.tourShort.none;
   const editChange = (event) => setEditDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
+  // Entreprise de la Business Race : accueil dédié et équipes de relais avant les invités.
+  const isBusinessRace = isBusinessRacePortal(portalMeta || {});
+  const businessCopy = getBusinessRaceCopy(language);
+  const offerList = (
+    <ul className="vip-portal-offer">
+      <li><strong>{p.placeVip}</strong> — {p.offerVip}</li>
+      <li><strong>{p.placeStandard}</strong> — {p.offerStandard}</li>
+    </ul>
+  );
 
   return (
-    <AuthLayout title={p.eyebrow} subtitle="CMCM Luxembourg Indoor Meeting">
+    <AuthLayout title={isBusinessRace ? businessCopy.eyebrow : p.eyebrow} subtitle="CMCM Luxembourg Indoor Meeting">
       <div className="vip-portal">
-        <img className="vip-portal-photo" src={portalPhoto} alt="" loading="lazy" />
+        <img className="vip-portal-photo" src={isBusinessRace ? businessRacePhoto : portalPhoto} alt="" loading="lazy" />
         <section className="vip-portal-head">
           <div className="vip-portal-head__main">
             <h2>{portalLabel}</h2>
             <p className="vip-portal-facts">
               {[eventDateLabel, venueLabel, "World Athletics Indoor Tour Silver"].filter(Boolean).join(" · ")}
             </p>
-            <p>{p.introEvent}</p>
-            <p>{p.introInvite}</p>
-            <ul className="vip-portal-offer">
-              <li><strong>{p.placeVip}</strong> — {p.offerVip}</li>
-              <li><strong>{p.placeStandard}</strong> — {p.offerStandard}</li>
-            </ul>
-            {companionsAllowed ? <p>{p.introCompanion}</p> : null}
-            <p>{p.introHow}</p>
+            {isBusinessRace ? (
+              <BusinessRaceWelcome language={language} portal={portalMeta} />
+            ) : (
+              <>
+                <p>{p.introEvent}</p>
+                <p>{p.introInvite}</p>
+                {offerList}
+                {companionsAllowed ? <p>{p.introCompanion}</p> : null}
+                <p>{p.introHow}</p>
+              </>
+            )}
           </div>
           {portalMeta ? (
             <div className="vip-portal-contact">
@@ -1300,6 +1323,8 @@ function VipPartnerPortalPage() {
             </div>
           ) : null}
         </section>
+
+        {isBusinessRace ? <BusinessRaceSteps language={language} offer={offerList} /> : null}
 
         {accessGranted && contactsDraft ? (
           <section className="vip-portal-card">
@@ -1381,6 +1406,18 @@ function VipPartnerPortalPage() {
 
         {accessGranted ? (
           <>
+            {isBusinessRace ? (
+              <>
+                <BusinessRaceTeamsSection
+                  language={language}
+                  portalId={portalId}
+                  portal={portalMeta}
+                  organization={portalLabel}
+                  isDemo={isDemoPortal}
+                />
+                <h2 className="vip-portal-section-title">{businessCopy.guestsTitle}</h2>
+              </>
+            ) : null}
             <dl className="vip-portal-kpis">
               <div><dt>{p.kpiGuests}</dt><dd>{entries.length}</dd></div>
               <div><dt>{p.kpiCompanions}</dt><dd>{companionCount}</dd></div>

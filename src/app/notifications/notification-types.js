@@ -32,6 +32,13 @@ export const NOTIFICATION_TYPES = [
     defaults: { inApp: true, push: true, email: true },
   },
   {
+    id: "business_race_team",
+    label: { fr: "Équipes Business Race", en: "Business Race teams" },
+    hint: { fr: "Quand une entreprise inscrit une équipe sur son portail.", en: "When a company registers a team on its portal." },
+    roles: MANAGERS,
+    defaults: { inApp: true, push: true, email: false },
+  },
+  {
     id: "volunteer_application",
     label: { fr: "Inscriptions bénévoles", en: "Volunteer sign-ups" },
     roles: MANAGERS,
