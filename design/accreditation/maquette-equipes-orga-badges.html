@@ -173,7 +173,7 @@
   <section class="view on" id="view-orga">
     <div class="card">
       <div class="gridhead"><b id="nteams"></b>
-        <span class="legend"><span><i style="background:var(--c-org)"></i>Organisation</span><span><i style="background:var(--c-tech)"></i>Technical</span><span><i style="background:var(--c-photo)"></i>Photographer</span><span><i style="background:var(--c-cater)"></i>Catering</span><span><i style="background:var(--c-judge)"></i>via Juges</span><span><i style="background:#c3ccd5"></i>Pas de badge</span></span>
+        <span class="legend"><span><i style="background:var(--c-org)"></i>Organisation</span><span><i style="background:var(--c-tech)"></i>Technical</span><span><i style="background:var(--c-photo)"></i>Photographer</span><span><i style="background:var(--c-cater)"></i>Catering</span><span><i style="background:#c3ccd5"></i>Pas de badge</span></span>
       </div>
       <div class="teams" id="teams"></div>
     </div>
@@ -224,7 +224,7 @@
         <li><b>Plusieurs équipes organisation</b> : un seul badge ; zones = toutes celles de ses équipes ; couleur = Organisation si une de ses équipes l'est.</li>
         <li><b>Libellé</b> : vide = libellé par défaut de l'équipe (en gris italique). La colonne « Rôle » d'aujourd'hui devient ce libellé.</li>
         <li><b>Taille de t-shirt</b> : gardée sur la ligne de la personne, pour la commande de t-shirts.</li>
-        <li><b>Juges & officiels</b> : badge déjà fait par l'onglet Juges, l'équipe est réglée « via Juges » pour éviter un doublon.</li>
+        <li><b>Juges</b> : pas d'équipe organisation, leur badge se fait dans l'onglet Juges d'Accréditations.</li>
       </ul>
     </div>
   </section>
@@ -252,18 +252,12 @@
     { id: "communication", name: "Communication", cat: "org", def: "Communication", zones: [1, 5] },
     { id: "accueil", name: "Accueil athlètes", cat: "org", def: "Athlete Welcome", zones: [2, 3, 5] },
     { id: "transport", name: "Transport", cat: "org", def: "Transportation", zones: [2] },
-    { id: "benevoles", name: "Coordination bénévoles", cat: "org", def: "Volunteer coordination", zones: [1, 2, 5, 6] },
     { id: "cab", name: "CAB – Buvette", cat: "catering", def: "Buvette CAB", zones: [] },
     { id: "athle", name: "Athle.ch", cat: "tech", def: "Athle.ch", zones: [1, 5] },
     { id: "speakers", name: "Speakers (Athle.ch)", cat: "tech", def: "Speaker", zones: [1, 4] },
     { id: "presentation", name: "Event presentation", cat: "tech", def: "Event presentation", zones: [1] },
     { id: "technique", name: "Technique & installation", cat: "tech", def: "Technical crew", zones: [1] },
-    { id: "juges", name: "Juges & officiels", cat: "judge", def: "", zones: [] },
-    { id: "vip", name: "VIP", cat: "org", def: "VIP hosting", zones: [6] },
-    { id: "preprogramme", name: "Pré-programme", cat: "org", def: "Pre-programme", zones: [2] },
-    { id: "durabilite", name: "Durabilité", cat: "none", def: "Sustainability", zones: [] },
-    { id: "apex", name: "Apex", cat: "tech", def: "Apex", zones: [1, 4] },
-    { id: "tv", name: "TV", cat: "tech", def: "TV", zones: [1, 5] },
+    { id: "tv", name: "TV Production", cat: "tech", def: "TV Production", zones: [1, 5] },
   ];
   // Équipes bénévoles (fictives) et leurs chefs bénévoles existants.
   const VTEAMS = [
@@ -287,9 +281,9 @@
     P("Philippe", "Lentz", ["lunex"], "Team Leader", "", "acc", true),
     P("Denis", "Buma", ["lunex", "communication"], "", "", "acc"),
     P("Klara", "Bouckova", ["lunex", "communication"], "", "", "acc"),
-    P("Ilona", "Petit", ["lunex", "preprogramme"], "", "", "acc"),
-    P("Christine", "Atuhaire", ["lunex", "benevoles"], "", "", "acc", false, ["billetterie"]),
-    P("Santiago", "Clavijo", ["lunex", "benevoles"], "", "", "acc", false, ["infos"]),
+    P("Ilona", "Petit", ["lunex"], "", "", "acc"),
+    P("Christine", "Atuhaire", ["lunex"], "", "", "acc", false, ["billetterie"]),
+    P("Santiago", "Clavijo", ["lunex"], "", "", "acc", false, ["infos"]),
     P("Jacques", "Glossener", ["lunex"], "Promotion"),
     P("Vera", "Bertemes-Hoffmann", ["communication"]),
     P("Tomek", "Jastrzebowski", ["communication"], "Photographe officiel"),
@@ -297,7 +291,7 @@
     P("Lina", "Simons", ["accueil"], "Athlete welcome"),
     P("Cora", "Osenberg", ["accueil"], "Athlete liaison"),
     P("Philippe", "Laporte", ["transport"], "Head of Transportation", "", "acc", true, ["navettes"]),
-    P("Liz", "Sinner", ["benevoles"], "", "", "none", false, ["accueil-vip"]),
+    P("Liz", "Sinner", ["staff"], "", "", "none", false, ["accueil-vip"]),
     ...[["Anouck", "Ewerling", "L"], ["Corinne", "Ewerling", "XL"], ["Nadine", "Ewerling", "M"], ["Ann", "Bertemes", "XL"], ["Olga", "Tironi", "L"], ["Serge", "Tironi", "XXL"], ["Steve", "Weiwert", "XL"], ["Andrea", "Rossi", "M"], ["Patrick", "Possenti", "XXXL"]]
       .map(([f, l, s]) => P(f, l, ["cab"], "", s)),
     P("Guillaume", "Laurent", ["athle"]), P("Aurèle", "Bonvin", ["athle"]), P("Kevin", "Gabrielli", ["athle"]),
