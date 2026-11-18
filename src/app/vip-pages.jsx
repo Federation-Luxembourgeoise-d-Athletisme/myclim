@@ -20,7 +20,7 @@ import portalPhoto from "../assets/site-gallery/ambiance-1.jpg";
 import businessRacePhoto from "../assets/site-gallery/preprog-business-1.jpg";
 import { BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome } from "./business-race-portal";
 import { getBusinessRaceCopy } from "./business-race-copy";
-import { isBusinessRacePortal } from "./business-race-helpers";
+import { RUNNER_VIP_SOURCE, isBusinessRacePortal } from "./business-race-helpers";
 import {
   VIP_TOUR_OPTIONS,
   buildVipFullName,
@@ -1263,6 +1263,9 @@ function VipPartnerPortalPage() {
   const editChange = (event) => setEditDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
   // Entreprise de la Business Race : accueil dédié et équipes de relais avant les invités.
   const isBusinessRace = isBusinessRacePortal(portalMeta || {});
+  // Session de l'organisation (vrai compte, pas la session technique du portail) :
+  // peut encore modifier les équipes après la date limite.
+  const isStaffSession = Boolean(auth.currentUser) && !String(auth.currentUser.uid).startsWith("vip-portal-");
   const businessCopy = getBusinessRaceCopy(language);
   const offerList = (
     <ul className="vip-portal-offer">
@@ -1324,7 +1327,7 @@ function VipPartnerPortalPage() {
           ) : null}
         </section>
 
-        {isBusinessRace ? <BusinessRaceSteps language={language} offer={offerList} /> : null}
+        {isBusinessRace ? <BusinessRaceSteps language={language} offer={offerList} portal={portalMeta} /> : null}
 
         {accessGranted && contactsDraft ? (
           <section className="vip-portal-card">
@@ -1413,6 +1416,14 @@ function VipPartnerPortalPage() {
                   portalId={portalId}
                   portal={portalMeta}
                   organization={portalLabel}
+                  entries={entries}
+                  isStaff={isStaffSession}
+                  onDemoEntries={(teamNumber, runnerEntries) =>
+                    setEntries((current) => [
+                      ...runnerEntries,
+                      ...current.filter((entry) => !String(entry.id).startsWith(`br-runner-${teamNumber}-`)),
+                    ])
+                  }
                   isDemo={isDemoPortal}
                 />
                 <h2 className="vip-portal-section-title">{businessCopy.guestsTitle}</h2>
@@ -1791,8 +1802,14 @@ function VipPartnerPortalPage() {
                             </td>
                             <td>{fullName(entry.guestFirstName, entry.guestLastName) || (entry.hasCompanion ? <span className="vip-portal-muted">{p.companionUnnamed}</span> : <span className="vip-portal-muted">{p.noCompanion}</span>)}</td>
                             <td className="vip-portal-actions">
-                              <button type="button" className="vip-portal-btn vip-portal-btn--small" onClick={() => startEdit(entry)}>{p.edit}</button>
-                              <button type="button" className="vip-portal-btn vip-portal-btn--small vip-portal-btn--danger" onClick={() => handleDelete(entry.id)}>{p.remove}</button>
+                              {entry.source === RUNNER_VIP_SOURCE ? (
+                                <span className="vip-portal-muted" title={businessCopy.runnerManaged}>{businessCopy.runnerTag}</span>
+                              ) : (
+                                <>
+                                  <button type="button" className="vip-portal-btn vip-portal-btn--small" onClick={() => startEdit(entry)}>{p.edit}</button>
+                                  <button type="button" className="vip-portal-btn vip-portal-btn--small vip-portal-btn--danger" onClick={() => handleDelete(entry.id)}>{p.remove}</button>
+                                </>
+                              )}
                             </td>
                           </tr>
                         ),

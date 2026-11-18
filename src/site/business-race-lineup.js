@@ -2,8 +2,8 @@
 // entreprises (siteContent/businessRaceLineup, tenu à jour par la Cloud
 // Function syncBusinessRaceLineup*). Une fiche saisie dans l'e-magazine avec
 // le même id (br-…) ajoute couloir, photo, Instagram ou texte ; une fiche br-…
-// dont l'équipe n'existe plus est ignorée ; les autres fiches saisies à la main
-// restent en plus. Testé dans tests/business-race-lineup.test.js.
+// dont l'équipe n'existe plus est ignorée, comme les anciennes fiches saisies à la main
+// (les équipes ne se saisissent plus dans l'e-magazine). Testé dans tests/business-race-lineup.test.js.
 
 const text = (value) => String(value ?? "").trim();
 
@@ -36,9 +36,9 @@ function mergeBusinessRaceLineup(participants = [], lineupTeams = []) {
         team: text(team.organization),
       };
     });
-  const portalIds = new Set(fromPortals.map((entry) => entry.id));
-  const manualOnly = manual.filter((participant) => !portalIds.has(participant.id) && !participant.id.startsWith("br-"));
-  return [...fromPortals, ...manualOnly];
+
+  // Les équipes ne se saisissent plus à la main : seules celles des portails comptent.
+  return fromPortals;
 }
 
 export { mergeBusinessRaceLineup };

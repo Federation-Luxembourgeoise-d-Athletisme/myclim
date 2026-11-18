@@ -3101,6 +3101,11 @@ function AccreditationsPage(props) {
                         </td>
                         <td>
                           <span className="acc-people-name">{`${runner.firstName} ${runner.lastName}`.trim() || "—"}</span>
+                          {runner.vip ? (
+                            <span className="status-pill status-pill--accent" title={tr("Place VIP donnée par l'entreprise : badge VIP à imprimer aussi (VIP › Inscrits)", "VIP place given by the company: print the VIP badge too (VIP › Registered)")}>
+                              {tr("+ badge VIP", "+ VIP badge")}
+                            </span>
+                          ) : null}
                         </td>
                         <td>
                           {runner.organization}

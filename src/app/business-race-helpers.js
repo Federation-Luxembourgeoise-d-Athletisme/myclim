@@ -56,6 +56,9 @@ function normalizeBusinessRaceRunner(runner = {}) {
     firstName: cleanText(runner.firstName),
     lastName: cleanText(runner.lastName),
     gender: normalizeGender(runner.gender),
+    // L'entreprise peut donner une de ses invitations VIP à un coureur :
+    // il a alors deux badges (Business Race + VIP).
+    vip: runner.vip === true,
   };
 }
 
@@ -155,6 +158,7 @@ function listBusinessRaceRunners(portals = [], teamsByPortal = {}) {
           firstName: runner.firstName,
           lastName: runner.lastName,
           gender: runner.gender,
+          vip: runner.vip === true,
         });
       });
     });
@@ -176,6 +180,104 @@ function buildBusinessRacePortalFields(form = {}) {
     businessRaceTeams: Number.isFinite(teams) && teams >= 1 ? Math.min(teams, BUSINESS_RACE_MAX_TEAMS) : 1,
   };
 }
+
+// Fiche invité VIP créée pour un coureur à qui l'entreprise donne une place VIP
+// (vipPartnerPortals/{id}/entries/br-runner-{n}-{slot}).
+const RUNNER_VIP_SOURCE = "business_race_runner";
+
+function buildRunnerVipEntryId(teamNumber, slot) {
+  return `br-runner-${teamNumber}-${slot}`;
+}
+
+// Emplacements d'une équipe (relayeurs 1 à 4, remplaçant) avec leur coureur.
+function listTeamSlots(team = {}) {
+  const normalized = normalizeBusinessRaceTeam(team, team.teamNumber);
+  return [
+    ...normalized.runners.map((runner, index) => ({ slot: `leg${index + 1}`, runner })),
+    { slot: "reserve", runner: normalized.reserve },
+  ];
+}
+
+// Coureurs de l'équipe qui prennent une place VIP (nom saisi et case cochée).
+function countTeamVipRunners(team = {}) {
+  return listTeamSlots(team).filter(({ runner }) => runner.vip && runnerIsFilled(runner)).length;
+}
+
+// Réglages communs (admin seulement) : dernière modification des équipes et
+// entraînements au passage de témoin. Plusieurs lignes d'entraînement
+// possibles selon les disponibilités ; chacune s'applique aux équipes cochées
+// (clé « portail#numéro »), ou à toutes les autres équipes si aucune n'est cochée.
+const DEFAULT_TRAINING = Object.freeze({ id: "training-1", date: "2027-01-15", time: "14:00", place: "", note: "", teamKeys: [] });
+
+const DEFAULT_BUSINESS_RACE_SETTINGS = Object.freeze({
+  teamsDeadline: "2027-01-07",
+  trainings: [DEFAULT_TRAINING],
+});
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+function buildTeamKey(portalId, teamNumber) {
+  return `${portalId}#${teamNumber}`;
+}
+
+function normalizeTraining(raw = {}, index = 0) {
+  const data = raw && typeof raw === "object" ? raw : {};
+  return {
+    id: cleanText(data.id) || `training-${index + 1}`,
+    date: DATE_RE.test(data.date || "") ? data.date : "",
+    time: TIME_RE.test(data.time || "") ? data.time : "",
+    place: cleanText(data.place),
+    note: cleanText(data.note),
+    teamKeys: [...new Set((Array.isArray(data.teamKeys) ? data.teamKeys : []).map(cleanText).filter(Boolean))],
+  };
+}
+
+function normalizeBusinessRaceSettings(raw = {}) {
+  const data = raw && typeof raw === "object" ? raw : {};
+  const deadline = typeof data.teamsDeadline === "string" && (data.teamsDeadline === "" || DATE_RE.test(data.teamsDeadline))
+    ? data.teamsDeadline
+    : DEFAULT_BUSINESS_RACE_SETTINGS.teamsDeadline;
+  const trainings = Array.isArray(data.trainings) ? data.trainings : DEFAULT_BUSINESS_RACE_SETTINGS.trainings;
+  return { teamsDeadline: deadline, trainings: trainings.map(normalizeTraining) };
+}
+
+// Entraînements d'une équipe : les lignes où elle est cochée, sinon les lignes
+// « toutes les équipes » (aucune équipe cochée). Triés par date et heure.
+function getTeamTrainings(settings = {}, portalId = "", teamNumber = 1) {
+  const { trainings } = normalizeBusinessRaceSettings(settings);
+  const key = buildTeamKey(portalId, teamNumber);
+  const own = trainings.filter((training) => training.teamKeys.includes(key));
+  const list = own.length ? own : trainings.filter((training) => !training.teamKeys.length);
+  return list.filter((training) => training.date).sort((left, right) => `${left.date}${left.time}`.localeCompare(`${right.date}${right.time}`));
+}
+
+// Fin du dernier jour de modification (23:59:59, heure locale).
+function getTeamsDeadlineEnd(settings = {}) {
+  const date = normalizeBusinessRaceSettings(settings).teamsDeadline;
+  if (!date) return null;
+  const end = new Date(`${date}T23:59:59`);
+  return Number.isNaN(end.getTime()) ? null : end;
+}
+
+function areBusinessRaceTeamsLocked(settings = {}, now = new Date()) {
+  const end = getTeamsDeadlineEnd(settings);
+  return Boolean(end && now.getTime() > end.getTime());
+}
+
+export {
+  DEFAULT_BUSINESS_RACE_SETTINGS,
+  RUNNER_VIP_SOURCE,
+  areBusinessRaceTeamsLocked,
+  buildTeamKey,
+  getTeamTrainings,
+  normalizeTraining,
+  buildRunnerVipEntryId,
+  countTeamVipRunners,
+  getTeamsDeadlineEnd,
+  listTeamSlots,
+  normalizeBusinessRaceSettings,
+};
 
 export {
   BUSINESS_RACE_MAX_TEAMS,

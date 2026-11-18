@@ -114,7 +114,7 @@ function SpecialRaceEditor({ title, race, onChange, lineup = null }) {
   }
 
   // Fiches saisies à la main (les br-… complètent les équipes des portails).
-  const manualParticipants = lineup ? race.participants.filter((participant) => !String(participant.id).startsWith("br-")) : race.participants;
+  const manualParticipants = race.participants;
 
   function updateParticipant(id, field, value) {
     onChange({
@@ -188,7 +188,7 @@ function SpecialRaceEditor({ title, race, onChange, lineup = null }) {
           <div style={{ display: "grid", gap: 8 }}>
             <strong style={{ color: "#10253d" }}>Teams from the Business Race portals ({lineup.length})</strong>
             <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>
-              Filled in automatically from the teams the companies enter on their portal (Pre-programme › Business Race). Add a lane, a photo or a profile here if you want.
+              The teams come only from the companies' portals (Pre-programme › Business Race): nothing to enter here. You can add a lane, a photo or a profile to each team.
             </p>
             {lineup.length === 0 ? (
               <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No team entered by the companies yet.</p>
@@ -212,8 +212,10 @@ function SpecialRaceEditor({ title, race, onChange, lineup = null }) {
           </div>
         ) : null}
 
+        {lineup ? null : (
+        <>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-          <strong style={{ color: "#10253d" }}>{lineup ? "Other participants" : "Participants"}</strong>
+          <strong style={{ color: "#10253d" }}>Participants</strong>
           <EmptyButton onClick={addParticipant}>+ Add participant</EmptyButton>
         </div>
 
@@ -244,6 +246,8 @@ function SpecialRaceEditor({ title, race, onChange, lineup = null }) {
             <input style={inputStyle} value={participant.description} onChange={(event) => updateParticipant(participant.id, "description", event.target.value)} placeholder="Profile / what they do" />
           </div>
         ))}
+        </>
+        )}
       </div>
     </div>
   );

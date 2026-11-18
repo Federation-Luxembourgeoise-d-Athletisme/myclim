@@ -17,6 +17,8 @@ import {
   getBusinessRaceTeamCount,
   getBusinessRaceTeamLabel,
   getBusinessRaceTeamStatus,
+  buildTeamKey,
+  getTeamTrainings,
   isBusinessRacePortal,
   listBusinessRaceRunners,
   runnerIsFilled,
@@ -32,7 +34,16 @@ import {
   parseVipPlacesCap,
   vipPortalAllowsCompanions,
 } from "./vip-helpers";
+import { saveBusinessRaceSettings, useBusinessRaceSettings } from "./business-race-settings";
 import "./business-race.css";
+
+// Date longue pour l'écran (« jeudi 7 janvier 2027 »).
+function formatLongDate(isoDate, language) {
+  if (!isoDate) return "";
+  const date = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString(language === "fr" ? "fr-LU" : "en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
 
 function createEmptyForm() {
   const pack = BUSINESS_RACE_PACKS[0];
@@ -67,6 +78,9 @@ function BusinessRaceAdminPage() {
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [copiedId, setCopiedId] = useState("");
+  const { settings, saved: settingsSaved } = useBusinessRaceSettings();
+  const [settingsDraft, setSettingsDraft] = useState(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   useEffect(() => {
     const unsubscribePortals = onSnapshot(
@@ -255,6 +269,76 @@ function BusinessRaceAdminPage() {
     }
   }
 
+  const settingsView = settingsDraft || settings;
+
+  function changeSettings(event) {
+    const { name, value } = event.target;
+    setSettingsDraft((current) => ({ ...(current || settings), [name]: value }));
+  }
+
+  function updateTraining(id, patch) {
+    setSettingsDraft((current) => {
+      const base = current || settings;
+      return { ...base, trainings: base.trainings.map((training) => (training.id === id ? { ...training, ...patch } : training)) };
+    });
+  }
+
+  function toggleTrainingTeam(id, teamKey) {
+    const training = settingsView.trainings.find((item) => item.id === id);
+    if (!training) return;
+    const teamKeys = training.teamKeys.includes(teamKey) ? training.teamKeys.filter((key) => key !== teamKey) : [...training.teamKeys, teamKey];
+    updateTraining(id, { teamKeys });
+  }
+
+  function addTraining() {
+    setSettingsDraft((current) => {
+      const base = current || settings;
+      const last = base.trainings[base.trainings.length - 1];
+      return {
+        ...base,
+        trainings: [...base.trainings, { id: `training-${Date.now()}`, date: last?.date || "", time: last?.time || "", place: last?.place || "", note: "", teamKeys: [] }],
+      };
+    });
+  }
+
+  function removeTraining(id) {
+    setSettingsDraft((current) => {
+      const base = current || settings;
+      return { ...base, trainings: base.trainings.filter((training) => training.id !== id) };
+    });
+  }
+
+  // Toutes les équipes prévues (pour cocher à qui s'applique un entraînement).
+  const teamOptions = rows.flatMap((row) => {
+    const organization = row.portal.organizationName || row.portal.id;
+    return row.teams.map((team) => {
+      const label = getBusinessRaceTeamLabel(team, organization, row.teams.length);
+      return {
+        key: buildTeamKey(row.portal.id, team.teamNumber),
+        portalId: row.portal.id,
+        teamNumber: team.teamNumber,
+        label: label === organization ? organization : `${organization} · ${label}`,
+      };
+    });
+  });
+  const teamsWithoutTraining = teamOptions.filter((option) => !getTeamTrainings(settingsView, option.portalId, option.teamNumber).length);
+
+  async function handleSettingsSubmit(event) {
+    event.preventDefault();
+    setSettingsSaving(true);
+    setError("");
+    try {
+      await saveBusinessRaceSettings(settingsDraft || settings);
+      setSettingsDraft(null);
+      setStatusMessage(tr("Dates enregistrées : elles s'affichent sur les portails des entreprises.", "Dates saved: they show on the companies' portals."));
+    } catch (saveError) {
+      console.error("Business Race settings save failed", saveError);
+      setError(tr("Impossible d'enregistrer les dates.", "Unable to save the dates."));
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
   async function copyLink(portalId) {
     try {
       await navigator.clipboard.writeText(buildAppUrl(buildBusinessRacePortalPath(portalId)));
@@ -339,6 +423,105 @@ function BusinessRaceAdminPage() {
 
       {error ? <p className="form-error">{error}</p> : null}
       {statusMessage ? <p className="br-flash">{statusMessage}</p> : null}
+
+      <form className="br-panel br-dates" onSubmit={handleSettingsSubmit}>
+        <header className="br-panel__head">
+          <h3>{tr("Dates clés", "Key dates")}</h3>
+          <span>{tr("Affichées sur le portail de chaque entreprise ; elles ne peuvent pas les modifier.", "Shown on every company's portal; companies can't change them.")}</span>
+          {!settingsSaved ? <span className="br-chip br-chip--warn">{tr("Pas encore enregistrées", "Not saved yet")}</span> : null}
+        </header>
+        <div className="br-dates__deadline">
+          <label className="br-field">
+            <span>{tr("Équipes modifiables jusqu'au", "Teams editable until")}</span>
+            <input type="date" name="teamsDeadline" value={settingsView.teamsDeadline} onChange={changeSettings} />
+          </label>
+          <p className="br-muted">
+            <strong>{formatLongDate(settingsView.teamsDeadline, language) || tr("Pas de date limite", "No deadline")}</strong>
+            {" — "}
+            {tr("après cette date, les entreprises ne peuvent plus modifier leurs équipes ; vous, si.", "after this date, companies can no longer change their teams; you still can.")}
+          </p>
+        </div>
+        <div className="br-trainings">
+          <div className="br-trainings__head">
+            <h4>{tr("Entraînements (passage de témoin)", "Trainings (baton passing)")}</h4>
+            <span className="br-muted">{tr("Une ligne par créneau. Sans équipe cochée, la ligne vaut pour toutes les équipes qui n'ont pas de créneau à elles.", "One line per slot. With no team ticked, the line applies to every team without a slot of its own.")}</span>
+          </div>
+          {settingsView.trainings.map((training, index) => (
+            <div key={training.id} className="br-training">
+              <span className="br-training__num">{index + 1}</span>
+              <div className="br-training__fields">
+                <label className="br-field">
+                  <span>{tr("Date", "Date")}</span>
+                  <input type="date" value={training.date} onChange={(event) => updateTraining(training.id, { date: event.target.value })} />
+                </label>
+                <label className="br-field">
+                  <span>{tr("Heure", "Time")}</span>
+                  <input type="time" value={training.time} onChange={(event) => updateTraining(training.id, { time: event.target.value })} />
+                </label>
+                <label className="br-field">
+                  <span>{tr("Lieu", "Place")}</span>
+                  <input value={training.place} onChange={(event) => updateTraining(training.id, { place: event.target.value })} placeholder={tr("Coque, piste d'échauffement", "Coque, warm-up track")} />
+                </label>
+                <label className="br-field">
+                  <span>{tr("Info pour les équipes", "Note for the teams")}</span>
+                  <input value={training.note} onChange={(event) => updateTraining(training.id, { note: event.target.value })} placeholder={tr("Tenue de sport…", "Sportswear…")} />
+                </label>
+              </div>
+              <div className="br-training__teams">
+                <span className="br-training__label">
+                  {training.teamKeys.length
+                    ? tr(`${training.teamKeys.length} équipe(s)`, `${training.teamKeys.length} team(s)`)
+                    : tr("Toutes les équipes", "All teams")}
+                </span>
+                {teamOptions.length ? (
+                  teamOptions.map((option) => {
+                    const on = training.teamKeys.includes(option.key);
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        aria-pressed={on}
+                        className={`br-team-pick${on ? " is-on" : ""}`}
+                        onClick={() => toggleTrainingTeam(training.id, option.key)}
+                      >
+                        {on ? "✓ " : ""}{option.label}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <span className="br-muted">{tr("Les équipes apparaîtront ici une fois les entreprises ajoutées.", "Teams will show here once companies are added.")}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="br-training__remove"
+                aria-label={tr("Supprimer cet entraînement", "Remove this training")}
+                title={tr("Supprimer cet entraînement", "Remove this training")}
+                onClick={() => removeTraining(training.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {teamsWithoutTraining.length ? (
+            <p className="br-trainings__warn">
+              {tr("Sans entraînement : ", "No training: ")}{teamsWithoutTraining.map((option) => option.label).join(", ")}
+            </p>
+          ) : null}
+          <button type="button" className="br-link br-trainings__add" onClick={addTraining}>
+            {tr("+ Ajouter un entraînement", "+ Add a training")}
+          </button>
+        </div>
+        <footer className="br-panel__bar">
+          <span className="br-panel__hint">
+            {settingsDraft ? tr("Modifications non enregistrées", "Unsaved changes") : ""}
+          </span>
+          {settingsDraft ? <button type="button" className="br-btn" onClick={() => setSettingsDraft(null)}>{tr("Annuler", "Cancel")}</button> : null}
+          <button type="submit" className="br-btn br-btn--primary" disabled={settingsSaving || (settingsSaved && !settingsDraft)}>
+            {settingsSaving ? "…" : tr("Enregistrer", "Save")}
+          </button>
+        </footer>
+      </form>
 
       <div className="br-toolbar">
         <h2>{tr("Entreprises", "Companies")} <span className="br-count">{rows.length}</span></h2>
@@ -491,12 +674,14 @@ function BusinessRaceAdminPage() {
                                           <span className="br-leg">{legIndex + 1}</span>
                                           {runnerIsFilled(runner) ? `${runner.firstName} ${runner.lastName}` : "—"}
                                           {runnerIsFilled(runner) ? <span className={`br-gender br-gender--${runner.gender || "x"}`}>{genderLabel(runner.gender)}</span> : null}
+                                          {runnerIsFilled(runner) && runner.vip ? <span className="br-vip-tag" title={tr("Place VIP : badge VIP en plus de l'accréditation", "VIP place: VIP badge on top of the accreditation")}>VIP</span> : null}
                                         </li>
                                       ))}
                                       <li className={runnerIsFilled(team.reserve) ? "is-reserve" : "is-reserve is-empty"}>
                                         <span className="br-leg">R</span>
                                         {runnerIsFilled(team.reserve) ? `${team.reserve.firstName} ${team.reserve.lastName}` : tr("Pas de remplaçant", "No reserve")}
                                         {runnerIsFilled(team.reserve) ? <span className={`br-gender br-gender--${team.reserve.gender || "x"}`}>{genderLabel(team.reserve.gender)}</span> : null}
+                                        {runnerIsFilled(team.reserve) && team.reserve.vip ? <span className="br-vip-tag">VIP</span> : null}
                                       </li>
                                     </ol>
                                   </div>

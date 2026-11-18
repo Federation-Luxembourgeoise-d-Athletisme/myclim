@@ -26,7 +26,7 @@ test('line-up: one row per team with a name or runners, numbered when a company 
   assert.equal(lineup[0].reserve, 'Res R');
 });
 
-test('e-magazine: portal teams first with extras added by hand, stale br- rows dropped, manual rows kept', () => {
+test('e-magazine: only portal teams, with extras added by hand; stale and hand-entered rows dropped', () => {
   const merged = mergeBusinessRaceLineup(
     [
       { id: 'br-acme-1', lane: '3', photoUrl: 'p.jpg' },
@@ -35,7 +35,7 @@ test('e-magazine: portal teams first with extras added by hand, stale br- rows d
     ],
     [{ id: 'br-acme-1', teamName: 'Rockets', organization: 'ACME', runners: ['Ana A', 'Ben B'] }],
   );
-  assert.deepEqual(merged.map((entry) => entry.id), ['br-acme-1', 'participant-1']);
+  assert.deepEqual(merged.map((entry) => entry.id), ['br-acme-1']);
   assert.equal(merged[0].lane, '3');
   assert.equal(merged[0].photoUrl, 'p.jpg');
   assert.equal(merged[0].description, 'Ana A · Ben B');

@@ -695,11 +695,26 @@ service cloud.firestore {
     // Business Race : équipes de relais d'une entreprise (team-1 … team-N).
     // L'entreprise (session du portail) écrit ses équipes, dans la limite du
     // nombre d'équipes réglé par l'organisation sur le portail.
+    // Réglages communs (date limite des équipes, entraînement) : lus par les
+    // portails, modifiés par l'organisation seulement.
+    match /businessRaceSettings/{docId} {
+      allow read: if true;
+      allow write: if isAdminOrManager();
+    }
+
+    function businessRaceTeamsOpen() {
+      return !exists(/databases/$(database)/documents/businessRaceSettings/current) ||
+        get(/databases/$(database)/documents/businessRaceSettings/current).data.get("teamsDeadlineAt", null) == null ||
+        request.time <= get(/databases/$(database)/documents/businessRaceSettings/current).data.teamsDeadlineAt;
+    }
+
     match /vipPartnerPortals/{portalId}/teams/{teamId} {
       allow read: if isAdminOrManager() ||
         (isSignedIn() && request.auth.token.vipPortalId == portalId);
+      // Après la date limite, seule l'organisation modifie encore les équipes.
       allow create, update: if isAdminOrManager() ||
         (isSignedIn() && request.auth.token.vipPortalId == portalId &&
+          businessRaceTeamsOpen() &&
           get(/databases/$(database)/documents/vipPartnerPortals/$(portalId)).data.get("businessRace", false) == true &&
           request.resource.data.teamNumber is int &&
           request.resource.data.teamNumber >= 1 &&
