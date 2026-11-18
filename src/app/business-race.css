@@ -877,3 +877,332 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.br-panel__head .br-chip {
+  margin-left: auto;
+}
+
+.br-panel__hint {
+  flex: 1;
+  align-self: center;
+  font-size: 0.78rem;
+  color: var(--br-muted);
+}
+
+/* Dates clés : date limite + lignes d'entraînement */
+.br-dates__deadline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--br-line);
+}
+
+.br-dates__deadline .br-field {
+  width: 240px;
+}
+
+.br-dates__deadline .br-muted {
+  flex: 1 1 260px;
+  padding-bottom: 7px;
+}
+
+.br-dates__deadline .br-muted strong::first-letter {
+  text-transform: uppercase;
+}
+
+.br-trainings {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.br-trainings__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+
+.br-trainings__head h4 {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--br-muted);
+}
+
+.br-trainings__head .br-muted {
+  font-size: 0.76rem;
+}
+
+.br-training {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 28px;
+  gap: 8px 10px;
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--br-line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.br-training__num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 18px;
+  border-radius: 50%;
+  background: var(--br-ink);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.br-training__fields {
+  display: grid;
+  grid-template-columns: 150px 104px minmax(140px, 1fr) minmax(140px, 1.2fr);
+  gap: 8px 10px;
+  min-width: 0;
+}
+
+.br-training__teams {
+  grid-column: 2 / 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.br-training__label {
+  margin-right: 4px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--br-muted);
+}
+
+.br-team-pick {
+  padding: 2px 9px;
+  border: 1px solid #cfd9e3;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--br-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.br-team-pick:hover {
+  border-color: var(--br-accent);
+  color: var(--br-accent);
+}
+
+.br-team-pick.is-on {
+  border-color: var(--br-ink);
+  background: var(--br-ink);
+  color: #fff;
+}
+
+.br-training__remove {
+  grid-column: 3;
+  grid-row: 1;
+  width: 26px;
+  height: 26px;
+  margin-top: 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--br-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.br-training__remove:hover {
+  border-color: #f2b8b2;
+  background: #fdecea;
+  color: #b42318;
+}
+
+.br-trainings__warn {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: var(--br-warn-soft);
+  color: var(--br-warn);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.br-trainings__add {
+  justify-self: start;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 900px) {
+  .br-training__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .br-training {
+    grid-template-columns: minmax(0, 1fr) 28px;
+  }
+
+  .br-training__num {
+    display: none;
+  }
+
+  .br-training__fields,
+  .br-training__teams {
+    grid-column: 1;
+  }
+
+  .br-training__remove {
+    grid-column: 2;
+  }
+}
+
+/* Portail : dates clés, coureur VIP, équipes figées */
+.br-keydates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.br-keydates > div {
+  flex: 1 1 220px;
+  padding: 8px 12px;
+  border: 1px solid var(--vp-line, #e3e9ef);
+  border-left: 3px solid var(--vp-ink, #17324a);
+  border-radius: 8px;
+}
+
+.br-keydates dt {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vp-muted, #627788);
+}
+
+.br-keydates dd {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.br-keydates dd::first-letter {
+  text-transform: uppercase;
+}
+
+.br-keydates dd small,
+.br-keydates dd span {
+  font-weight: 500;
+  color: var(--vp-muted, #627788);
+}
+
+.br-keydates dd .br-keydates__team {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--vp-accent, #1a4aa1);
+}
+
+.br-vip-hint {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: #12313c;
+  color: #f4d48a;
+  font-size: 0.8rem;
+}
+
+.br-locked {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: var(--br-warn-soft);
+  color: var(--br-warn);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.br-locked.is-staff {
+  background: #e8eefb;
+  color: var(--br-accent);
+}
+
+.br-runner-row.has-vip,
+.br-runners-head.has-vip {
+  grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr) 128px 58px;
+}
+
+.br-vip-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 32px;
+  border: 1px solid #cfd9e3;
+  border-radius: 7px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--br-muted);
+  cursor: pointer;
+}
+
+.br-vip-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.br-vip-toggle.is-on {
+  border-color: #12313c;
+  background: #12313c;
+  color: #f4d48a;
+}
+
+.br-portal input:disabled,
+.br-gender-toggle button:disabled {
+  background: var(--br-soft);
+  cursor: not-allowed;
+}
+
+.br-team-form__trainings {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--br-muted);
+}
+
+.br-team-form__trainings strong {
+  color: var(--br-ink);
+}
+
+@media (max-width: 640px) {
+  .br-runner-row.has-vip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .br-runner-row .br-vip-toggle {
+    grid-column: 1 / -1;
+  }
+}
+
+.br-vip-tag {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #12313c;
+  color: #f4d48a;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
