@@ -1379,3 +1379,27 @@
   display: block;
   color: var(--br-muted);
 }
+
+.vip-portal-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+
+.vip-portal-module {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.vip-portal-module--vip {
+  background: #12313c;
+  color: #f4d48a;
+}
+
+.vip-portal-module--race {
+  background: #fdecef;
+  color: #c8102e;
+}

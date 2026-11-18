@@ -35,6 +35,7 @@ import {
   getVipPortalContacts,
   getVipPortalMeetingContact,
   getVipPortalPlaceTypes,
+  getVipPortalCaps,
   normalizeVipPortalContacts,
 } from "./vip-helpers";
 
@@ -837,7 +838,7 @@ function VipPartnerPortalPage() {
     if (!isDemoPortal) return;
     setPortalMeta(
       isBusinessRaceDemo
-        ? { ...DEMO_PORTAL.meta, organizationName: "Entreprise démo", businessRace: true, businessRaceTeams: 2, vipPlacesCap: 4, standardPlacesCap: 8, companionsAllowed: false }
+        ? { ...DEMO_PORTAL.meta, organizationName: "Entreprise démo", vipPartner: true, vipPlacesCap: 6, standardPlacesCap: 2, businessRace: true, businessRaceTeams: 2, businessRaceVipCap: 4, businessRaceStandardCap: 8, companionsAllowed: false }
         : DEMO_PORTAL.meta,
     );
     setPortalMetaLoading(false);
@@ -1263,6 +1264,8 @@ function VipPartnerPortalPage() {
   const editChange = (event) => setEditDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
   // Entreprise de la Business Race : accueil dédié et équipes de relais avant les invités.
   const isBusinessRace = isBusinessRacePortal(portalMeta || {});
+  // Partenariat VIP + Business Race sur le même portail : places cumulées.
+  const portalCaps = getVipPortalCaps(portalMeta || {});
   // Session de l'organisation (vrai compte, pas la session technique du portail) :
   // peut encore modifier les équipes après la date limite.
   const isStaffSession = Boolean(auth.currentUser) && !String(auth.currentUser.uid).startsWith("vip-portal-");
@@ -1281,6 +1284,12 @@ function VipPartnerPortalPage() {
         <section className="vip-portal-head">
           <div className="vip-portal-head__main">
             <h2>{portalLabel}</h2>
+            {isBusinessRace && portalCaps.hasVip ? (
+              <p className="vip-portal-modules">
+                <span className="vip-portal-module vip-portal-module--vip">★ {businessCopy.modVip}</span>
+                <span className="vip-portal-module vip-portal-module--race">🏃 {businessCopy.modRace}</span>
+              </p>
+            ) : null}
             <p className="vip-portal-facts">
               {[eventDateLabel, venueLabel, "World Athletics Indoor Tour Silver"].filter(Boolean).join(" · ")}
             </p>
@@ -1449,6 +1458,13 @@ function VipPartnerPortalPage() {
                         ? p.onRequest
                         : p.remaining.replace("{n}", places.remaining[type])}
                   </span>
+                  {portalCaps.hasVip && portalCaps.hasBusinessRace ? (
+                    <span className="vip-portal-kpis__note">
+                      {businessCopy.capsSplit
+                        .replace("{a}", portalCaps.partner[type] === null ? p.unlimited : portalCaps.partner[type])
+                        .replace("{b}", portalCaps.businessRace[type])}
+                    </span>
+                  ) : null}
                   {companionsAllowed && places.seats[type] > places.used[type] ? (
                     <span className="vip-portal-kpis__note">{p.seatsNote.replace("{n}", places.seats[type])}</span>
                   ) : null}

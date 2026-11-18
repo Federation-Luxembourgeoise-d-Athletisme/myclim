@@ -19,7 +19,7 @@ import {
 } from "./business-race-helpers";
 import { getBusinessRaceCopy } from "./business-race-copy";
 import { useBusinessRaceSettings } from "./business-race-settings";
-import { buildVipRegistrationPayload, getVipEntryPlaceType, normalizeVipPlacesCap } from "./vip-helpers";
+import { buildVipRegistrationPayload, getVipEntryPlaceType, getVipPortalCaps } from "./vip-helpers";
 
 function formatPortalDate(isoDate, language) {
   if (!isoDate) return "";
@@ -269,7 +269,8 @@ function BusinessRaceTeamsSection({ language, portalId, portal, organization, en
   const deadlinePassed = areBusinessRaceTeamsLocked(settings);
   // Après la date limite : figé pour l'entreprise ; l'organisation peut encore corriger.
   const locked = deadlinePassed && !isStaff;
-  const vipCap = normalizeVipPlacesCap(portal?.vipPlacesCap);
+  // Places cumulées (partenariat VIP + pack Business Race).
+  const vipCap = getVipPortalCaps(portal || {}).total.vip;
   const vipEntries = entries.filter((entry) => getVipEntryPlaceType(entry) === "vip");
   const vip = {
     enabled: vipCap === null || vipCap > 0,

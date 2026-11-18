@@ -50,6 +50,9 @@ const BUSINESS_RACE_COPY = {
     vipQuota: "Pas assez d'invitations VIP ({cap} au total, {used} déjà utilisées). Décochez un coureur ou demandez des places supplémentaires.",
     runnerTag: "Coureur Business Race",
     runnerManaged: "Géré dans vos équipes",
+    capsSplit: "{a} partenariat + {b} Business Race",
+    modVip: "Partenaire VIP",
+    modRace: "Business Race",
     guestsTitle: "Vos invités",
   },
   en: {
@@ -102,6 +105,9 @@ const BUSINESS_RACE_COPY = {
     vipQuota: "Not enough VIP invitations ({cap} in total, {used} already used). Untick a runner or request extra places.",
     runnerTag: "Business Race runner",
     runnerManaged: "Managed in your teams",
+    capsSplit: "{a} partnership + {b} Business Race",
+    modVip: "VIP partner",
+    modRace: "Business Race",
     guestsTitle: "Your guests",
   },
   de: {
@@ -154,6 +160,9 @@ const BUSINESS_RACE_COPY = {
     vipQuota: "Nicht genug VIP-Einladungen ({cap} insgesamt, {used} bereits vergeben). Entfernen Sie einen Läufer oder fragen Sie zusätzliche Plätze an.",
     runnerTag: "Business-Race-Läufer",
     runnerManaged: "In Ihren Teams verwaltet",
+    capsSplit: "{a} Partnerschaft + {b} Business Race",
+    modVip: "VIP-Partner",
+    modRace: "Business Race",
     guestsTitle: "Ihre Gäste",
   },
 };
