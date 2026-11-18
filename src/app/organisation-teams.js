@@ -106,6 +106,10 @@ function normalizeMember(member = {}) {
     lastName: cleanText(member.lastName),
     email,
     phone: cleanText(member.phone),
+    // Rôle dans l'équipe (« Photographe officiel », « Head of Transportation »…)
+    // et taille de t-shirt, repris des listes collées (Margot, 18/11/2026).
+    role: cleanText(member.role),
+    size: cleanText(member.size).toUpperCase(),
     lead: Boolean(member.lead),
     // Sans choix explicite : un membre avec e-mail a un accès Organisation.
     access: ORGANISATION_ACCESS.some((option) => option.value === member.access) ? member.access : email ? "organisation" : "none",
@@ -198,7 +202,56 @@ function buildModulesByEmail(teams = []) {
   return byEmail;
 }
 
+// « Coller une liste » (Margot, 18/11/2026) : lignes copiées depuis Excel,
+// Prénom puis Nom, puis n'importe quelles colonnes : une cellule avec « @ »
+// est l'e-mail, une cellule de chiffres le téléphone, la première autre
+// cellule le rôle. Une taille de t-shirt collée au nom (« Ewerling (XL) »)
+// part dans la taille. Les personnes déjà dans l'équipe (même e-mail, ou même
+// prénom + nom sans tenir compte des accents) sont écartées, comme les
+// doublons du collage.
+const SIZE_IN_NAME = /\s*\((X{0,4}S|M|X{0,4}L)\)\s*/i;
+
+function takeSize(value) {
+  const match = String(value || "").match(SIZE_IN_NAME);
+  return { text: cleanText(String(value || "").replace(SIZE_IN_NAME, " ")), size: match ? match[1].toUpperCase() : "" };
+}
+
+function parsePastedMembers(text = "", existingMembers = []) {
+  const nameKey = (member) => normalizeKey(`${member.firstName} ${member.lastName}`);
+  const seenNames = new Set(existingMembers.map(nameKey).filter(Boolean));
+  const seenEmails = new Set(existingMembers.map((member) => cleanText(member.email).toLowerCase()).filter(Boolean));
+  const toAdd = [];
+  const duplicates = [];
+  String(text)
+    .split(/\r?\n/)
+    .map((line) => line.split(/\t|;/).map(cleanText))
+    .filter((cells) => cells.some(Boolean))
+    .forEach(([rawFirstName = "", rawLastName = "", ...rest]) => {
+      if (normalizeKey(`${rawFirstName} ${rawLastName}`) === "prenom nom") return; // ligne d'en-tête
+      const first = takeSize(rawFirstName);
+      const last = takeSize(rawLastName);
+      const firstName = first.text;
+      const lastName = last.text;
+      const isPhone = (cell) => !cell.includes("@") && /^\+?[\d\s./()-]{6,}$/.test(cell);
+      const email = (rest.find((cell) => cell.includes("@")) || "").toLowerCase();
+      const phone = rest.find(isPhone) || "";
+      const role = rest.find((cell) => cell && !cell.includes("@") && !isPhone(cell)) || "";
+      const member = { firstName, lastName, email, phone, role, size: last.size || first.size };
+      const key = nameKey(member);
+      if (!key) return;
+      if (seenNames.has(key) || (email && seenEmails.has(email))) {
+        duplicates.push(member);
+        return;
+      }
+      seenNames.add(key);
+      if (email) seenEmails.add(email);
+      toAdd.push(member);
+    });
+  return { toAdd, duplicates };
+}
+
 export {
+  parsePastedMembers,
   ORGANISATION_ACCESS,
   ORGANISATION_MODULES,
   buildModulesByEmail,

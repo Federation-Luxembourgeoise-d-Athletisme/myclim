@@ -6,8 +6,9 @@ import { fillNationalRacePlacement, formatNationalRaceLane } from "./national-ra
 // sélectionne sur performance, puis l'organisation engage elle-même les
 // athlètes retenus sur SELTEC.
 // Règles 2027 (commission des athlètes, nov. 2026) :
-// - 60 m : sur invitation uniquement, la commission ajoute les athlètes
-//   depuis son module (pas dans le formulaire public) ;
+// - 60 m : sur inscription (formulaire public, comme le 800 m, depuis le
+//   18/11/2026), 8 places, sans place réservée ; la commission peut aussi
+//   ajouter directement un athlète invité depuis son module ;
 // - 800 m : 8 places par course (7 + 1 lièvre, ou 8 sans lièvre), jusqu'à
 //   3 places réservées aux licenciés luxembourgeois, sélection sur SB ;
 // - sélection communiquée deux semaines avant le meeting ;
@@ -15,16 +16,16 @@ import { fillNationalRacePlacement, formatNationalRaceLane } from "./national-ra
 const NATIONAL_RACE_REQUESTS_COLLECTION = "nationalRaceRequests";
 const NATIONAL_RACE_ATHLETE_ROLE = "athlete_preprogram";
 const NATIONAL_RACE_EVENTS = ["60 m", "800 m"];
-// Épreuves ouvertes dans le formulaire public : le 60 m est sur invitation.
-const NATIONAL_RACE_PUBLIC_EVENTS = ["800 m"];
+// Épreuves ouvertes dans le formulaire public.
+const NATIONAL_RACE_PUBLIC_EVENTS = ["60 m", "800 m"];
 const NATIONAL_RACE_SELECTION_DAYS_BEFORE = 14;
 const NATIONAL_RACE_PACER_ROLE = "pacer";
 const NATIONAL_RACE_MIN_AGE = 14;
 const NATIONAL_RACE_ADULT_AGE = 18;
 
 const NATIONAL_RACE_DEFINITIONS = [
-  { code: "NAT60F", event: "60 m", gender: "femme", label: "60 m Femmes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false, lanes: 8 },
-  { code: "NAT60M", event: "60 m", gender: "homme", label: "60 m Hommes", quota: 8, invitationOnly: true, luxReserved: 0, allowsPacer: false, lanes: 8 },
+  { code: "NAT60F", event: "60 m", gender: "femme", label: "60 m Femmes", quota: 8, invitationOnly: false, luxReserved: 0, allowsPacer: false, lanes: 8 },
+  { code: "NAT60M", event: "60 m", gender: "homme", label: "60 m Hommes", quota: 8, invitationOnly: false, luxReserved: 0, allowsPacer: false, lanes: 8 },
   { code: "NAT800F", event: "800 m", gender: "femme", label: "800 m Femmes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true, lanes: 8 },
   { code: "NAT800M", event: "800 m", gender: "homme", label: "800 m Hommes", quota: 8, invitationOnly: false, luxReserved: 3, allowsPacer: true, lanes: 8 },
 ];
@@ -299,9 +300,9 @@ function createEmptyNationalRaceForm() {
     foreignClub: "",
     foreignLicenceNumber: "",
     events: {
+      // 60 m et/ou 800 m au choix : aucune épreuve cochée d'office.
       "60 m": createEmptyNationalRaceEventEntry(),
-      // Seule épreuve du formulaire public : cochée d'office.
-      "800 m": { ...createEmptyNationalRaceEventEntry(), selected: true },
+      "800 m": createEmptyNationalRaceEventEntry(),
     },
     notes: "",
     guardianFirstName: "",

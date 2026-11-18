@@ -427,6 +427,7 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
     ? selectionDate.toLocaleDateString(language === "fr" ? "fr-LU" : "en-GB", { day: "numeric", month: "long", year: "numeric" })
     : t("natSelectionDateTbc");
   const race800 = NATIONAL_RACE_DEFINITIONS.find((race) => race.event === "800 m");
+  const race60 = NATIONAL_RACE_DEFINITIONS.find((race) => race.event === "60 m");
   const isLoggedIn = Boolean(currentUser);
   const [formData, setFormData] = useState(createEmptyNationalRaceForm);
   const [error, setError] = useState("");
@@ -510,6 +511,7 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
               .replaceAll("{quota}", race800.quota)
               .replace("{athletes}", race800.quota - 1)
               .replace("{lux}", race800.luxReserved),
+            t("natRule60").replaceAll("{quota}", race60.quota),
             t("natRule2"),
             t("natRule3").replace("{date}", selectionDateLabel),
             t("natRule4"),
@@ -716,6 +718,7 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
         })}
       </section>
 
+      {formData.events["800 m"].selected ? (
       <section className="form-section-card">
         <div className="form-section-head">
           <h3>{t("natPacerPaymentLabel")} <span className="field-required" aria-hidden="true">*</span></h3>
@@ -732,6 +735,7 @@ function NationalRaceRegistrationForm({ onEmailInUse, onSwitchToYouth }) {
           </label>
         </div>
       </section>
+      ) : null}
 
       <AuthFormField label={t("u14NotesLabel")}>
         <textarea name="notes" rows="2" value={formData.notes} onChange={handleChange} />

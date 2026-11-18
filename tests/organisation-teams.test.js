@@ -44,3 +44,24 @@ test('team modules reach every member with an account, and only them', async () 
   assert.deepEqual(buildModulesByEmail(teams), { 'a@athle.ch': ['animation'] });
   assert.deepEqual(buildDefaultOrganisationTeams().find((team) => team.id === 'speakers').modules, ['animation']);
 });
+
+test('pasted member list: names, optional e-mail/phone, ignored columns, duplicates', async () => {
+  const { parsePastedMembers } = await import('../src/app/organisation-teams.js');
+  const text = 'Prénom\tNom\tÉquipe\nStéphanie\tEmpain\tLOC\nAnouk\tThill \tLOC\tanouk@x.lu\t+352 621 000 000\n\nstephanie\tempain\tLOC\nLéon\tMoureaud\n';
+  const { toAdd, duplicates } = parsePastedMembers(text, [{ firstName: 'Leon', lastName: 'Moureaud' }]);
+  assert.deepEqual(toAdd.map((m) => `${m.firstName} ${m.lastName}`), ['Stéphanie Empain', 'Anouk Thill']);
+  assert.equal(toAdd[1].email, 'anouk@x.lu');
+  assert.equal(toAdd[1].phone, '+352 621 000 000');
+  assert.equal(toAdd[0].email, '');
+  assert.equal(duplicates.length, 2);
+});
+
+test('pasted member list: role column and T-shirt size in the name', async () => {
+  const { parsePastedMembers } = await import('../src/app/organisation-teams.js');
+  const { toAdd } = parsePastedMembers('Corinne \tEwerling (XL)\tCAB - Buvette\nPatrick \tPossenti (XXXL)\tCAB - Buvette\nTomek\t Jastrzebowski\tPhotographe Officiel \n', []);
+  assert.deepEqual(toAdd.map((m) => [m.firstName, m.lastName, m.size, m.role]), [
+    ['Corinne', 'Ewerling', 'XL', 'CAB - Buvette'],
+    ['Patrick', 'Possenti', 'XXXL', 'CAB - Buvette'],
+    ['Tomek', 'Jastrzebowski', '', 'Photographe Officiel'],
+  ]);
+});

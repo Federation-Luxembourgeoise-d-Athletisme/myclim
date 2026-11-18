@@ -717,7 +717,8 @@ export function AuthProvider({ children }) {
           gender: formData.gender,
           nationality: String(formData.nationality || "").trim(),
           worldAthleticsUrl: String(formData.worldAthleticsUrl || "").trim(),
-          pacerPayment: formData.pacerPayment || "",
+          // Question du lièvre : 800 m seulement.
+          pacerPayment: event === "800 m" ? formData.pacerPayment || "" : "",
           event,
           raceCode: getNationalRaceCode(event, formData.gender),
           isLuxLicensed,
