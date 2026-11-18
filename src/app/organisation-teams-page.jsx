@@ -17,6 +17,7 @@ import {
   getMemberAccountStatus,
   memberDisplayName,
   normalizeMember,
+  parsePastedMembers,
 } from "./organisation-teams";
 
 // Équipes & affectations › Équipes organisation : le staff, la communication,
@@ -76,6 +77,9 @@ export function OrganisationTeamsPage() {
   const [draft, setDraft] = useState(null);
   const [selectedId, setSelectedId] = useState("");
   const [newMember, setNewMember] = useState(EMPTY_MEMBER);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteResult, setPasteResult] = useState("");
   const [saveState, setSaveState] = useState("");
   const saveTimer = useRef(null);
   const saveVersion = useRef(0);
@@ -201,6 +205,24 @@ export function OrganisationTeamsPage() {
     setNewMember(EMPTY_MEMBER);
   }
 
+  // Liste collée depuis Excel : même accès par défaut qu'un ajout à la main.
+  function addPastedMembers() {
+    const { toAdd, duplicates } = parsePastedMembers(pasteText, selected.members);
+    if (!toAdd.length) {
+      setPasteResult(duplicates.length ? "Tout le monde est déjà dans l'équipe." : "Aucune ligne lisible : Prénom, Nom (puis e-mail, téléphone…).");
+      return;
+    }
+    const defaultAccess = (email) => (!email ? "none" : selected.id === "lunex" ? "lunex" : "organisation");
+    updateTeam(selected.id, {
+      members: [...selected.members, ...toAdd.map((member) => normalizeMember({ ...member, access: defaultAccess(member.email), id: newId("m") }))],
+    });
+    setPasteResult(`${toAdd.length} ajouté(s)${duplicates.length ? `, ${duplicates.length} déjà présent(s) ignoré(s)` : ""}.`);
+    setPasteText("");
+    setPasteOpen(false);
+  }
+
+  const pastePreview = pasteOpen && pasteText.trim() && selected ? parsePastedMembers(pasteText, selected.members) : null;
+
   if (loading) return <p className="mdp-status">Chargement des équipes de l'organisation…</p>;
   if (error) return <p className="mdp-status mdp-status--error">{error}</p>;
 
@@ -313,6 +335,8 @@ export function OrganisationTeamsPage() {
               <tr>
                 <th>Prénom</th>
                 <th>Nom</th>
+                <th>Rôle</th>
+                <th className="orgt-size">Taille</th>
                 <th>E-mail (compte MyCLIM)</th>
                 <th>Téléphone</th>
                 <th>Accès</th>
@@ -324,7 +348,7 @@ export function OrganisationTeamsPage() {
             <tbody>
               {selected.members.length === 0 ? (
                 <tr>
-                  <td className="orgt-muted" colSpan={8}>
+                  <td className="orgt-muted" colSpan={10}>
                     Aucun membre. Ajoutez-les ci-dessous ; l'e-mail est facultatif.
                   </td>
                 </tr>
@@ -336,6 +360,16 @@ export function OrganisationTeamsPage() {
                   </td>
                   <td>
                     <input className="orgt-input" value={member.lastName} onChange={(event) => updateMember(member.id, { lastName: event.target.value })} />
+                  </td>
+                  <td>
+                    <input className="orgt-input" placeholder="—" value={member.role} onChange={(event) => updateMember(member.id, { role: event.target.value })} />
+                  </td>
+                  <td className="orgt-size">
+                    <select aria-label="Taille de t-shirt" className="orgt-input" value={member.size} onChange={(event) => updateMember(member.id, { size: event.target.value })}>
+                      {["", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"].map((size) => (
+                        <option key={size} value={size}>{size || "—"}</option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <input
@@ -466,6 +500,39 @@ export function OrganisationTeamsPage() {
               Ajouter
             </button>
           </form>
+          <div className="orgt-paste">
+            {pasteOpen ? (
+              <>
+                <textarea
+                  autoFocus
+                  placeholder={"Collez les lignes depuis Excel : Prénom ⇥ Nom (⇥ rôle, e-mail, téléphone… facultatifs). Une taille collée au nom, ex. « Ewerling (XL) », va dans Taille."}
+                  rows={6}
+                  value={pasteText}
+                  onChange={(event) => setPasteText(event.target.value)}
+                />
+                <div className="orgt-paste__bar">
+                  <span className="orgt-muted">
+                    {pastePreview
+                      ? `${pastePreview.toAdd.length} à ajouter dans « ${selected.name} »${pastePreview.duplicates.length ? ` · ${pastePreview.duplicates.length} déjà présent(s)` : ""}`
+                      : "La 3e colonne devient le rôle ; les personnes déjà dans l'équipe sont ignorées."}
+                  </span>
+                  <button className="ath-btn" type="button" onClick={() => { setPasteOpen(false); setPasteText(""); }}>
+                    Annuler
+                  </button>
+                  <button className="ath-btn ath-btn--primary" disabled={!pastePreview?.toAdd.length} type="button" onClick={addPastedMembers}>
+                    Ajouter {pastePreview?.toAdd.length || ""}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="orgt-paste__bar">
+                <button className="ath-btn" type="button" onClick={() => { setPasteOpen(true); setPasteResult(""); }}>
+                  Coller une liste
+                </button>
+                {pasteResult ? <span className="orgt-muted">{pasteResult}</span> : null}
+              </div>
+            )}
+          </div>
           <p className="orgt-hint">
             Accès <strong>Organisation</strong> : le membre voit son planning, les tâches de son équipe dans le Rétroplanning
             (et peut en changer le statut) et ses décomptes. <strong>Staff FLA</strong> et <strong>LUNEX Student</strong> : rôle gestionnaire, toute la gestion

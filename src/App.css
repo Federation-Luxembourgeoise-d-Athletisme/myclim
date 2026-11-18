@@ -9472,6 +9472,11 @@ tr.row--warning > td {
 .orgt-link__results button:hover { background: #f1f5fa; }
 .orgt-link__results span { color: #6b7a8c; }
 .orgt-hint { margin: 0; padding: 6px 12px 10px; font-size: 11.5px; color: #6b7a89; }
+.orgt-members .orgt-size { width: 64px; }
+.orgt-paste { display: grid; gap: 6px; padding: 6px 10px 8px; background: #fafbfd; border-top: 1px solid #e8edf2; }
+.orgt-paste textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; font: 12.5px/1.45 ui-monospace, Consolas, monospace; border: 1px solid #d9e0e7; border-radius: 6px; resize: vertical; }
+.orgt-paste__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+.orgt-paste__bar .orgt-muted:first-child { flex: 1 1 200px; }
 @media (max-width: 900px) { .orgt { grid-template-columns: 1fr; } .orgt-detail__form, .orgt-add { grid-template-columns: 1fr; } }
 
 /* ── Rétroplanning ───────────────────────────────────────────────────────── */
