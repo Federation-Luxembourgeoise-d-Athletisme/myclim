@@ -9472,7 +9472,19 @@ tr.row--warning > td {
 .orgt-link__results button:hover { background: #f1f5fa; }
 .orgt-link__results span { color: #6b7a8c; }
 .orgt-hint { margin: 0; padding: 6px 12px 10px; font-size: 11.5px; color: #6b7a89; }
-.orgt-members .orgt-size { width: 64px; }
+/* Tableau des membres : largeurs fixes, défilement dans son cadre (18/11/2026). */
+.orgt-members-wrap { overflow-x: auto; }
+.orgt-members { table-layout: fixed; min-width: 900px !important; }
+.orgt-members td { vertical-align: top; }
+.orgt-col-first { width: 13%; } .orgt-col-last { width: 14%; } .orgt-col-role { width: 17%; } .orgt-col-size { width: 62px; }
+.orgt-col-email { width: 23%; } .orgt-col-phone { width: 12%; } .orgt-col-access { width: 250px; } .orgt-col-lead { width: 44px; } .orgt-col-remove { width: 32px; }
+.orgt-access-cell { display: flex; align-items: center; gap: 4px; }
+.orgt-access-cell .orgt-access { flex: 0 0 118px; min-width: 0; }
+.orgt-members .orgt-account { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
+.orgt-members .orgt-account .ath-link { margin-left: 4px; font-size: 11.5px; }
+.orgt-members .orgt-status { padding: 0 6px; font-size: 11px; }
+.orgt-members .orgt-status--no-access { display: none; }
+@media (max-width: 1279px) { .orgt { grid-template-columns: 1fr; } .orgt-list .orgt-table tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } .orgt-list .orgt-table thead { display: none; } .orgt-list .orgt-table tr { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; padding: 6px 10px; border-bottom: 1px solid #eef2f6; } .orgt-list .orgt-table tr.orgt-row--active { background: #e9f1fb; } .orgt-list .orgt-table td { padding: 0 !important; border: 0 !important; background: none !important; } .orgt-list .orgt-table td:nth-child(3) { grid-column: 1 / -1; font-size: 11.5px; } .orgt-list .orgt-table td:nth-child(3).orgt-muted { display: none; } }
 .orgt-paste { display: grid; gap: 6px; padding: 6px 10px 8px; background: #fafbfd; border-top: 1px solid #e8edf2; }
 .orgt-paste textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; font: 12.5px/1.45 ui-monospace, Consolas, monospace; border: 1px solid #d9e0e7; border-radius: 6px; resize: vertical; }
 .orgt-paste__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }

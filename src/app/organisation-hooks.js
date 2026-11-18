@@ -271,7 +271,22 @@ async function searchUserAccounts(text) {
     .slice(0, 8);
 }
 
+// Comptes plus anciens sans searchTokens : recherche exacte sur le prénom
+// (tel que saisi, puis avec majuscule initiale), le nom est comparé ensuite.
+async function findUserAccountsByFirstName(firstName) {
+  const raw = String(firstName || "").trim();
+  if (!raw) return [];
+  const variants = [...new Set([raw, raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()])];
+  const snapshots = await Promise.all(variants.map((value) => getDocs(query(collection(db, "users"), where("firstName", "==", value), limit(20)))));
+  const seen = new Set();
+  return snapshots
+    .flatMap((snapshot) => snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })))
+    .filter((user) => !seen.has(user.id) && seen.add(user.id))
+    .filter((user) => user.email && user.accountStatus !== "disabled" && (!user.uid || user.uid === user.id));
+}
+
 export {
+  findUserAccountsByFirstName,
   grantMemberAccess,
   searchUserAccounts,
   sendMemberInvitation,

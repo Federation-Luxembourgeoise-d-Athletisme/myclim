@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/auth-context";
 import { getActiveRoles } from "./navigation";
 import {
+  findUserAccountsByFirstName,
   grantMemberAccess,
   saveOrganisationTeams,
   searchUserAccounts,
@@ -214,11 +215,57 @@ export function OrganisationTeamsPage() {
     try {
       const sameName = (user) =>
         normalizeKey(`${user.firstName} ${user.lastName}`) === normalizeKey(`${member.firstName} ${member.lastName}`);
-      const matches = (await searchUserAccounts(`${member.firstName} ${member.lastName}`)).filter(sameName);
-      return matches.length === 1 ? matches[0] : null;
+      let matches = (await searchUserAccounts(`${member.firstName} ${member.lastName}`)).filter(sameName);
+      if (!matches.length) matches = (await findUserAccountsByFirstName(member.firstName)).filter(sameName);
+      const unique = [...new Map(matches.map((user) => [String(user.email).toLowerCase(), user])).values()];
+      if (unique.length === 1) return unique[0];
+      // Plusieurs comptes au même nom (ex. un compte de test bénévole) : on
+      // garde le seul compte gestionnaire / admin s'il y en a exactement un.
+      const managers = unique.filter((user) => (user.userTypes || []).some((role) => role === "admin" || role === "gestionnaire"));
+      return managers.length === 1 ? managers[0] : null;
     } catch {
       return null;
     }
+  }
+
+  // Membres déjà dans l'équipe sans e-mail : on cherche leur compte par nom.
+  // Un compte qui est déjà gestionnaire / admin garde un accès Staff FLA (ou
+  // LUNEX Student dans l'équipe LUNEX) ; sinon accès Organisation.
+  async function linkExistingAccounts() {
+    const team = selected;
+    const candidates = team.members.filter((member) => !member.email);
+    if (!candidates.length) return;
+    setPasteBusy(true);
+    const found = {};
+    await Promise.all(
+      candidates.map(async (member) => {
+        const user = await findAccountByName(member);
+        if (user) found[member.id] = user;
+      }),
+    );
+    setPasteBusy(false);
+    const linked = Object.keys(found).length;
+    if (linked) {
+      update((current) =>
+        current.map((item) =>
+          item.id !== team.id
+            ? item
+            : {
+                ...item,
+                members: item.members.map((member) => {
+                  const user = found[member.id];
+                  if (!user || member.email) return member;
+                  const roles = Array.isArray(user.userTypes) ? user.userTypes : [];
+                  const isManager = roles.includes("gestionnaire") || roles.includes("admin");
+                  const access = team.id === "lunex" ? "lunex" : isManager ? "staff" : "organisation";
+                  return { ...member, email: String(user.email).toLowerCase(), phone: member.phone || user.phone || "", access };
+                }),
+              },
+        ),
+      );
+    }
+    const missing = candidates.filter((member) => !found[member.id]).map(memberDisplayName);
+    setPasteResult(`${linked} relié(s) à leur compte dans « ${team.name} »${missing.length ? ` · sans compte trouvé : ${missing.join(", ")}` : ""}.`);
   }
 
   async function addPastedMembers() {
@@ -364,17 +411,28 @@ export function OrganisationTeamsPage() {
             </button>
           </div>
 
+          <div className="orgt-members-wrap">
           <table className="data-table data-table--sheet orgt-members">
+            <colgroup>
+              <col className="orgt-col-first" />
+              <col className="orgt-col-last" />
+              <col className="orgt-col-role" />
+              <col className="orgt-col-size" />
+              <col className="orgt-col-email" />
+              <col className="orgt-col-phone" />
+              <col className="orgt-col-access" />
+              <col className="orgt-col-lead" />
+              <col className="orgt-col-remove" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Prénom</th>
                 <th>Nom</th>
                 <th>Rôle</th>
-                <th className="orgt-size">Taille</th>
+                <th>Taille</th>
                 <th>E-mail (compte MyCLIM)</th>
                 <th>Téléphone</th>
-                <th>Accès</th>
-                <th>Compte</th>
+                <th>Accès · compte</th>
                 <th className="orgt-center">Chef</th>
                 <th aria-label="Actions" />
               </tr>
@@ -382,7 +440,7 @@ export function OrganisationTeamsPage() {
             <tbody>
               {selected.members.length === 0 ? (
                 <tr>
-                  <td className="orgt-muted" colSpan={10}>
+                  <td className="orgt-muted" colSpan={9}>
                     Aucun membre. Ajoutez-les ci-dessous ; l'e-mail est facultatif.
                   </td>
                 </tr>
@@ -398,7 +456,7 @@ export function OrganisationTeamsPage() {
                   <td>
                     <input className="orgt-input" placeholder="—" value={member.role} onChange={(event) => updateMember(member.id, { role: event.target.value })} />
                   </td>
-                  <td className="orgt-size">
+                  <td>
                     <select aria-label="Taille de t-shirt" className="orgt-input" value={member.size} onChange={(event) => updateMember(member.id, { size: event.target.value })}>
                       {["", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"].map((size) => (
                         <option key={size} value={size}>{size || "—"}</option>
@@ -408,6 +466,7 @@ export function OrganisationTeamsPage() {
                   <td>
                     <input
                       className="orgt-input"
+                      title={member.email}
                       type="email"
                       value={member.email}
                       onChange={(event) => updateMember(member.id, { email: event.target.value.trim().toLowerCase() })}
@@ -417,6 +476,7 @@ export function OrganisationTeamsPage() {
                     <input className="orgt-input" value={member.phone} onChange={(event) => updateMember(member.id, { phone: event.target.value })} />
                   </td>
                   <td>
+                    <div className="orgt-access-cell">
                     <select
                       aria-label="Accès"
                       className="orgt-input orgt-access"
@@ -429,8 +489,7 @@ export function OrganisationTeamsPage() {
                         </option>
                       ))}
                     </select>
-                  </td>
-                  <td className="orgt-account">
+                    <div className="orgt-account">
                     <MemberAccountCell
                       busy={busyMemberId === member.id}
                       isAdmin={isAdmin}
@@ -438,6 +497,8 @@ export function OrganisationTeamsPage() {
                       onGrant={() => giveAccess(member)}
                       onSend={() => sendLink(member)}
                     />
+                    </div>
+                    </div>
                   </td>
                   <td className="orgt-center">
                     <input
@@ -462,6 +523,7 @@ export function OrganisationTeamsPage() {
               ))}
             </tbody>
           </table>
+          </div>
 
           {inviteResult ? (
             <div className={`orgt-invite${inviteResult.error || !inviteResult.mailSent ? " orgt-invite--warn" : ""}`}>
@@ -563,6 +625,11 @@ export function OrganisationTeamsPage() {
                 <button className="ath-btn" type="button" onClick={() => { setPasteOpen(true); setPasteResult(""); }}>
                   Coller une liste
                 </button>
+                {selected.members.some((member) => !member.email) ? (
+                  <button className="ath-btn" disabled={pasteBusy} title="Cherche le compte MyCLIM de chaque membre sans e-mail (même prénom + nom)" type="button" onClick={linkExistingAccounts}>
+                    {pasteBusy ? "Recherche des comptes…" : `Relier les comptes (${selected.members.filter((member) => !member.email).length} sans e-mail)`}
+                  </button>
+                ) : null}
                 {pasteResult ? <span className="orgt-muted">{pasteResult}</span> : null}
               </div>
             )}
