@@ -246,12 +246,11 @@
   };
   const ALL = [1, 2, 3, 4, 5, 6];
   const TEAMS = [
-    { id: "staff", name: "Staff", cat: "org", def: "Staff FLA", zones: ALL },
+    { id: "staff", name: "Staff FLA", cat: "org", def: "Staff FLA", zones: ALL },
+    { id: "staff-meeting", name: "Staff meeting", cat: "org", def: "Meeting Staff", zones: ALL },
     { id: "cd", name: "Comité Directeur FLA", cat: "org", def: "FLA Executive Board", zones: ALL },
     { id: "lunex", name: "Étudiants LUNEX", cat: "org", def: "LUNEX Student", zones: [2, 5, 6] },
     { id: "communication", name: "Communication", cat: "org", def: "Communication", zones: [1, 5] },
-    { id: "accueil", name: "Accueil athlètes", cat: "org", def: "Athlete Welcome", zones: [2, 3, 5] },
-    { id: "transport", name: "Transport", cat: "org", def: "Transportation", zones: [2] },
     { id: "cab", name: "CAB – Buvette", cat: "catering", def: "Buvette CAB", zones: [] },
     { id: "athle", name: "Athle.ch", cat: "tech", def: "Athle.ch", zones: [1, 5] },
     { id: "speakers", name: "Speakers (Athle.ch)", cat: "tech", def: "Speaker", zones: [1, 4] },
@@ -261,7 +260,7 @@
   ];
   // Équipes bénévoles (fictives) et leurs chefs bénévoles existants.
   const VTEAMS = [
-    { id: "navettes", name: "Navettes athlètes", members: 12, volLeads: ["Jeff Kayser"] },
+    { id: "transport-vol", name: "Transport", members: 12, volLeads: [] },
     { id: "accueil-vip", name: "Accueil VIP", members: 9, volLeads: [] },
     { id: "billetterie", name: "Billetterie", members: 8, volLeads: ["Sandra Noel"] },
     { id: "haies", name: "Haies", members: 14, volLeads: ["Tom Reding"] },
@@ -273,7 +272,7 @@
   const PEOPLE = [
     ...["Mathias Spick", "Margot Laporte|acc", "Jean-Baptiste Souche|acc", "Lex Damit|acc", "Anne Reiser|acc", "Jean-Sébastien Dauch|acc", "David Riboulet", "Nicolas Morot", "Aymeric Fontaine", "Arnaud Starck", "Christiane Liefgen", "Andrée Schengen", "Roland Weber", "Thomas Vandormael"]
       .map((s) => { const [n, a] = s.split("|"); const [f, ...l] = n.split(" "); return P(f, l.join(" "), ["staff"], "", "", a ? "acc" : "none"); }),
-    P("Marc", "Osenberg", ["staff"], "Meeting Director"),
+    P("Marc", "Osenberg", ["staff-meeting"], "Meeting Director"),
     P("Louis", "Gales", ["staff"], "Stagiaire (FLA)"),
     ...["Stéphanie Empain", "Anouk Thill", "Fabio Secci", "Steve Helminger", "Roland Draut", "Philippe Beissel", "Carmela Esposito", "Chantal Hayen", "Pierre Hensgen", "Paul Schieres", "Jean-Claude Husting", "Léon Moureaud", "Jean-Claude Muller"]
       .map((n) => { const [f, ...l] = n.split(" "); return P(f, l.join(" "), ["cd"]); }),
@@ -288,9 +287,9 @@
     P("Vera", "Bertemes-Hoffmann", ["communication"]),
     P("Tomek", "Jastrzebowski", ["communication"], "Photographe officiel"),
     P("Łukasz", "Szeląg", ["communication"], "Photographe officiel"),
-    P("Lina", "Simons", ["accueil"], "Athlete welcome"),
-    P("Cora", "Osenberg", ["accueil"], "Athlete liaison"),
-    P("Philippe", "Laporte", ["transport"], "Head of Transportation", "", "acc", true, ["navettes"]),
+    P("Lina", "Simons", ["staff-meeting"], "Athlete Welcome"),
+    P("Cora", "Osenberg", ["staff-meeting"], "Athlete liaison"),
+    P("Philippe", "Laporte", ["staff-meeting"], "Head of Transportation", "", "acc", false, ["transport-vol"]),
     P("Liz", "Sinner", ["staff"], "", "", "none", false, ["accueil-vip"]),
     ...[["Anouck", "Ewerling", "L"], ["Corinne", "Ewerling", "XL"], ["Nadine", "Ewerling", "M"], ["Ann", "Bertemes", "XL"], ["Olga", "Tironi", "L"], ["Serge", "Tironi", "XXL"], ["Steve", "Weiwert", "XL"], ["Andrea", "Rossi", "M"], ["Patrick", "Possenti", "XXXL"]]
       .map(([f, l, s]) => P(f, l, ["cab"], "", s)),
@@ -309,7 +308,7 @@
   const team = (id) => TEAMS.find((t) => t.id === id);
   const vteam = (id) => VTEAMS.find((t) => t.id === id);
   const full = (p) => `${p.f} ${p.l}`;
-  let teamId = "transport", selId = PEOPLE.find((p) => p.f === "Philippe" && p.l === "Laporte").id;
+  let teamId = "staff-meeting", selId = PEOPLE.find((p) => p.f === "Philippe" && p.l === "Laporte").id;
   const badgeTeams = (p) => p.teams.map(team).filter((t) => ["org", "tech", "photo", "catering"].includes(t.cat));
   const hasBadge = (p) => badgeTeams(p).length > 0 && !p.isVolunteer;
   const catOf = (p) => { const b = badgeTeams(p); return !b.length ? "none" : b.some((t) => t.cat === "org") ? "org" : b[0].cat; };
