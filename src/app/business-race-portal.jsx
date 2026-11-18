@@ -55,8 +55,23 @@ function BusinessRaceWelcome({ language, portal }) {
   );
 }
 
+// Titre cliquable d'une case repliable (▾ ouverte, ▸ repliée) ; `summary` : ligne
+// affichée quand elle est repliée.
+function BoxToggle({ open, onToggle, label, title, summary, children }) {
+  return (
+    <div className="br-box-head">
+      <button type="button" className="br-box-toggle" aria-expanded={open} title={label} onClick={onToggle}>
+        <span className="br-box-toggle__caret" aria-hidden="true">{open ? "▾" : "▸"}</span>
+        <h3>{title}</h3>
+      </button>
+      {!open && summary ? <span className="br-box-summary">{summary}</span> : null}
+      {children}
+    </div>
+  );
+}
+
 // Les 3 étapes, sur toute la largeur sous l'en-tête ; `offer` : types de places.
-function BusinessRaceSteps({ language, offer, portal }) {
+function BusinessRaceSteps({ language, offer, portal, collapsed = false, onToggle }) {
   const c = getBusinessRaceCopy(language);
   const { settings } = useBusinessRaceSettings();
   const deadline = formatPortalDate(settings.teamsDeadline, language);
@@ -75,7 +90,15 @@ function BusinessRaceSteps({ language, offer, portal }) {
     `${left.training.date}${left.training.time}`.localeCompare(`${right.training.date}${right.training.time}`),
   );
   return (
-    <section className="vip-portal-card br-steps-card">
+    <section className={`vip-portal-card br-steps-card${collapsed ? " is-collapsed" : ""}`}>
+      <BoxToggle
+        open={!collapsed}
+        onToggle={onToggle}
+        label={c.toggleBox}
+        title={c.keyDatesSteps}
+        summary={deadline ? `${c.deadlineLabel} ${c.deadlineValue.replace("{date}", deadline)}` : ""}
+      />
+      <div className="br-box-body" hidden={collapsed}>
       {deadline || trainings.length ? (
         <dl className="br-keydates" aria-label={c.keyDates}>
           {deadline ? (
@@ -107,6 +130,7 @@ function BusinessRaceSteps({ language, offer, portal }) {
         <li><strong>{c.stepDayTitle}</strong>{c.stepDayBody}</li>
       </ol>
       {offer}
+      </div>
     </section>
   );
 }
@@ -263,7 +287,7 @@ function TeamForm({ team, teamCount, organization, c, onSave, locked = false, vi
 
 // Équipes de l'entreprise : une fiche par équipe (teams/team-{n}), enregistrée
 // équipe par équipe. En démo (npm run dev), rien n'est écrit.
-function BusinessRaceTeamsSection({ language, portalId, portal, organization, entries = [], isStaff = false, onDemoEntries, isDemo = false }) {
+function BusinessRaceTeamsSection({ language, portalId, portal, organization, entries = [], isStaff = false, onDemoEntries, isDemo = false, collapsed = false, onToggle }) {
   const c = getBusinessRaceCopy(language);
   const { settings } = useBusinessRaceSettings();
   const deadlinePassed = areBusinessRaceTeamsLocked(settings);
@@ -346,10 +370,16 @@ function BusinessRaceTeamsSection({ language, portalId, portal, organization, en
   }
 
   return (
-    <section className="vip-portal-card br-portal">
-      <div className="vip-portal-card__head">
-        <h3>{c.teamsTitle} <span className="vip-portal-count">{teams.length}</span></h3>
-      </div>
+    <section className={`vip-portal-card br-portal${collapsed ? " is-collapsed" : ""}`}>
+      <BoxToggle
+        open={!collapsed}
+        onToggle={onToggle}
+        label={c.toggleBox}
+        title={<>{c.teamsTitle} <span className="vip-portal-count">{teams.length}</span></>}
+        summary={c.teamsSummary.replace("{c}", teams.filter((team) => getBusinessRaceTeamStatus(team).complete).length).replace("{n}", teams.length)}
+      />
+      {/* Masqué (pas retiré) : une saisie en cours n'est pas perdue en repliant. */}
+      <div className="br-box-body" hidden={collapsed}>
       <p className="vip-portal-muted">{c.teamsIntro}</p>
       {vip.enabled && !locked ? (
         <p className="br-vip-hint">{c.vipHint.replace("{left}", vipLeft === null ? "" : c.vipLeft.replace("{n}", vipLeft))}</p>
@@ -379,6 +409,7 @@ function BusinessRaceTeamsSection({ language, portalId, portal, organization, en
           ))}
         </div>
       )}
+      </div>
     </section>
   );
 }
@@ -397,4 +428,4 @@ const DEMO_TEAMS = [
   },
 ];
 
-export { BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome };
+export { BoxToggle, BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome };

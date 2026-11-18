@@ -18,7 +18,8 @@ import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
 import { useLanguage } from "./language-context";
 import portalPhoto from "../assets/site-gallery/ambiance-1.jpg";
 import businessRacePhoto from "../assets/site-gallery/preprog-business-1.jpg";
-import { BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome } from "./business-race-portal";
+import { BoxToggle, BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome } from "./business-race-portal";
+import { useCollapsedState } from "./collapsible-state";
 import { getBusinessRaceCopy } from "./business-race-copy";
 import { RUNNER_VIP_SOURCE, isBusinessRacePortal } from "./business-race-helpers";
 import {
@@ -1264,6 +1265,8 @@ function VipPartnerPortalPage() {
   const editChange = (event) => setEditDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
   // Entreprise de la Business Race : accueil dédié et équipes de relais avant les invités.
   const isBusinessRace = isBusinessRacePortal(portalMeta || {});
+  // Grandes cases repliables (accordéon), mémorisées par portail dans ce navigateur.
+  const [collapsedBoxes, toggleBox] = useCollapsedState(`portal-collapsed-${portalId}`);
   // Partenariat VIP + Business Race sur le même portail : places cumulées.
   const portalCaps = getVipPortalCaps(portalMeta || {});
   // Session de l'organisation (vrai compte, pas la session technique du portail) :
@@ -1336,7 +1339,9 @@ function VipPartnerPortalPage() {
           ) : null}
         </section>
 
-        {isBusinessRace ? <BusinessRaceSteps language={language} offer={offerList} portal={portalMeta} /> : null}
+        {isBusinessRace ? (
+          <BusinessRaceSteps language={language} offer={offerList} portal={portalMeta} collapsed={Boolean(collapsedBoxes.steps)} onToggle={() => toggleBox("steps")} />
+        ) : null}
 
         {accessGranted && contactsDraft ? (
           <section className="vip-portal-card">
@@ -1434,6 +1439,8 @@ function VipPartnerPortalPage() {
                     ])
                   }
                   isDemo={isDemoPortal}
+                  collapsed={Boolean(collapsedBoxes.teams)}
+                  onToggle={() => toggleBox("teams")}
                 />
                 <h2 className="vip-portal-section-title">{businessCopy.guestsTitle}</h2>
               </>
@@ -1475,8 +1482,9 @@ function VipPartnerPortalPage() {
               ))}
             </dl>
 
-            <section className="vip-portal-card">
-              <h3>{p.addTitle}</h3>
+            <section className={`vip-portal-card${collapsedBoxes.add ? " is-collapsed" : ""}`}>
+              <BoxToggle open={!collapsedBoxes.add} onToggle={() => toggleBox("add")} label={businessCopy.toggleBox} title={p.addTitle} />
+              <div className="br-box-body" hidden={Boolean(collapsedBoxes.add)}>
               {selectedTypeFull ? (
                 <div className="vip-portal-quota">
                   <p>
@@ -1601,6 +1609,7 @@ function VipPartnerPortalPage() {
                 {successMessage ? <p className="vip-portal-success" role="status">✓ {successMessage}</p> : null}
                 <p className="vip-portal-legal">{getVipRgpdDisclaimer(language)}</p>
               </form>
+              </div>
             </section>
 
             {showRequestForm ? (
@@ -1718,10 +1727,14 @@ function VipPartnerPortalPage() {
               </section>
             ) : null}
 
-            <section className="vip-portal-card">
-              <div className="vip-portal-card__head">
-                <h3>{p.listTitle} <span className="vip-portal-count">{entries.length}</span></h3>
-                {entries.length > 6 ? (
+            <section className={`vip-portal-card${collapsedBoxes.list ? " is-collapsed" : ""}`}>
+              <BoxToggle
+                open={!collapsedBoxes.list}
+                onToggle={() => toggleBox("list")}
+                label={businessCopy.toggleBox}
+                title={<>{p.listTitle} <span className="vip-portal-count">{entries.length}</span></>}
+              >
+                {entries.length > 6 && !collapsedBoxes.list ? (
                   <input
                     type="search"
                     className="vip-portal-search"
@@ -1730,7 +1743,8 @@ function VipPartnerPortalPage() {
                     onChange={(event) => setSearch(event.target.value)}
                   />
                 ) : null}
-              </div>
+              </BoxToggle>
+              <div className="br-box-body" hidden={Boolean(collapsedBoxes.list)}>
               {loading ? (
                 <p className="vip-portal-muted">{p.loading}</p>
               ) : entries.length === 0 ? (
@@ -1834,6 +1848,7 @@ function VipPartnerPortalPage() {
                   </table>
                 </div>
               )}
+              </div>
             </section>
           </>
         ) : null}

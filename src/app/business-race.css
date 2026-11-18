@@ -1432,3 +1432,57 @@
 .br-panel.is-collapsed .br-panel__head {
   border-bottom: 0;
 }
+
+/* Grandes cases repliables du portail entreprise */
+.br-box-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.br-box-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.br-box-toggle h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.br-box-toggle:hover h3 {
+  color: var(--vp-accent, #1a4aa1);
+}
+
+.br-box-toggle__caret {
+  width: 12px;
+  font-size: 0.82rem;
+  color: var(--vp-muted, #627788);
+}
+
+.br-box-summary {
+  font-size: 0.82rem;
+  color: var(--vp-muted, #627788);
+}
+
+.br-box-head .vip-portal-search {
+  margin-left: auto;
+}
+
+.br-box-body {
+  display: grid;
+  gap: 10px;
+}
+
+.br-box-body[hidden] {
+  display: none;
+}
