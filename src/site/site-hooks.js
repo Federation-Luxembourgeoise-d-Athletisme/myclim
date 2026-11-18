@@ -303,6 +303,18 @@ export function useSiteContent(key) {
   return { content, loading };
 }
 
+// Line-up public de la Business Race (équipes saisies par les entreprises),
+// tenu à jour par la Cloud Function syncBusinessRaceLineup*.
+export function useBusinessRaceLineup() {
+  const [teams, setTeams] = useState([]);
+  useEffect(() => onSnapshot(
+    doc(db, SITE_CONTENT_COL, "businessRaceLineup"),
+    (snap) => setTeams(snap.exists() && Array.isArray(snap.data().teams) ? snap.data().teams : []),
+    () => setTeams([]),
+  ), []);
+  return teams;
+}
+
 export async function setSiteContent(key, content) {
   await setDoc(doc(db, SITE_CONTENT_COL, key), { content, updatedAt: serverTimestamp() }, { merge: true });
 }

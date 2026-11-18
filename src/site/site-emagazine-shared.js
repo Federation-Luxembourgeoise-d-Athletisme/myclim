@@ -3,6 +3,7 @@ import {
   resolveAthleteBirthYear,
 } from "../app/athlete-portal-hooks";
 import { DEFAULT_CUTOUT_FRAME, normalizePhotoFrame } from "./emagazine-athlete-data";
+import { mergeBusinessRaceLineup } from "./business-race-lineup";
 // Cut-out portrait of the 2026 magazine: photo of the prefilled athlete page.
 import vanDerWekenPhoto from "../assets/emag-athlete-van-der-weken.png";
 // Photos of the 2026 duel pages: sample highlight pages to try the layouts.
@@ -576,7 +577,7 @@ export function buildOfficialStartlistGroups(disciplines = [], athletes = []) {
     });
 }
 
-export function buildSpecialRaceStartlistGroups(config) {
+export function buildSpecialRaceStartlistGroups(config, { businessRaceLineup = [] } = {}) {
   const races = [
     { key: "influencerRace", label: "Influencer Race" },
     { key: "businessRace", label: "Business Race" },
@@ -586,7 +587,10 @@ export function buildSpecialRaceStartlistGroups(config) {
     .map(({ key, label }) => {
       const race = config?.specialRaces?.[key];
       if (!race?.enabled) return null;
-      const entries = (race.participants || [])
+      const participants = key === "businessRace"
+        ? mergeBusinessRaceLineup(race.participants || [], businessRaceLineup)
+        : race.participants || [];
+      const entries = participants
         .map(normalizeParticipant)
         .filter((participant) => participant.name)
         .sort((a, b) => toLaneNumber(a.lane) - toLaneNumber(b.lane) || a.name.localeCompare(b.name));

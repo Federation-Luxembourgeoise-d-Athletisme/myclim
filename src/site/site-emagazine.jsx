@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useActiveEdition, useSiteEditionYear } from "../app/edition";
 import { useAthleteRegistry, useAthletes } from "../app/athlete-portal-hooks";
 import { useMeetingEditions, useMeetingRecords } from "../app/meeting-history-hooks";
-import { useSponsors } from "./site-hooks";
+import { useBusinessRaceLineup, useSponsors } from "./site-hooks";
 import { normalizeSponsorCategory, sponsorCategoryLabel } from "./sponsor-utils";
 // Same key visual as the website home hero: default visual of the cover.
 import coverVisual from "../assets/hero-banner.jpg";
@@ -828,6 +828,7 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
   const { athletes, loading: athletesLoading } = useAthletes(true, activeEditionId);
   const { registry, loading: registryLoading } = useAthleteRegistry(true);
   const { sponsors, loading: sponsorsLoading } = useSponsors(true);
+  const businessRaceLineup = useBusinessRaceLineup();
 
   const currentEdition = useMemo(() => {
     const latestEdition = editions[0] || null;
@@ -861,8 +862,8 @@ function useMagazinePages({ editionYear = null, configOverride = null } = {}) {
   );
 
   const specialRaceStartlists = useMemo(
-    () => buildSpecialRaceStartlistGroups(emagazine),
-    [emagazine],
+    () => buildSpecialRaceStartlistGroups(emagazine, { businessRaceLineup }),
+    [emagazine, businessRaceLineup],
   );
 
   const highlightPages = useMemo(

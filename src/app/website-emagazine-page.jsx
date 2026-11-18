@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useActiveEdition, useSiteEditionYear } from "./edition";
 import { fetchAllMeetingResults, useMeetingEditions, updateEdition } from "./meeting-history-hooks";
 import { useAthleteRegistry, useAthletes } from "./athlete-portal-hooks";
-import { useSponsors } from "../site/site-hooks";
+import { useBusinessRaceLineup, useSponsors } from "../site/site-hooks";
+import { mergeBusinessRaceLineup } from "../site/business-race-lineup";
 import { FileUpload } from "./file-upload";
 import { EmagazineStatsPanel } from "./website-emagazine-stats";
 import "./website-emagazine-page.css";
@@ -104,13 +105,16 @@ function A4FormatHint({ imageUrl }) {
   );
 }
 
-function SpecialRaceEditor({ title, race, onChange }) {
+function SpecialRaceEditor({ title, race, onChange, lineup = null }) {
   const labelStyle = fieldLabelStyle();
   const inputStyle = fieldInputStyle();
 
   function set(field, value) {
     onChange({ ...race, [field]: value });
   }
+
+  // Fiches saisies à la main (les br-… complètent les équipes des portails).
+  const manualParticipants = lineup ? race.participants.filter((participant) => !String(participant.id).startsWith("br-")) : race.participants;
 
   function updateParticipant(id, field, value) {
     onChange({
@@ -128,6 +132,17 @@ function SpecialRaceEditor({ title, race, onChange }) {
         ...race.participants,
         { id: `participant-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, lane: "", name: "", photoUrl: "", instagram: "", description: "", nationality: "", team: "" },
       ],
+    });
+  }
+
+  // Business Race : couloir, photo, Instagram ajoutés à une équipe venue des portails.
+  function updatePortalTeam(team, field, value) {
+    const exists = race.participants.some((participant) => participant.id === team.id);
+    onChange({
+      ...race,
+      participants: exists
+        ? race.participants.map((participant) => (participant.id === team.id ? { ...participant, [field]: value } : participant))
+        : [...race.participants, { id: team.id, lane: "", name: team.name, photoUrl: "", instagram: "", description: "", nationality: "", team: team.team, [field]: value }],
     });
   }
 
@@ -169,14 +184,42 @@ function SpecialRaceEditor({ title, race, onChange }) {
       </div>
 
       <div style={{ display: "grid", gap: 10 }}>
+        {lineup ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            <strong style={{ color: "#10253d" }}>Teams from the Business Race portals ({lineup.length})</strong>
+            <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>
+              Filled in automatically from the teams the companies enter on their portal (Pre-programme › Business Race). Add a lane, a photo or a profile here if you want.
+            </p>
+            {lineup.length === 0 ? (
+              <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No team entered by the companies yet.</p>
+            ) : lineup.map((team) => {
+              const manual = race.participants.find((participant) => participant.id === team.id) || {};
+              return (
+                <div key={team.id} style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e5edf5", borderRadius: 12, background: "#f8fbff" }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                    <strong>{team.name}</strong>
+                    <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>{team.team}{team.portalRunners ? ` · ${team.portalRunners}` : ""}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 10 }}>
+                    <input style={inputStyle} value={manual.lane || ""} onChange={(event) => updatePortalTeam(team, "lane", event.target.value)} placeholder="Lane" />
+                    <input style={inputStyle} value={manual.photoUrl || ""} onChange={(event) => updatePortalTeam(team, "photoUrl", event.target.value)} placeholder="Photo URL" />
+                    <input style={inputStyle} value={manual.instagram || ""} onChange={(event) => updatePortalTeam(team, "instagram", event.target.value)} placeholder="@instagram" />
+                  </div>
+                  <input style={inputStyle} value={manual.description || ""} onChange={(event) => updatePortalTeam(team, "description", event.target.value)} placeholder="Profile (leave empty to show the runners' names)" />
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-          <strong style={{ color: "#10253d" }}>Participants</strong>
+          <strong style={{ color: "#10253d" }}>{lineup ? "Other participants" : "Participants"}</strong>
           <EmptyButton onClick={addParticipant}>+ Add participant</EmptyButton>
         </div>
 
-        {race.participants.length === 0 ? (
+        {manualParticipants.length === 0 ? (
           <p style={{ margin: 0, color: "#6b7280", fontSize: "0.82rem" }}>No participants entered yet.</p>
-        ) : race.participants.map((participant) => (
+        ) : manualParticipants.map((participant) => (
           <div key={participant.id} style={{ display: "grid", gap: 10, padding: 14, border: "1px solid #e5edf5", borderRadius: 12, background: "#f8fbff" }}>
             <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", gap: 10 }}>
               <input style={inputStyle} value={participant.lane} onChange={(event) => updateParticipant(participant.id, "lane", event.target.value)} placeholder="Lane" />
@@ -874,7 +917,7 @@ function wordCount(text) {
 }
 
 // What still has to be filled in before a page looks finished in the magazine.
-function pageReadiness(page, draft, startlistById) {
+function pageReadiness(page, draft, startlistById, businessRaceLineup = []) {
   const missing = [];
   if (page.id === "welcome") {
     if (!draft.welcome.body.trim()) missing.push("the message");
@@ -893,7 +936,8 @@ function pageReadiness(page, draft, startlistById) {
   } else if (page.kind === "special") {
     const race = draft.specialRaces[page.id.replace("special:", "")];
     if (!race?.enabled) return { state: "off", missing: [] };
-    if (!race.participants.length) missing.push("the participants");
+    const participants = page.id === "special:businessRace" ? mergeBusinessRaceLineup(race.participants, businessRaceLineup) : race.participants;
+    if (!participants.length) missing.push("the participants");
   } else if (page.kind === "highlight") {
     const highlight = draft.highlightPages.find((entry) => entry.id === page.sourceId);
     if (highlight) {
@@ -944,6 +988,7 @@ export function WebsiteEmagazinePage({ Panel }) {
   const { activeEditionId } = useActiveEdition();
   const { athletes } = useAthletes(true, activeEditionId);
   const { sponsors } = useSponsors(false);
+  const businessRaceLineup = useBusinessRaceLineup();
 
   const defaultYear = siteEditionYear ?? editions.find((edition) => !edition.isClosed)?.year ?? editions[0]?.year ?? null;
   const [selectedYear, setSelectedYear] = useState(null);
@@ -1011,8 +1056,8 @@ export function WebsiteEmagazinePage({ Panel }) {
   );
 
   const readinessById = useMemo(
-    () => new Map(draft ? pageRegistry.map((page) => [page.id, pageReadiness(page, draft, startlistById)]) : []),
-    [pageRegistry, draft, startlistById],
+    () => new Map(draft ? pageRegistry.map((page) => [page.id, pageReadiness(page, draft, startlistById, businessRaceLineup)]) : []),
+    [pageRegistry, draft, startlistById, businessRaceLineup],
   );
 
   const selectedPage = pageRegistryMap.get(selectedPageId) || visiblePages[0] || null;
@@ -1346,6 +1391,14 @@ export function WebsiteEmagazinePage({ Panel }) {
         <SpecialRaceEditor
           title={page.title}
           race={draft.specialRaces[raceKey]}
+          lineup={raceKey === "businessRace"
+            ? businessRaceLineup.map((team) => ({
+              id: team.id,
+              name: team.teamName || team.organization,
+              team: team.organization,
+              portalRunners: (team.runners || []).join(" · "),
+            }))
+            : null}
           onChange={(race) => setDraft((current) => ({ ...current, specialRaces: { ...current.specialRaces, [raceKey]: race } }))}
         />
       );
