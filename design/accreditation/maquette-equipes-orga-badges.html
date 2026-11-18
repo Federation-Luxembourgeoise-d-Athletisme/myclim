@@ -13,7 +13,7 @@
   :root {
     --ink: #17324a; --muted: #627788; --dim: #95a5b3; --line: #e3e9ef; --soft: #f6f9fc; --bg: #f1f4f7;
     --accent: #1a4aa1; --warn: #b26a00; --warn-bg: #fff4e0; --ok: #1f7a4d; --ok-bg: #e5f5ec;
-    --c-org: #d7262e; --c-tech: #4a5056; --c-photo: #9157e6; --c-judge: #1d2f6f; --c-vol: #27a9e1;
+    --c-org: #d7262e; --c-tech: #4a5056; --c-photo: #9157e6; --c-cater: #a8641c; --c-judge: #1d2f6f; --c-vol: #27a9e1;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 13.5px/1.4 "Segoe UI", system-ui, Arial, sans-serif; color: var(--ink); background: var(--bg); }
@@ -173,7 +173,7 @@
   <section class="view on" id="view-orga">
     <div class="card">
       <div class="gridhead"><b id="nteams"></b>
-        <span class="legend"><span><i style="background:var(--c-org)"></i>Organisation</span><span><i style="background:var(--c-tech)"></i>Technical</span><span><i style="background:var(--c-photo)"></i>Photographer</span><span><i style="background:var(--c-judge)"></i>via Juges</span><span><i style="background:#c3ccd5"></i>Pas de badge</span></span>
+        <span class="legend"><span><i style="background:var(--c-org)"></i>Organisation</span><span><i style="background:var(--c-tech)"></i>Technical</span><span><i style="background:var(--c-photo)"></i>Photographer</span><span><i style="background:var(--c-cater)"></i>Catering</span><span><i style="background:var(--c-judge)"></i>via Juges</span><span><i style="background:#c3ccd5"></i>Pas de badge</span></span>
       </div>
       <div class="teams" id="teams"></div>
     </div>
@@ -240,6 +240,7 @@
     org: { label: "Organisation", color: "var(--c-org)" },
     tech: { label: "Technical", color: "var(--c-tech)" },
     photo: { label: "Photographer", color: "var(--c-photo)" },
+    catering: { label: "Catering", color: "var(--c-cater)" },
     none: { label: "Pas de badge", color: "#c3ccd5" },
     judge: { label: "Badge via Juges", color: "var(--c-judge)" },
   };
@@ -252,7 +253,7 @@
     { id: "accueil", name: "Accueil athlètes", cat: "org", def: "Athlete services", zones: [2, 3, 5] },
     { id: "transport", name: "Transport", cat: "org", def: "Transportation", zones: [2] },
     { id: "benevoles", name: "Coordination bénévoles", cat: "org", def: "Volunteer coordination", zones: [1, 2, 5, 6] },
-    { id: "cab", name: "CAB – Buvette", cat: "org", def: "Catering", zones: [] },
+    { id: "cab", name: "CAB – Buvette", cat: "catering", def: "Buvette CAB", zones: [] },
     { id: "athle", name: "Athle.ch", cat: "tech", def: "Athle.ch", zones: [1, 5] },
     { id: "speakers", name: "Speakers (Athle.ch)", cat: "tech", def: "Speaker", zones: [1, 4] },
     { id: "presentation", name: "Event presentation", cat: "tech", def: "Event presentation", zones: [1] },
@@ -315,7 +316,7 @@
   const vteam = (id) => VTEAMS.find((t) => t.id === id);
   const full = (p) => `${p.f} ${p.l}`;
   let teamId = "transport", selId = PEOPLE.find((p) => p.f === "Philippe" && p.l === "Laporte").id;
-  const badgeTeams = (p) => p.teams.map(team).filter((t) => ["org", "tech", "photo"].includes(t.cat));
+  const badgeTeams = (p) => p.teams.map(team).filter((t) => ["org", "tech", "photo", "catering"].includes(t.cat));
   const hasBadge = (p) => badgeTeams(p).length > 0 && !p.isVolunteer;
   const catOf = (p) => { const b = badgeTeams(p); return !b.length ? "none" : b.some((t) => t.cat === "org") ? "org" : b[0].cat; };
   const labelOf = (p) => p.label || (badgeTeams(p).find((t) => p.lead && t.id === p.teams[0]) || badgeTeams(p)[0])?.def || "—";
@@ -339,7 +340,7 @@
   }
 
   function renderBadgebar() {
-    const t = team(teamId), c = CATS[t.cat], active = ["org", "tech", "photo"].includes(t.cat);
+    const t = team(teamId), c = CATS[t.cat], active = ["org", "tech", "photo", "catering"].includes(t.cat);
     $("#tname").value = t.name;
     $("#badgebar").innerHTML = `<span class="t">Badge de l'équipe</span>
       <span class="catsel"><span class="dot" style="background:${c.color}"></span><select id="tcat">
