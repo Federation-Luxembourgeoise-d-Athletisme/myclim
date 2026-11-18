@@ -164,7 +164,7 @@ const CELEBRITY_RACE_STARTER_LIST = [
   { race: "influencer", gender: "men", firstName: "Cédric", lastName: "Weyler", status: "confirmed" },
   { race: "influencer", gender: "men", firstName: "Chris", lastName: "Baris", status: "confirmed" },
   { race: "influencer", gender: "men", lastName: "Coutinho", status: "confirmed" },
-  { race: "influencer", gender: "men", alias: "Argent difficile", status: "idea", notes: "Ligne « Argent difficile » de la liste d'origine, sans statut : à préciser." },
+  { race: "influencer", gender: "men", alias: "Argent difficile", status: "idea" },
   { race: "influencer", gender: "men", firstName: "Max", lastName: "Feller", status: "asked" },
   { race: "athlete", gender: "women", firstName: "Christine", lastName: "Majerus", status: "confirmed" },
   { race: "athlete", gender: "women", firstName: "Vera", lastName: "Hoffmann", status: "idea" },
@@ -174,7 +174,7 @@ const CELEBRITY_RACE_STARTER_LIST = [
   { race: "athlete", gender: "women", firstName: "Véronique", lastName: "Linster", status: "idea" },
   { race: "athlete", gender: "men", firstName: "Bob", lastName: "Bertemes", status: "asked" },
   { race: "athlete", gender: "men", firstName: "Bob", lastName: "Jungels", status: "asked" },
-  { race: "athlete", gender: "men", alias: "Big Bob Bertemes", status: "confirmed", notes: "Aussi « Bob Bertemes » (demandé) dans la liste d'origine : doublon à vérifier." },
+  { race: "athlete", gender: "men", alias: "Big Bob Bertemes", status: "confirmed" },
   { race: "athlete", gender: "men", firstName: "Gilles", lastName: "Müller", status: "asked" },
   { race: "athlete", gender: "men", firstName: "Michel", lastName: "Ries", status: "confirmed" },
 ];
