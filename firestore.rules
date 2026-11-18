@@ -702,6 +702,12 @@ service cloud.firestore {
       allow write: if isAdminOrManager();
     }
 
+    // Influencer vs Athletes Race : personnes invitées et suivi de nos
+    // demandes (statut, relances, journal). Organisation seulement.
+    match /celebrityRaceContacts/{contactId} {
+      allow read, write: if isAdminOrManager();
+    }
+
     function businessRaceTeamsOpen() {
       return !exists(/databases/$(database)/documents/businessRaceSettings/current) ||
         get(/databases/$(database)/documents/businessRaceSettings/current).data.get("teamsDeadlineAt", null) == null ||

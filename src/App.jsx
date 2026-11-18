@@ -129,6 +129,7 @@ const PhysioPageScreen = lazyNamed(() => import("./app/physio-page"), "PhysioPag
 const CashDeskPage = lazyNamed(() => import("./app/cash-desk-page"), "CashDeskPage");
 const CashDeskAdminPageScreen = lazyNamed(() => import("./app/cash-desk-admin-page"), "CashDeskAdminPage");
 const BusinessRaceAdminPage = lazyNamed(() => import("./app/business-race-admin-page"), "BusinessRaceAdminPage");
+const CelebrityRacePage = lazyNamed(() => import("./app/celebrity-race-page"), "CelebrityRacePage");
 
 async function loadMailQueueModule() {
   if (!mailQueueModulePromise) {
@@ -709,6 +710,7 @@ export default function App() {
                 <Route path="roadbook" element={<AthleteRoadbookAdminPage />} />
                 <Route path="caisse" element={<CashDeskAdminPage />} />
                 <Route path="business-race" element={<BusinessRaceAdminPage />} />
+                <Route path="influencer-race" element={<CelebrityRacePage />} />
                 <Route path="calendrier/*" element={<CommunicationModule area="calendar" />} />
                 <Route path="taches" element={<CommunicationModule area="tasks" />} />
               </Route>
