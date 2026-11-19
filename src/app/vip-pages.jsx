@@ -18,7 +18,7 @@ import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
 import { useLanguage } from "./language-context";
 import portalPhoto from "../assets/site-gallery/ambiance-1.jpg";
 import businessRacePhoto from "../assets/site-gallery/preprog-business-1.jpg";
-import { BoxToggle, BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome } from "./business-race-portal";
+import { BoxToggle, BusinessRaceBillingSection, BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome } from "./business-race-portal";
 import { useCollapsedState } from "./collapsible-state";
 import { getBusinessRaceCopy } from "./business-race-copy";
 import { RUNNER_VIP_SOURCE, isBusinessRacePortal } from "./business-race-helpers";
@@ -1441,6 +1441,13 @@ function VipPartnerPortalPage() {
                   isDemo={isDemoPortal}
                   collapsed={Boolean(collapsedBoxes.teams)}
                   onToggle={() => toggleBox("teams")}
+                />
+                <BusinessRaceBillingSection
+                  language={language}
+                  portalId={portalId}
+                  isDemo={isDemoPortal}
+                  collapsed={Boolean(collapsedBoxes.billing)}
+                  onToggle={() => toggleBox("billing")}
                 />
                 <h2 className="vip-portal-section-title">{businessCopy.guestsTitle}</h2>
               </>

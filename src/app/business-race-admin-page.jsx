@@ -8,6 +8,7 @@ import { useActiveEdition } from "./edition";
 import { useTr } from "./use-tr";
 import { useLanguage } from "./language-context";
 import {
+  BUSINESS_RACE_LANES,
   BUSINESS_RACE_MAX_TEAMS,
   BUSINESS_RACE_PACKS,
   RUNNERS_PER_TEAM,
@@ -21,6 +22,9 @@ import {
   getTeamTrainings,
   isBusinessRacePortal,
   listBusinessRaceRunners,
+  getBillingMissingFields,
+  getRunnerMissingDetails,
+  normalizeBusinessRaceBilling,
   runnerIsFilled,
 } from "./business-race-helpers";
 import {
@@ -98,6 +102,7 @@ function BusinessRaceAdminPage() {
   const [placeRequests, setPlaceRequests] = useState([]);
   const [teamsByPortal, setTeamsByPortal] = useState({});
   const [entriesByPortal, setEntriesByPortal] = useState({});
+  const [billingByPortal, setBillingByPortal] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -166,6 +171,19 @@ function BusinessRaceAdminPage() {
       (snapshot) => setEntriesByPortal(groupByPortal(snapshot)),
       (snapshotError) => console.error("Business Race guests load failed", snapshotError),
     );
+    const unsubscribeBilling = onSnapshot(
+      collectionGroup(db, "billing"),
+      (snapshot) => {
+        const next = {};
+        snapshot.docs
+          .filter((entry) => entry.ref.path.startsWith("vipPartnerPortals/") && entry.id === "current")
+          .forEach((entry) => {
+            next[entry.ref.path.split("/")[1] || ""] = normalizeBusinessRaceBilling(entry.data());
+          });
+        setBillingByPortal(next);
+      },
+      (snapshotError) => console.error("Business Race billing load failed", snapshotError),
+    );
     // Demandes de places des entreprises sans partenariat VIP (celles des
     // partenaires VIP se traitent dans VIP).
     const unsubscribeRequests = onSnapshot(
@@ -182,6 +200,7 @@ function BusinessRaceAdminPage() {
       unsubscribePortals();
       unsubscribeTeams();
       unsubscribeEntries();
+      unsubscribeBilling();
       unsubscribeRequests();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,9 +221,11 @@ function BusinessRaceAdminPage() {
           runners: statuses.reduce((sum, status) => sum + status.filled, 0),
           completeTeams: statuses.filter((status) => status.complete).length,
           contact: getVipPortalContacts(portal)[0] || null,
+          billing: billingByPortal[portal.id] || null,
+          billingComplete: Boolean(billingByPortal[portal.id]) && getBillingMissingFields(billingByPortal[portal.id]).length === 0,
         };
       }),
-    [portals, teamsByPortal, entriesByPortal],
+    [portals, teamsByPortal, entriesByPortal, billingByPortal],
   );
 
   const totals = useMemo(
@@ -480,6 +501,14 @@ function BusinessRaceAdminPage() {
       { header: tr("Prénom", "First name"), key: "firstName", width: 18 },
       { header: tr("Nom", "Last name"), key: "lastName", width: 20 },
       { header: tr("Genre", "Gender"), key: "gender", width: 8 },
+      { header: tr("Année naiss.", "Birth year"), key: "birthYear", width: 11 },
+      { header: "Email", key: "email", width: 28 },
+      { header: tr("Portable", "Mobile"), key: "phone", width: 18 },
+      { header: tr("Urgence : prénom", "Emergency: first name"), key: "emergencyFirstName", width: 16 },
+      { header: tr("Urgence : nom", "Emergency: last name"), key: "emergencyLastName", width: 16 },
+      { header: tr("Urgence : tél.", "Emergency: phone"), key: "emergencyPhone", width: 18 },
+      { header: tr("Règlement", "Rules"), key: "rules", width: 10 },
+      { header: tr("Manquant", "Missing"), key: "missing", width: 30 },
     ];
     sheet.getRow(1).font = { bold: true };
     listBusinessRaceRunners(portals, teamsByPortal).forEach((runner) => {
@@ -490,7 +519,35 @@ function BusinessRaceAdminPage() {
         firstName: runner.firstName,
         lastName: runner.lastName,
         gender: runner.gender,
+        birthYear: runner.birthYear,
+        email: runner.email,
+        phone: runner.phone,
+        emergencyFirstName: runner.emergencyFirstName,
+        emergencyLastName: runner.emergencyLastName,
+        emergencyPhone: runner.emergencyPhone,
+        rules: runner.rulesAccepted ? tr("Oui", "Yes") : "",
+        missing: runner.missingDetails.map(missingLabel).join(", "),
       });
+    });
+    // Deuxième onglet : coordonnées de facturation par entreprise.
+    const billingSheet = workbook.addWorksheet(tr("Facturation", "Invoicing"));
+    billingSheet.columns = [
+      { header: tr("Entreprise", "Company"), key: "organization", width: 26 },
+      { header: tr("Raison sociale", "Company name"), key: "companyName", width: 28 },
+      { header: tr("N° TVA", "VAT number"), key: "vatNumber", width: 16 },
+      { header: tr("Adresse", "Address"), key: "address", width: 30 },
+      { header: tr("Code postal", "Postcode"), key: "postalCode", width: 11 },
+      { header: tr("Ville", "City"), key: "city", width: 16 },
+      { header: tr("Pays", "Country"), key: "country", width: 14 },
+      { header: tr("Prénom contact", "Contact first name"), key: "contactFirstName", width: 16 },
+      { header: tr("Nom contact", "Contact last name"), key: "contactLastName", width: 16 },
+      { header: tr("Email facturation", "Invoicing email"), key: "email", width: 28 },
+      { header: tr("Réf. commande", "PO reference"), key: "orderReference", width: 16 },
+      { header: tr("Pack", "Pack"), key: "pack", width: 22 },
+    ];
+    billingSheet.getRow(1).font = { bold: true };
+    rows.forEach((row) => {
+      billingSheet.addRow({ organization: row.portal.organizationName || row.portal.id, ...(row.billing || {}), pack: packLabel(row.portal.businessRacePack) });
     });
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -505,6 +562,33 @@ function BusinessRaceAdminPage() {
   }
 
   const genderLabel = (gender) => (gender === "F" ? tr("F", "W") : gender === "M" ? tr("H", "M") : "?");
+  function missingLabel(key) {
+    return {
+      email: "email",
+      phone: tr("portable", "mobile"),
+      birthYear: tr("année", "birth year"),
+      rules: tr("règlement", "rules"),
+    }[key] || key;
+  }
+  // Ligne de coordonnées d'un coureur dans le détail d'une équipe.
+  function runnerDetailsLine(runner) {
+    if (!runnerIsFilled(runner)) return null;
+    const missing = getRunnerMissingDetails(runner);
+    const emergency = [runner.emergencyFirstName, runner.emergencyLastName].filter(Boolean).join(" ");
+    return (
+      <span className="br-runner-info">
+        {[
+          runner.birthYear,
+          runner.email,
+          runner.phone,
+          emergency || runner.emergencyPhone ? `${tr("Urgence", "Emergency")} : ${[emergency, runner.emergencyPhone].filter(Boolean).join(" · ")}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        {missing.length ? <em className="br-runner-info__missing">{tr("Manque", "Missing")} : {missing.map(missingLabel).join(", ")}</em> : null}
+      </span>
+    );
+  }
   const stateLabel = (status) =>
     status.complete
       ? tr("Complète", "Complete")
@@ -523,7 +607,15 @@ function BusinessRaceAdminPage() {
         </div>
         <dl className="br-kpis">
           <div><dt>{tr("Entreprises", "Companies")}</dt><dd>{totals.companies}</dd></div>
-          <div><dt>{tr("Équipes", "Teams")}</dt><dd>{totals.completeTeams}<small> / {totals.teams}</small></dd></div>
+          <div className={totals.teams > BUSINESS_RACE_LANES ? "is-over" : ""}>
+            <dt>{tr("Équipes", "Teams")}</dt>
+            <dd>{totals.completeTeams}<small> / {totals.teams}</small></dd>
+            <span className="br-kpi-note">
+              {totals.teams > BUSINESS_RACE_LANES
+                ? tr(`${totals.teams - BUSINESS_RACE_LANES} de trop : ${BUSINESS_RACE_LANES} couloirs`, `${totals.teams - BUSINESS_RACE_LANES} too many: ${BUSINESS_RACE_LANES} lanes`)
+                : tr(`${BUSINESS_RACE_LANES - totals.teams} couloir(s) libre(s) sur ${BUSINESS_RACE_LANES}`, `${BUSINESS_RACE_LANES - totals.teams} free lane(s) out of ${BUSINESS_RACE_LANES}`)}
+            </span>
+          </div>
           <div><dt>{tr("Coureurs", "Runners")}</dt><dd>{totals.runners}</dd></div>
           <div><dt>{tr("Pers. VIP", "VIP people")}</dt><dd>{totals.vip}</dd></div>
           <div><dt>{tr("Pers. normales", "Standard people")}</dt><dd>{totals.standard}</dd></div>
@@ -922,6 +1014,7 @@ function BusinessRaceAdminPage() {
                                           {runnerIsFilled(runner) ? `${runner.firstName} ${runner.lastName}` : "—"}
                                           {runnerIsFilled(runner) ? <span className={`br-gender br-gender--${runner.gender || "x"}`}>{genderLabel(runner.gender)}</span> : null}
                                           {runnerIsFilled(runner) && runner.vip ? <span className="br-vip-tag" title={tr("Place VIP : badge VIP en plus de l'accréditation", "VIP place: VIP badge on top of the accreditation")}>VIP</span> : null}
+                                          {runnerDetailsLine(runner)}
                                         </li>
                                       ))}
                                       <li className={runnerIsFilled(team.reserve) ? "is-reserve" : "is-reserve is-empty"}>
@@ -929,6 +1022,7 @@ function BusinessRaceAdminPage() {
                                         {runnerIsFilled(team.reserve) ? `${team.reserve.firstName} ${team.reserve.lastName}` : tr("Pas de remplaçant", "No reserve")}
                                         {runnerIsFilled(team.reserve) ? <span className={`br-gender br-gender--${team.reserve.gender || "x"}`}>{genderLabel(team.reserve.gender)}</span> : null}
                                         {runnerIsFilled(team.reserve) && team.reserve.vip ? <span className="br-vip-tag">VIP</span> : null}
+                                        {runnerDetailsLine(team.reserve)}
                                       </li>
                                     </ol>
                                   </div>
@@ -950,6 +1044,29 @@ function BusinessRaceAdminPage() {
                                   </div>
                                 ) : null}
                                 {(portal.businessRaceNotes ?? portal.notes) ? <p className="br-note">“{portal.businessRaceNotes ?? portal.notes}”</p> : null}
+                              </div>
+                              <div className="br-team br-team--billing">
+                                <div className="br-team__head">
+                                  <strong>{tr("Facturation", "Invoicing")}</strong>
+                                  <span className={`br-chip br-chip--${row.billingComplete ? "ok" : row.billing ? "warn" : "empty"}`}>
+                                    {row.billingComplete ? tr("Complète", "Complete") : row.billing ? tr("Incomplète", "Incomplete") : tr("Pas encore saisie", "Not entered yet")}
+                                  </span>
+                                </div>
+                                {row.billing ? (
+                                  <p className="br-muted br-billing-lines">
+                                    {[
+                                      [row.billing.companyName, row.billing.vatNumber ? `${tr("TVA", "VAT")} ${row.billing.vatNumber}` : ""].filter(Boolean).join(" · "),
+                                      row.billing.address,
+                                      [row.billing.postalCode, row.billing.city, row.billing.country].filter(Boolean).join(" "),
+                                      [[row.billing.contactFirstName, row.billing.contactLastName].filter(Boolean).join(" "), row.billing.email].filter(Boolean).join(" · "),
+                                      row.billing.orderReference ? `${tr("Réf.", "Ref.")} ${row.billing.orderReference}` : "",
+                                    ]
+                                      .filter(Boolean)
+                                      .map((line) => <span key={line}>{line}</span>)}
+                                  </p>
+                                ) : (
+                                  <p className="br-muted">{tr("L'entreprise la remplit sur son portail.", "The company fills it in on its portal.")}</p>
+                                )}
                               </div>
                             </div>
                           </td>

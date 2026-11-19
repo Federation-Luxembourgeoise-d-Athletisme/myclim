@@ -7,16 +7,70 @@ import {
   getBusinessRaceTeamCount,
   getBusinessRaceTeamLabel,
   getBusinessRaceTeamStatus,
+  getBillingMissingFields,
+  getRunnerMissingDetails,
   listBusinessRaceRunners,
+  normalizeBusinessRaceBilling,
+  normalizeBusinessRaceRunner,
 } from '../src/app/business-race-helpers.js';
 
-const runner = (firstName, lastName, gender) => ({ firstName, lastName, gender });
+const details = {
+  email: 'a@b.lu',
+  phone: '+352 621 000 000',
+  birthYear: '1990',
+  emergencyFirstName: 'Eva',
+  emergencyLastName: 'Lux',
+  emergencyPhone: '+352 621 111 111',
+  rulesAccepted: true,
+};
+const runner = (firstName, lastName, gender) => ({ firstName, lastName, gender, ...details });
+
+test('runner details: nothing missing until the name is entered, then each item checked', () => {
+  assert.deepEqual(getRunnerMissingDetails({ firstName: '', lastName: '' }), []);
+  assert.deepEqual(getRunnerMissingDetails(runner('A', 'B', 'F')), []);
+  assert.deepEqual(
+    getRunnerMissingDetails({ firstName: 'A', lastName: 'B' }),
+    ['email', 'phone', 'birthYear', 'rules'],
+  );
+  assert.deepEqual(getRunnerMissingDetails({ ...runner('A', 'B', 'F'), email: 'nope', birthYear: '19' }), ['email', 'birthYear']);
+  // Le contact d'urgence est facultatif.
+  assert.deepEqual(getRunnerMissingDetails({ ...runner('A', 'B', 'F'), emergencyFirstName: '', emergencyLastName: '', emergencyPhone: '' }), []);
+});
+
+test('runner normalisation keeps digits of the birth year and lower-cases the email', () => {
+  const normalized = normalizeBusinessRaceRunner({ firstName: ' A ', email: ' Ana@Firm.LU ', birthYear: '19 88x' });
+  assert.equal(normalized.firstName, 'A');
+  assert.equal(normalized.email, 'ana@firm.lu');
+  assert.equal(normalized.birthYear, '1988');
+  assert.equal(normalized.rulesAccepted, false);
+});
+
+test('a team with missing runner details is not complete', () => {
+  const team = {
+    runners: [runner('A', 'A', 'F'), runner('B', 'B', 'M'), runner('C', 'C', 'F'), { firstName: 'D', lastName: 'D', gender: 'M' }],
+  };
+  const status = getBusinessRaceTeamStatus(team);
+  assert.equal(status.missingDetails, 1);
+  assert.equal(status.complete, false);
+  // Le remplaçant compte aussi.
+  const withReserve = { runners: team.runners.slice(0, 3).concat(runner('D', 'D', 'M')), reserve: { firstName: 'R', lastName: 'R', gender: 'F' } };
+  assert.equal(getBusinessRaceTeamStatus(withReserve).missingDetails, 1);
+});
+
+test('billing: required fields and a valid email', () => {
+  assert.deepEqual(getBillingMissingFields({}), ['companyName', 'address', 'postalCode', 'city', 'country', 'contactFirstName', 'contactLastName', 'email']);
+  const full = { companyName: 'ACME SA', address: '1 rue X', postalCode: 'L-1234', city: 'Luxembourg', country: 'Luxembourg', contactFirstName: 'A', contactLastName: 'B', email: 'Invoices@ACME.lu' };
+  assert.deepEqual(getBillingMissingFields(full), []);
+  assert.deepEqual(getBillingMissingFields({ ...full, email: 'bad' }), ['email']);
+  assert.equal(normalizeBusinessRaceBilling(full).email, 'invoices@acme.lu');
+  assert.equal(normalizeBusinessRaceBilling(full).vatNumber, '');
+});
 
 test('team count is 0 for a plain VIP portal, capped and at least 1 otherwise', () => {
   assert.equal(getBusinessRaceTeamCount({ vipPlacesCap: 4 }), 0);
   assert.equal(getBusinessRaceTeamCount({ businessRace: true }), 1);
-  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 3 }), 3);
-  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 99 }), 10);
+  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 2 }), 2);
+  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 99 }), 2);
 });
 
 test('teams are listed 1..N with empty slots filled in', () => {

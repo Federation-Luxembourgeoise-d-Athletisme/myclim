@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { getActiveEditionId } from "./edition";
@@ -15,6 +15,9 @@ import {
   runnerIsFilled,
   getBusinessRaceTeamCount,
   getBusinessRaceTeamStatus,
+  getBillingMissingFields,
+  getRunnerMissingDetails,
+  normalizeBusinessRaceBilling,
   normalizeBusinessRaceTeam,
 } from "./business-race-helpers";
 import { getBusinessRaceCopy } from "./business-race-copy";
@@ -178,6 +181,53 @@ function RunnerRow({ label, leg, runner, onChange, c, reserve = false, vipEnable
           {c.vip}
         </label>
       ) : null}
+      <RunnerDetails label={label} runner={runner} c={c} disabled={disabled} onChange={onChange} />
+    </div>
+  );
+}
+
+// Coordonnées d'un coureur, sous son nom : ses contacts, son contact d'urgence,
+// le règlement et les photos. Les cases manquantes sont signalées dès que le
+// nom est saisi.
+function RunnerDetails({ label, runner, c, disabled, onChange }) {
+  const missing = new Set(getRunnerMissingDetails(runner));
+  const change = (field) => (event) => onChange({ ...runner, [field]: event.target.value });
+  const input = (field, placeholder, props = {}, missingKey = field) => (
+    <input
+      aria-label={`${label} · ${placeholder}`}
+      placeholder={placeholder}
+      title={placeholder}
+      disabled={disabled}
+      value={runner[field] || ""}
+      className={missing.has(missingKey) && !(runner[field] || "").trim() ? "is-missing" : ""}
+      onChange={change(field)}
+      {...props}
+    />
+  );
+  return (
+    <div className="br-runner-details">
+      <span className="br-runner-details__label">{c.contactLabel}</span>
+      {input("email", c.email, { type: "email", autoComplete: "off" })}
+      {input("phone", c.phone, { type: "tel", autoComplete: "off" })}
+      {input("birthYear", c.birthYear, { inputMode: "numeric", maxLength: 4, autoComplete: "off" })}
+      <span className="br-runner-details__label">
+        {c.emergencyLabel}
+        <small>{c.optional}</small>
+      </span>
+      {input("emergencyFirstName", c.emergencyFirstName, { autoComplete: "off" })}
+      {input("emergencyLastName", c.emergencyLastName, { autoComplete: "off" })}
+      {input("emergencyPhone", c.emergencyPhone, { type: "tel", autoComplete: "off" })}
+      <div className="br-runner-details__checks">
+        <label className={`br-rules-check${missing.has("rules") ? " is-missing" : ""}`}>
+          <input
+            type="checkbox"
+            checked={Boolean(runner.rulesAccepted)}
+            disabled={disabled}
+            onChange={(event) => onChange({ ...runner, rulesAccepted: event.target.checked })}
+          />
+          {c.rulesAccept}
+        </label>
+      </div>
     </div>
   );
 }
@@ -210,7 +260,9 @@ function TeamForm({ team, teamCount, organization, c, onSave, locked = false, vi
       ? c.missingGender
       : status.filled === RUNNERS_PER_TEAM && !status.genderOk
         ? c.genderHint.replace("{w}", status.women).replace("{m}", status.men)
-        : "";
+        : status.missingDetails > 0
+          ? c.missingDetails.replace("{n}", status.missingDetails)
+          : "";
 
   // Places VIP : celles déjà prises hors de cette équipe + les coureurs cochés ici.
   const vipUsedOutside = vip.usedOutside(team.teamNumber);
@@ -381,6 +433,7 @@ function BusinessRaceTeamsSection({ language, portalId, portal, organization, en
       {/* Masqué (pas retiré) : une saisie en cours n'est pas perdue en repliant. */}
       <div className="br-box-body" hidden={collapsed}>
       <p className="vip-portal-muted">{c.teamsIntro}</p>
+      <p className="vip-portal-muted">{c.detailsIntro}</p>
       {vip.enabled && !locked ? (
         <p className="br-vip-hint">{c.vipHint.replace("{left}", vipLeft === null ? "" : c.vipLeft.replace("{n}", vipLeft))}</p>
       ) : null}
@@ -414,12 +467,128 @@ function BusinessRaceTeamsSection({ language, portalId, portal, organization, en
   );
 }
 
+// Coordonnées de facturation (vipPartnerPortals/{id}/billing/current) : document
+// privé, lu et écrit par l'entreprise et par l'organisation. Pas de date limite.
+function BusinessRaceBillingSection({ language, portalId, isDemo = false, collapsed = false, onToggle }) {
+  const c = getBusinessRaceCopy(language);
+  const [stored, setStored] = useState(() => normalizeBusinessRaceBilling(isDemo ? DEMO_BILLING : {}));
+  const [draft, setDraft] = useState(stored);
+  const [loading, setLoading] = useState(!isDemo);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const dirty = JSON.stringify(normalizeBusinessRaceBilling(draft)) !== JSON.stringify(stored);
+  // Dernière version enregistrée, lue dans le listener (pas de closure périmée).
+  const storedRef = useRef(stored);
+  storedRef.current = stored;
+
+  useEffect(() => {
+    if (isDemo || !portalId) return undefined;
+    return onSnapshot(
+      doc(db, "vipPartnerPortals", portalId, "billing", "current"),
+      (snapshot) => {
+        const next = normalizeBusinessRaceBilling(snapshot.exists() ? snapshot.data() : {});
+        // Une saisie en cours n'est pas écrasée par une mise à jour venue d'ailleurs.
+        setDraft((current) => (JSON.stringify(normalizeBusinessRaceBilling(current)) === JSON.stringify(storedRef.current) ? next : current));
+        setStored(next);
+        setLoading(false);
+      },
+      (snapshotError) => {
+        console.error("Business Race billing load failed", snapshotError);
+        setLoading(false);
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portalId, isDemo]);
+
+  const missingStored = getBillingMissingFields(stored);
+  const missingDraft = new Set(getBillingMissingFields(draft));
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (missingDraft.size) {
+      setFeedback(c.billingMissing);
+      return;
+    }
+    const billing = normalizeBusinessRaceBilling(draft);
+    setSaving(true);
+    setFeedback("");
+    try {
+      if (!isDemo) {
+        await setDoc(doc(db, "vipPartnerPortals", portalId, "billing", "current"), { ...billing, portalId, updatedAt: serverTimestamp() });
+      }
+      setStored(billing);
+      setDraft(billing);
+      setFeedback(c.billingSaved);
+    } catch (saveError) {
+      console.error("Business Race billing save failed", saveError);
+      setFeedback(c.billingError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const field = (name, label, { wide = false, required = true, type = "text" } = {}) => (
+    <label className={`br-field${wide ? " br-field--wide" : ""}`}>
+      <span>{label}{required ? " *" : ""}</span>
+      <input
+        type={type}
+        value={draft[name] || ""}
+        className={feedback === c.billingMissing && missingDraft.has(name) ? "is-missing" : ""}
+        onChange={(event) => setDraft((current) => ({ ...current, [name]: event.target.value }))}
+      />
+    </label>
+  );
+
+  return (
+    <section className={`vip-portal-card br-billing${collapsed ? " is-collapsed" : ""}`}>
+      <BoxToggle
+        open={!collapsed}
+        onToggle={onToggle}
+        label={c.toggleBox}
+        title={c.billingTitle}
+        summary={loading ? "" : missingStored.length ? c.billingSummaryTodo : `${c.billingSummaryDone} · ${stored.companyName}`}
+      />
+      <div className="br-box-body" hidden={collapsed}>
+        <p className="vip-portal-muted">{c.billingIntro}</p>
+        {loading ? (
+          <p className="vip-portal-muted">{c.loading}</p>
+        ) : (
+          <form className="br-billing__form" onSubmit={handleSubmit} noValidate>
+            <div className="br-billing__grid">
+              {field("companyName", c.billingCompany, { wide: true })}
+              {field("vatNumber", c.billingVat, { required: false })}
+              {field("address", c.billingAddress, { wide: true })}
+              {field("postalCode", c.billingPostalCode)}
+              {field("city", c.billingCity)}
+              {field("country", c.billingCountry)}
+              {field("contactFirstName", c.billingContactFirstName)}
+              {field("contactLastName", c.billingContactLastName)}
+              {field("email", c.billingEmail, { type: "email" })}
+              {field("orderReference", c.billingOrderRef, { required: false, wide: true })}
+            </div>
+            <div className="br-team-form__bar">
+              {feedback && (!dirty || feedback !== c.billingSaved) ? (
+                <p className={feedback === c.billingSaved ? "br-saved" : "br-hint"}>{feedback}</p>
+              ) : dirty ? (
+                <p className="br-hint">{c.unsaved}</p>
+              ) : null}
+              <button type="submit" className="br-btn br-btn--primary" disabled={saving || !dirty}>{saving ? c.saving : c.billingSave}</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
+const DEMO_BILLING = { companyName: "Demo SA", address: "1 rue de la Piste", postalCode: "L-1234", city: "Luxembourg", country: "Luxembourg" };
+
 const DEMO_TEAMS = [
   {
     teamNumber: 1,
     teamName: "Les Fusées",
     runners: [
-      { firstName: "Julie", lastName: "Martin", gender: "F", vip: true },
+      { firstName: "Julie", lastName: "Martin", gender: "F", vip: true, email: "julie.martin@example.lu", phone: "+352 621 000 001", birthYear: "1991", emergencyFirstName: "Marc", emergencyLastName: "Martin", emergencyPhone: "+352 621 000 002", rulesAccepted: true },
       { firstName: "Paul", lastName: "Schmit", gender: "M" },
       { firstName: "", lastName: "", gender: "" },
       { firstName: "", lastName: "", gender: "" },
@@ -428,4 +597,4 @@ const DEMO_TEAMS = [
   },
 ];
 
-export { BoxToggle, BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome };
+export { BoxToggle, BusinessRaceBillingSection, BusinessRaceSteps, BusinessRaceTeamsSection, BusinessRaceWelcome };

@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Équipes orga et badges</title>
+<style>
+  /* Maquette (18/11/2026) : les badges de l'organisation se règlent depuis
+     Équipes & affectations › Équipes organisation. Une personne est bénévole
+     OU organisation ; une personne de l'organisation peut être cheffe d'une
+     équipe bénévole (réglable des deux côtés). L'impression reste dans
+     Accréditations. Vraies équipes du 18/11, zones et équipes bénévoles fictives. */
+  :root {
+    --ink: #17324a; --muted: #627788; --dim: #95a5b3; --line: #e3e9ef; --soft: #f6f9fc; --bg: #f1f4f7;
+    --accent: #1a4aa1; --warn: #b26a00; --warn-bg: #fff4e0; --ok: #1f7a4d; --ok-bg: #e5f5ec;
+    --c-org: #d7262e; --c-tech: #4a5056; --c-photo: #9157e6; --c-cater: #a8641c; --c-judge: #1d2f6f; --c-vol: #27a9e1;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13.5px/1.4 "Segoe UI", system-ui, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 18px 20px 40px; display: grid; gap: 12px; }
+  .head h1 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
+  .head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 980px; }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tab { border: 0; background: none; padding: 8px 13px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .tab small { font-weight: 500; color: var(--dim); }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+  .view { display: none; gap: 12px; }
+  .view.on { display: grid; }
+
+  /* grille des équipes */
+  .teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+  .tm { display: grid; grid-template-columns: 10px 1fr auto; gap: 0 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid #eef2f6; border-right: 1px solid #eef2f6; cursor: pointer; text-align: left; background: #fff; border-top: 0; border-left: 0; }
+  .tm:hover { background: var(--soft); }
+  .tm.on { background: #e9f1fb; }
+  .tm .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .tm b { font-weight: 600; }
+  .tm .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tm .lead { grid-column: 2 / -1; font-size: 11.5px; color: var(--muted); }
+  .tm.empty b { color: var(--dim); font-weight: 500; }
+  .gridhead { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .gridhead .legend { display: flex; gap: 10px; margin-left: auto; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+  .gridhead .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+
+  /* détail équipe */
+  .detail { display: grid; grid-template-columns: minmax(0, 1fr) 330px; align-items: start; }
+  .main { min-width: 0; border-right: 1px solid var(--line); }
+  .teambar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .f { display: grid; gap: 3px; }
+  .f > span { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .f input, .f select { height: 28px; padding: 0 8px; border: 1px solid #cfd9e3; border-radius: 6px; background: #fff; font-size: 13px; }
+  .badgebar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #fbfcfe; }
+  .badgebar .t { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ink); }
+  .catsel { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cfd9e3; border-radius: 999px; padding: 1px 4px 1px 9px; background: #fff; }
+  .catsel select { border: 0; background: none; height: 24px; font-weight: 600; font-size: 12.5px; }
+  .catsel .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .zt { display: inline-flex; gap: 3px; }
+  .zt button { width: 24px; height: 24px; border-radius: 6px; border: 1px dashed #cdd7e1; background: #fff; font: 700 11px/1 system-ui; color: #b2bfca; cursor: pointer; }
+  .zt button.on { border: 0; color: #fff; }
+  .defl { height: 26px; width: 170px; padding: 0 7px; border: 1px solid #cfd9e3; border-radius: 6px; font-size: 12.5px; }
+  .muted { color: var(--muted); font-size: 12px; }
+
+  .alert { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 12px 0; padding: 8px 10px; border: 1px solid #f0c987; border-radius: 8px; background: var(--warn-bg); color: #6b4300; font-size: 12.5px; }
+  .alert b { color: #4d3000; }
+  .alert .sp { flex: 1 1 260px; }
+  .btn { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #cfd9e3; background: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--soft); }
+  .btn.pri { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 6px 8px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); white-space: nowrap; background: #fff; }
+  td { padding: 5px 8px; border-bottom: 1px solid #eef2f5; vertical-align: middle; }
+  #members { min-width: 860px; table-layout: fixed; }
+  #members tbody tr { cursor: pointer; }
+  #members tbody tr:hover td { background: #f7fafc; }
+  #members tbody tr.sel td { background: #e9f1fd; }
+  #members tbody tr.dup td { background: #fffaf0; }
+  .band { display: inline-block; width: 4px; height: 24px; border-radius: 2px; vertical-align: middle; margin-right: 8px; }
+  .nm { display: inline-flex; align-items: center; min-width: 0; }
+  .nm b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lab { color: var(--ink); }
+  .lab.def { color: var(--dim); font-style: italic; }
+  .tag { display: inline-block; margin: 1px 3px 1px 0; padding: 0 7px; border-radius: 5px; background: #e6f4fb; color: #11688f; font-size: 11.5px; line-height: 19px; white-space: nowrap; }
+  .tag.lead { background: #eef2f5; color: var(--ink); }
+  .pill { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 19px; white-space: nowrap; border: 1px solid transparent; }
+  .p-todo { background: #fff; border-color: #d7e0e8; }
+  .p-done { background: var(--ok-bg); color: var(--ok); }
+  .p-warn { background: var(--warn-bg); color: var(--warn); border-color: #f0c987; }
+  .p-none { color: var(--dim); }
+  .p-acc { background: var(--ok-bg); color: var(--ok); }
+  .p-noacc { color: var(--dim); }
+  .chk { text-align: center; }
+
+  /* tiroir personne */
+  .drawer { padding: 12px 14px; display: grid; gap: 12px; }
+  .drawer h2 { margin: 0; font-size: 15px; }
+  .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+  .lbl span { text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .badges { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mini { border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: #fff; height: 160px; box-shadow: 0 6px 18px rgba(23,50,74,.08); display: grid; grid-template-columns: 22px 1fr; }
+  .mini .vband { color: #fff; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font: 800 10px/22px system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+  .mini .body { padding: 16px 9px 8px; display: grid; align-content: space-between; min-width: 0; }
+  .mini .n1 { font: 800 13px/1.1 system-ui, sans-serif; overflow-wrap: anywhere; }
+  .mini .rl { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+  .mini .qr { width: 28px; height: 28px; background: repeating-conic-gradient(#17324a 0 25%, #fff 0 50%) 0 0/8px 8px; outline: 1px solid #17324a; }
+  .mini .ev { font-size: 8px; color: var(--dim); letter-spacing: .05em; text-transform: uppercase; }
+  .mini.back .body { padding: 10px 9px 8px; align-content: start; gap: 4px; }
+  .mini.back .zl { display: flex; align-items: center; gap: 5px; font-size: 10px; }
+  .mini.back .zl i { width: 15px; height: 15px; border-radius: 4px; color: #fff; font: 700 9px/15px system-ui; text-align: center; font-style: normal; }
+  .nobadge { padding: 14px; border: 1px dashed #d2dbe3; border-radius: 8px; color: var(--muted); font-size: 12.5px; text-align: center; }
+  .field { display: grid; gap: 4px; }
+  .field input { height: 28px; padding: 0 8px; border: 1px solid #cfd9e3; border-radius: 6px; font-size: 13px; }
+  .zgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .zbtn { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; font-size: 12px; text-align: left; }
+  .zbtn i { width: 18px; height: 18px; border-radius: 5px; font: 700 10.5px/18px system-ui; text-align: center; font-style: normal; background: #eef2f5; color: #b8c4ce; flex: none; }
+  .zbtn.on i { color: #fff; }
+  .zbtn small { margin-left: auto; font-size: 10px; color: var(--dim); }
+  .zbtn.plus small { color: var(--accent); font-weight: 700; }
+  .zbtn.minus span { text-decoration: line-through; color: var(--dim); }
+  .zbtn.minus small { color: var(--warn); font-weight: 700; }
+  .vchips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .vchip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid #cfe3ee; background: #fff; font-size: 12px; cursor: pointer; color: #11688f; }
+  .vchip.on { background: #e6f4fb; border-color: #8ccbe6; font-weight: 600; }
+  .note { font-size: 12px; color: var(--muted); margin: 0; }
+
+  /* équipes bénévoles */
+  .vteams { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; padding: 12px; }
+  .vt { border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; display: grid; gap: 7px; }
+  .vt h3 { margin: 0; font-size: 14px; display: flex; justify-content: space-between; }
+  .vt h3 small { font-weight: 500; color: var(--muted); font-size: 12px; }
+  .leadrow { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .leadrow .who { flex: 1; }
+  .orga { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--c-org); border: 1px solid #f3c2c4; border-radius: 4px; padding: 0 4px; }
+  .x { border: 0; background: none; color: var(--dim); cursor: pointer; }
+  .vt select { height: 26px; border: 1px dashed #b9c8de; border-radius: 6px; background: #fff; font-size: 12.5px; color: var(--accent); }
+
+  /* accréditations */
+  .types { display: flex; gap: 4px; padding: 9px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 12.5px; font-weight: 600; }
+  .chip .n { font-size: 11px; color: var(--dim); }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .chip.dis { opacity: .5; }
+  .zn { display: inline-flex; gap: 3px; }
+  .zn i { width: 18px; height: 18px; border-radius: 5px; font: 700 10.5px/18px system-ui; text-align: center; font-style: normal; background: #eef2f5; color: #b8c4ce; }
+  .zn i.on { color: #fff; }
+  .q { padding: 12px 14px; display: grid; gap: 6px; }
+  .q h3 { margin: 0; font-size: 14px; }
+  .q ul { margin: 0; padding-left: 18px; }
+  .q li { margin: 3px 0; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 9px; font-size: 13px; transition: .2s; pointer-events: none; max-width: 90vw; }
+  .toast.on { opacity: 1; transform: translateX(-50%); }
+  @media (max-width: 1050px) { .detail { grid-template-columns: 1fr; } .main { border-right: 0; border-bottom: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>Équipes organisation · badges</h1>
+    <p>Maquette. Chaque équipe organisation règle son <b>badge</b> (couleur, zones, libellé par défaut) ; chaque personne peut avoir un
+      <b>libellé</b> à elle et être <b>cheffe d'équipes bénévoles</b>. Une personne est bénévole <i>ou</i> organisation : si elle est dans les deux,
+      l'app le signale et vous choisissez. L'impression reste dans Accréditations. Tout est cliquable, rien n'est enregistré.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-view="orga">Équipes organisation</button>
+    <button class="tab" data-view="vol">Équipes bénévoles <small>· chefs</small></button>
+    <button class="tab" data-view="acc">Accréditations <small>· impression</small></button>
+  </div>
+
+  <!-- ÉQUIPES ORGANISATION -->
+  <section class="view on" id="view-orga">
+    <div class="card">
+      <div class="gridhead"><b id="nteams"></b>
+        <span class="legend"><span><i style="background:var(--c-org)"></i>Organisation</span><span><i style="background:var(--c-tech)"></i>Technical</span><span><i style="background:var(--c-photo)"></i>Photographer</span><span><i style="background:var(--c-cater)"></i>Catering</span><span><i style="background:#c3ccd5"></i>Pas de badge</span></span>
+      </div>
+      <div class="teams" id="teams"></div>
+    </div>
+
+    <div class="card detail">
+      <div class="main">
+        <div class="teambar">
+          <label class="f"><span>Équipe</span><input id="tname" style="width:200px" /></label>
+          <label class="f" style="flex:1 1 220px"><span>Description</span><input placeholder="ex. installation de la Coque, intercoms…" /></label>
+        </div>
+        <div class="badgebar" id="badgebar"></div>
+        <div id="alerts"></div>
+        <div class="tw"><table id="members">
+          <colgroup><col style="width:22%"><col style="width:20%"><col style="width:52px"><col style="width:20%"><col style="width:20%"><col style="width:90px"><col style="width:46px"></colgroup>
+          <thead><tr><th>Personne</th><th>Libellé badge</th><th>Taille</th><th>Cheffe de (bénévoles)</th><th>Accès · compte</th><th>Badge</th><th class="chk">Chef</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+      <aside class="drawer" id="drawer"></aside>
+    </div>
+  </section>
+
+  <!-- ÉQUIPES BÉNÉVOLES -->
+  <section class="view card" id="view-vol">
+    <div class="q" style="border-bottom:1px solid var(--line)">
+      <p class="note">Même lien, vu de l'autre côté : dans une équipe bénévole, on peut ajouter comme chef une personne <b>de l'organisation</b> (étiquette ORGA).
+        Elle n'apparaît pas dans les bénévoles et garde son badge organisation. Ajouter ici = cocher sur sa ligne dans Équipes organisation, et inversement.</p>
+    </div>
+    <div class="vteams" id="vteams"></div>
+  </section>
+
+  <!-- ACCRÉDITATIONS -->
+  <section class="view card" id="view-acc">
+    <div class="types">
+      <span class="chip dis">Bénévoles <span class="n">214</span></span>
+      <span class="chip dis">Juges <span class="n">38</span></span>
+      <span class="chip dis">Presse <span class="n">22</span></span>
+      <span class="chip on">Organisation <span class="n" id="nacc"></span></span>
+      <span class="muted" style="margin-left:auto">Lecture seule ici : les réglages se font dans Équipes organisation.</span>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Personne · libellé</th><th>Équipe</th><th>Badge</th><th>Zones</th><th>Statut</th></tr></thead>
+      <tbody id="acc"></tbody>
+    </table></div>
+    <div class="q" style="border-top:1px solid var(--line)">
+      <h3>Points à valider</h3>
+      <ul>
+        <li><b>Plusieurs équipes organisation</b> : un seul badge ; zones = toutes celles de ses équipes ; couleur = Organisation si une de ses équipes l'est.</li>
+        <li><b>Libellé</b> : vide = libellé par défaut de l'équipe (en gris italique). La colonne « Rôle » d'aujourd'hui devient ce libellé.</li>
+        <li><b>Taille de t-shirt</b> : gardée sur la ligne de la personne, pour la commande de t-shirts.</li>
+        <li><b>Juges</b> : pas d'équipe organisation, leur badge se fait dans l'onglet Juges d'Accréditations.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const ZONES = [
+    { id: 1, name: "Infield" }, { id: 2, name: "Warm-up" }, { id: 3, name: "Coaching Zone" },
+    { id: 4, name: "Judges Room" }, { id: 5, name: "Mixed Zone" }, { id: 6, name: "VIP Zone" },
+  ];
+  const CATS = {
+    org: { label: "Organisation", color: "var(--c-org)" },
+    tech: { label: "Technical", color: "var(--c-tech)" },
+    photo: { label: "Photographer", color: "var(--c-photo)" },
+    catering: { label: "Catering", color: "var(--c-cater)" },
+    none: { label: "Pas de badge", color: "#c3ccd5" },
+    judge: { label: "Badge via Juges", color: "var(--c-judge)" },
+  };
+  const ALL = [1, 2, 3, 4, 5, 6];
+  const TEAMS = [
+    { id: "staff", name: "Staff FLA", cat: "org", def: "Staff FLA", zones: ALL },
+    { id: "staff-meeting", name: "Staff meeting", cat: "org", def: "Meeting Staff", zones: ALL },
+    { id: "cd", name: "Comité Directeur FLA", cat: "org", def: "FLA Executive Board", zones: ALL },
+    { id: "lunex", name: "Étudiants LUNEX", cat: "org", def: "LUNEX Student", zones: [2, 5, 6] },
+    { id: "communication", name: "Communication", cat: "org", def: "Communication", zones: [1, 5] },
+    { id: "cab", name: "CAB – Buvette", cat: "catering", def: "Buvette CAB", zones: [] },
+    { id: "athle", name: "Athle.ch", cat: "tech", def: "Athle.ch", zones: [1, 5] },
+    { id: "speakers", name: "Speakers (Athle.ch)", cat: "tech", def: "Speaker", zones: [1, 4] },
+    { id: "presentation", name: "Event presentation", cat: "tech", def: "Event presentation", zones: [1] },
+    { id: "technique", name: "Technique & installation", cat: "tech", def: "Technical crew", zones: [1] },
+    { id: "tv", name: "TV Production", cat: "tech", def: "TV Production", zones: [1, 5] },
+  ];
+  // Équipes bénévoles (fictives) et leurs chefs bénévoles existants.
+  const VTEAMS = [
+    { id: "transport-vol", name: "Transport", members: 12, volLeads: [] },
+    { id: "accueil-vip", name: "Accueil VIP", members: 9, volLeads: [] },
+    { id: "billetterie", name: "Billetterie", members: 8, volLeads: ["Sandra Noel"] },
+    { id: "haies", name: "Haies", members: 14, volLeads: ["Tom Reding"] },
+    { id: "warmup", name: "Warm-up", members: 6, volLeads: [] },
+    { id: "infos", name: "Point infos", members: 5, volLeads: [] },
+  ];
+  // [prénom, nom, équipes, libellé, taille, accès, chef de l'équipe orga, chef d'équipes bénévoles, statut badge]
+  const P = (f, l, teams, label = "", size = "", acc = "none", lead = false, vlead = [], st = "todo") => ({ f, l, teams, label, size, acc, lead, vlead, st, add: [], remove: [] });
+  const PEOPLE = [
+    ...["Mathias Spick", "Margot Laporte|acc", "Jean-Baptiste Souche|acc", "Lex Damit|acc", "Anne Reiser|acc", "Jean-Sébastien Dauch|acc", "David Riboulet", "Nicolas Morot", "Aymeric Fontaine", "Arnaud Starck", "Christiane Liefgen", "Andrée Schengen", "Roland Weber", "Thomas Vandormael"]
+      .map((s) => { const [n, a] = s.split("|"); const [f, ...l] = n.split(" "); return P(f, l.join(" "), ["staff"], "", "", a ? "acc" : "none"); }),
+    P("Marc", "Osenberg", ["staff-meeting"], "Meeting Director"),
+    P("Louis", "Gales", ["staff"], "Stagiaire (FLA)"),
+    ...["Stéphanie Empain", "Anouk Thill", "Fabio Secci", "Steve Helminger", "Roland Draut", "Philippe Beissel", "Carmela Esposito", "Chantal Hayen", "Pierre Hensgen", "Paul Schieres", "Jean-Claude Husting", "Léon Moureaud", "Jean-Claude Muller"]
+      .map((n) => { const [f, ...l] = n.split(" "); return P(f, l.join(" "), ["cd"]); }),
+    P("Mara", "Wagner", ["lunex"], "LUNEX Supervisor", "", "none", true),
+    P("Philippe", "Lentz", ["lunex"], "Team Leader", "", "acc", true),
+    P("Denis", "Buma", ["lunex", "communication"], "", "", "acc"),
+    P("Klara", "Bouckova", ["lunex", "communication"], "", "", "acc"),
+    P("Ilona", "Petit", ["lunex"], "", "", "acc"),
+    P("Christine", "Atuhaire", ["lunex"], "", "", "acc", false, ["billetterie"]),
+    P("Santiago", "Clavijo", ["lunex"], "", "", "acc", false, ["infos"]),
+    P("Jacques", "Glossener", ["lunex"], "Promotion"),
+    P("Vera", "Bertemes-Hoffmann", ["communication"]),
+    P("Tomek", "Jastrzebowski", ["communication"], "Photographe officiel"),
+    P("Łukasz", "Szeląg", ["communication"], "Photographe officiel"),
+    P("Lina", "Simons", ["staff-meeting"], "Athlete Welcome"),
+    P("Cora", "Osenberg", ["staff-meeting"], "Athlete liaison"),
+    P("Philippe", "Laporte", ["staff-meeting"], "Head of Transportation", "", "acc", false, ["transport-vol"]),
+    P("Liz", "Sinner", ["staff"], "", "", "none", false, ["accueil-vip"]),
+    ...[["Anouck", "Ewerling", "L"], ["Corinne", "Ewerling", "XL"], ["Nadine", "Ewerling", "M"], ["Ann", "Bertemes", "XL"], ["Olga", "Tironi", "L"], ["Serge", "Tironi", "XXL"], ["Steve", "Weiwert", "XL"], ["Andrea", "Rossi", "M"], ["Patrick", "Possenti", "XXXL"]]
+      .map(([f, l, s]) => P(f, l, ["cab"], "", s)),
+    P("Guillaume", "Laurent", ["athle"]), P("Aurèle", "Bonvin", ["athle"]), P("Kevin", "Gabrielli", ["athle"]),
+    P("Léo", "Berret", ["athle"], "Caméraman officiel"),
+    P("Michel", "Herren", ["speakers"]), P("Olivier", "Boussong", ["speakers"]),
+    P("Steffi", "Brachmann", ["presentation"], "Event Presentation Director", "", "none", true),
+    P("Rémy", "Charpentier", ["technique"], "The Balou Company"),
+  ].map((p, i) => ({ ...p, id: i }));
+  // Doublons détectés avec la liste des bénévoles (même nom ou même e-mail).
+  const DUPLICATES = { "Liz Sinner": "candidature bénévole 2027 · rôle « Accueil VIP » · badge Volunteer pas encore imprimé" };
+  PEOPLE.find((p) => p.f === "Margot").st = "done";
+  PEOPLE.find((p) => p.f === "Anne").st = "done";
+
+  const $ = (s) => document.querySelector(s);
+  const team = (id) => TEAMS.find((t) => t.id === id);
+  const vteam = (id) => VTEAMS.find((t) => t.id === id);
+  const full = (p) => `${p.f} ${p.l}`;
+  let teamId = "staff-meeting", selId = PEOPLE.find((p) => p.f === "Philippe" && p.l === "Laporte").id;
+  const badgeTeams = (p) => p.teams.map(team).filter((t) => ["org", "tech", "photo", "catering"].includes(t.cat));
+  const hasBadge = (p) => badgeTeams(p).length > 0 && !p.isVolunteer;
+  const catOf = (p) => { const b = badgeTeams(p); return !b.length ? "none" : b.some((t) => t.cat === "org") ? "org" : b[0].cat; };
+  const labelOf = (p) => p.label || (badgeTeams(p).find((t) => p.lead && t.id === p.teams[0]) || badgeTeams(p)[0])?.def || "—";
+  const inherited = (p) => [...new Set(badgeTeams(p).flatMap((t) => t.zones))];
+  const zonesOf = (p) => ALL.filter((z) => !p.remove.includes(z) && (inherited(p).includes(z) || p.add.includes(z)));
+  const statusOf = (p) => (hasBadge(p) ? p.st : "none");
+  const STATUS = { todo: ["À imprimer", "p-todo"], done: ["Imprimé", "p-done"], changed: ["À réimprimer", "p-warn"], none: ["—", "p-none"] };
+  const changed = (p) => { if (p.st === "done") p.st = "changed"; };
+  function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove("on"), 2200); }
+  const isDup = (p) => DUPLICATES[full(p)] && !p.resolved;
+
+  function renderTeams() {
+    $("#nteams").textContent = `${TEAMS.length} équipes`;
+    $("#teams").innerHTML = TEAMS.map((t) => {
+      const mem = PEOPLE.filter((p) => p.teams.includes(t.id));
+      const leads = mem.filter((p) => p.lead && p.teams[0] === t.id).map(full);
+      return `<button class="tm ${t.id === teamId ? "on" : ""} ${mem.length ? "" : "empty"}" data-team="${t.id}">
+        <span class="dot" style="background:${CATS[t.cat].color}"></span><b>${t.name}</b><span class="n">${mem.length}</span>
+        ${leads.length ? `<span class="lead">${leads.join(", ")}</span>` : ""}</button>`;
+    }).join("");
+  }
+
+  function renderBadgebar() {
+    const t = team(teamId), c = CATS[t.cat], active = ["org", "tech", "photo", "catering"].includes(t.cat);
+    $("#tname").value = t.name;
+    $("#badgebar").innerHTML = `<span class="t">Badge de l'équipe</span>
+      <span class="catsel"><span class="dot" style="background:${c.color}"></span><select id="tcat">
+        ${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${t.cat === k ? "selected" : ""}>${v.label}</option>`).join("")}</select></span>
+      ${active ? `<label class="muted">Libellé par défaut <input class="defl" id="tdef" value="${t.def}" /></label>
+        <span class="muted">Zones</span><span class="zt">${ZONES.map((z) => `<button class="${t.zones.includes(z.id) ? "on" : ""}" style="${t.zones.includes(z.id) ? `background:${c.color}` : ""}" data-tz="${z.id}" title="${z.name}">${z.id}</button>`).join("")}</span>
+        <span class="muted">${t.zones.length ? t.zones.map((id) => ZONES[id - 1].name).join(", ") : "aucune zone (accès public)"}</span>`
+      : `<span class="muted">${t.cat === "judge" ? "Les juges ont leur badge par l'onglet Juges d'Accréditations." : "Les membres de cette équipe n'ont pas de badge."}</span>`}`;
+  }
+
+  function renderAlerts() {
+    const dups = PEOPLE.filter((p) => p.teams.includes(teamId) && isDup(p));
+    $("#alerts").innerHTML = dups.map((p) => `<div class="alert"><span class="sp"><b>${full(p)} est aussi bénévole</b> : ${DUPLICATES[full(p)]}. Une personne est bénévole ou organisation, pas les deux.</span>
+      <button class="btn pri" data-keep="orga" data-id="${p.id}">Garder en organisation</button>
+      <button class="btn" data-keep="vol" data-id="${p.id}">Garder en bénévole</button></div>`).join("");
+  }
+
+  function renderMembers() {
+    const mem = PEOPLE.filter((p) => p.teams.includes(teamId));
+    $("#members tbody").innerHTML = mem.map((p) => {
+      const c = CATS[hasBadge(p) ? catOf(p) : "none"], st = STATUS[statusOf(p)];
+      const others = p.teams.filter((id) => id !== teamId).map((id) => team(id).name);
+      return `<tr data-id="${p.id}" class="${p.id === selId ? "sel" : ""} ${isDup(p) ? "dup" : ""}">
+        <td><span class="nm"><span class="band" style="background:${c.color}"></span><span style="min-width:0"><b>${full(p)}</b>${others.length ? `<br><span class="muted">+ ${others.join(", ")}</span>` : ""}</span></span></td>
+        <td>${p.isVolunteer ? `<span class="muted">bénévole</span>` : hasBadge(p) ? `<span class="lab ${p.label ? "" : "def"}">${labelOf(p)}</span>` : "—"}</td>
+        <td>${p.size || `<span class="muted">—</span>`}</td>
+        <td>${p.vlead.map((id) => `<span class="tag">${vteam(id).name}</span>`).join("") || `<span class="muted">—</span>`}</td>
+        <td>${p.acc === "acc" ? `<span class="pill p-acc">Compte actif</span>` : `<span class="pill p-noacc">Pas de compte</span>`}</td>
+        <td><span class="pill ${st[1]}">${st[0]}</span></td>
+        <td class="chk"><input type="checkbox" ${p.lead && p.teams[0] === teamId ? "checked" : ""} data-lead="${p.id}" /></td></tr>`;
+    }).join("") || `<tr><td colspan="7" class="muted" style="padding:18px;text-align:center">Aucun membre.</td></tr>`;
+  }
+
+  function renderDrawer() {
+    const p = PEOPLE.find((x) => x.id === selId && x.teams.includes(teamId)) || PEOPLE.find((x) => x.teams.includes(teamId));
+    if (!p) { $("#drawer").innerHTML = `<p class="note">Choisissez une personne.</p>`; return; }
+    selId = p.id;
+    const c = CATS[catOf(p)], on = zonesOf(p), inh = inherited(p);
+    const badge = hasBadge(p) ? `<div class="badges">
+        <div class="mini"><div class="vband" style="background:${c.color}">${c.label}</div>
+          <div class="body"><div><div class="n1">${p.f}<br>${p.l.toUpperCase()}</div><div class="rl">${labelOf(p)}</div></div>
+          <div style="display:flex;justify-content:space-between;align-items:end"><span class="ev">CMCM Indoor Meeting 2027</span><span class="qr"></span></div></div></div>
+        <div class="mini back"><div class="vband" style="background:${c.color}">Access</div>
+          <div class="body">${on.length ? on.map((id) => `<div class="zl"><i style="background:${c.color}">${id}</i>${ZONES[id - 1].name}</div>`).join("") : `<div class="muted" style="font-size:10px">No restricted area</div>`}</div></div>
+      </div>` : `<div class="nobadge">${p.isVolunteer ? "Gardée en bénévole : son badge vient de son rôle bénévole (Accréditations › Bénévoles)." : "Son équipe n'a pas de badge."}</div>`;
+    $("#drawer").innerHTML = `<h2>${full(p)}</h2>
+      ${isDup(p) ? `<div class="alert" style="margin:0"><span class="sp">Aussi bénévole : à trancher (bandeau à gauche).</span></div>` : ""}
+      <div><div class="lbl">Badge <span>${statusOf(p) === "none" ? "" : STATUS[statusOf(p)][0]}</span></div>${badge}</div>
+      ${hasBadge(p) ? `<div class="field"><div class="lbl">Libellé badge <span>vide = « ${(badgeTeams(p)[0] || {}).def} »</span></div>
+        <input id="plabel" value="${p.label}" placeholder="${(badgeTeams(p)[0] || {}).def}" /></div>
+      <div><div class="lbl">Zones <span>${on.length}/6 · de ${badgeTeams(p).map((t) => t.name).join(" + ")}</span></div>
+        <div class="zgrid">${ZONES.map((z) => {
+          const isOn = on.includes(z.id), cls = p.add.includes(z.id) ? "plus" : p.remove.includes(z.id) ? "minus" : "";
+          const tag = p.add.includes(z.id) ? "+ perso" : p.remove.includes(z.id) ? "− perso" : inh.includes(z.id) ? "équipe" : "";
+          return `<button class="zbtn ${isOn ? "on" : ""} ${cls}" data-pz="${z.id}"><i style="${isOn ? `background:${c.color}` : ""}">${z.id}</i><span>${z.name}</span><small>${tag}</small></button>`;
+        }).join("")}</div>
+        <p class="note" style="margin-top:4px">Exception pour cette personne seulement (ex. « all access »). Les zones de l'équipe se règlent dans la barre Badge.</p></div>` : ""}
+      ${p.isVolunteer ? "" : `<div><div class="lbl">Cheffe de (équipes bénévoles) <span>sans devenir bénévole</span></div>
+        <div class="vchips">${VTEAMS.map((v) => `<button class="vchip ${p.vlead.includes(v.id) ? "on" : ""}" data-vl="${v.id}">${p.vlead.includes(v.id) ? "✓ " : "+ "}${v.name}</button>`).join("")}</div></div>`}`;
+  }
+
+  function renderVol() {
+    $("#vteams").innerHTML = VTEAMS.map((v) => {
+      const orgLeads = PEOPLE.filter((p) => p.vlead.includes(v.id) && !p.isVolunteer);
+      const candidates = PEOPLE.filter((p) => !p.isVolunteer && !p.vlead.includes(v.id) && hasBadge(p));
+      return `<div class="vt"><h3>${v.name} <small>${v.members} bénévoles</small></h3>
+        ${v.volLeads.map((n) => `<div class="leadrow"><span class="who">${n}</span><span class="tag">Chef d'équipe · bénévole</span></div>`).join("")}
+        ${orgLeads.map((p) => `<div class="leadrow"><span class="who"><b>${full(p)}</b> <span class="muted">· ${team(p.teams[0]).name}</span></span><span class="orga">Orga</span><button class="x" data-unlead="${p.id}:${v.id}" title="Retirer">✕</button></div>`).join("")}
+        ${!v.volLeads.length && !orgLeads.length ? `<div class="muted">Pas encore de chef.</div>` : ""}
+        <select data-addlead="${v.id}"><option value="">+ Chef (organisation)…</option>
+          ${candidates.map((p) => `<option value="${p.id}">${full(p)} · ${team(p.teams[0]).name}</option>`).join("")}</select></div>`;
+    }).join("");
+  }
+
+  function renderAcc() {
+    const list = PEOPLE.filter(hasBadge);
+    $("#nacc").textContent = list.length;
+    $("#acc").innerHTML = list.map((p) => {
+      const c = CATS[catOf(p)], on = zonesOf(p), st = STATUS[statusOf(p)];
+      return `<tr><td><span class="nm"><span class="band" style="background:${c.color}"></span><span><b>${full(p)}</b><br><span class="muted">${labelOf(p)}</span></span></span></td>
+        <td>${p.teams.map((id) => team(id).name).join(", ")}${p.vlead.length ? `<br><span class="muted">chef : ${p.vlead.map((id) => vteam(id).name).join(", ")}</span>` : ""}</td>
+        <td style="color:${c.color};font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em">${c.label}</td>
+        <td><span class="zn">${ZONES.map((z) => `<i class="${on.includes(z.id) ? "on" : ""}" style="${on.includes(z.id) ? `background:${c.color}` : ""}">${z.id}</i>`).join("")}</span></td>
+        <td><span class="pill ${st[1]}">${st[0]}</span></td></tr>`;
+    }).join("");
+  }
+
+  function render() { renderTeams(); renderBadgebar(); renderAlerts(); renderMembers(); renderDrawer(); renderVol(); renderAcc(); }
+
+  document.addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab");
+    if (tab) { document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t === tab)); document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === `view-${tab.dataset.view}`)); return; }
+    const tm = e.target.closest("[data-team]");
+    if (tm) { teamId = tm.dataset.team; selId = -1; render(); return; }
+    if (e.target.matches("[data-lead]")) return;
+    const row = e.target.closest("#members tbody tr[data-id]");
+    if (row) { selId = Number(row.dataset.id); renderMembers(); renderDrawer(); return; }
+    const tz = e.target.closest("[data-tz]");
+    if (tz) {
+      const t = team(teamId), z = Number(tz.dataset.tz);
+      t.zones = t.zones.includes(z) ? t.zones.filter((x) => x !== z) : [...t.zones, z].sort();
+      const touched = PEOPLE.filter((p) => p.teams.includes(t.id) && p.st === "done"); touched.forEach(changed);
+      toast(touched.length ? `${t.name} : ${touched.length} badge(s) déjà imprimé(s) passent « À réimprimer »` : `${t.name} : zones mises à jour pour toute l'équipe`);
+      render(); return;
+    }
+    const p = PEOPLE.find((x) => x.id === selId);
+    const pz = e.target.closest("[data-pz]");
+    if (pz && p) {
+      const z = Number(pz.dataset.pz);
+      if (inherited(p).includes(z)) p.remove = p.remove.includes(z) ? p.remove.filter((x) => x !== z) : [...p.remove, z];
+      else p.add = p.add.includes(z) ? p.add.filter((x) => x !== z) : [...p.add, z];
+      changed(p); render(); return;
+    }
+    const vl = e.target.closest("[data-vl]");
+    if (vl && p) {
+      const id = vl.dataset.vl;
+      p.vlead = p.vlead.includes(id) ? p.vlead.filter((x) => x !== id) : [...p.vlead, id];
+      toast(p.vlead.includes(id) ? `${full(p)} : cheffe de « ${vteam(id).name} » (visible aussi dans Équipes bénévoles)` : `${full(p)} n'est plus cheffe de « ${vteam(id).name} »`);
+      render(); return;
+    }
+    const keep = e.target.closest("[data-keep]");
+    if (keep) {
+      const q = PEOPLE.find((x) => x.id === Number(keep.dataset.id));
+      q.resolved = true;
+      if (keep.dataset.keep === "vol") { q.isVolunteer = true; q.vlead = []; toast(`${full(q)} reste bénévole : retirée de l'équipe organisation à l'enregistrement`); }
+      else toast(`${full(q)} passe en organisation : sa fiche bénévole sort des affectations et des badges bénévoles`);
+      selId = q.id; render(); return;
+    }
+    const un = e.target.closest("[data-unlead]");
+    if (un) { const [pid, vid] = un.dataset.unlead.split(":"); const q = PEOPLE.find((x) => x.id === Number(pid)); q.vlead = q.vlead.filter((x) => x !== vid); render(); }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.id === "tcat") { team(teamId).cat = e.target.value; PEOPLE.filter((p) => p.teams.includes(teamId)).forEach(changed); render(); }
+    if (e.target.dataset.lead !== undefined) {
+      const p = PEOPLE.find((x) => x.id === Number(e.target.dataset.lead));
+      if (p.teams[0] !== teamId) p.teams = [teamId, ...p.teams.filter((x) => x !== teamId)];
+      p.lead = e.target.checked; render();
+    }
+    if (e.target.dataset.addlead) {
+      const q = PEOPLE.find((x) => x.id === Number(e.target.value)); if (!q) return;
+      q.vlead = [...q.vlead, e.target.dataset.addlead];
+      toast(`${full(q)} : cheffe de « ${vteam(e.target.dataset.addlead).name} » (cochée aussi sur sa ligne organisation)`); render();
+    }
+  });
+  document.addEventListener("input", (e) => {
+    const p = PEOPLE.find((x) => x.id === selId);
+    if (e.target.id === "plabel" && p) { p.label = e.target.value; changed(p); renderMembers(); renderTeams(); renderAcc(); const mini = document.querySelector(".mini .rl"); if (mini) mini.textContent = labelOf(p); }
+    if (e.target.id === "tdef") { team(teamId).def = e.target.value; renderMembers(); renderAcc(); }
+  });
+  render();
+</script>
+</body>
+</html>

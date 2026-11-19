@@ -9,7 +9,11 @@
 
 const RUNNERS_PER_TEAM = 4;
 const RUNNERS_PER_GENDER = 2;
-const BUSINESS_RACE_MAX_TEAMS = 10;
+// 6 couloirs à la Coque : 6 équipes au maximum dans la course (toutes
+// entreprises confondues). 2 équipes au plus par entreprise (Margot,
+// 2026-11-19 : on préfère 6 entreprises différentes).
+const BUSINESS_RACE_LANES = 6;
+const BUSINESS_RACE_MAX_TEAMS = 2;
 
 // Packs du site (/programme#business-race) : valeurs proposées à la création,
 // toutes modifiables ensuite.
@@ -47,8 +51,27 @@ function normalizeGender(value) {
   return value === "F" || value === "M" ? value : "";
 }
 
+// Coordonnées demandées pour chaque coureur (relayeurs et remplaçant), en plus
+// du nom et du genre : email, portable, année de naissance et règlement accepté
+// (qui couvre aussi photos et vidéos : pas de refus possible). Le contact
+// d'urgence est facultatif.
+const RUNNER_DETAIL_FIELDS = ["email", "phone", "birthYear", "rules"];
+
+function normalizeBirthYear(value) {
+  return String(value ?? "").replace(/\D/g, "").slice(0, 4);
+}
+
+function isValidBirthYear(value, now = new Date()) {
+  const year = Number(value);
+  return /^\d{4}$/.test(String(value)) && year >= 1920 && year <= now.getFullYear() - 10;
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
+}
+
 function createEmptyBusinessRaceRunner(overrides = {}) {
-  return { firstName: "", lastName: "", gender: "", ...overrides };
+  return normalizeBusinessRaceRunner(overrides);
 }
 
 function normalizeBusinessRaceRunner(runner = {}) {
@@ -59,7 +82,28 @@ function normalizeBusinessRaceRunner(runner = {}) {
     // L'entreprise peut donner une de ses invitations VIP à un coureur :
     // il a alors deux badges (Business Race + VIP).
     vip: runner.vip === true,
+    email: cleanText(runner.email).toLowerCase(),
+    phone: cleanText(runner.phone),
+    birthYear: normalizeBirthYear(runner.birthYear),
+    emergencyFirstName: cleanText(runner.emergencyFirstName),
+    emergencyLastName: cleanText(runner.emergencyLastName),
+    emergencyPhone: cleanText(runner.emergencyPhone),
+    // Le coureur est apte, accepte le règlement (photos et vidéos comprises)
+    // et court sous sa propre responsabilité.
+    rulesAccepted: runner.rulesAccepted === true,
   };
+}
+
+// Informations manquantes d'un coureur saisi (rien tant que son nom est vide).
+function getRunnerMissingDetails(runner = {}) {
+  if (!runnerIsFilled(runner)) return [];
+  const normalized = normalizeBusinessRaceRunner(runner);
+  const missing = [];
+  if (!isValidEmail(normalized.email)) missing.push("email");
+  if (!normalized.phone) missing.push("phone");
+  if (!isValidBirthYear(normalized.birthYear)) missing.push("birthYear");
+  if (!normalized.rulesAccepted) missing.push("rules");
+  return missing;
 }
 
 function runnerIsFilled(runner = {}) {
@@ -90,7 +134,10 @@ function getBusinessRaceTeamStatus(team = {}) {
   const missingGender = filledRunners.filter((runner) => !runner.gender).length;
   const filled = filledRunners.length;
   const genderOk = women === RUNNERS_PER_GENDER && men === RUNNERS_PER_GENDER;
-  const complete = filled === RUNNERS_PER_TEAM && genderOk;
+  // Coureurs saisis (remplaçant compris) à qui il manque des informations.
+  const missingDetails = [...normalized.runners, normalized.reserve].filter((runner) => getRunnerMissingDetails(runner).length > 0).length;
+  const detailsOk = missingDetails === 0;
+  const complete = filled === RUNNERS_PER_TEAM && genderOk && detailsOk;
   let state = "empty";
   if (complete) state = "complete";
   else if (filled > 0 || normalized.teamName) state = "partial";
@@ -100,6 +147,8 @@ function getBusinessRaceTeamStatus(team = {}) {
     men,
     missingGender,
     genderOk,
+    missingDetails,
+    detailsOk,
     complete,
     hasReserve: runnerIsFilled(normalized.reserve),
     state,
@@ -159,6 +208,14 @@ function listBusinessRaceRunners(portals = [], teamsByPortal = {}) {
           lastName: runner.lastName,
           gender: runner.gender,
           vip: runner.vip === true,
+          email: runner.email,
+          phone: runner.phone,
+          birthYear: runner.birthYear,
+          emergencyFirstName: runner.emergencyFirstName,
+          emergencyLastName: runner.emergencyLastName,
+          emergencyPhone: runner.emergencyPhone,
+          rulesAccepted: runner.rulesAccepted,
+          missingDetails: getRunnerMissingDetails(runner),
         });
       });
     });
@@ -169,6 +226,38 @@ function listBusinessRaceRunners(portals = [], teamsByPortal = {}) {
       left.teamNumber - right.teamNumber ||
       (left.isReserve ? 9 : left.leg) - (right.isReserve ? 9 : right.leg),
   );
+}
+
+// Coordonnées de facturation de l'entreprise, saisies sur son portail
+// (vipPartnerPortals/{id}/billing/current : privé, pas sur le doc public du portail).
+const BILLING_FIELDS = [
+  "companyName",
+  "vatNumber",
+  "address",
+  "postalCode",
+  "city",
+  "country",
+  "contactFirstName",
+  "contactLastName",
+  "email",
+  "orderReference",
+];
+const BILLING_REQUIRED_FIELDS = ["companyName", "address", "postalCode", "city", "country", "contactFirstName", "contactLastName", "email"];
+
+function normalizeBusinessRaceBilling(billing = {}) {
+  const next = {};
+  BILLING_FIELDS.forEach((field) => {
+    next[field] = cleanText(billing?.[field]);
+  });
+  next.email = next.email.toLowerCase();
+  return next;
+}
+
+function getBillingMissingFields(billing = {}) {
+  const normalized = normalizeBusinessRaceBilling(billing);
+  const missing = BILLING_REQUIRED_FIELDS.filter((field) => !normalized[field]);
+  if (normalized.email && !isValidEmail(normalized.email)) missing.push("email");
+  return missing;
 }
 
 // Valeurs du portail enregistrées depuis le formulaire admin.
@@ -280,6 +369,18 @@ export {
 };
 
 export {
+  BILLING_FIELDS,
+  BILLING_REQUIRED_FIELDS,
+  RUNNER_DETAIL_FIELDS,
+  getBillingMissingFields,
+  getRunnerMissingDetails,
+  isValidBirthYear,
+  isValidEmail,
+  normalizeBusinessRaceBilling,
+};
+
+export {
+  BUSINESS_RACE_LANES,
   BUSINESS_RACE_MAX_TEAMS,
   BUSINESS_RACE_PACKS,
   RUNNERS_PER_GENDER,
