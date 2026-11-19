@@ -1,7 +1,8 @@
 /* ── Business Race : admin (/app/business-race) et équipes du portail entreprise ── */
 
 .br-admin,
-.br-portal {
+.br-portal,
+.br-billing {
   --br-ink: #17324a;
   --br-muted: #627788;
   --br-line: #e3e9ef;
@@ -276,6 +277,7 @@
 .br-admin input:not([type="checkbox"]):not([type="radio"]),
 .br-admin select,
 .br-portal input:not([type="checkbox"]):not([type="radio"]),
+.br-billing input,
 .br-portal select {
   width: 100%;
   height: 32px;
@@ -292,6 +294,7 @@
 .br-admin input:focus,
 .br-admin select:focus,
 .br-portal input:focus,
+.br-billing input:focus,
 .br-portal select:focus {
   outline: none;
   border-color: var(--br-accent);
@@ -1485,4 +1488,151 @@
 
 .br-box-body[hidden] {
   display: none;
+}
+
+/* ── Coordonnées des coureurs (sous le nom) ───────────────────────────── */
+.br-runner-details {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.7fr);
+  align-items: center;
+  gap: 5px 6px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: var(--br-soft);
+}
+
+.br-portal .br-runner-details input:not([type="checkbox"]) {
+  height: 28px;
+  font-size: 0.8rem;
+}
+
+.br-portal .br-runner-details input.is-missing,
+.br-billing input.is-missing {
+  border-color: #e4b76a;
+  background: #fffaf0;
+}
+
+.br-runner-details__label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--br-muted);
+}
+
+.br-runner-details__checks {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 14px;
+}
+
+.br-rules-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--br-ink);
+  cursor: pointer;
+}
+
+.br-rules-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.br-rules-check.is-missing,
+.br-consent.is-missing > span {
+  color: var(--br-warn);
+}
+
+.br-consent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--br-muted);
+}
+
+.br-consent__toggle {
+  height: 26px;
+}
+
+.br-consent__toggle button {
+  padding: 0 10px;
+  font-size: 0.74rem;
+}
+
+.br-consent__toggle button.is-on.is-yes {
+  background: #e6f4ec;
+  color: var(--br-ok);
+}
+
+.br-consent__toggle button.is-on.is-no {
+  background: #fdecea;
+  color: #b3261e;
+}
+
+/* ── Facturation ──────────────────────────────────────────────────────── */
+.br-billing__form {
+  display: grid;
+  gap: 10px;
+}
+
+.br-billing__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.br-billing__grid input {
+  height: 32px;
+}
+
+@media (max-width: 640px) {
+  .br-runner-details {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .br-portal .br-runner-details input[type="email"],
+  .br-runner-details__label,
+  .br-runner-details__checks {
+    grid-column: 1 / -1;
+  }
+
+  .br-billing__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Admin : coordonnées sous chaque coureur, facturation */
+.br-team__legs li {
+  flex-wrap: wrap;
+}
+
+.br-runner-info {
+  flex-basis: 100%;
+  padding-left: 26px;
+  font-size: 0.72rem;
+  color: var(--br-muted);
+}
+
+.br-runner-info__missing {
+  margin-left: 6px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--br-warn);
+}
+
+.br-billing-lines {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  font-size: 0.78rem;
 }

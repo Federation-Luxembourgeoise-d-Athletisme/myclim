@@ -735,6 +735,26 @@ service cloud.firestore {
       allow read: if isAdminOrManager();
     }
 
+    // Coordonnées de facturation de l'entreprise (doc privé, jamais sur le doc
+    // public du portail). L'entreprise les saisit et les corrige à tout moment.
+    match /vipPartnerPortals/{portalId}/billing/{docId} {
+      allow read: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId);
+      allow create, update: if isAdminOrManager() ||
+        (isSignedIn() && request.auth.token.vipPortalId == portalId &&
+          docId == "current" &&
+          request.resource.data.keys().hasOnly([
+            "companyName", "vatNumber", "address", "postalCode", "city", "country",
+            "contactFirstName", "contactLastName", "email", "orderReference",
+            "portalId", "updatedAt"
+          ]));
+      allow delete: if isAdminOrManager();
+    }
+
+    match /{path=**}/billing/{docId} {
+      allow read: if isAdminOrManager();
+    }
+
     // ── Kiné ────────────────────────────────────────────────────────────────
     // Chaque kiné gère ses propres plages d'ouverture ; tous les kinés voient
     // et gèrent toutes les réservations (planning commun). Les athlètes
