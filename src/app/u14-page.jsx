@@ -19,6 +19,7 @@ import {
   useU14RequestsList,
 } from "./u14-hooks";
 import { U14_STAGE_ORDER, getU14ChildStage } from "./u14-stage";
+import { buildU14SwitchToBasketFields, canSwitchU14RequestToBasket } from "./u14-basket-switch";
 import { useU14AdminCopy } from "./u14-admin-copy";
 import { U14ProtectedTab } from "./u14-protected-tab";
 import { getU14InvitePoolKey, getU14ProtectedInviteStatus } from "./u14-protected";
@@ -61,7 +62,7 @@ function initialsOf(request) {
 }
 
 // Fiche d'un enfant : coordonnées et historique de sa demande.
-function ChildDetail({ request, invite, onRelease, isBusy, now }) {
+function ChildDetail({ request, invite, onRelease, onSwitchToBasket, isBusy, now }) {
   const { copy, fill } = useU14AdminCopy();
   const text = copy.detail;
   const child = request.child || {};
@@ -69,6 +70,7 @@ function ChildDetail({ request, invite, onRelease, isBusy, now }) {
     [request.submittedAt, text.submitted],
     [invite?.claimedAt, invite?.linkedToExistingRequest ? text.linked : text.claimed],
     [request.promotedFromWaitlistAt, text.promoted],
+    [request.switchedToBasketAt, fill(text.switched, { race: request.previousRaceLabel || "" })],
     [request.adminApprovedAt, text.approved],
     [request.remindedAt, request.reminderCount > 1 ? fill(text.remindedTotal, { count: request.reminderCount }) : text.reminded],
     [
@@ -82,6 +84,7 @@ function ChildDetail({ request, invite, onRelease, isBusy, now }) {
     .sort((left, right) => getTimestampMs(left[0]) - getTimestampMs(right[0]));
   const stage = getU14ChildStage(request, now, copy.stages);
   const canRelease = !["withdrawn", "rejected"].includes(stage.key);
+  const canSwitch = Boolean(onSwitchToBasket) && canSwitchU14RequestToBasket(request, invite);
   const facts = [
     [text.category, request.category],
     [text.birth, child.birthDate ? formatDateForDisplay(child.birthDate) : ""],
@@ -123,11 +126,18 @@ function ChildDetail({ request, invite, onRelease, isBusy, now }) {
           <p className="u14m-muted">{text.noEvent}</p>
         )}
       </section>
-      {canRelease ? (
+      {canRelease || canSwitch ? (
         <div className="u14m-detail__footer">
-          <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => onRelease(request)}>
-            {text.release}
-          </button>
+          {canSwitch ? (
+            <button className="u14m-btn" disabled={isBusy} type="button" title={text.switchHint} onClick={() => onSwitchToBasket(request)}>
+              {text.switchToBasket}
+            </button>
+          ) : null}
+          {canRelease ? (
+            <button className="u14m-btn u14m-btn--danger" disabled={isBusy} type="button" onClick={() => onRelease(request)}>
+              {text.release}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -137,7 +147,7 @@ function ChildDetail({ request, invite, onRelease, isBusy, now }) {
 // Tableau d'enfants (une course, le porte-panier ou « À faire ») : une ligne
 // par enfant, un statut, une action. Les groupes donnent les sous-titres
 // (Retenus, Places réservées, Liste d'attente, Désistés…).
-function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, isBusy, now, emptyLabel }) {
+function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, onSwitchToBasket, isBusy, now, emptyLabel }) {
   const { copy, fill } = useU14AdminCopy();
   const [openId, setOpenId] = useState("");
   const visibleGroups = groups.filter((group) => group.rows.length || group.placeholder);
@@ -188,7 +198,9 @@ function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, is
                   </span>
                   <span className="u14m-actions">{renderAction(request, stage)}</span>
                 </div>
-                {isOpen ? <ChildDetail invite={invite} isBusy={isBusy} now={now} request={request} onRelease={onRelease} /> : null}
+                {isOpen ? (
+                  <ChildDetail invite={invite} isBusy={isBusy} now={now} request={request} onRelease={onRelease} onSwitchToBasket={onSwitchToBasket} />
+                ) : null}
               </Fragment>
             );
           })}
@@ -402,6 +414,28 @@ function U14Page(props) {
     );
   }
 
+  // « Course ou porte-panier » → porte-panier : la place de course est libérée
+  // (la répartition automatique fait monter la liste d'attente) et l'enfant est
+  // retenu en porte-panier ; la famille reçoit le mail porte-panier.
+  function handleSwitchToBasket(request) {
+    if (!window.confirm(fill(copy.messages.switchConfirm, { name: request.childName, race: request.raceLabel || "" }))) {
+      return undefined;
+    }
+    return runAction(
+      async () => {
+        const confirmationDeadline = getU14ConfirmationDeadline();
+        await updateDoc(doc(db, "u14Requests", request.id), {
+          ...buildU14SwitchToBasketFields(request, confirmationDeadline),
+          adminApprovedAt: serverTimestamp(),
+          switchedToBasketAt: serverTimestamp(),
+        });
+        await sendAcceptanceMail({ ...request, requestType: "porte_panier", allocationMode: "porte_panier" }, confirmationDeadline);
+      },
+      fill(copy.messages.switched, { name: request.childName }),
+      copy.messages.switchFailed,
+    );
+  }
+
   function handleSavePracticalInfo(event) {
     event.preventDefault();
     const draft = practicalDraft || { preprogram: preprogramPracticalInfo, porte_panier: basketPracticalInfo };
@@ -590,7 +624,7 @@ function U14Page(props) {
     (request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted",
   );
 
-  const tableProps = { invitesByRequestId, isBusy, now, renderAction, onRelease: handleRelease };
+  const tableProps = { invitesByRequestId, isBusy, now, renderAction, onRelease: handleRelease, onSwitchToBasket: handleSwitchToBasket };
 
   return (
     <div className="page u14m-page">
