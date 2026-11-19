@@ -445,6 +445,9 @@ function RequestsTab({ Panel, loadMailQueueModule }) {
                 <p className="panel-note" style={{ marginTop: 4 }}>
                   Accès : {ZONE_LABELS_BY_TYPE[effectiveSelected.requestType] ?? "—"}
                 </p>
+                <p className="panel-note" style={{ marginTop: 4 }}>
+                  Code médias EBU : {effectiveSelected.codeAccepted ? "accepté" : "non accepté (demande antérieure)"}
+                </p>
               </div>
               <div>
                 <p className="eyebrow">Statut</p>

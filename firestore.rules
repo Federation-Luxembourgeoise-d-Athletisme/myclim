@@ -612,6 +612,16 @@ service cloud.firestore {
       allow update, delete: if isAdminOrManager();
     }
 
+    // Formulaire public /presse : n'importe qui peut déposer une demande en
+    // attente de validation, à condition d'avoir accepté la confidentialité et
+    // le code médias EBU « Raising the Bar ». Traitement : admin/gestionnaire.
+    match /pressRegistrations/{registrationId} {
+      allow create: if request.resource.data.status == "pending_review" &&
+        request.resource.data.privacyAccepted == true &&
+        request.resource.data.codeAccepted == true;
+      allow read, update, delete: if isAdminOrManager();
+    }
+
     match /vipInvitations/{invitationId} {
       allow read, write: if isAdminOrManager();
     }

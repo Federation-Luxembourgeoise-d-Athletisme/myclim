@@ -6,6 +6,11 @@ import { getActiveEditionId } from "./edition";
 import { AuthFormField, AuthLayout, PhoneInput } from "./form-components";
 import { useLanguage } from "./language-context";
 
+// Code de conduite que chaque journaliste / photographe accepte en s'inscrivant.
+const MEDIA_CODE_VERSION = "EBU Sport — Raising the Bar (2026)";
+const MEDIA_CODE_URL =
+  "https://ebu.ch/news/2026/06/new-ebu-guidelines-tackle-harmful-stereotypes-in-women-s-athletics-coverage";
+
 const PRESS_COPY = {
   fr: {
     title: "Accréditation presse",
@@ -45,6 +50,13 @@ const PRESS_COPY = {
     errorMessage: "La demande n'a pas pu être envoyée. Merci de réessayer.",
     backLink: "Retour à l'accueil",
     privacyRequired: "Vous devez accepter la politique de confidentialité pour soumettre votre demande.",
+    codeTitle: "Code de conduite médias",
+    codeIntro:
+      "Le meeting applique les lignes directrices de l'EBU Sport « Raising the Bar » pour une couverture respectueuse de l'athlétisme féminin : mettre en valeur la performance et la technique, éviter les angles bas ou placés sous ou derrière l'athlète, les gros plans et ralentis centrés sur le corps, et les images prises dans les moments de fatigue ou de récupération.",
+    codeLinkLabel: "Lire les lignes directrices (EBU Sport)",
+    codeLabel:
+      "Je m'engage à respecter le code « Raising the Bar » de l'EBU Sport dans toutes les images, vidéos et contenus que je produis pendant le meeting.",
+    codeRequired: "Vous devez accepter le code de conduite médias pour soumettre votre demande.",
   },
   en: {
     title: "Press accreditation",
@@ -85,6 +97,13 @@ const PRESS_COPY = {
     errorMessage: "The request could not be submitted. Please try again.",
     backLink: "Back to home",
     privacyRequired: "You must accept the privacy policy to submit your request.",
+    codeTitle: "Media code of conduct",
+    codeIntro:
+      "The meeting follows the EBU Sport \"Raising the Bar\" guidelines for respectful coverage of women's athletics: focus on performance and technique, and avoid low angles or positions under or behind the athlete, close-ups and slow-motion focused on the body, and shots taken in moments of fatigue or recovery.",
+    codeLinkLabel: "Read the guidelines (EBU Sport)",
+    codeLabel:
+      "I agree to respect the EBU Sport \"Raising the Bar\" code in all images, videos and content I produce during the meeting.",
+    codeRequired: "You must accept the media code of conduct to submit your request.",
   },
 };
 
@@ -99,6 +118,7 @@ function createEmptyPressFormData() {
     requestType: "press",
     comment: "",
     privacyAccepted: false,
+    codeAccepted: false,
   };
 }
 
@@ -127,6 +147,11 @@ function PressRegistrationPage({ loadMailQueueModule }) {
       return;
     }
 
+    if (!formData.codeAccepted) {
+      setError(copy.codeRequired);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -146,6 +171,9 @@ function PressRegistrationPage({ loadMailQueueModule }) {
         requestType: formData.requestType,
         comment: String(formData.comment || "").trim(),
         privacyAccepted: true,
+        codeAccepted: true,
+        codeVersion: MEDIA_CODE_VERSION,
+        codeAcceptedAt: serverTimestamp(),
         status: "pending_review",
         zoneIds,
         printStatus: "Non-imprimé",
@@ -274,6 +302,28 @@ function PressRegistrationPage({ loadMailQueueModule }) {
               onChange={handleChange}
             />
           </AuthFormField>
+
+          <div>
+            <p className="eyebrow">{copy.codeTitle}</p>
+            <p className="panel-note">
+              {copy.codeIntro}{" "}
+              <a href={MEDIA_CODE_URL} target="_blank" rel="noreferrer">
+                {copy.codeLinkLabel}
+              </a>
+            </p>
+          </div>
+
+          <label className="selection-card">
+            <input
+              name="codeAccepted"
+              type="checkbox"
+              checked={formData.codeAccepted}
+              onChange={handleChange}
+            />
+            <div>
+              <p>{copy.codeLabel}</p>
+            </div>
+          </label>
 
           <p className="panel-note">{copy.rgpdDisclaimer}</p>
 
