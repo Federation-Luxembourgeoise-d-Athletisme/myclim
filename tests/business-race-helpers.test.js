@@ -22,7 +22,6 @@ const details = {
   emergencyLastName: 'Lux',
   emergencyPhone: '+352 621 111 111',
   rulesAccepted: true,
-  imageConsent: 'yes',
 };
 const runner = (firstName, lastName, gender) => ({ firstName, lastName, gender, ...details });
 
@@ -31,20 +30,18 @@ test('runner details: nothing missing until the name is entered, then each item 
   assert.deepEqual(getRunnerMissingDetails(runner('A', 'B', 'F')), []);
   assert.deepEqual(
     getRunnerMissingDetails({ firstName: 'A', lastName: 'B' }),
-    ['email', 'phone', 'birthYear', 'emergency', 'rules', 'image'],
+    ['email', 'phone', 'birthYear', 'rules'],
   );
   assert.deepEqual(getRunnerMissingDetails({ ...runner('A', 'B', 'F'), email: 'nope', birthYear: '19' }), ['email', 'birthYear']);
-  assert.deepEqual(getRunnerMissingDetails({ ...runner('A', 'B', 'F'), emergencyPhone: '' }), ['emergency']);
-  // « Non » aux photos est une réponse : rien ne manque.
-  assert.deepEqual(getRunnerMissingDetails({ ...runner('A', 'B', 'F'), imageConsent: 'no' }), []);
+  // Le contact d'urgence est facultatif.
+  assert.deepEqual(getRunnerMissingDetails({ ...runner('A', 'B', 'F'), emergencyFirstName: '', emergencyLastName: '', emergencyPhone: '' }), []);
 });
 
 test('runner normalisation keeps digits of the birth year and lower-cases the email', () => {
-  const normalized = normalizeBusinessRaceRunner({ firstName: ' A ', email: ' Ana@Firm.LU ', birthYear: '19 88x', imageConsent: 'maybe' });
+  const normalized = normalizeBusinessRaceRunner({ firstName: ' A ', email: ' Ana@Firm.LU ', birthYear: '19 88x' });
   assert.equal(normalized.firstName, 'A');
   assert.equal(normalized.email, 'ana@firm.lu');
   assert.equal(normalized.birthYear, '1988');
-  assert.equal(normalized.imageConsent, '');
   assert.equal(normalized.rulesAccepted, false);
 });
 

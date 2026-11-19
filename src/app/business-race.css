@@ -1545,37 +1545,16 @@
   margin: 0;
 }
 
-.br-rules-check.is-missing,
-.br-consent.is-missing > span {
+.br-rules-check.is-missing {
   color: var(--br-warn);
 }
 
-.br-consent {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--br-muted);
-}
-
-.br-consent__toggle {
-  height: 26px;
-}
-
-.br-consent__toggle button {
-  padding: 0 10px;
-  font-size: 0.74rem;
-}
-
-.br-consent__toggle button.is-on.is-yes {
-  background: #e6f4ec;
-  color: var(--br-ok);
-}
-
-.br-consent__toggle button.is-on.is-no {
-  background: #fdecea;
-  color: #b3261e;
+.br-runner-details__label small {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* ── Facturation ──────────────────────────────────────────────────────── */

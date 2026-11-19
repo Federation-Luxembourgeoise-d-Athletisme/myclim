@@ -48,9 +48,10 @@ function normalizeGender(value) {
 }
 
 // Coordonnées demandées pour chaque coureur (relayeurs et remplaçant), en plus
-// du nom et du genre : email, portable, année de naissance, contact d'urgence,
-// règlement accepté et réponse sur les photos.
-const RUNNER_DETAIL_FIELDS = ["email", "phone", "birthYear", "emergency", "rules", "image"];
+// du nom et du genre : email, portable, année de naissance et règlement accepté
+// (qui couvre aussi photos et vidéos : pas de refus possible). Le contact
+// d'urgence est facultatif.
+const RUNNER_DETAIL_FIELDS = ["email", "phone", "birthYear", "rules"];
 
 function normalizeBirthYear(value) {
   return String(value ?? "").replace(/\D/g, "").slice(0, 4);
@@ -63,10 +64,6 @@ function isValidBirthYear(value, now = new Date()) {
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
-}
-
-function normalizeImageConsent(value) {
-  return value === "yes" || value === "no" ? value : "";
 }
 
 function createEmptyBusinessRaceRunner(overrides = {}) {
@@ -87,10 +84,9 @@ function normalizeBusinessRaceRunner(runner = {}) {
     emergencyFirstName: cleanText(runner.emergencyFirstName),
     emergencyLastName: cleanText(runner.emergencyLastName),
     emergencyPhone: cleanText(runner.emergencyPhone),
-    // Le coureur est apte, accepte le règlement et court sous sa responsabilité.
+    // Le coureur est apte, accepte le règlement (photos et vidéos comprises)
+    // et court sous sa propre responsabilité.
     rulesAccepted: runner.rulesAccepted === true,
-    // Photos / vidéos : "yes", "no" ou "" (pas encore répondu).
-    imageConsent: normalizeImageConsent(runner.imageConsent),
   };
 }
 
@@ -102,9 +98,7 @@ function getRunnerMissingDetails(runner = {}) {
   if (!isValidEmail(normalized.email)) missing.push("email");
   if (!normalized.phone) missing.push("phone");
   if (!isValidBirthYear(normalized.birthYear)) missing.push("birthYear");
-  if (!(normalized.emergencyFirstName || normalized.emergencyLastName) || !normalized.emergencyPhone) missing.push("emergency");
   if (!normalized.rulesAccepted) missing.push("rules");
-  if (!normalized.imageConsent) missing.push("image");
   return missing;
 }
 
@@ -217,7 +211,6 @@ function listBusinessRaceRunners(portals = [], teamsByPortal = {}) {
           emergencyLastName: runner.emergencyLastName,
           emergencyPhone: runner.emergencyPhone,
           rulesAccepted: runner.rulesAccepted,
-          imageConsent: runner.imageConsent,
           missingDetails: getRunnerMissingDetails(runner),
         });
       });

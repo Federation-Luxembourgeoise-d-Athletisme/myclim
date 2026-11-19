@@ -210,10 +210,13 @@ function RunnerDetails({ label, runner, c, disabled, onChange }) {
       {input("email", c.email, { type: "email", autoComplete: "off" })}
       {input("phone", c.phone, { type: "tel", autoComplete: "off" })}
       {input("birthYear", c.birthYear, { inputMode: "numeric", maxLength: 4, autoComplete: "off" })}
-      <span className="br-runner-details__label">{c.emergencyLabel}</span>
-      {input("emergencyFirstName", c.emergencyFirstName, { autoComplete: "off" }, "emergency")}
-      {input("emergencyLastName", c.emergencyLastName, { autoComplete: "off" }, "emergency")}
-      {input("emergencyPhone", c.emergencyPhone, { type: "tel", autoComplete: "off" }, "emergency")}
+      <span className="br-runner-details__label">
+        {c.emergencyLabel}
+        <small>{c.optional}</small>
+      </span>
+      {input("emergencyFirstName", c.emergencyFirstName, { autoComplete: "off" })}
+      {input("emergencyLastName", c.emergencyLastName, { autoComplete: "off" })}
+      {input("emergencyPhone", c.emergencyPhone, { type: "tel", autoComplete: "off" })}
       <div className="br-runner-details__checks">
         <label className={`br-rules-check${missing.has("rules") ? " is-missing" : ""}`}>
           <input
@@ -224,24 +227,6 @@ function RunnerDetails({ label, runner, c, disabled, onChange }) {
           />
           {c.rulesAccept}
         </label>
-        <div className={`br-consent${missing.has("image") ? " is-missing" : ""}`} title={c.imageHint}>
-          <span>{c.imageLabel}</span>
-          <div className="br-gender-toggle br-consent__toggle" role="radiogroup" aria-label={`${label} · ${c.imageHint}`}>
-            {[["yes", c.yes], ["no", c.no]].map(([key, text]) => (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={runner.imageConsent === key}
-                className={`is-${key}${runner.imageConsent === key ? " is-on" : ""}`}
-                disabled={disabled}
-                onClick={() => onChange({ ...runner, imageConsent: runner.imageConsent === key ? "" : key })}
-              >
-                {text}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -603,7 +588,7 @@ const DEMO_TEAMS = [
     teamNumber: 1,
     teamName: "Les Fusées",
     runners: [
-      { firstName: "Julie", lastName: "Martin", gender: "F", vip: true, email: "julie.martin@example.lu", phone: "+352 621 000 001", birthYear: "1991", emergencyFirstName: "Marc", emergencyLastName: "Martin", emergencyPhone: "+352 621 000 002", rulesAccepted: true, imageConsent: "yes" },
+      { firstName: "Julie", lastName: "Martin", gender: "F", vip: true, email: "julie.martin@example.lu", phone: "+352 621 000 001", birthYear: "1991", emergencyFirstName: "Marc", emergencyLastName: "Martin", emergencyPhone: "+352 621 000 002", rulesAccepted: true },
       { firstName: "Paul", lastName: "Schmit", gender: "M" },
       { firstName: "", lastName: "", gender: "" },
       { firstName: "", lastName: "", gender: "" },

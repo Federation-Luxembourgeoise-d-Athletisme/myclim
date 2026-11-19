@@ -507,7 +507,6 @@ function BusinessRaceAdminPage() {
       { header: tr("Urgence : nom", "Emergency: last name"), key: "emergencyLastName", width: 16 },
       { header: tr("Urgence : tél.", "Emergency: phone"), key: "emergencyPhone", width: 18 },
       { header: tr("Règlement", "Rules"), key: "rules", width: 10 },
-      { header: tr("Photos", "Photos"), key: "image", width: 9 },
       { header: tr("Manquant", "Missing"), key: "missing", width: 30 },
     ];
     sheet.getRow(1).font = { bold: true };
@@ -526,7 +525,6 @@ function BusinessRaceAdminPage() {
         emergencyLastName: runner.emergencyLastName,
         emergencyPhone: runner.emergencyPhone,
         rules: runner.rulesAccepted ? tr("Oui", "Yes") : "",
-        image: runner.imageConsent === "yes" ? tr("Oui", "Yes") : runner.imageConsent === "no" ? tr("Non", "No") : "",
         missing: runner.missingDetails.map(missingLabel).join(", "),
       });
     });
@@ -568,9 +566,7 @@ function BusinessRaceAdminPage() {
       email: "email",
       phone: tr("portable", "mobile"),
       birthYear: tr("année", "birth year"),
-      emergency: tr("urgence", "emergency"),
       rules: tr("règlement", "rules"),
-      image: tr("photos", "photos"),
     }[key] || key;
   }
   // Ligne de coordonnées d'un coureur dans le détail d'une équipe.
@@ -585,7 +581,6 @@ function BusinessRaceAdminPage() {
           runner.email,
           runner.phone,
           emergency || runner.emergencyPhone ? `${tr("Urgence", "Emergency")} : ${[emergency, runner.emergencyPhone].filter(Boolean).join(" · ")}` : "",
-          runner.imageConsent === "no" ? tr("Pas de photos", "No photos") : "",
         ]
           .filter(Boolean)
           .join(" · ")}
