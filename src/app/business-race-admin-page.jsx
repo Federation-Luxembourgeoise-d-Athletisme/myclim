@@ -8,6 +8,7 @@ import { useActiveEdition } from "./edition";
 import { useTr } from "./use-tr";
 import { useLanguage } from "./language-context";
 import {
+  BUSINESS_RACE_LANES,
   BUSINESS_RACE_MAX_TEAMS,
   BUSINESS_RACE_PACKS,
   RUNNERS_PER_TEAM,
@@ -606,7 +607,15 @@ function BusinessRaceAdminPage() {
         </div>
         <dl className="br-kpis">
           <div><dt>{tr("Entreprises", "Companies")}</dt><dd>{totals.companies}</dd></div>
-          <div><dt>{tr("Équipes", "Teams")}</dt><dd>{totals.completeTeams}<small> / {totals.teams}</small></dd></div>
+          <div className={totals.teams > BUSINESS_RACE_LANES ? "is-over" : ""}>
+            <dt>{tr("Équipes", "Teams")}</dt>
+            <dd>{totals.completeTeams}<small> / {totals.teams}</small></dd>
+            <span className="br-kpi-note">
+              {totals.teams > BUSINESS_RACE_LANES
+                ? tr(`${totals.teams - BUSINESS_RACE_LANES} de trop : ${BUSINESS_RACE_LANES} couloirs`, `${totals.teams - BUSINESS_RACE_LANES} too many: ${BUSINESS_RACE_LANES} lanes`)
+                : tr(`${BUSINESS_RACE_LANES - totals.teams} couloir(s) libre(s) sur ${BUSINESS_RACE_LANES}`, `${BUSINESS_RACE_LANES - totals.teams} free lane(s) out of ${BUSINESS_RACE_LANES}`)}
+            </span>
+          </div>
           <div><dt>{tr("Coureurs", "Runners")}</dt><dd>{totals.runners}</dd></div>
           <div><dt>{tr("Pers. VIP", "VIP people")}</dt><dd>{totals.vip}</dd></div>
           <div><dt>{tr("Pers. normales", "Standard people")}</dt><dd>{totals.standard}</dd></div>

@@ -9,7 +9,11 @@
 
 const RUNNERS_PER_TEAM = 4;
 const RUNNERS_PER_GENDER = 2;
-const BUSINESS_RACE_MAX_TEAMS = 10;
+// 6 couloirs à la Coque : 6 équipes au maximum dans la course (toutes
+// entreprises confondues). 2 équipes au plus par entreprise (Margot,
+// 2026-11-19 : on préfère 6 entreprises différentes).
+const BUSINESS_RACE_LANES = 6;
+const BUSINESS_RACE_MAX_TEAMS = 2;
 
 // Packs du site (/programme#business-race) : valeurs proposées à la création,
 // toutes modifiables ensuite.
@@ -376,6 +380,7 @@ export {
 };
 
 export {
+  BUSINESS_RACE_LANES,
   BUSINESS_RACE_MAX_TEAMS,
   BUSINESS_RACE_PACKS,
   RUNNERS_PER_GENDER,

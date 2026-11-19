@@ -69,8 +69,8 @@ test('billing: required fields and a valid email', () => {
 test('team count is 0 for a plain VIP portal, capped and at least 1 otherwise', () => {
   assert.equal(getBusinessRaceTeamCount({ vipPlacesCap: 4 }), 0);
   assert.equal(getBusinessRaceTeamCount({ businessRace: true }), 1);
-  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 3 }), 3);
-  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 99 }), 10);
+  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 2 }), 2);
+  assert.equal(getBusinessRaceTeamCount({ businessRace: true, businessRaceTeams: 99 }), 2);
 });
 
 test('teams are listed 1..N with empty slots filled in', () => {

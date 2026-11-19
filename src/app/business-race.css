@@ -1615,3 +1615,16 @@
   margin: 0;
   font-size: 0.78rem;
 }
+
+/* Admin : couloirs (6 équipes au maximum dans la course) */
+.br-kpi-note {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--br-muted);
+  white-space: nowrap;
+}
+
+.br-kpis > div.is-over dd,
+.br-kpis > div.is-over .br-kpi-note {
+  color: #b3261e;
+}
