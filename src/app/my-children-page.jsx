@@ -324,7 +324,8 @@ function MyChildrenPage(props) {
                   normalizeComparableValue(row.requestType) !== "porte_panier" ? (
                     <p className="parent-request-note">{t("mcAdminValidationPending")}</p>
                   ) : null}
-                  {isConfirmed && !isWithdrawn ? <p className="mc-card__ok">✓ {t("mcConfirmedNote")}</p> : null}
+                  {statusKey === "liste d'attente" ? <p className="parent-request-note">{t("mcWaitlistNote")}</p> : null}
+                  {isConfirmed && !isWithdrawn ?<p className="mc-card__ok">✓ {t("mcConfirmedNote")}</p> : null}
                   {row.practicalInfoText ? <p className="parent-request-practical">{row.practicalInfoText}</p> : null}
 
                   {row.requestId && !isWithdrawn ? (
