@@ -1,0 +1,152 @@
+/* ── Parent « Mes enfants » : une fiche par enfant (lisible sur téléphone) ── */
+
+.mc-callout {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #f0c36d;
+  border-left: 4px solid #e09b1b;
+  border-radius: 8px;
+  background: #fff8e8;
+  color: #4d3a12;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.mc-callout strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a5a00;
+}
+
+.mc-callout p {
+  margin: 0;
+}
+
+.mc-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mc-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dbe3eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.mc-card--todo {
+  border-color: #e09b1b;
+  box-shadow: 0 0 0 1px #e09b1b inset;
+}
+
+.mc-card--muted {
+  opacity: 0.6;
+}
+
+.mc-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mc-card__who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mc-card__who strong {
+  font-size: 1rem;
+  color: #15303a;
+}
+
+.mc-card__who span {
+  font-size: 0.82rem;
+  color: #607985;
+}
+
+.mc-card__head .status-pill {
+  flex: none;
+  white-space: nowrap;
+}
+
+.mc-card__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.mc-card__facts div {
+  display: grid;
+  gap: 1px;
+}
+
+.mc-card__facts dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #7a8f99;
+}
+
+.mc-card__facts dd {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #23414c;
+}
+
+.mc-card .parent-request-note,
+.mc-card .parent-request-practical {
+  margin: 0;
+}
+
+.mc-card__ok {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #1f7a45;
+}
+
+.mc-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #eef2f6;
+}
+
+.mc-card__deadline {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #8a5a00;
+}
+
+.mc-card__withdraw {
+  margin-left: auto;
+}
+
+@media (max-width: 600px) {
+  .mc-card__actions {
+    display: grid;
+    justify-items: stretch;
+  }
+
+  .mc-card__confirm {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .mc-card__withdraw {
+    margin-left: 0;
+    justify-self: center;
+  }
+}
