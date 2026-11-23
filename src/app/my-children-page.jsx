@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { AuthFormField } from "./form-components";
 import { useActiveEdition } from "./edition";
@@ -23,10 +23,10 @@ import { useParentU14Children } from "./u14-hooks";
 import { useLanguage } from "./language-context";
 import { useAuth } from "../context/auth-context";
 import { db } from "../services/firebase";
+import "./my-children.css";
 
 function MyChildrenPage(props) {
   const {
-    DataTable,
     Panel,
     getU14CategoryFromBirthDate,
     loadMailQueueModule,
@@ -45,15 +45,14 @@ function MyChildrenPage(props) {
   const [errorMessage, setErrorMessage] = useState("");
   const [busyRequestId, setBusyRequestId] = useState("");
   const [isSubmittingChild, setIsSubmittingChild] = useState(false);
-  const parentRequestSummary = useMemo(
-    () => ({
-      total: parentRows.length,
-      pending: parentRows.filter((row) => normalizeComparableValue(row.status) === "demande enregistree").length,
-      retained: parentRows.filter((row) => normalizeComparableValue(row.status) === "retenu").length,
-      validated: parentRows.filter((row) => normalizeComparableValue(row.status) === "valide").length,
-    }),
-    [normalizeComparableValue, parentRows],
-  );
+  // Place proposée par l'équipe, que le parent doit encore confirmer.
+  const needsParentConfirmation = (row) =>
+    Boolean(row.requestId) &&
+    row.adminApprovalStatus === "approved" &&
+    row.parentDecisionStatus !== "confirmed" &&
+    row.parentDecisionStatus !== "declined" &&
+    normalizeComparableValue(row.status) !== "desiste";
+  const rowsToConfirm = loading ? [] : parentRows.filter(needsParentConfirmation);
 
   function handleChildFormChange(event) {
     const { name, type, checked, value } = event.target;
@@ -254,118 +253,115 @@ function MyChildrenPage(props) {
       {error ? <p className="status-note">{error}</p> : null}
       {statusMessage ? <p className="panel-note panel-note--success">{statusMessage}</p> : null}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
-      <section className="metric-grid metric-grid--3">
-        <article className="metric-card">
-          <span>{t("mcMetricTotal")}</span>
-          <strong>{parentRequestSummary.total}</strong>
-        </article>
-        <article className="metric-card metric-card--warn">
-          <span>{t("mcMetricPending")}</span>
-          <strong>{parentRequestSummary.pending}</strong>
-        </article>
-        <article className="metric-card metric-card--accent">
-          <span>{t("mcMetricSelected")}</span>
-          <strong>{parentRequestSummary.retained + parentRequestSummary.validated}</strong>
-        </article>
-      </section>
+      {rowsToConfirm.length ? (
+        <div className="mc-callout" role="status">
+          <strong>{t("mcActionTitle")}</strong>
+          {rowsToConfirm.map((row) => (
+            <p key={row.requestId}>
+              {t("mcActionBody").replace("{name}", row.name)}
+              {row.confirmationDeadline ? (
+                <> <b>{t("mcActionDeadline").replace("{date}", formatDateForDisplay(row.confirmationDeadline))}</b></>
+              ) : null}
+            </p>
+          ))}
+        </div>
+      ) : null}
       <Panel title={t("mcPanelTitle")}>
-        <DataTable
-          columns={[
-            { key: "name", label: t("mcColChild") },
-            { key: "type", label: t("mcColType") },
-            { key: "status", label: t("mcColStatus") },
-            { key: "submittedAt", label: t("mcColSubmittedAt") },
-            { key: "position", label: t("mcColPosition") },
-            { key: "schedule", label: t("mcColSchedule") },
-            { key: "actions", label: t("mcColActions") },
-          ]}
-          rows={
-            loading
-              ? [{ name: t("mcLoading"), type: "-", status: "-", submittedAt: "-", position: "-", schedule: "-", actions: "-" }]
-              : parentRows.length
-                ? parentRows.map((row) => ({
-                    ...row,
-                    name: (
-                      <div className="table-stack">
-                        <strong>{row.name}</strong>
+        {loading ? (
+          <p className="parent-request-note">{t("mcLoading")}</p>
+        ) : !parentRows.length ? (
+          <p className="parent-request-note">{t("mcEmpty")}</p>
+        ) : (
+          <div className="mc-list">
+            {parentRows.map((row, index) => {
+              const statusKey = normalizeComparableValue(row.status);
+              const isWithdrawn = statusKey === "desiste";
+              const isAccepted = row.adminApprovalStatus === "approved" && (statusKey === "retenu" || statusKey === "valide");
+              const toConfirm = needsParentConfirmation(row);
+              const isConfirmed = row.parentDecisionStatus === "confirmed";
+              const isBusy = busyRequestId === row.requestId;
+
+              return (
+                <article
+                  key={row.requestId || `${row.name}-${index}`}
+                  className={`mc-card${toConfirm ? " mc-card--todo" : ""}${isWithdrawn ? " mc-card--muted" : ""}`}
+                >
+                  <header className="mc-card__head">
+                    <div className="mc-card__who">
+                      <strong>{row.name}</strong>
+                      <span>{formatParentRequestType(row.requestType, t)}</span>
+                    </div>
+                    <span className={getU14ParentStatusPillClass(row.status)}>{formatParentRequestStatus(row.status, t)}</span>
+                  </header>
+
+                  <dl className="mc-card__facts">
+                    <div>
+                      <dt>{t("mcColSchedule")}</dt>
+                      <dd>{formatParentRequestSchedule(row, t)}</dd>
+                    </div>
+                    {isAccepted || statusKey === "liste d'attente" ? (
+                      <div>
+                        <dt>{t("mcColPosition")}</dt>
+                        <dd>
+                          {isAccepted
+                            ? row.acceptedPosition
+                              ? t("mcAcceptedPosition").replace("{position}", row.acceptedPosition)
+                              : t("mcAccepted")
+                            : t("mcWaitlistPosition").replace("{position}", row.waitlistPosition || row.queuePosition || "?")}
+                        </dd>
                       </div>
-                    ),
-                    type: <span className="parent-request-type">{formatParentRequestType(row.requestType, t)}</span>,
-                    status: <span className={getU14ParentStatusPillClass(row.status)}>{formatParentRequestStatus(row.status, t)}</span>,
-                    submittedAt: (
-                      <div className="table-stack">
-                        <strong>{row.submittedAt}</strong>
+                    ) : null}
+                    {row.submittedAt ? (
+                      <div>
+                        <dt>{t("mcColSubmittedAt")}</dt>
+                        <dd>{row.submittedAt}</dd>
                       </div>
-                    ),
-                    position:
-                      row.adminApprovalStatus === "approved" &&
-                      (normalizeComparableValue(row.status) === "retenu" || normalizeComparableValue(row.status) === "valide")
-                        ? (
-                            <span className="status-pill status-pill--accent">
-                              {row.acceptedPosition ? t("mcAcceptedPosition").replace("{position}", row.acceptedPosition) : t("mcAccepted")}
-                            </span>
-                          )
-                        : row.status === "Liste d'attente"
-                          ? (
-                              <span className="status-pill status-pill--warn">
-                                {t("mcWaitlistPosition").replace("{position}", row.waitlistPosition || row.queuePosition || "?")}
-                              </span>
-                            )
-                          : "-",
-                    schedule: (
-                      <div className="table-stack">
-                        <strong>{formatParentRequestSchedule(row, t)}</strong>
-                        {row.practicalInfoText ? (
-                          <span className="parent-request-practical">{row.practicalInfoText}</span>
-                        ) : null}
-                        {row.adminApprovalStatus === "approved" &&
-                        row.parentDecisionStatus !== "confirmed" &&
-                        row.parentDecisionStatus !== "declined" &&
-                        row.confirmationDeadline ? (
-                          <span className="parent-request-note">
-                            {t("mcConfirmBefore").replace("{date}", formatDateForDisplay(row.confirmationDeadline))}
-                          </span>
-                        ) : null}
-                        {normalizeComparableValue(row.status) === "demande enregistree" &&
-                        normalizeComparableValue(row.adminApprovalStatus) !== "approved" &&
-                        normalizeComparableValue(row.requestType) !== "porte_panier" ? (
-                          <span className="parent-request-note">{t("mcAdminValidationPending")}</span>
-                        ) : null}
-                      </div>
-                    ),
-                    actions:
-                      !row.requestId || normalizeComparableValue(row.status) === "desiste" ? (
-                        "-"
-                      ) : (
-                        <div className="table-actions table-actions--inline parent-request-actions">
-                          {normalizeComparableValue(row.adminApprovalStatus) === "approved" &&
-                          row.adminApprovalStatus === "approved" &&
-                          row.parentDecisionStatus !== "confirmed" ? (
-                            <button
-                              className="button button--secondary button--small"
-                              type="button"
-                              disabled={busyRequestId === row.requestId}
-                              onClick={() => handleConfirmAttendance(row)}
-                            >
-                              {t("mcConfirmButton")}
-                            </button>
+                    ) : null}
+                  </dl>
+
+                  {statusKey === "demande enregistree" &&
+                  normalizeComparableValue(row.adminApprovalStatus) !== "approved" &&
+                  normalizeComparableValue(row.requestType) !== "porte_panier" ? (
+                    <p className="parent-request-note">{t("mcAdminValidationPending")}</p>
+                  ) : null}
+                  {statusKey === "liste d'attente" ? <p className="parent-request-note">{t("mcWaitlistNote")}</p> : null}
+                  {isConfirmed && !isWithdrawn ?<p className="mc-card__ok">✓ {t("mcConfirmedNote")}</p> : null}
+                  {row.practicalInfoText ? <p className="parent-request-practical">{row.practicalInfoText}</p> : null}
+
+                  {row.requestId && !isWithdrawn ? (
+                    <div className="mc-card__actions">
+                      {toConfirm ? (
+                        <>
+                          {row.confirmationDeadline ? (
+                            <p className="mc-card__deadline">
+                              {t("mcConfirmBefore").replace("{date}", formatDateForDisplay(row.confirmationDeadline))}
+                            </p>
                           ) : null}
-                          {normalizeComparableValue(row.status) !== "desiste" ? (
-                            <button
-                              className="button button--ghost-danger button--small"
-                              type="button"
-                              disabled={busyRequestId === row.requestId}
-                              onClick={() => handleDeclineAttendance(row)}
-                            >
-                              {t("mcWithdrawButton")}
-                            </button>
-                          ) : null}
-                        </div>
-                      ),
-                  }))
-                : [{ name: t("mcEmpty"), type: "-", status: "-", submittedAt: "-", position: "-", schedule: "-", actions: "-" }]
-          }
-        />
+                          <button
+                            className="button button--primary mc-card__confirm"
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleConfirmAttendance(row)}
+                          >
+                            {t("mcConfirmButton")}
+                          </button>
+                        </>
+                      ) : null}
+                      <button
+                        className="button button--ghost-danger button--small mc-card__withdraw"
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleDeclineAttendance(row)}
+                      >
+                        {t("mcWithdrawButton")}
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        )}
       </Panel>
       <div className="panel-actions">
         <button className="button" type="button" onClick={() => setIsAddChildOpen((current) => !current)}>

@@ -17,10 +17,10 @@ const DEFAULT_EDITION = "test";
 const DEFAULT_POOLS = { U12F: 3, U12M: 3, U14F: 6, U14M: 6 };
 const ADMIN_ROLES = ["admin", "gestionnaire"];
 const RACES = [
-  { code: "U12F60", label: "U12 Filles - 60 m", category: "U12", gender: "fille", capacity: 14 },
-  { code: "U12M60", label: "U12 Garçons - 60 m", category: "U12", gender: "garcon", capacity: 14 },
-  { code: "U14F60", label: "U14 Filles - 60 m", category: "U14", gender: "fille", capacity: 14 },
-  { code: "U14M60", label: "U14 Garçons - 60 m", category: "U14", gender: "garcon", capacity: 14 },
+  { code: "U12F60", label: "U12 Filles - 60 m", category: "U12", gender: "fille", capacity: 16 },
+  { code: "U12M60", label: "U12 Garçons - 60 m", category: "U12", gender: "garcon", capacity: 16 },
+  { code: "U14F60", label: "U14 Filles - 60 m", category: "U14", gender: "fille", capacity: 16 },
+  { code: "U14M60", label: "U14 Garçons - 60 m", category: "U14", gender: "garcon", capacity: 16 },
   { code: "U14F1000", label: "U14 Filles - 1000 m", category: "U14", gender: "fille", capacity: 14 },
   { code: "U14M1000", label: "U14 Garçons - 1000 m", category: "U14", gender: "garcon", capacity: 14 },
 ];

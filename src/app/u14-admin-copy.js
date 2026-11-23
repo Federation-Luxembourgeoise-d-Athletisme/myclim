@@ -16,7 +16,7 @@ const U14_ADMIN_COPY = {
       show: "Afficher",
       steps: [
         ["Inscription", "Les familles inscrivent leur enfant avec le lien /pre-programme : une seule course par enfant, le 1000 m seulement en U14. Les U16 peuvent être porte-panier seulement. C'est réservé aux licenciés des clubs luxembourgeois listés."],
-        ["Répartition automatique", "Chaque course a 14 places, attribuées par ordre d'arrivée. Au-delà, l'enfant passe en liste d'attente et monte tout seul dès qu'une place se libère."],
+        ["Répartition automatique", "Le 60 m a 16 places (2 séries de 8), le 1000 m 14 places, attribuées par ordre d'arrivée. Au-delà, l'enfant passe en liste d'attente et monte tout seul dès qu'une place se libère."],
         ["Retenir", "Dans « À faire » ou « Courses », cliquez sur « Retenir et envoyer le mail ». La famille reçoit l'acceptation et a 10 jours pour confirmer dans son espace « Mes enfants »."],
         ["Suivre les réponses", "Sans réponse après 10 jours, l'enfant passe « Sans réponse » : relancez la famille ou libérez la place. Le premier de la liste d'attente monte et est à retenir à son tour."],
         ["Places protégées", "Des places sont gardées pour les enfants invités (Challenge Tageblatt) jusqu'à la date limite. Ils s'inscrivent avec leur lien personnel et sont confirmés d'office ; le reste est rendu aux inscriptions le lendemain de la date limite."],
@@ -225,7 +225,7 @@ const U14_ADMIN_COPY = {
       show: "Show",
       steps: [
         ["Registration", "Families register their child with the /pre-programme link: one race per child, the 1000 m for U14 only. U16 can only be basket carriers. It is limited to licence holders of the listed Luxembourg clubs."],
-        ["Automatic allocation", "Each race has 14 places, given in order of arrival. After that, children go on the waiting list and move up on their own as soon as a place becomes free."],
+        ["Automatic allocation", "The 60 m has 16 places (2 heats of 8), the 1000 m 14 places, given in order of arrival. After that, children go on the waiting list and move up on their own as soon as a place becomes free."],
         ["Select", "In 'To do' or 'Races', click 'Select and send the email'. The family gets the acceptance email and has 10 days to confirm in their 'My children' space."],
         ["Follow the answers", "With no answer after 10 days, the child shows 'No answer': remind the family or release the place. The first child on the waiting list moves up and is then to be selected."],
         ["Protected places", "Places are held for invited children (Challenge Tageblatt) until the deadline. They register with their personal link and are confirmed straight away; what is left goes back to registrations the day after the deadline."],

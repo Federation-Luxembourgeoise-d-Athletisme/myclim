@@ -9,10 +9,10 @@ const U14_CONFIRMATION_DELAY_DAYS = 10;
 const U14_RESERVED_SLOTS_COLLECTION = "u14ProtectedEntries";
 const U14_PRACTICAL_INFO_DOC_PATH = ["appSettings", "u14PracticalInfo"];
 const U14_RACE_DEFINITIONS = [
-  { code: "U12F60", label: "U12 Filles - 60 m", category: "U12", gender: "fille", event: "60 m", totalCapacity: 14 },
-  { code: "U12M60", label: "U12 Garçons - 60 m", category: "U12", gender: "garcon", event: "60 m", totalCapacity: 14 },
-  { code: "U14F60", label: "U14 Filles - 60 m", category: "U14", gender: "fille", event: "60 m", totalCapacity: 14 },
-  { code: "U14M60", label: "U14 Garçons - 60 m", category: "U14", gender: "garcon", event: "60 m", totalCapacity: 14 },
+  { code: "U12F60", label: "U12 Filles - 60 m", category: "U12", gender: "fille", event: "60 m", totalCapacity: 16 },
+  { code: "U12M60", label: "U12 Garçons - 60 m", category: "U12", gender: "garcon", event: "60 m", totalCapacity: 16 },
+  { code: "U14F60", label: "U14 Filles - 60 m", category: "U14", gender: "fille", event: "60 m", totalCapacity: 16 },
+  { code: "U14M60", label: "U14 Garçons - 60 m", category: "U14", gender: "garcon", event: "60 m", totalCapacity: 16 },
   { code: "U14F1000", label: "U14 Filles - 1000 m", category: "U14", gender: "fille", event: "1000 m", totalCapacity: 14 },
   { code: "U14M1000", label: "U14 Garçons - 1000 m", category: "U14", gender: "garcon", event: "1000 m", totalCapacity: 14 },
 ];
