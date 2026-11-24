@@ -116,7 +116,12 @@ export function NotificationBell() {
         type="button"
         aria-expanded={open}
         aria-label={unreadCount ? tr(`Notifications (${unreadCount} non lues)`, `Notifications (${unreadCount} unread)`) : "Notifications"}
-        onClick={() => setOpen((current) => !current)}
+        onClick={(event) => {
+          // Utilisé sur téléphone, où le panneau est calé sur l'écran sous la cloche.
+          const bottom = event.currentTarget.getBoundingClientRect().bottom;
+          wrapperRef.current?.style.setProperty("--notif-top", `${Math.round(bottom + 8)}px`);
+          setOpen((current) => !current);
+        }}
       >
         <BellIcon />
         {unreadCount ? <span className="notif-bell__count">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}

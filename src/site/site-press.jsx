@@ -1,6 +1,34 @@
 import { NavLink } from "react-router-dom";
 import { usePublishedPressReleases } from "./site-hooks";
 
+// Fichiers servis depuis public/press-kit (copiés depuis le dossier Communication).
+const PRESS_KIT_ITEMS = [
+  {
+    icon: "🖼️",
+    label: "Official logos",
+    format: "PNG + SVG, colour and monochrome",
+    links: [["ZIP", "/press-kit/cmcm-lim-logos.zip"], ["PNG", "/press-kit/logos/cmcm-lim-logo-principal.png"]],
+  },
+  {
+    icon: "🪧",
+    label: "Official poster 2027",
+    format: "PDF, A5",
+    links: [["EN", "/press-kit/cmcm-lim-2027-poster-en.pdf"], ["FR", "/press-kit/cmcm-lim-2027-poster-fr.pdf"]],
+  },
+  {
+    icon: "📸",
+    label: "Photo gallery",
+    format: "All editions, by photographer · © FLA",
+    links: [["Browse", "/gallery", false]],
+  },
+  {
+    icon: "📋",
+    label: "Meeting factsheet 2027",
+    format: "PDF, A4 · key facts, programme, records",
+    links: [["PDF", "/press-kit/cmcm-lim-2027-factsheet.pdf"]],
+  },
+];
+
 function formatDate(ts) {
   if (!ts) return "";
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -179,12 +207,7 @@ export function SitePress() {
               }}>
                 <h3 style={{ fontSize: "0.875rem", fontWeight: 700, marginBottom: 16 }}>Press kit</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {[
-                    ["🖼️", "Official logos", "Vector formats"],
-                    ["📸", "Photo gallery", "High resolution"],
-                    ["📋", "Meeting factsheet", "PDF"],
-                    ["📞", "Media contacts", "PDF"],
-                  ].map(([icon, label, format]) => (
+                  {PRESS_KIT_ITEMS.map(({ icon, label, format, links }) => (
                     <div
                       key={label}
                       style={{
@@ -193,7 +216,6 @@ export function SitePress() {
                         gap: 12,
                         padding: "12px 0",
                         borderBottom: "1px solid var(--site-border)",
-                        cursor: "default",
                       }}
                     >
                       <span>{icon}</span>
@@ -201,13 +223,28 @@ export function SitePress() {
                         <div style={{ fontSize: "0.875rem", color: "var(--site-text)" }}>{label}</div>
                         <div style={{ fontSize: "0.75rem", color: "var(--site-text-dim)" }}>{format}</div>
                       </div>
-                      <span style={{ fontSize: "0.72rem", color: "var(--site-text-dim)" }}>On request</span>
+                      {links ? (
+                        <span style={{ display: "flex", gap: 10 }}>
+                          {links.map(([text, href, isDownload = true]) => (
+                            <a
+                              key={href}
+                              href={href}
+                              download={isDownload || undefined}
+                              style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--site-red)", whiteSpace: "nowrap" }}
+                            >
+                              {text} {isDownload ? "↓" : "→"}
+                            </a>
+                          ))}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: "0.72rem", color: "var(--site-text-dim)" }}>On request</span>
+                      )}
                     </div>
                   ))}
                 </div>
                 <p style={{ fontSize: "0.8rem", color: "var(--site-text-muted)", marginTop: 16, lineHeight: 1.6 }}>
-                  Press kit available upon accreditation approval.
-                  Contact the press office to request assets before accreditation.
+                  Everything here is free to use for coverage of the meeting
+                  (photos credited © FLA).
                 </p>
               </div>
 
