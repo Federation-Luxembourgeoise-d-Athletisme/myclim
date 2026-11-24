@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  Fiche presse 2027 (A4, une page), selon la charte graphique 2026 : rouge #E10A17,
+  bleu #009EDA, bleu nuit #14438F, Roboto. Exportée en PDF vers
+  public/press-kit/cmcm-lim-2027-factsheet.pdf avec Edge headless :
+  msedge --headless --print-to-pdf=... --no-pdf-header-footer design/press-kit/factsheet-2027.html
+  Sources : site en ligne (page The Event, Statistics, chiffres clés 2026), novembre 2026.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CMCM Luxembourg Indoor Meeting 2027 · Media factsheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=block" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --red: #E10A17; --blue: #009EDA; --night: #14438F; --ink: #000; --muted: #555; --line: #e3e3e3; --soft: #f3f4f6; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 210mm; height: 297mm; }
+  body { font-family: Roboto, Arial, sans-serif; color: var(--ink); font-size: 9pt; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; }
+  .page { width: 210mm; height: 297mm; display: flex; flex-direction: column; overflow: hidden; }
+
+  header { background: var(--red); color: #fff; padding: 9mm 14mm 7.5mm; display: flex; align-items: center; gap: 9mm; }
+  header img { height: 25mm; display: block; }
+  header .kicker { font-size: 8pt; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; opacity: .9; }
+  header h1 { font-size: 25pt; font-weight: 900; line-height: 1.02; margin: 2mm 0 2.5mm; }
+  header .sub { font-size: 10.5pt; font-weight: 500; }
+
+  .keyband { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--night); color: #fff; }
+  .keyband div { padding: 3.4mm 5mm 3.4mm 14mm; border-right: 1px solid rgba(255,255,255,.18); }
+  .keyband div + div { padding-left: 5mm; }
+  .keyband div:last-child { border-right: 0; }
+  .keyband b { display: block; font-size: 11.5pt; font-weight: 900; }
+  .keyband span { font-size: 7.5pt; opacity: .85; text-transform: uppercase; letter-spacing: .06em; }
+
+  main { flex: 0 0 auto; padding: 6mm 14mm 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4.6mm 9mm; align-content: start; }
+  h2 { font-size: 10.5pt; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2.6mm; padding-bottom: 1.4mm; border-bottom: 2px solid var(--red); }
+  h2.blue { border-color: var(--blue); }
+  p + p { margin-top: 1.8mm; }
+  .full { grid-column: 1 / -1; }
+
+  .numbers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+  .numbers div { background: var(--soft); border-radius: 3mm; padding: 2.4mm 3mm; display: flex; align-items: baseline; gap: 2.4mm; }
+  .numbers b { font-size: 17pt; font-weight: 900; color: var(--red); line-height: 1; }
+  .numbers span { font-size: 7.5pt; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 8.4pt; }
+  th { text-align: left; font-size: 7pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 0 1.5mm 1.2mm 0; }
+  td { padding: .9mm 1.5mm .9mm 0; border-top: 1px solid var(--line); vertical-align: top; }
+  td.perf { font-weight: 700; white-space: nowrap; }
+  td.lux { color: var(--red); font-weight: 700; }
+  .tag { display: inline-block; font-size: 6.8pt; font-weight: 700; padding: .3mm 1.4mm; border-radius: 2mm; background: var(--blue); color: #000; margin-left: 1mm; vertical-align: 1px; }
+
+  .events { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+  .events div { background: var(--soft); border-radius: 3mm; padding: 2.8mm 3.2mm; }
+  .events h3 { font-size: 8pt; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 1mm; }
+  .events ul { list-style: none; }
+  .events li { padding: .15mm 0; }
+  .prize { margin-top: 2.6mm; font-size: 8.2pt; }
+  .prize b { font-weight: 900; }
+
+  .schedule li { list-style: none; display: flex; gap: 3mm; padding: 1mm 0; border-top: 1px solid var(--line); }
+  .schedule li:first-child { border-top: 0; }
+  .schedule time { font-weight: 900; min-width: 11mm; color: var(--night); }
+
+  .media { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+  .media div { border: 1px solid var(--line); border-radius: 3mm; padding: 2.8mm 3.2mm; }
+  .media h3 { font-size: 8.4pt; font-weight: 700; margin-bottom: .8mm; }
+  .media p { font-size: 8pt; color: #222; }
+  a { color: var(--night); text-decoration: none; font-weight: 700; }
+
+  footer { margin-top: auto; padding: 3.6mm 14mm; background: var(--soft); display: flex; justify-content: space-between; align-items: center; font-size: 8pt; color: var(--muted); }
+  footer b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <img src="../../public/press-kit/logos/cmcm-lim-logo-principal.png" alt="CMCM Luxembourg Indoor Meeting">
+    <div>
+      <div class="kicker">Media factsheet · 24th edition</div>
+      <h1>CMCM Luxembourg<br>Indoor Meeting 2027</h1>
+      <div class="sub">Sunday 17 January 2027 · Coque, Luxembourg-Kirchberg</div>
+    </div>
+  </header>
+
+  <div class="keyband">
+    <div><b>WA Silver</b><span>World Athletics Indoor Tour</span></div>
+    <div><b>Since 2003</b><span>24 editions</span></div>
+    <div><b>FLA</b><span>Organiser</span></div>
+    <div><b>16:00</b><span>International meeting</span></div>
+  </div>
+
+  <main>
+    <section class="full">
+      <h2>The meeting</h2>
+      <p>The CMCM Luxembourg Indoor Meeting is Luxembourg's leading international indoor athletics event. Organised by the Fédération Luxembourgeoise d'Athlétisme (FLA) at the Coque, the national sports and culture centre, it brings world-class athletes, Luxembourg's best and young talents together for one afternoon of competition. The meeting has held a World Athletics Indoor Tour Silver label since 2025, after Bronze from 2021 to 2024.</p>
+    </section>
+
+    <section class="full">
+      <h2 class="blue">2026 edition in numbers</h2>
+      <div class="numbers">
+        <div><b>142</b><span>Athletes</span></div>
+        <div><b>41</b><span>Countries</span></div>
+        <div><b>2,500</b><span>Spectators</span></div>
+        <div><b>4</b><span>World leads</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>2027 international programme</h2>
+      <div class="events">
+        <div><h3>Women</h3><ul><li>60 m</li><li>60 m hurdles</li><li>200 m</li><li>800 m</li><li>3000 m</li><li>Pole vault</li></ul></div>
+        <div><h3>Men</h3><ul><li>60 m hurdles</li><li>400 m</li><li>800 m</li><li>1500 m</li><li>3000 m</li><li>Long jump</li></ul></div>
+      </div>
+      <p class="prize"><b>Prize money per event:</b> €1,500 · €1,000 · €700 · €500 · €300 · €200 (places 1–6).</p>
+    </section>
+
+    <section>
+      <h2 class="blue">Day schedule</h2>
+      <ul class="schedule">
+        <li><time>14:00</time><span>Doors open</span></li>
+        <li><time>14:30</time><span>Pre-programme: national and youth races</span></li>
+        <li><time>16:00</time><span>Official opening, international meeting</span></li>
+        <li><time>~19:00</time><span>End of the meeting</span></li>
+      </ul>
+      <p style="margin-top:2.4mm;color:var(--muted);font-size:8pt">Detailed timetable on the website, times subject to change. Livestream and live results on competition day.</p>
+    </section>
+
+    <section class="full">
+      <h2>Meeting records in the 2027 events</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 9mm">
+        <table>
+          <tr><th>Women</th><th>Athlete</th><th>Mark</th><th>Year</th></tr>
+          <tr><td>60 m</td><td class="lux">Patrizia Van der Weken (LUX)</td><td class="perf">7.07</td><td>2025</td></tr>
+          <tr><td>60 m H</td><td>Natalia Christofi (CYP)</td><td class="perf">7.92</td><td>2023</td></tr>
+          <tr><td>200 m</td><td>Jessica-Bianca Wessolly (GER)</td><td class="perf">22.84</td><td>2025</td></tr>
+          <tr><td>800 m</td><td class="lux">Fanny Arendt (LUX)</td><td class="perf">2:00.83</td><td>2026</td></tr>
+          <tr><td>Pole vault</td><td>Angelica Moser (SUI)</td><td class="perf">4.65 m</td><td>2025</td></tr>
+          <tr><td>3000 m</td><td colspan="3" style="color:var(--muted)">No meeting record yet</td></tr>
+        </table>
+        <table>
+          <tr><th>Men</th><th>Athlete</th><th>Mark</th><th>Year</th></tr>
+          <tr><td>60 m H</td><td>Jakub Szymański (POL)</td><td class="perf">7.41</td><td>2025</td></tr>
+          <tr><td>400 m</td><td>Jean Paul Bredau (GER)</td><td class="perf">45.94</td><td>2026</td></tr>
+          <tr><td>800 m</td><td>Elvin Josué Canales (ESP)</td><td class="perf">1:44.65</td><td>2025</td></tr>
+          <tr><td>1500 m</td><td>Pieter Sisk (BEL)</td><td class="perf">3:34.63</td><td>2026</td></tr>
+          <tr><td>3000 m</td><td>Florian Bremm (GER)</td><td class="perf">7:39.01</td><td>2025</td></tr>
+          <tr><td>Long jump</td><td>Peter Rapp (GER)</td><td class="perf">8.03 m</td><td>2008</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="full">
+      <h2 class="blue">For the media</h2>
+      <div class="media">
+        <div><h3>Accreditation</h3><p>Apply online on the Press page of the website. Requests are reviewed by the press office.</p></div>
+        <div><h3>Press kit</h3><p>Logos, official poster and photo gallery (© FLA) free to use for coverage of the meeting.</p></div>
+        <div><h3>Press office</h3><p><a href="mailto:communication@fla.lu">communication@fla.lu</a><br>Fédération Luxembourgeoise d'Athlétisme</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span><b>cmcm-luxembourg-indoor-meeting.lu</b> · /press · /gallery · /statistics</span>
+    <span>Figures as of November 2026</span>
+  </footer>
+</div>
+</body>
+</html>

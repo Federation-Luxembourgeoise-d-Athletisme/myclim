@@ -21,7 +21,12 @@ const PRESS_KIT_ITEMS = [
     format: "All editions, by photographer · © FLA",
     links: [["Browse", "/gallery", false]],
   },
-  { icon: "📋", label: "Meeting factsheet", format: "PDF" },
+  {
+    icon: "📋",
+    label: "Meeting factsheet 2027",
+    format: "PDF, A4 · key facts, programme, records",
+    links: [["PDF", "/press-kit/cmcm-lim-2027-factsheet.pdf"]],
+  },
 ];
 
 function formatDate(ts) {
@@ -238,8 +243,8 @@ export function SitePress() {
                   ))}
                 </div>
                 <p style={{ fontSize: "0.8rem", color: "var(--site-text-muted)", marginTop: 16, lineHeight: 1.6 }}>
-                  Logos, poster and photos are free to use for coverage of the meeting
-                  (photos credited © FLA). The factsheet is sent upon accreditation approval.
+                  Everything here is free to use for coverage of the meeting
+                  (photos credited © FLA).
                 </p>
               </div>
 
