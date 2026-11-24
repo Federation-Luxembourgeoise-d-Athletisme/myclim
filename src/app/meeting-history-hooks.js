@@ -30,6 +30,11 @@ const FIELD_DISCIPLINES = new Set([
   "Triple Jump",
 ]);
 
+// Concours, variantes para comprises (« Shot Put F42 », « Shot Put F63 ») :
+// la meilleure marque y est la plus grande, pas la plus petite.
+const isFieldDiscipline = (discipline) =>
+  [...FIELD_DISCIPLINES].some((name) => String(discipline || "").toLowerCase().startsWith(name.toLowerCase()));
+
 const normalizeDisciplineKey = (discipline) =>
   String(discipline || "")
     .replace(/(\d)\s+(m\b)/gi, "$1$2")
@@ -110,8 +115,9 @@ function isOfficialResult(result) {
   return String(result?.round || "").toLowerCase() !== "heat";
 }
 
+// Un record du meeting compte dans tous les tours, séries comprises
+// (ex. Fourie, 60 m haies 2025 : 7.91 en série, 7.98 en finale).
 function isValidForRecords(result) {
-  if (!isOfficialResult(result)) return false;
   const status = String(result?.status || "").toUpperCase();
   return !status || status === "OK";
 }
@@ -120,7 +126,7 @@ function toComparableMark(result, discipline) {
   const raw = String(result || "").trim();
   if (!raw) return null;
 
-  if (FIELD_DISCIPLINES.has(discipline)) {
+  if (isFieldDiscipline(discipline)) {
     const numeric = Number(raw.replace(/\s*m$/i, "").replace(",", "."));
     return Number.isFinite(numeric) ? numeric : null;
   }
@@ -144,7 +150,7 @@ function compareRecordCandidates(a, b) {
   if (aValue == null) return 1;
   if (bValue == null) return -1;
 
-  if (FIELD_DISCIPLINES.has(a.discipline)) {
+  if (isFieldDiscipline(a.discipline)) {
     return bValue - aValue;
   }
 
@@ -154,7 +160,7 @@ function compareRecordCandidates(a, b) {
 function formatRecordMark(result, discipline) {
   const raw = String(result || "").trim();
   if (!raw) return "";
-  if (FIELD_DISCIPLINES.has(discipline)) {
+  if (isFieldDiscipline(discipline)) {
     return raw.endsWith(" m") ? raw : `${raw} m`;
   }
   return raw.replace(":", ".");
