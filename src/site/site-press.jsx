@@ -15,7 +15,12 @@ const PRESS_KIT_ITEMS = [
     format: "PDF, A5",
     links: [["EN", "/press-kit/cmcm-lim-2027-poster-en.pdf"], ["FR", "/press-kit/cmcm-lim-2027-poster-fr.pdf"]],
   },
-  { icon: "📸", label: "Photo gallery", format: "High resolution" },
+  {
+    icon: "📸",
+    label: "Photo gallery",
+    format: "All editions, by photographer · © FLA",
+    links: [["Browse", "/gallery", false]],
+  },
   { icon: "📋", label: "Meeting factsheet", format: "PDF" },
 ];
 
@@ -215,14 +220,14 @@ export function SitePress() {
                       </div>
                       {links ? (
                         <span style={{ display: "flex", gap: 10 }}>
-                          {links.map(([text, href]) => (
+                          {links.map(([text, href, isDownload = true]) => (
                             <a
                               key={href}
                               href={href}
-                              download
+                              download={isDownload || undefined}
                               style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--site-red)", whiteSpace: "nowrap" }}
                             >
-                              {text} ↓
+                              {text} {isDownload ? "↓" : "→"}
                             </a>
                           ))}
                         </span>
@@ -233,8 +238,8 @@ export function SitePress() {
                   ))}
                 </div>
                 <p style={{ fontSize: "0.8rem", color: "var(--site-text-muted)", marginTop: 16, lineHeight: 1.6 }}>
-                  Logos and the 2027 poster are free to use for coverage of the meeting.
-                  Photos and the factsheet are sent upon accreditation approval.
+                  Logos, poster and photos are free to use for coverage of the meeting
+                  (photos credited © FLA). The factsheet is sent upon accreditation approval.
                 </p>
               </div>
 
