@@ -261,3 +261,17 @@
   border-radius: 10px;
   font: inherit;
 }
+
+/* Sur téléphone, la cloche n'est pas au bord droit (l'avatar est à côté) :
+   ancré à la cloche, le panneau débordait à gauche de l'écran. On le cale sur
+   l'écran, juste sous la cloche (--notif-top, posé à l'ouverture). */
+@media (max-width: 640px) {
+  .notif-popover {
+    position: fixed;
+    top: var(--notif-top, 72px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: calc(100dvh - var(--notif-top, 72px) - 12px - env(safe-area-inset-bottom));
+  }
+}
