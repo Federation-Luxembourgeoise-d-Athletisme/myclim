@@ -89,6 +89,7 @@ export function SiteLayout() {
     location.pathname === "/partners" ? "site-page--partners" : "",
     location.pathname === "/become-a-partner" ? "site-page--sponsorship" : "",
     showTicketBar ? "site-page--ticket-bar" : "",
+    mobileOpen ? "site-page--menu-open" : "",
   ]
     .filter(Boolean)
     .join(" ");

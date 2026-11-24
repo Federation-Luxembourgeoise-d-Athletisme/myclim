@@ -430,14 +430,28 @@
   top: var(--site-nav-h);
   left: 0;
   right: 0;
+  /* Toute la hauteur restante, avec son propre défilement : sur un petit
+     téléphone, le bas du menu (Partner with us, Login) restait hors écran
+     alors que la page derrière est bloquée. */
+  bottom: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--site-border);
-  padding: 16px var(--site-section-px) 24px;
+  padding: 16px var(--site-section-px) calc(24px + env(safe-area-inset-bottom));
   z-index: 99;
   flex-direction: column;
   gap: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.site-nav__mobile > * {
+  flex-shrink: 0;
+}
+
+/* Le bouton « Buy tickets » collé en bas passait par-dessus le menu ouvert. */
+.site-page--menu-open .site-mobile-ticket {
+  display: none !important;
 }
 
 .site-nav__mobile--open {
