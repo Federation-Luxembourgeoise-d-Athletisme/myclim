@@ -35,7 +35,8 @@ import {
   normalizeVipPlacesCap,
   normalizeVipPortalContacts,
   parseVipPlacesCap,
-  vipPortalAllowsCompanions,
+  getVipPortalCompanionMode,
+  vipCompanionModeFields,
   findMatchingVipInvitation,
   findMatchingVipRegistration,
   getVipTourChoiceLabel,
@@ -619,7 +620,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       meetingContact: getVipPortalMeetingContact(portal),
       vipPlacesCap: normalizeVipPlacesCap(portal.vipPlacesCap) ?? "",
       standardPlacesCap: normalizeVipPlacesCap(portal.standardPlacesCap) ?? "",
-      companionsAllowed: vipPortalAllowsCompanions(portal),
+      ...vipCompanionModeFields(getVipPortalCompanionMode(portal)),
       accessPassword: partnerPortalSecrets[portal.id] || "",
       notes: portal.notes || "",
     });
@@ -675,7 +676,7 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
       contactEmail: mainContact.email,
       vipPlacesCap: parseVipPlacesCap(partnerPortalForm.vipPlacesCap),
       standardPlacesCap: parseVipPlacesCap(partnerPortalForm.standardPlacesCap),
-      companionsAllowed: partnerPortalForm.companionsAllowed !== false,
+      ...vipCompanionModeFields(getVipPortalCompanionMode(partnerPortalForm)),
       hasPassword: Boolean(trimmedPassword),
       notes: partnerPortalForm.notes,
       updatedAt: serverTimestamp(),
@@ -1813,12 +1814,13 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
               </AuthFormField>
               <AuthFormField label={t("vipFieldCompanions")} hint={t("vipFieldCompanionsHint")}>
                 <select
-                  name="companionsAllowed"
-                  value={partnerPortalForm.companionsAllowed === false ? "no" : "yes"}
-                  onChange={(event) => setPartnerPortalForm((current) => ({ ...current, companionsAllowed: event.target.value === "yes" }))}
+                  name="companionMode"
+                  value={getVipPortalCompanionMode(partnerPortalForm)}
+                  onChange={(event) => setPartnerPortalForm((current) => ({ ...current, ...vipCompanionModeFields(event.target.value) }))}
                 >
-                  <option value="yes">{t("vipCompanionsYes")}</option>
-                  <option value="no">{t("vipCompanionsNo")}</option>
+                  <option value="extra">{t("vipCompanionsYes")}</option>
+                  <option value="included">{t("vipCompanionsIncluded")}</option>
+                  <option value="none">{t("vipCompanionsNo")}</option>
                 </select>
               </AuthFormField>
               <AuthFormField label={t("vipFieldPassword")} hint={t("vipFieldPasswordHint")}>
@@ -1959,19 +1961,19 @@ function VipAdminPage({ Panel, loadMailQueueModule }) {
                           <span>
                             {t("vipPlacesVip")} : {formatPlaces(portal.places.used.vip, portal.places.caps.vip)}{" "}
                             <span className="vip-table-muted">
-                              {t("vipInvitationsShort")} · {portal.places.seats.vip} {t("vipPeopleShort")}
+                              {portal.places.unit === "people" ? t("vipPeopleInQuotaShort") : `${t("vipInvitationsShort")} · ${portal.places.seats.vip} ${t("vipPeopleShort")}`}
                             </span>
                           </span>
                           {portal.places.caps.standard > 0 || portal.places.used.standard ? (
                             <span>
                               {t("vipPlacesStandard")} : {formatPlaces(portal.places.used.standard, portal.places.caps.standard)}{" "}
                               <span className="vip-table-muted">
-                                {t("vipInvitationsShort")} · {portal.places.seats.standard} {t("vipPeopleShort")}
+                                {portal.places.unit === "people" ? t("vipPeopleInQuotaShort") : `${t("vipInvitationsShort")} · ${portal.places.seats.standard} ${t("vipPeopleShort")}`}
                               </span>
                             </span>
                           ) : null}
                           <span className="vip-table-muted">
-                            {vipPortalAllowsCompanions(portal) ? t("vipCompanionsYesShort") : t("vipCompanionsNoShort")}
+                            {t({ none: "vipCompanionsNoShort", extra: "vipCompanionsYesShort", included: "vipCompanionsIncludedShort" }[getVipPortalCompanionMode(portal)])}
                           </span>
                         </div>
                       </td>

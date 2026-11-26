@@ -75,6 +75,42 @@ test("partner portal places: caps, place types and legacy contacts", async () =>
   ]);
 });
 
+test("partner portal companions counted in the quota (CMCM: 45 places, +1 included)", async () => {
+  const {
+    computeVipPortalPlaces,
+    computeVipMissingPlaces,
+    getVipPortalCompanionMode,
+    vipCompanionModeFields,
+  } = await import("../src/app/vip-helpers.js");
+
+  assert.equal(getVipPortalCompanionMode({}), "extra");
+  assert.equal(getVipPortalCompanionMode({ companionsAllowed: false, companionsInQuota: true }), "none");
+  assert.equal(getVipPortalCompanionMode({ companionsInQuota: true }), "included");
+  assert.deepEqual(vipCompanionModeFields("included"), { companionsAllowed: true, companionsInQuota: true });
+  assert.deepEqual(vipCompanionModeFields("none"), { companionsAllowed: false, companionsInQuota: false });
+
+  const cmcm = { vipPlacesCap: 5, companionsInQuota: true };
+  const entries = [
+    { id: "a", firstName: "A", hasCompanion: true },
+    { id: "b", firstName: "B", guestFirstName: "Bea" },
+  ];
+  const places = computeVipPortalPlaces(cmcm, entries);
+  assert.equal(places.unit, "people");
+  assert.deepEqual(places.used, { vip: 4, standard: 0 });
+  assert.equal(places.remaining.vip, 1);
+
+  // 1 place left: a guest alone fits, a guest with a +1 is 1 place short.
+  assert.equal(computeVipMissingPlaces(cmcm, entries, "vip", { firstName: "C" }), 0);
+  assert.equal(computeVipMissingPlaces(cmcm, entries, "vip", { firstName: "C", hasCompanion: true }), 1);
+  // Editing "a" to drop its +1 frees a place; keeping it costs nothing new.
+  assert.equal(computeVipMissingPlaces(cmcm, entries, "vip", { firstName: "A", hasCompanion: true }, "a"), 0);
+
+  // Default mode: the quota still counts invitations.
+  const rtl = { vipPlacesCap: 2 };
+  assert.equal(computeVipPortalPlaces(rtl, entries).used.vip, 2);
+  assert.equal(computeVipMissingPlaces(rtl, entries, "vip", { firstName: "C" }), 1);
+});
+
 test("partner portal meeting contact falls back to Margot", async () => {
   const { getVipPortalMeetingContact } = await import("../src/app/vip-helpers.js");
   assert.equal(getVipPortalMeetingContact({}).email, "margot.laporte@fla.lu");
