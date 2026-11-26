@@ -155,6 +155,7 @@ function createEmptyVipPartnerPortalData(overrides = {}) {
     vipPlacesCap: "",
     standardPlacesCap: "",
     companionsAllowed: true,
+    companionsInQuota: false,
     accessPassword: "",
     notes: "",
     ...overrides,
@@ -289,15 +290,48 @@ function vipPortalAllowsCompanions(portal = {}) {
   return portal.companionsAllowed !== false;
 }
 
-// Le quota compte les invitations (invités principaux) ; chaque invitation
-// peut amener 1 accompagnant si le portail l'autorise, donc un quota de 10
-// donne jusqu'à 20 places. `seats` = personnes réellement inscrites.
+// Mode des accompagnants d'un portail :
+// - "none" : pas d'accompagnant ;
+// - "extra" : 1 accompagnant par invitation, en plus du quota (RTL : 10 invitations = 20 places) ;
+// - "included" : l'accompagnant prend une place du quota, qui compte alors des
+//   personnes (CMCM : 45 places, +1 compris).
+const VIP_COMPANION_MODES = ["none", "extra", "included"];
+
+function getVipPortalCompanionMode(portal = {}) {
+  if (!vipPortalAllowsCompanions(portal)) return "none";
+  return portal.companionsInQuota ? "included" : "extra";
+}
+
+// Champs Firestore d'un mode (companionsAllowed / companionsInQuota).
+function vipCompanionModeFields(mode) {
+  return {
+    companionsAllowed: mode !== "none",
+    companionsInQuota: mode === "included",
+  };
+}
+
+// Le quota compte des personnes (et non des invitations) quand les +1 y sont compris.
+function vipPortalQuotaCountsPeople(portal = {}) {
+  return getVipPortalCompanionMode(portal) === "included";
+}
+
+// Places du quota prises par une fiche : 1 par invitation, ou 1-2 personnes
+// quand le quota compte des personnes.
+function countVipEntryQuotaPlaces(portal = {}, entry = {}) {
+  return vipPortalQuotaCountsPeople(portal) ? countVipEntryPlaces(entry) : 1;
+}
+
+// Par défaut le quota compte les invitations (invités principaux) ; chaque
+// invitation peut amener 1 accompagnant si le portail l'autorise, donc un quota
+// de 10 donne jusqu'à 20 places. En mode "included", le quota compte les
+// personnes, +1 compris. `used` = places du quota prises, `seats` = personnes
+// réellement inscrites, `unit` = "people" | "invitations".
 function computeVipPortalPlaces(portal = {}, entries = []) {
   const used = { vip: 0, standard: 0 };
   const seats = { vip: 0, standard: 0 };
   entries.forEach((entry) => {
     const type = getVipEntryPlaceType(entry);
-    used[type] += 1;
+    used[type] += countVipEntryQuotaPlaces(portal, entry);
     seats[type] += countVipEntryPlaces(entry);
   });
   // VIP sans plafond = illimité (null) ; places normales sans plafond = aucune (0).
@@ -306,7 +340,19 @@ function computeVipPortalPlaces(portal = {}, entries = []) {
     vip: caps.vip === null ? null : Math.max(0, caps.vip - used.vip),
     standard: caps.standard === null ? null : Math.max(0, caps.standard - used.standard),
   };
-  return { used, seats, caps, remaining };
+  const unit = vipPortalQuotaCountsPeople(portal) ? "people" : "invitations";
+  return { used, seats, caps, remaining, unit };
+}
+
+// Places manquantes pour enregistrer `entry` (nouvelle fiche, ou fiche
+// `excludeId` modifiée) dans le type `type` ; 0 quand elle tient dans le quota.
+function computeVipMissingPlaces(portal = {}, entries = [], type = "vip", entry = {}, excludeId = "") {
+  const cap = getVipPortalCaps(portal).total[type];
+  if (cap === null) return 0;
+  const usedByOthers = entries
+    .filter((item) => item.id !== excludeId && getVipEntryPlaceType(item) === type)
+    .reduce((sum, item) => sum + countVipEntryQuotaPlaces(portal, item), 0);
+  return Math.max(0, usedByOthers + countVipEntryQuotaPlaces(portal, entry) - cap);
 }
 
 function buildVipPortalId(value) {
@@ -376,8 +422,14 @@ export {
   createEmptyVipInvitationData,
   createEmptyVipPartnerPortalData,
   createEmptyVipPortalContact,
+  VIP_COMPANION_MODES,
   computeVipPortalPlaces,
+  computeVipMissingPlaces,
   countVipEntryPlaces,
+  countVipEntryQuotaPlaces,
+  getVipPortalCompanionMode,
+  vipCompanionModeFields,
+  vipPortalQuotaCountsPeople,
   vipEntryHasCompanion,
   vipPortalAllowsCompanions,
   getVipEntryPlaceType,

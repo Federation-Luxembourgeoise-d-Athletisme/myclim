@@ -22,7 +22,7 @@ import {
 } from "./business-race-helpers";
 import { getBusinessRaceCopy } from "./business-race-copy";
 import { useBusinessRaceSettings } from "./business-race-settings";
-import { buildVipRegistrationPayload, getVipEntryPlaceType, getVipPortalCaps } from "./vip-helpers";
+import { buildVipRegistrationPayload, countVipEntryQuotaPlaces, getVipEntryPlaceType, getVipPortalCaps } from "./vip-helpers";
 
 function formatPortalDate(isoDate, language) {
   if (!isoDate) return "";
@@ -351,9 +351,14 @@ function BusinessRaceTeamsSection({ language, portalId, portal, organization, en
   const vip = {
     enabled: vipCap === null || vipCap > 0,
     cap: vipCap,
-    usedOutside: (teamNumber) => vipEntries.filter((entry) => !String(entry.id).startsWith(`br-runner-${teamNumber}-`)).length,
+    // Places du quota : 1 par invitation, ou par personne quand les +1 y sont compris.
+    usedOutside: (teamNumber) =>
+      vipEntries
+        .filter((entry) => !String(entry.id).startsWith(`br-runner-${teamNumber}-`))
+        .reduce((sum, entry) => sum + countVipEntryQuotaPlaces(portal || {}, entry), 0),
   };
-  const vipLeft = vipCap === null ? null : Math.max(0, vipCap - vipEntries.length);
+  const vipUsedTotal = vipEntries.reduce((sum, entry) => sum + countVipEntryQuotaPlaces(portal || {}, entry), 0);
+  const vipLeft = vipCap === null ? null : Math.max(0, vipCap - vipUsedTotal);
   const [storedTeams, setStoredTeams] = useState(isDemo ? DEMO_TEAMS : []);
   const [loading, setLoading] = useState(!isDemo);
 

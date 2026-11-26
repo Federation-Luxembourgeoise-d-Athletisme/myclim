@@ -27,6 +27,7 @@ import {
   buildVipFullName,
   buildVipRegistrationPayload,
   computeVipPortalPlaces,
+  computeVipMissingPlaces,
   vipEntryHasCompanion,
   vipPortalAllowsCompanions,
   createEmptyVipFormData,
@@ -549,6 +550,9 @@ const PORTAL_COPY = {
     placeStandard: "Normale",
     kpiPlacesVip: "Invitations VIP",
     kpiPlacesStandard: "Invitations normales",
+    kpiPlacesVipPeople: "Places VIP",
+    kpiPlacesStandardPeople: "Places normales",
+    peopleNote: "personnes, +1 compris",
     colPlace: "Place",
     unlimited: "sans limite",
     onRequest: "sur demande",
@@ -561,6 +565,8 @@ const PORTAL_COPY = {
     companionHint: "Les badges VIP étant nominatifs, merci d'indiquer autant que possible le prénom et le nom de l'accompagnant. S'il n'est pas encore connu, laissez vide : vous pourrez le compléter plus tard.",
     withCompanion: "Avec accompagnant",
     introCompanion: "Chaque invitation donne droit à 1 accompagnant. Les badges VIP étant nominatifs, merci d'indiquer autant que possible son prénom et son nom.",
+    introCompanionIncluded: "Chaque invité peut venir avec 1 accompagnant, qui compte dans vos places : un invité avec accompagnant prend 2 places. Les badges VIP étant nominatifs, merci d'indiquer autant que possible son prénom et son nom.",
+    quotaReachedPeople: "Plus assez de places {type} ({used} / {cap} personnes, accompagnants compris ; un invité avec accompagnant prend 2 places). Pour ajouter d'autres invités, demandez des places supplémentaires.",
     seatsNote: "{n} pers. avec accompagnants",
     requestPlaces: "Demander des places supplémentaires",
     requestTitle: "Demande de places supplémentaires",
@@ -637,6 +643,9 @@ const PORTAL_COPY = {
     placeStandard: "Standard",
     kpiPlacesVip: "VIP invitations",
     kpiPlacesStandard: "Standard invitations",
+    kpiPlacesVipPeople: "VIP places",
+    kpiPlacesStandardPeople: "Standard places",
+    peopleNote: "people, +1 included",
     colPlace: "Place",
     unlimited: "no limit",
     onRequest: "on request",
@@ -649,6 +658,8 @@ const PORTAL_COPY = {
     companionHint: "VIP badges are personal: please give the companion's first and last name whenever possible. If not known yet, leave it empty and complete it later.",
     withCompanion: "With a companion",
     introCompanion: "Each invitation includes 1 companion. VIP badges are personal, so please give their first and last name whenever possible.",
+    introCompanionIncluded: "Each guest may bring 1 companion, who counts towards your places: a guest with a companion takes 2 places. VIP badges are personal, so please give their first and last name whenever possible.",
+    quotaReachedPeople: "Not enough {type} places left ({used} / {cap} people, companions included; a guest with a companion takes 2 places). To add more guests, request extra places.",
     seatsNote: "{n} people with companions",
     requestPlaces: "Request extra places",
     requestTitle: "Request for extra places",
@@ -725,6 +736,9 @@ const PORTAL_COPY = {
     placeStandard: "Normal",
     kpiPlacesVip: "VIP-Einladungen",
     kpiPlacesStandard: "Normale Einladungen",
+    kpiPlacesVipPeople: "VIP-Plätze",
+    kpiPlacesStandardPeople: "Normale Plätze",
+    peopleNote: "Personen, inkl. Begleitung",
     colPlace: "Platz",
     unlimited: "ohne Limit",
     onRequest: "auf Anfrage",
@@ -737,6 +751,8 @@ const PORTAL_COPY = {
     companionHint: "VIP-Badges sind personalisiert: Bitte geben Sie nach Möglichkeit Vor- und Nachnamen der Begleitperson an. Ist er noch nicht bekannt, leer lassen und später ergänzen.",
     withCompanion: "Mit Begleitperson",
     introCompanion: "Jede Einladung gilt für 1 Begleitperson. Da die VIP-Badges personalisiert sind, geben Sie bitte nach Möglichkeit Vor- und Nachnamen an.",
+    introCompanionIncluded: "Jeder Gast kann 1 Begleitperson mitbringen, die auf Ihre Plätze angerechnet wird: Ein Gast mit Begleitung belegt 2 Plätze. Da die VIP-Badges personalisiert sind, geben Sie bitte nach Möglichkeit Vor- und Nachnamen an.",
+    quotaReachedPeople: "Nicht mehr genug {type}Plätze frei ({used} / {cap} Personen inkl. Begleitung; ein Gast mit Begleitung belegt 2 Plätze). Um weitere Gäste einzutragen, fragen Sie zusätzliche Plätze an.",
     seatsNote: "{n} Pers. mit Begleitung",
     requestPlaces: "Zusätzliche Plätze anfragen",
     requestTitle: "Anfrage für zusätzliche Plätze",
@@ -763,8 +779,7 @@ const DEMO_PORTAL = {
     organizationName: "Organisation démo",
     vipPlacesCap: 6,
     standardPlacesCap: 10,
-    companionsAllowed: true,
-    contacts: [
+    companionsAllowed: true,    contacts: [
       { firstName: "Fred", lastName: "Muller", email: "fred.muller@example.lu", phone: "+352 621 000 000" },
       { firstName: "Anne", lastName: "Weber", email: "anne.weber@example.lu", phone: "" },
     ],
@@ -992,14 +1007,16 @@ function VipPartnerPortalPage() {
     );
   }, [accessGranted, portalId, isDemoPortal]);
 
-  // Invitations manquantes pour ajouter une fiche d'un type donné (0 quand elle
-  // tient dans le quota). Le quota compte les invitations, pas les accompagnants.
-  // `excludeId` : fiche modifiée, déjà comptée.
-  function missingPlaces(type, _entry, excludeId = "") {
-    const cap = places.caps[type];
-    if (cap === null) return 0;
-    const usedByOthers = entries.filter((item) => item.id !== excludeId && getVipEntryPlaceType(item) === type).length;
-    return Math.max(0, usedByOthers + 1 - cap);
+  // Places manquantes pour ajouter une fiche d'un type donné (0 quand elle tient
+  // dans le quota). Le quota compte les invitations, ou les personnes quand les +1
+  // y sont compris. `excludeId` : fiche modifiée, déjà comptée.
+  function missingPlaces(type, entry, excludeId = "") {
+    return computeVipMissingPlaces(portalMeta || {}, entries, type, entry, excludeId);
+  }
+
+  function quotaReachedText(type) {
+    const template = places.unit === "people" ? p.quotaReachedPeople : p.quotaReached;
+    return template.replace("{type}", p.typeInText[type]).replace("{used}", places.used[type]).replace("{cap}", places.caps[type]);
   }
 
   function openRequestForm(type, count) {
@@ -1015,7 +1032,7 @@ function VipPartnerPortalPage() {
     if (!missing) return "";
     const typeName = p.typeInText[type];
     if (!placeTypes.includes(type)) return p.typeNotOffered.replace("{type}", typeName);
-    return p.quotaReached.replace("{type}", typeName).replace("{used}", places.used[type]).replace("{cap}", places.caps[type]);
+    return quotaReachedText(type);
   }
 
   async function handleRequestSubmit(event) {
@@ -1303,7 +1320,7 @@ function VipPartnerPortalPage() {
                 <p>{p.introEvent}</p>
                 <p>{p.introInvite}</p>
                 {offerList}
-                {companionsAllowed ? <p>{p.introCompanion}</p> : null}
+                {companionsAllowed ? <p>{places.unit === "people" ? p.introCompanionIncluded : p.introCompanion}</p> : null}
                 <p>{p.introHow}</p>
               </>
             )}
@@ -1460,7 +1477,11 @@ function VipPartnerPortalPage() {
                   key={type}
                   className={`is-strong${places.caps[type] !== null && places.remaining[type] === 0 ? " is-full" : ""}`}
                 >
-                  <dt>{type === "standard" ? p.kpiPlacesStandard : p.kpiPlacesVip}</dt>
+                  <dt>
+                    {places.unit === "people"
+                      ? type === "standard" ? p.kpiPlacesStandardPeople : p.kpiPlacesVipPeople
+                      : type === "standard" ? p.kpiPlacesStandard : p.kpiPlacesVip}
+                  </dt>
                   <dd>
                     {places.used[type]}
                     <small> / {places.caps[type] === null ? p.unlimited : places.caps[type]}</small>
@@ -1479,6 +1500,9 @@ function VipPartnerPortalPage() {
                         .replace("{b}", portalCaps.businessRace[type])}
                     </span>
                   ) : null}
+                  {places.unit === "people" && places.caps[type] !== 0 ? (
+                    <span className="vip-portal-kpis__note">{p.peopleNote}</span>
+                  ) : null}
                   {companionsAllowed && places.seats[type] > places.used[type] ? (
                     <span className="vip-portal-kpis__note">{p.seatsNote.replace("{n}", places.seats[type])}</span>
                   ) : null}
@@ -1496,10 +1520,7 @@ function VipPartnerPortalPage() {
                 <div className="vip-portal-quota">
                   <p>
                     {selectedTypeOffered
-                      ? p.quotaReached
-                          .replace("{type}", p.typeInText[placeType])
-                          .replace("{used}", places.used[placeType])
-                          .replace("{cap}", places.caps[placeType])
+                      ? quotaReachedText(placeType)
                       : p.typeNotOffered.replace("{type}", p.typeInText[placeType])}
                   </p>
                   <button type="button" className="vip-portal-btn vip-portal-btn--primary" onClick={() => openRequestForm(placeType, 1)}>
