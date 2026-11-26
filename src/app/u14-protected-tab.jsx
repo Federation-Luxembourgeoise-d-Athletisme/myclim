@@ -280,6 +280,71 @@ function U14ProtectedTab(props) {
     );
   }
 
+  // Invitation encore ouverte alors que la famille s'est inscrite par le
+  // formulaire général (dossard ou mail différents de la liste, donc pas
+  // rattachée à l'import) : on propose l'inscription au même nom et prénom,
+  // dans la même réserve, qui n'a pas déjà une place protégée.
+  const fullNameKey = (firstName, lastName) => normalizeComparableValue(`${firstName || ""} ${lastName || ""}`);
+  function findRegistrationForInvite(invite) {
+    const poolKey = getU14InvitePoolKey(invite);
+    const nameKey = fullNameKey(invite.firstName, invite.lastName);
+    if (!poolKey || !nameKey) return null;
+    return (
+      requestRecords.find(
+        (request) =>
+          request.requestType !== "porte_panier" &&
+          request.raceCode &&
+          !isWithdrawn(request) &&
+          normalizeComparableValue(request.allocationMode) !== "protected" &&
+          getU14PoolKey(request.category, request.gender) === poolKey &&
+          fullNameKey(request.childFirstName, request.childLastName) === nameKey,
+      ) || null
+    );
+  }
+
+  async function handleLinkInvite(invite, request) {
+    const name = `${invite.firstName} ${invite.lastName}`;
+    const details = { name, race: raceLabel(request.raceLabel), bib: request.bibNumber || "-", email: request.parentEmail || "-" };
+    if (!window.confirm(fill(text.linkConfirm, details))) return;
+    setIsBusy(true);
+    setErrorMessage("");
+    try {
+      await updateDoc(doc(db, U14_PROTECTED_INVITES_COLLECTION, invite.id), {
+        status: "claimed",
+        linkedToExistingRequest: true,
+        claimedRequestId: request.id,
+        claimedChildId: request.childId || "",
+        claimedParentUserId: request.parentUserId || "",
+        claimedPool: getU14InvitePoolKey(invite),
+        claimedRaceCode: request.raceCode,
+        claimedAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "u14Requests", request.id), {
+        protectedInviteToken: invite.id,
+        allocationMode: "protected",
+        status: "confirmed",
+        adminApprovalStatus: "approved",
+        adminApprovedAt: serverTimestamp(),
+        parentDecisionRequired: false,
+        parentDecisionStatus: "confirmed",
+        parentDecisionAt: serverTimestamp(),
+        waitlistPosition: null,
+      });
+      flash(fill(text.linkDone, { name }));
+    } catch {
+      setIsBusy(false);
+      setErrorMessage(text.linkFailed);
+      return;
+    }
+    try {
+      await sendLinkedConfirmationMail({ existingRequest: request, firstName: invite.firstName, lastName: invite.lastName, parentEmail: invite.parentEmail });
+    } catch (error) {
+      console.error("Linked invitation confirmation email could not be sent", error);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function handleResend(invite) {
     setIsBusy(true);
     try {
@@ -437,6 +502,7 @@ function U14ProtectedTab(props) {
               ? sortedInvites.map((invite) => {
                   const status = getU14ProtectedInviteStatus(invite, now);
                   const claimedRequest = requestsById.get(invite.claimedRequestId);
+                  const registration = status === "invited" ? findRegistrationForInvite(invite) : null;
                   return {
                     id: invite.id,
                     child: (
@@ -474,6 +540,17 @@ function U14ProtectedTab(props) {
                     actions:
                       status === "invited" ? (
                         <div className="table-actions table-actions--inline">
+                          {registration ? (
+                            <button
+                              className="button button--primary button--small"
+                              disabled={isBusy}
+                              title={fill(text.linkHint, { bib: registration.bibNumber || "-", email: registration.parentEmail || "-" })}
+                              type="button"
+                              onClick={() => handleLinkInvite(invite, registration)}
+                            >
+                              {fill(text.linkTo, { race: raceLabel(registration.raceLabel) })}
+                            </button>
+                          ) : null}
                           <button className="button button--secondary button--small" type="button" onClick={() => handleCopyLink(invite)}>
                             {text.copyLink}
                           </button>

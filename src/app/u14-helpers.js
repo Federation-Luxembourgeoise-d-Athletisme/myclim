@@ -375,7 +375,7 @@ function doesProtectedSlotMatchRequest(slot, request) {
 // aucun recalcul (réserve qui change, invitation rattachée, inscription plus
 // ancienne…) ne le renvoie en liste d'attente. Sinon sa sélection et la
 // confirmation du parent sont effacées, l'équipe le retient de nouveau et la
-// famille reçoit le même mail plusieurs fois (Pierre Schmit, 25/11/2026).
+// famille reçoit le même mail plusieurs fois (bug du 25/11/2026).
 function isU14PlaceLocked(request) {
   return (
     normalizeComparableValue(request?.status) === "confirmed" &&
