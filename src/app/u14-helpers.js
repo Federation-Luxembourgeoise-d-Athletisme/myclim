@@ -371,6 +371,39 @@ function doesProtectedSlotMatchRequest(slot, request) {
   );
 }
 
+// Un enfant retenu par l'équipe (mail d'acceptation parti) garde sa place :
+// aucun recalcul (réserve qui change, invitation rattachée, inscription plus
+// ancienne…) ne le renvoie en liste d'attente. Sinon sa sélection et la
+// confirmation du parent sont effacées, l'équipe le retient de nouveau et la
+// famille reçoit le même mail plusieurs fois (Pierre Schmit, 25/11/2026).
+function isU14PlaceLocked(request) {
+  return (
+    normalizeComparableValue(request?.status) === "confirmed" &&
+    normalizeComparableValue(request?.adminApprovalStatus) === "approved"
+  );
+}
+
+// Partage des candidats (déjà triés par ordre d'arrivée) : les enfants
+// retenus d'abord, puis les places restantes dans l'ordre d'arrivée. Si la
+// capacité baisse sous le nombre d'enfants retenus, la course est en
+// surnombre plutôt que de retirer une place promise.
+function splitU14RaceCandidates(candidates, capacity) {
+  let open = Math.max(capacity - candidates.filter(isU14PlaceLocked).length, 0);
+  const seated = [];
+  const waitlisted = [];
+  candidates.forEach((request) => {
+    if (isU14PlaceLocked(request)) {
+      seated.push(request);
+    } else if (open > 0) {
+      seated.push(request);
+      open -= 1;
+    } else {
+      waitlisted.push(request);
+    }
+  });
+  return { seated, waitlisted };
+}
+
 // Répartition des places d'une course :
 //  1. les enfants invités (places protégées) qui ont confirmé, dans la course
 //     qu'ils ont choisie ;
@@ -435,8 +468,10 @@ function buildU14AllocationSnapshot({ requests, children, protectedInvites = [],
         return left.childName.localeCompare(right.childName, "fr");
       });
     const generalCapacity = Math.max(totalPlaces - protectedInRace.length - blockedPlaces, 0);
-    const confirmedGeneralRequests = generalCandidates.slice(0, generalCapacity);
-    const waitlistedRequests = generalCandidates.slice(generalCapacity);
+    const { seated: confirmedGeneralRequests, waitlisted: waitlistedRequests } = splitU14RaceCandidates(
+      generalCandidates,
+      generalCapacity,
+    );
 
     protectedInRace.forEach((request, index) => {
       requestStatusMap.set(request.id, {
@@ -469,7 +504,7 @@ function buildU14AllocationSnapshot({ requests, children, protectedInvites = [],
         protectedSlotId: null,
         acceptedPosition: null,
         waitlistPosition: index + 1,
-        queuePosition: protectedInRace.length + generalCapacity + index + 1,
+        queuePosition: protectedInRace.length + confirmedGeneralRequests.length + index + 1,
         parentDecisionRequired: false,
       });
     });
@@ -630,5 +665,6 @@ export {
   isU14BasketOnlyCategory,
   luxCompetitionClubs,
   normalizeComparableValue,
+  splitU14RaceCandidates,
   syncU14RaceAllocations,
 };

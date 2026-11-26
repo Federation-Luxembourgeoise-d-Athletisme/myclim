@@ -67,6 +67,31 @@ function childNameOf(request) {
   return [request.childFirstName, request.childLastName].filter(Boolean).join(" ").trim() || "Enfant";
 }
 
+// Un enfant retenu par l'équipe garde sa place : aucun recalcul ne le renvoie
+// en liste d'attente (sinon sélection et confirmation effacées, puis mail
+// d'acceptation renvoyé). Même règle que splitU14RaceCandidates
+// (src/app/u14-helpers.js).
+function isPlaceLocked(request) {
+  return normalize(request?.status) === "confirmed" && normalize(request?.adminApprovalStatus) === "approved";
+}
+
+export function splitRaceCandidates(candidates, capacity) {
+  let open = Math.max(capacity - candidates.filter(isPlaceLocked).length, 0);
+  const seated = [];
+  const waitlisted = [];
+  candidates.forEach((request) => {
+    if (isPlaceLocked(request)) {
+      seated.push(request);
+    } else if (open > 0) {
+      seated.push(request);
+      open -= 1;
+    } else {
+      waitlisted.push(request);
+    }
+  });
+  return { seated, waitlisted };
+}
+
 export function computeAllocation({ requests, invites, pools, reserveReleased }) {
   const claimedInviteByRequestId = new Map(
     invites.filter((invite) => invite.status === "claimed" && invite.claimedRequestId).map((invite) => [invite.claimedRequestId, invite]),
@@ -91,16 +116,17 @@ export function computeAllocation({ requests, invites, pools, reserveReleased })
       .filter((request) => request.raceCode === race.code && !isInactive(request.status) && !claimedInviteByRequestId.has(request.id))
       .sort((left, right) => timestampMs(left.submittedAt) - timestampMs(right.submittedAt) || childNameOf(left).localeCompare(childNameOf(right), "fr"));
     const capacity = Math.max(race.capacity - protectedInRace.length - reserve, 0);
+    const { seated, waitlisted } = splitRaceCandidates(general, capacity);
 
     protectedInRace.forEach((request, index) => {
       nextStates.set(request.id, { status: "confirmed", allocationMode: "protected", protectedSlotId: claimedInviteByRequestId.get(request.id)?.id || null, acceptedPosition: index + 1, waitlistPosition: null, queuePosition: index + 1, parentDecisionRequired: false, raceLabel: race.label });
     });
-    general.slice(0, capacity).forEach((request, index) => {
+    seated.forEach((request, index) => {
       const position = protectedInRace.length + index + 1;
       nextStates.set(request.id, { status: "confirmed", allocationMode: "platform", protectedSlotId: null, acceptedPosition: position, waitlistPosition: null, queuePosition: position, parentDecisionRequired: false, raceLabel: race.label });
     });
-    general.slice(capacity).forEach((request, index) => {
-      nextStates.set(request.id, { status: "waitlisted", allocationMode: "platform", protectedSlotId: null, acceptedPosition: null, waitlistPosition: index + 1, queuePosition: protectedInRace.length + capacity + index + 1, parentDecisionRequired: false, raceLabel: race.label });
+    waitlisted.forEach((request, index) => {
+      nextStates.set(request.id, { status: "waitlisted", allocationMode: "platform", protectedSlotId: null, acceptedPosition: null, waitlistPosition: index + 1, queuePosition: protectedInRace.length + seated.length + index + 1, parentDecisionRequired: false, raceLabel: race.label });
     });
   });
 

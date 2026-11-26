@@ -62,7 +62,7 @@ function initialsOf(request) {
 }
 
 // Fiche d'un enfant : coordonnées et historique de sa demande.
-function ChildDetail({ request, invite, onRelease, onSwitchToBasket, isBusy, now }) {
+function ChildDetail({ request, invite, onRelease, onSwitchToBasket, onConfirmForParent, isBusy, now }) {
   const { copy, fill } = useU14AdminCopy();
   const text = copy.detail;
   const child = request.child || {};
@@ -77,7 +77,9 @@ function ChildDetail({ request, invite, onRelease, onSwitchToBasket, isBusy, now
       request.parentDecisionAt,
       normalizeComparableValue(request.parentDecisionStatus) === "declined"
         ? `${text.declined}${request.withdrawalReason ? ` — ${request.withdrawalReason}` : ""}`
-        : text.confirmed,
+        : request.confirmedByTeam
+          ? text.confirmedByTeam
+          : text.confirmed,
     ],
   ]
     .filter(([value]) => getTimestampMs(value))
@@ -85,6 +87,7 @@ function ChildDetail({ request, invite, onRelease, onSwitchToBasket, isBusy, now
   const stage = getU14ChildStage(request, now, copy.stages);
   const canRelease = !["withdrawn", "rejected"].includes(stage.key);
   const canSwitch = Boolean(onSwitchToBasket) && canSwitchU14RequestToBasket(request, invite);
+  const canConfirmForParent = Boolean(onConfirmForParent) && ["waiting-parent", "overdue"].includes(stage.key);
   const facts = [
     [text.category, request.category],
     [text.birth, child.birthDate ? formatDateForDisplay(child.birthDate) : ""],
@@ -126,8 +129,19 @@ function ChildDetail({ request, invite, onRelease, onSwitchToBasket, isBusy, now
           <p className="u14m-muted">{text.noEvent}</p>
         )}
       </section>
-      {canRelease || canSwitch ? (
+      {canRelease || canSwitch || canConfirmForParent ? (
         <div className="u14m-detail__footer">
+          {canConfirmForParent ? (
+            <button
+              className="u14m-btn"
+              disabled={isBusy}
+              type="button"
+              title={text.confirmForParentHint}
+              onClick={() => onConfirmForParent(request)}
+            >
+              {text.confirmForParent}
+            </button>
+          ) : null}
           {canSwitch ? (
             <button className="u14m-btn" disabled={isBusy} type="button" title={text.switchHint} onClick={() => onSwitchToBasket(request)}>
               {text.switchToBasket}
@@ -147,7 +161,7 @@ function ChildDetail({ request, invite, onRelease, onSwitchToBasket, isBusy, now
 // Tableau d'enfants (une course, le porte-panier ou « À faire ») : une ligne
 // par enfant, un statut, une action. Les groupes donnent les sous-titres
 // (Retenus, Places réservées, Liste d'attente, Désistés…).
-function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, onSwitchToBasket, isBusy, now, emptyLabel }) {
+function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, onSwitchToBasket, onConfirmForParent, isBusy, now, emptyLabel }) {
   const { copy, fill } = useU14AdminCopy();
   const [openId, setOpenId] = useState("");
   const visibleGroups = groups.filter((group) => group.rows.length || group.placeholder);
@@ -199,7 +213,15 @@ function ChildrenTable({ groups, invitesByRequestId, renderAction, onRelease, on
                   <span className="u14m-actions">{renderAction(request, stage)}</span>
                 </div>
                 {isOpen ? (
-                  <ChildDetail invite={invite} isBusy={isBusy} now={now} request={request} onRelease={onRelease} onSwitchToBasket={onSwitchToBasket} />
+                  <ChildDetail
+                    invite={invite}
+                    isBusy={isBusy}
+                    now={now}
+                    request={request}
+                    onConfirmForParent={onConfirmForParent}
+                    onRelease={onRelease}
+                    onSwitchToBasket={onSwitchToBasket}
+                  />
                 ) : null}
               </Fragment>
             );
@@ -379,6 +401,25 @@ function U14Page(props) {
       },
       fill(copy.messages.reminded, { name: request.childName }),
       copy.messages.remindFailed,
+    );
+  }
+
+  // La famille a confirmé hors de MyCLIM (mail, téléphone) ou sa confirmation
+  // a été perdue : l'équipe la saisit pour elle, sans renvoyer de mail.
+  function handleConfirmForParent(request) {
+    if (!window.confirm(fill(copy.messages.confirmForParentConfirm, { name: request.childName }))) {
+      return undefined;
+    }
+    return runAction(
+      async () => {
+        await updateDoc(doc(db, "u14Requests", request.id), {
+          parentDecisionStatus: "confirmed",
+          parentDecisionAt: serverTimestamp(),
+          confirmedByTeam: true,
+        });
+      },
+      fill(copy.messages.confirmedForParent, { name: request.childName }),
+      copy.messages.confirmForParentFailed,
     );
   }
 
@@ -624,7 +665,15 @@ function U14Page(props) {
     (request) => request.requestType === "preprogram_ou_porte_panier" && normalizeComparableValue(request.status) === "waitlisted",
   );
 
-  const tableProps = { invitesByRequestId, isBusy, now, renderAction, onRelease: handleRelease, onSwitchToBasket: handleSwitchToBasket };
+  const tableProps = {
+    invitesByRequestId,
+    isBusy,
+    now,
+    renderAction,
+    onRelease: handleRelease,
+    onSwitchToBasket: handleSwitchToBasket,
+    onConfirmForParent: handleConfirmForParent,
+  };
 
   return (
     <div className="page u14m-page">
